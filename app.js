@@ -1876,10 +1876,13 @@
     view().innerHTML = '<div class="mtn-shell">' +
       '<canvas class="mtn-canvas" id="mtCv"></canvas>' +
       '<div class="mtn-hud">' +
-      '<span class="mtn-pill">⛰️ 海拔 <b>' + alt + '</b> 米 · ' + alt + '/' + WORDS.length + ' 词</span>' +
+      '<span class="mtn-pill">⛰️ 已掌握 <b>' + alt + '</b> 米 · <span id="mtNow">站在 ' + alt + ' 米</span></span>' +
       '<button class="mtn-pill" id="mtGoal">🎯 目标</button>' +
       '<button class="mtn-pill" id="mtHome" style="display:none">📍 回到我的位置</button></div>' +
-      '<div class="mtn-goalbar" id="mtGoalbar"></div></div>';
+      '<div class="mtn-goalbar" id="mtGoalbar"></div>' +
+      '<button class="mtn-interact" id="mtAct" style="display:none"></button>' +
+      '<div class="mtn-joy" id="mtJoy"><div class="mtn-knob" id="mtKnob"></div></div>' +
+      '<div class="mtn-tip">🕹️ 摇杆 / ↑↓ 键行走 · 拖动画面回看 · 走近地标可查看</div></div>';
 
     var cv = document.getElementById("mtCv");
     var ctx = cv.getContext("2d");
@@ -1918,7 +1921,11 @@
     updGoalbar();
 
     /* camera: init on character; drag to pan */
-    var charAlt = altitudeNow();
+    var charAlt = altitudeNow();      // walking position (float)
+    var frontier = altitudeNow();     // mastered altitude = walkable edge
+    var moveDir = 0;                  // -1 down · 0 idle · +1 up
+    var frontierToastT = 0;
+    var nearMark = null;
     var camY = Math.max(0, Math.min(worldH() - cv.height, yOf(charAlt) - cv.height * 0.62));
     var manual = false, dragY0 = null, camY0 = 0, dragMoved = 0;
     var homeBtn = document.getElementById("mtHome");
@@ -1955,11 +1962,69 @@
     document.getElementById("mtGoal").onclick = function () { showGoalPanel(updGoalbar); };
     homeBtn.onclick = function () { manual = false; homeBtn.style.display = "none"; };
 
+    /* ----- Phase A: walk the mountain ----- */
+    var actBtn = document.getElementById("mtAct");
+    actBtn.onclick = function () { if (nearMark) openMark(nearMark); };
+    var keyDir = 0;
+    function onKey(e, down) {
+      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") { keyDir = down ? 1 : (keyDir === 1 ? 0 : keyDir); e.preventDefault(); }
+      else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") { keyDir = down ? -1 : (keyDir === -1 ? 0 : keyDir); e.preventDefault(); }
+      else if (down && (e.key === "e" || e.key === "E") && nearMark) openMark(nearMark);
+    }
+    function kd(e) { onKey(e, true); } function ku(e) { onKey(e, false); }
+    window.addEventListener("keydown", kd); window.addEventListener("keyup", ku);
+
+    var joy = document.getElementById("mtJoy"), knob = document.getElementById("mtKnob");
+    var joyDir = 0, joyId = null;
+    function joyMove(e) {
+      var r = joy.getBoundingClientRect();
+      var dy = e.clientY - (r.top + r.height / 2);
+      var lim = r.height / 2 - 18;
+      dy = Math.max(-lim, Math.min(lim, dy));
+      knob.style.transform = "translate(-50%, calc(-50% + " + dy + "px))";
+      joyDir = Math.abs(dy) < 8 ? 0 : (dy < 0 ? 1 : -1);
+    }
+    joy.addEventListener("pointerdown", function (e) { joyId = e.pointerId; joy.setPointerCapture(joyId); joyMove(e); e.preventDefault(); });
+    joy.addEventListener("pointermove", function (e) { if (joyId !== null) joyMove(e); });
+    function joyEnd() { joyId = null; joyDir = 0; knob.style.transform = "translate(-50%,-50%)"; }
+    joy.addEventListener("pointerup", joyEnd); joy.addEventListener("pointercancel", joyEnd);
+
     var raf, lastT = null;
     function frame(t) {
-      if (!cv.isConnected) { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); return; }
+      if (!cv.isConnected) {
+        cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
+        window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku);
+        return;
+      }
       if (lastT == null) lastT = t;
       var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+
+      /* walking */
+      moveDir = keyDir || joyDir;
+      var walking = moveDir !== 0;
+      if (walking) {
+        manual = false; homeBtn.style.display = "none";
+        var next = charAlt + moveDir * 3.4 * dt;
+        if (next > frontier) {
+          next = frontier;
+          if (frontierToastT <= 0) { toast("⛰️ 前方还没开辟——掌握更多词语，山径就会向上延伸！"); frontierToastT = 6; }
+        }
+        charAlt = Math.max(0, Math.min(frontier, next));
+        var nowEl = document.getElementById("mtNow");
+        if (nowEl) nowEl.textContent = "站在 " + Math.round(charAlt) + " 米";
+      }
+      if (frontierToastT > 0) frontierToastT -= dt;
+      /* nearest landmark within reach */
+      var bestD = 1.6, cand = null;
+      for (var mi = 0; mi < marks.length; mi++) {
+        var dd = Math.abs(marks[mi].alt - charAlt);
+        if (dd < bestD) { bestD = dd; cand = marks[mi]; }
+      }
+      if (cand !== nearMark) {
+        nearMark = cand;
+        if (nearMark) { actBtn.textContent = "🔍 查看 · " + markLabel(nearMark); actBtn.style.display = ""; }
+        else actBtn.style.display = "none";
+      }
 
       if (!manual) {
         var camTarget = Math.max(0, Math.min(worldH() - cv.height, yOf(charAlt) - cv.height * 0.62));
@@ -2090,6 +2155,18 @@
         }
       }
 
+      /* frontier: where mastery ends, the trail waits */
+      if (frontier < totalAlt - 1) {
+        var fy = yOf(frontier + 1) - camY;
+        if (fy > -20 && fy < H + 20) {
+          ctx.strokeStyle = "rgba(255,236,170," + (0.45 + Math.sin(t / 300) * 0.2) + ")";
+          ctx.lineWidth = 2.5; ctx.setLineDash([9, 7]);
+          ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.stroke(); ctx.setLineDash([]);
+          ctx.font = "12px sans-serif"; ctx.fillStyle = "#FFE9BD";
+          ctx.fillText("⛏️ 待开辟 · 掌握新词继续攀登", 12, fy - 8);
+        }
+      }
+
       /* goal highlight: pulsing gold ring */
       if (goal && goal.alt >= a0 - 2 && goal.alt <= a1 + 2) {
         var gx = goal.mark && goal.mark._sx != null ? goal.mark._sx : xOf(goal.alt);
@@ -2104,14 +2181,17 @@
         }
       }
 
-      /* character idle at current altitude (gentle bob) */
+      /* character: walk frames when moving, idle bob otherwise */
       var px = Math.round(xOf(charAlt));
-      var py = Math.round(yOf(charAlt) - camY + Math.sin(t / 600) * 1.5);
+      var py = Math.round(yOf(charAlt) - camY + (walking ? 0 : Math.sin(t / 600) * 1.5));
       if (SPRITE_IMG.complete && SPRITE_IMG.naturalWidth) {
         var row = SPRITE_ROW[STREAM] || 0;
+        var fr = walking ? (1 + (Math.floor(t / 180) % 2)) : 0;
+        var slopeLeft = Math.cos(charAlt * 0.35) < 0;
+        var faceLeft = moveDir < 0 ? !slopeLeft : slopeLeft;   // descending faces downhill
         ctx.save();
-        if (Math.cos(charAlt * 0.35) < 0) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
-        ctx.drawImage(SPRITE_IMG, 0, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
+        if (faceLeft) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
+        ctx.drawImage(SPRITE_IMG, fr * SPRITE_FW, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
           px - SPRITE_FW / 2, py - SPRITE_FH + 6, SPRITE_FW, SPRITE_FH);
         ctx.restore();
       }
