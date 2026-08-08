@@ -96,7 +96,7 @@
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
       '<div class="tb-right">' + (right || "") + '</div>';
     document.getElementById("tbBack").onclick = function () {
-      if (backTo === "landing") { location.href = "../index.html"; } else { renderHome(); }
+      if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
     };
   }
   function view() { return document.getElementById("view"); }
@@ -362,7 +362,7 @@
       '<div class="beta-chip">测试版 v0.1 · 未登入</div>';
     setTopbar("landing", "");
 
-    fetch("../data/" + STREAM + ".json")
+    fetch(STREAM + ".json")
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (json) {
         DATA = json;
