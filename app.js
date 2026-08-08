@@ -134,6 +134,16 @@
   function sfxBad() { tone(180, 0, 0.22, "square", 0.07); }
   function sfxBadge() { tone(523, 0, 0.14); tone(659, 0.12, 0.14); tone(784, 0.24, 0.14); tone(1047, 0.36, 0.3); }
   function sfxLife() { tone(240, 0, 0.14, "square", 0.08); tone(180, 0.12, 0.2, "square", 0.08); }
+  /* iOS/iPadOS unlock: WebAudio + speech must be primed inside a user gesture */
+  document.addEventListener("pointerdown", function () {
+    actx();
+    try {
+      if (window.speechSynthesis && !speechSynthesis.speaking) {
+        var u = new SpeechSynthesisUtterance(" ");
+        u.volume = 0; speechSynthesis.speak(u);
+      }
+    } catch (e) {}
+  }, { once: true });
 
   /* ---------- local store (device only) ---------- */
   var STORE_KEY = "ws2_" + STREAM;
@@ -145,6 +155,7 @@
     s.stats = s.stats || {};           // mode -> {a,c}
     s.badges = s.badges || {};         // badgeKey -> 1
     s.best = s.best || {};             // rain: score, handle: streak
+    s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
     s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
     s.bestStreak = s.bestStreak || 0;
     return s;
@@ -188,7 +199,7 @@
   function badgeKeyC(c) { return "c·" + c.key; }
   function badgeKeyU(level, unit) { return "u·" + level + "·" + unit; }
   function badgeKeyL(level) { return "l·" + level; }
-  function checkBadges() {
+  function checkBadges(silent) {
     var earned = [];
     COMP_LIST.forEach(function (c) {
       if (!store.badges[badgeKeyC(c)] && isCompDone(c)) {
@@ -217,7 +228,7 @@
       store.badges["t4"] = 1;
       earned.push({ tier: 4 });
     }
-    if (earned.length) { saveStore(); queueCelebrations(earned); }
+    if (earned.length) { saveStore(); if (!silent) queueCelebrations(earned); }
   }
   function markMastered(w) {
     if (store.mastered[w.id]) { saveStore(); return; }
@@ -249,7 +260,13 @@
   };
   var CEL_T4 = { q: "锲而不舍，金石可镂。", s: "《荀子·劝学》" };
   var _celQueue = [], _t1i = Math.floor(Math.random() * CEL_T1.length), _t2i = Math.floor(Math.random() * CEL_T2.length);
+  var _deferCel = false, _pendingCel = [];
+  function flushCelebrations() {
+    _deferCel = false;
+    if (_pendingCel.length) { var p = _pendingCel; _pendingCel = []; queueCelebrations(p); }
+  }
   function queueCelebrations(items) {
+    if (_deferCel) { _pendingCel = _pendingCel.concat(items); return; }
     var wasEmpty = _celQueue.length === 0;
     _celQueue = _celQueue.concat(items);
     if (wasEmpty) showNextCel();
@@ -360,21 +377,25 @@
 
     var html = '<div class="home-grid"><div class="home-left">' + miniHorizon();
 
-    html += '<div class="section-label">复习范围 · 可多选</div><div class="card" id="scopeCard">';
+    html += '<div class="section-label">复习范围 · 可多选</div><div class="card" id="scopeCard">' +
+      '<div class="scope-top">' +
+      '<button class="unit" id="selAll">全选</button>' +
+      '<button class="unit" id="selNone">清空</button>' +
+      '<span class="scope-sum" id="scopeSum"></span></div>';
     var byLevel = {};
     UNIT_LIST.forEach(function (u) { (byLevel[u.level] = byLevel[u.level] || []).push(u); });
-    Object.keys(byLevel).forEach(function (lv) {
-      html += '<div class="scope-level">' + esc(lv) + '</div><div class="units">';
+    Object.keys(byLevel).forEach(function (lv, li) {
+      var open = (store.accOpen[lv] !== undefined) ? store.accOpen[lv] : (li === 0);
+      html += '<button class="scope-acc' + (open ? " open" : "") + '" data-lv="' + esc(lv) + '">' +
+        esc(lv) + '<span class="cnt" data-cnt="' + esc(lv) + '"></span><span class="chev">›</span></button>' +
+        '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">';
       byLevel[lv].forEach(function (u) {
         var on = scope.has(u.key) ? " on" : "";
         html += '<button class="unit' + on + '" data-k="' + esc(u.key) + '">' + esc(u.unit) + ' · ' + u.count + '词</button>';
       });
       html += '</div>';
     });
-    html += '<div class="units" style="margin-top:10px">' +
-      '<button class="unit" id="selAll">全选</button>' +
-      '<button class="unit" id="selNone">清空</button></div>' +
-      '<div class="scope-sum" id="scopeSum"></div></div>';
+    html += '</div>';
 
     html += '</div><div class="home-right">' +
       '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
@@ -384,7 +405,9 @@
       camp("enmcq", "🌐", "英文翻译", "看英译，选出词语") + '</div>';
 
     html += '<div class="section-label" style="margin-top:18px">词语游乐场</div><div class="camps">' +
-      camp("rain", "🌧️", "词雨", "词语从天而降，打字消灭它们") +
+      camp("rain", "🌧️", "词雨", "词语随雨落下，打字接住，收集雨水") +
+      camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
+      (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
       (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
 
     html += '<button class="badge-strip" id="badgeStrip">';
@@ -400,11 +423,12 @@
       '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
 
     html += '<div class="harbour">' +
-      '<div><b>' + mastered + '</b><span>已掌握词语</span></div>' +
+      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
       '<div><b>' + t.c + '</b><span>累计答对</span></div>' +
       '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div>' +
       '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div>' +
-      '<div class="home-foot">测试版：进度仅保存在此设备。登入与排行榜稍后加入。</div></div></div>';
+      '<div class="home-foot">测试版：进度仅保存在此设备。登入与排行榜稍后加入。<br>' +
+      '<button class="code-link" id="pcodeBtn">💾 进度码 · 备份与恢复</button></div></div></div>';
 
     view().innerHTML = html;
 
@@ -416,16 +440,29 @@
         updateScopeSum();
       };
     });
+    Array.prototype.forEach.call(view().querySelectorAll(".scope-acc"), function (b) {
+      b.onclick = function () {
+        var lv = b.getAttribute("data-lv");
+        var body = view().querySelector('.units[data-lvbody="' + lv + '"]');
+        var nowOpen = !body.classList.toggle("collapsed");
+        b.classList.toggle("open", nowOpen);
+        store.accOpen[lv] = nowOpen; saveStore();
+      };
+    });
     document.getElementById("selAll").onclick = function () {
       UNIT_LIST.forEach(function (u) { scope.add(u.key); }); renderHome();
     };
     document.getElementById("selNone").onclick = function () { scope.clear(); renderHome(); };
     document.getElementById("badgeStrip").onclick = renderAchievements;
+    document.getElementById("masteryInfo").onclick = showMasteryInfo;
+    document.getElementById("pcodeBtn").onclick = showProgressCode;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
         var mode = btn.getAttribute("data-mode");
         if (mode === "rain") return renderRainConfig();
+        if (mode === "sprint") return renderSprintConfig();
+        if (mode === "assemble") return startAssemble();
         if (mode === "handle") return startHandle();
         startMode(mode);
       };
@@ -440,6 +477,12 @@
       var n = scopedWords().length;
       document.getElementById("scopeSum").textContent = "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
       document.querySelector(".tb-right").textContent = n + " 词在范围内";
+      Object.keys(byLevel).forEach(function (lv) {
+        var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
+        if (!el) return;
+        var sel = byLevel[lv].filter(function (u) { return scope.has(u.key); }).length;
+        el.textContent = sel ? "· 已选 " + sel + "/" + byLevel[lv].length : "· " + byLevel[lv].length + " 个单元";
+      });
     }
   }
 
@@ -521,10 +564,13 @@
     var back = state.revealed;
     var inner;
     if (!back) {
-      inner = '<div class="w">' + esc(w.w) + '</div><div class="py">' + esc(w.py) + '</div>' +
+      inner = '<div class="w-row"><div class="w">' + esc(w.w) + '</div>' +
+        '<button class="tts sm" id="ttsWF">🔊</button></div>' +
+        '<div class="py">' + esc(w.py) + '</div>' +
         '<div class="hinttap">点击卡片查看释义</div>';
     } else {
-      inner = '<div class="w back-w">' + esc(w.w) + '</div>' +
+      inner = '<div class="w-row"><div class="w back-w">' + esc(w.w) + '</div>' +
+        '<button class="tts sm" id="ttsWB">🔊</button></div>' +
         '<div class="py back-py">' + esc(w.py) + '</div>' +
         (w.pos ? '<span class="pos">' + esc(w.pos) + '</span>' : "") +
         '<div class="zh-row"><div class="zh">' + esc(w.zh) + '</div>' +
@@ -545,10 +591,14 @@
       '</div></div></div>';
 
     document.getElementById("fc").onclick = function (e) {
-      if (e.target.id === "ttsZh") return;
+      if (e.target.closest && e.target.closest(".tts")) return;
       state.revealed = !state.revealed; renderFlash(state);
     };
     document.getElementById("ttsW").onclick = function () { speak(w.w); };
+    ["ttsWF", "ttsWB"].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.onclick = function (e) { e.stopPropagation(); speak(w.w); };
+    });
     var zhBtn = document.getElementById("ttsZh");
     if (zhBtn) zhBtn.onclick = function (e) { e.stopPropagation(); speak(w.zh); };
     function next() {
@@ -626,7 +676,8 @@
       html += '<div class="opts n' + n + '" id="opts">' +
         opts.map(function (o, idx) {
           return '<button class="opt" data-i="' + idx + '"><span class="letter">' +
-            String.fromCharCode(65 + idx) + '</span>' + esc(o.w) + '</button>';
+            String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
+            '<span class="opt-tts" title="朗读">🔊</span></button>';
         }).join("") + '</div>';
     }
     html += '<div class="feedback" id="fb"></div>' +
@@ -639,8 +690,7 @@
     function finish(right) {
       noteStreak(state, right);
       bump("cloze", right);
-      if (right) { state.correct++; markMastered(w); sfxOk(); } else { sfxBad(); }
-      speak(w.w);
+      if (right) { state.correct++; markMastered(w); sfxOk(); }
       document.getElementById("nextRow").style.display = "flex";
       var nx = document.getElementById("next");
       nx.onclick = function () { state.i++; renderStep(state); };
@@ -663,11 +713,16 @@
           finish(true);
         } else {
           ans.classList.remove("shake"); void ans.offsetWidth; ans.classList.add("shake");
+          sfxBad();
           if (!ans.dataset.tried) { ans.dataset.tried = "1"; return; }
           done = true;
-          fb.className = "feedback show bad";
-          fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
-          finish(false);
+          setTimeout(function () {
+            if (!fb.isConnected) return;
+            fb.className = "feedback show bad";
+            fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+            speak("正确答案：" + w.w);
+            finish(false);
+          }, 900);
         }
       }
       document.getElementById("chk").onclick = submit;
@@ -675,21 +730,33 @@
     } else {
       var locked = false;
       Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
-        btn.onclick = function () {
+        btn.onclick = function (e) {
+          if (e.target.classList && e.target.classList.contains("opt-tts")) {
+            speak(state._opts[parseInt(btn.getAttribute("data-i"), 10)].w);
+            return;
+          }
           if (locked) return; locked = true;
           var chosen = state._opts[parseInt(btn.getAttribute("data-i"), 10)];
           var right = chosen.id === w.id;
-          Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
-            var o = state._opts[bi];
-            if (o.id === w.id) {
-              b.classList.add("right");
-              b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
-            } else if (o === chosen) b.classList.add("wrong");
-          });
           var fb = document.getElementById("fb");
-          fb.className = "feedback show " + (right ? "ok" : "bad");
-          fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
-          finish(right);
+          function reveal() {
+            Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
+              var o = state._opts[bi];
+              if (o.id === w.id) {
+                b.classList.add("right");
+                b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+              } else if (o === chosen) b.classList.add("wrong");
+            });
+            fb.className = "feedback show " + (right ? "ok" : "bad");
+            fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+            finish(right);
+          }
+          if (right) { reveal(); }
+          else {
+            btn.classList.add("wrong");
+            sfxBad();
+            setTimeout(function () { if (!fb.isConnected) return; reveal(); speak("正确答案：" + w.w); }, 900);
+          }
         };
       });
     }
@@ -711,7 +778,8 @@
       '<div class="opts n4" id="opts">' +
       opts.map(function (o, idx) {
         return '<button class="opt" data-i="' + idx + '"><span class="letter">' +
-          String.fromCharCode(65 + idx) + '</span>' + esc(o.w) + '</button>';
+          String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
+          '<span class="opt-tts" title="朗读">🔊</span></button>';
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
@@ -721,23 +789,37 @@
     if (tp) tp.onclick = function () { speak(w.zh); };
     var locked = false;
     Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
-      btn.onclick = function () {
+      btn.onclick = function (e) {
+        if (e.target.classList && e.target.classList.contains("opt-tts")) {
+          speak(opts[parseInt(btn.getAttribute("data-i"), 10)].w);
+          return;
+        }
         if (locked) return; locked = true;
         var chosen = opts[parseInt(btn.getAttribute("data-i"), 10)];
         var right = chosen.id === w.id;
-        noteStreak(state, right);
-        if (right) { state.correct++; sfxOk(); } else { sfxBad(); }
-        bump(state.mode, right);
-        Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
-          var o = opts[bi];
-          if (o.id === w.id) {
-            b.classList.add("right");
-            b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
-          } else if (o === chosen) b.classList.add("wrong");
-        });
-        speak(w.w);
-        document.getElementById("nextRow").style.display = "flex";
-        document.getElementById("next").onclick = function () { state.i++; renderStep(state); };
+        var fb = document.getElementById("fb");
+        function reveal() {
+          noteStreak(state, right);
+          if (right) { state.correct++; sfxOk(); }
+          bump(state.mode, right);
+          Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
+            var o = opts[bi];
+            if (o.id === w.id) {
+              b.classList.add("right");
+              b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+            } else if (o === chosen) b.classList.add("wrong");
+          });
+          fb.className = "feedback show " + (right ? "ok" : "bad");
+          fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+          document.getElementById("nextRow").style.display = "flex";
+          document.getElementById("next").onclick = function () { state.i++; renderStep(state); };
+        }
+        if (right) { reveal(); }
+        else {
+          btn.classList.add("wrong");
+          sfxBad();
+          setTimeout(function () { if (!fb.isConnected) return; reveal(); speak("正确答案：" + w.w); }, 900);
+        }
       };
     });
   }
@@ -777,7 +859,7 @@
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">🌧️ 词雨</div>' +
-      '<div class="mode-desc">词语从天而降，在落入大海前把它打出来！<br>字数越多、消灭得越高、连击越长，得分越高。</div>' +
+      '<div class="mode-desc">雨中词语落向大海，在落水前打出它，收进雨水收集缸！<br>字数越多、接得越高、连击越长，得分越高。</div>' +
       '<div class="diff-label">下落速度</div><div class="diff" id="speedSel">' +
       RAIN_SPEEDS.map(function (s, i) {
         return '<button class="dopt' + (i === 1 ? " on" : "") + '" data-i="' + i + '">' + s.label + '</button>';
@@ -803,7 +885,11 @@
   }
   function startRain(speedIdx, showPy) {
     var cfg = RAIN_SPEEDS[speedIdx];
-    var pool = scopedWords();
+    var pool = scopedWords().filter(function (w) { return w.w.length <= 4; });
+    if (pool.length < 8) {
+      alert("所选范围内适合词雨的词语不足（需要至少 8 个 1–4 字的词语）。请扩大复习范围。");
+      return;
+    }
     setTopbar("home", "");
     view().innerHTML =
       '<div class="rain-shell">' +
@@ -813,10 +899,12 @@
       '<span>波次 <b id="rWave">1</b></span>' +
       '<span id="rLives">❤️❤️❤️</span>' +
       '<button class="nav-btn" id="rPause" style="margin-left:auto;padding:6px 14px">⏸ 暂停</button></div>' +
-      '<div class="rain-area" id="rArea"><div class="rain-sea"></div></div>' +
+      '<div class="rain-area" id="rArea"><div class="rain-fx"></div><div class="rain-sea"></div>' +
+      '<div class="rain-barrel" id="rBarrel"><div class="rain-water" id="rWater"></div>' +
+      '<div class="rain-drops" id="rDrops">💧 0</div></div></div>' +
       '<div class="rain-input-row">' +
-      '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，按 Enter 消灭…">' +
-      '<button class="check-btn" id="rFire">发射</button></div></div>';
+      '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集雨水…">' +
+      '<button class="check-btn" id="rFire">收集</button></div></div>';
 
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
@@ -829,6 +917,22 @@
     function nextWord() {
       if (!bag.length) bag = shuffle(pool);
       return bag.pop();
+    }
+    function collectToBarrel(o) {
+      var b = document.getElementById("rBarrel");
+      var bx = b.offsetLeft + b.offsetWidth / 2 - o.el.offsetWidth / 2;
+      var by = b.offsetTop - 8;
+      o.el.classList.add("collect");
+      o.el.style.transform = "translate(" + bx + "px," + by + "px) scale(.25)";
+      (function (el) { setTimeout(function () { el.remove(); }, 480); })(o.el);
+    }
+    function splashAt(x) {
+      var s = document.createElement("div");
+      s.className = "rain-splash";
+      s.style.left = (x - 14) + "px";
+      s.textContent = "💦";
+      area.appendChild(s);
+      setTimeout(function () { s.remove(); }, 550);
     }
     function spawn() {
       var w = nextWord();
@@ -843,6 +947,7 @@
       el.style.transform = "translate(" + x + "px,-40px)";
     }
     function step(t) {
+      if (!area.isConnected) { cancelAnimationFrame(raf); return; }
       if (!running) { lastT = t; raf = requestAnimationFrame(step); return; }
       if (lastT == null) lastT = t;
       var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
@@ -858,6 +963,7 @@
         var x = o.x + Math.sin(o.phase) * o.sway; // space-invader drift
         o.el.style.transform = "translate(" + x + "px," + o.y + "px)";
         if (o.y > seaY) {
+          splashAt(o.x + o.el.offsetWidth / 2);
           o.el.remove(); live.splice(i, 1);
           lives--; combo = 1; sfxLife();
           document.getElementById("rLives").textContent = "❤️".repeat(Math.max(0, lives)) + "🖤".repeat(3 - Math.max(0, lives));
@@ -882,9 +988,10 @@
       cleared++; combo = Math.min(5, combo + (cleared % 3 === 0 ? 1 : 0));
       if (cleared % 10 === 0) { wave++; document.getElementById("rWave").textContent = wave; toast("🌊 第 " + wave + " 波来了！"); }
       sfxOk();
-      o.el.classList.add("pop");
-      (function (el) { setTimeout(function () { el.remove(); }, 220); })(o.el);
+      collectToBarrel(o);
       live.splice(hit, 1);
+      document.getElementById("rDrops").textContent = "💧 " + cleared;
+      document.getElementById("rWater").style.height = Math.min(100, cleared * 3) + "%";
       document.getElementById("rScore").textContent = score;
       document.getElementById("rCombo").textContent = "×" + combo;
     }
@@ -897,7 +1004,7 @@
       if (isBest) { store.best.rain = score; saveStore(); }
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + score + '</div>' +
-        '<div class="sub">词雨 · 消灭 ' + cleared + ' 个词语 · 第 ' + wave + ' 波</div>' +
+        '<div class="sub">词雨 · 收集 ' + cleared + ' 滴雨水 · 第 ' + wave + ' 波</div>' +
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局</button>' +
@@ -942,6 +1049,25 @@
     var state = { answer: answer, rows: [], done: false };
     renderHandle(state);
   }
+  function pyInitials(py) {
+    return String(py).trim().split(/\s+/).map(function (s) {
+      var m = s.toLowerCase().match(/^(zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])/);
+      return m ? m[1] : s.charAt(0);
+    });
+  }
+  function handleHintHtml(state) {
+    var ini = pyInitials(state.answer.py);
+    var h = '<div class="handle-hints">';
+    if (STREAM === "g2") {
+      h += '<div class="hint-line">声母提示：<b>' + ini.map(esc).join(" · ") + '</b></div>';
+    } else {
+      h += '<div class="hint-line">首字声母：<b>' + esc(ini[0]) + '</b></div>';
+    }
+    if (!state.done && state.rows.length >= 2) {
+      h += '<div class="hint-line">释义提示：' + esc(state.answer.zh) + '</div>';
+    }
+    return h + '</div>';
+  }
   function gradeGuess(guess, answer) {
     var res = ["absent", "absent", "absent", "absent"];
     var remain = {};
@@ -962,7 +1088,8 @@
       '<div class="mode-name">🀄 词语汉兜</div>' +
       '<div class="mode-desc">猜一个范围内的四字词语。<br>🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字</div>' +
       '<div class="prog-big">' + state.rows.length + ' <small>/ 6 次</small></div>' +
-      '<div class="streak">连胜 <b>' + streak + '</b> 🏮</div></div>' +
+      '<div class="streak">连胜 <b>' + streak + '</b> 🏮</div>' +
+      handleHintHtml(state) + '</div>' +
       '<div class="stage"><div class="handle-grid">';
     for (var r = 0; r < 6; r++) {
       html += '<div class="handle-row">';
@@ -1023,11 +1150,459 @@
     document.getElementById("hChk").onclick = submit;
   }
 
+
+  /* ==================================================================
+     组词挑战 · character-assembly game (G2)
+     Show the definition, tap the word's characters in order among
+     decoys. Playground game: does not mark mastery.
+     ================================================================== */
+  function startAssemble() {
+    var pool = scopedWords().filter(function (w) { return w.w.length >= 2 && w.w.length <= 4; });
+    if (pool.length < 10) {
+      alert("所选范围内适合组词挑战的词语不足（需要至少 10 个 2–4 字词语）。请扩大复习范围。");
+      return;
+    }
+    var charSet = {};
+    pool.forEach(function (w) {
+      for (var i = 0; i < w.w.length; i++) charSet[w.w.charAt(i)] = 1;
+    });
+    var state = {
+      seq: shuffle(pool).slice(0, 10), i: 0, perfect: 0,
+      chars: Object.keys(charSet)
+    };
+    renderAssemble(state);
+  }
+  function renderAssemble(state) {
+    setTopbar("home", "");
+    var w = state.seq[state.i];
+    var target = w.w.split("");
+    var inTarget = {};
+    target.forEach(function (c) { inTarget[c] = 1; });
+    var decoys = shuffle(state.chars.filter(function (c) { return !inTarget[c]; }))
+      .slice(0, 9 - target.length);
+    var chips = shuffle(target.concat(decoys));
+
+    var html = '<div class="study"><div class="rail card">' +
+      '<div class="mode-name">🧩 组词挑战</div>' +
+      '<div class="mode-desc">看释义，按顺序点出词语的字。</div>' +
+      '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
+      '<div class="streak">拼对 <b>' + state.perfect + '</b> 🧩</div></div>' +
+      '<div class="stage"><div class="q-card">' +
+      '<span class="q-tag">按顺序点出这个词语的字</span>' +
+      '<div class="q-text mcq">' + esc(w.zh) + '</div>' +
+      '<div class="q-foot"><button class="tts" id="asmTts">🔊 朗读释义</button></div></div>' +
+      '<div class="asm-slots" id="asmSlots">' +
+      target.map(function () { return '<div class="asm-slot"></div>'; }).join("") + '</div>' +
+      '<div class="asm-chips" id="asmChips">' +
+      chips.map(function (c, i) {
+        return '<button class="asm-chip" data-c="' + esc(c) + '" data-i="' + i + '">' + esc(c) + '</button>';
+      }).join("") + '</div>' +
+      '<div class="feedback" id="asmFb"></div>' +
+      '<div class="nav-row" id="asmNextRow" style="display:none">' +
+      '<button class="nav-btn primary" id="asmNext">' +
+      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›") + '</button></div></div></div>';
+    view().innerHTML = html;
+
+    document.getElementById("asmTts").onclick = function () { speak(w.zh); };
+    var nextIdx = 0, wrongThis = false, done = false;
+    var slots = view().querySelectorAll(".asm-slot");
+    Array.prototype.forEach.call(view().querySelectorAll(".asm-chip"), function (chip) {
+      chip.onclick = function () {
+        if (done) return;
+        var c = chip.getAttribute("data-c");
+        if (c === target[nextIdx]) {
+          chip.classList.add("used");
+          slots[nextIdx].textContent = c;
+          slots[nextIdx].classList.add("filled");
+          tone(500 + nextIdx * 110, 0, 0.1);
+          nextIdx++;
+          if (nextIdx >= target.length) {
+            done = true;
+            if (!wrongThis) state.perfect++;
+            bump("assemble", !wrongThis);
+            sfxOk();
+            var fb = document.getElementById("asmFb");
+            fb.className = "feedback show " + (wrongThis ? "bad" : "ok");
+            fb.innerHTML = (wrongThis ? "✔ 完成！（中途点错过）" : "✔ 一次拼对！") +
+              "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" +
+              '<button class="tts sm" id="asmSay" style="margin-left:8px">🔊</button>';
+            document.getElementById("asmSay").onclick = function () { speak(w.w); };
+            document.getElementById("asmNextRow").style.display = "flex";
+            var nx = document.getElementById("asmNext");
+            nx.onclick = function () {
+              state.i++;
+              if (state.i >= state.seq.length) return renderAssembleDone(state);
+              renderAssemble(state);
+            };
+            nx.focus();
+          }
+        } else {
+          wrongThis = true;
+          chip.classList.remove("shake"); void chip.offsetWidth; chip.classList.add("shake");
+          sfxBad();
+        }
+      };
+    });
+  }
+  function renderAssembleDone(state) {
+    var best = store.best.assemble || 0;
+    var isBest = state.perfect > best;
+    if (isBest) { store.best.assemble = state.perfect; saveStore(); }
+    var pct = Math.round(100 * state.perfect / state.seq.length);
+    var msg = isBest ? "🎉 本机新纪录！" :
+      pct >= 80 ? "字字到位，词将风范！" :
+      pct >= 50 ? "越拼越顺，再来一局！" : "多看释义提示，慢慢来。";
+    view().innerHTML = '<div class="result">' +
+      '<div class="big">' + state.perfect + ' / ' + state.seq.length + '</div>' +
+      '<div class="sub">组词挑战 · 一次拼对 ' + state.perfect + ' 题</div>' +
+      '<div class="msg">' + msg + '</div>' +
+      '<div class="nav-row">' +
+      '<button class="nav-btn" id="again">再来一局</button>' +
+      '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+    document.getElementById("again").onclick = startAssemble;
+    document.getElementById("home").onclick = renderHome;
+  }
+
+  /* ==================================================================
+     攀山竞速 · 90-second climb sprint (all streams) — Phase 1
+     Fixed viewport, camera-follow canvas world (no scrolling).
+     Answering is the movement; altitude = mastered count (1 词 = 1 米).
+     Placeholder pixel climber until Phase 2 spritesheets arrive.
+     ================================================================== */
+  var SPRINT_SECS = 90;
+  function altitudeNow() { return Object.keys(store.mastered).length; }
+  function renderSprintConfig() {
+    setTopbar("home", "");
+    var best = store.best.sprint || 0;
+    view().innerHTML = '<div class="game-config card">' +
+      '<div class="mode-name">⛰️ 攀山竞速</div>' +
+      '<div class="mode-desc">90 秒登山冲刺：看释义选词语，答对就向上攀登！<br>' +
+      '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
+      '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
+      '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
+      '<button class="nav-btn primary" id="go">开始攀登 ›</button></div></div>';
+    document.getElementById("back").onclick = renderHome;
+    document.getElementById("go").onclick = startSprint;
+  }
+  function startSprint() {
+    var all = scopedWords();
+    if (all.length < 8) { alert("请先选择足够的复习范围（至少 8 词）。"); return; }
+    _deferCel = true;
+    setTopbar("home", "");
+    view().innerHTML = '<div class="sprint-shell">' +
+      '<canvas class="sprint-canvas" id="spCv"></canvas>' +
+      '<div class="sprint-hud">' +
+      '<div class="sprint-timer"><div class="sprint-timer-fill" id="spTime"></div></div>' +
+      '<span>答对 <b id="spOk">0</b></span>' +
+      '<span>连对 <b id="spCombo">🔥0</b></span>' +
+      '<span>海拔 <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
+      '<div class="sprint-q card"><div class="sq-prompt" id="spPrompt"></div>' +
+      '<div class="sopts" id="spOpts"></div></div></div>';
+
+    var cv = document.getElementById("spCv");
+    var ctx = cv.getContext("2d");
+    var streamAccent = { g1: "#E3A63C", g2: "#3F5F8F", g3: "#B45A2E", hcl: "#4E6E58" }[STREAM] || "#E3A63C";
+
+    /* ----- world ----- */
+    var SEG = 26;                                   // px per metre of altitude
+    var totalAlt = WORDS.length + 12;               // summit above last word
+    var startAlt = altitudeNow();
+    var climbAlt = startAlt;                        // rendered position (float)
+    var targetAlt = startAlt;                       // moves +1 per correct answer
+    var slipT = 0;                                  // wrong-answer wobble timer
+    var camY = 0, camInit = false;
+    var best = store.best.sprint || 0;
+
+    function worldH() { return totalAlt * SEG + 140; }
+    function yOf(alt) { return worldH() - alt * SEG - 90; }
+    function xOf(alt) { return cv.width * 0.5 + Math.sin(alt * 0.35) * cv.width * 0.26; }
+
+    function resize() {
+      var r = cv.getBoundingClientRect();
+      cv.width = Math.max(280, Math.round(r.width));
+      cv.height = Math.max(170, Math.round(r.height));
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    /* ----- session state ----- */
+    var unm = shuffle(all.filter(function (w) { return !store.mastered[w.id]; }));
+    var mas = shuffle(all.filter(function (w) { return store.mastered[w.id]; }));
+    var queue = unm.concat(mas), qi = 0;
+    function nextWordS() {
+      if (qi >= queue.length) { queue = shuffle(queue); qi = 0; }
+      return queue[qi++];
+    }
+    var ok = 0, combo = 0, newMastered = 0, over = false, locked = false;
+    var endAt = performance.now() + SPRINT_SECS * 1000;
+    var cur = null;
+
+    function askNext() {
+      if (over || !document.getElementById("spPrompt")) return;
+      locked = false;
+      cur = nextWordS();
+      document.getElementById("spPrompt").textContent = cur.zh;
+      var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
+      var box = document.getElementById("spOpts");
+      box.innerHTML = opts.map(function (o, i) {
+        return '<button class="sopt" data-i="' + i + '"><span class="letter">' +
+          String.fromCharCode(65 + i) + '</span>' + esc(o.w) + '</button>';
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (b) {
+        b.onclick = function () {
+          if (locked || over) return; locked = true;
+          var chosen = opts[parseInt(b.getAttribute("data-i"), 10)];
+          var right = chosen.id === cur.id;
+          bump("sprint", right);
+          if (right) {
+            ok++; combo++;
+            targetAlt = Math.min(totalAlt, targetAlt + 1);
+            if (!store.mastered[cur.id]) { newMastered++; markMastered(cur); }
+            document.getElementById("spOk").textContent = ok;
+            document.getElementById("spCombo").textContent = "🔥" + combo;
+            document.getElementById("spAlt").textContent = altitudeNow();
+            var p = Math.min(combo, 8);
+            tone(520 + p * 55, 0, 0.09); tone(700 + p * 55, 0.07, 0.11);
+            b.classList.add("right");
+            setTimeout(askNext, 260);
+          } else {
+            combo = 0; slipT = 0.5;
+            document.getElementById("spCombo").textContent = "🔥0";
+            sfxBad();
+            b.classList.add("wrong");
+            Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (bb, bi) {
+              if (opts[bi].id === cur.id) bb.classList.add("right");
+            });
+            setTimeout(askNext, 800);
+          }
+        };
+      });
+    }
+
+    /* ----- placeholder pixel climber (Phase 2: spritesheet swap) ----- */
+    function drawClimber(x, y, moving, t) {
+      var f = moving ? (Math.floor(t * 6) % 2) : 0;
+      var px = Math.round(x), py = Math.round(y);
+      ctx.fillStyle = "#2B2118";                        // hair
+      ctx.fillRect(px - 5, py - 26, 10, 4);
+      ctx.fillStyle = "#F2C9A0";                        // face
+      ctx.fillRect(px - 5, py - 22, 10, 7);
+      ctx.fillStyle = streamAccent;                     // shirt (level colour)
+      ctx.fillRect(px - 6, py - 15, 12, 9);
+      ctx.fillStyle = "#5A4636";                        // backpack
+      ctx.fillRect(px + 5, py - 16, 4, 8);
+      ctx.fillStyle = "#33414D";                        // legs
+      if (f === 0) { ctx.fillRect(px - 5, py - 6, 4, 7); ctx.fillRect(px + 1, py - 6, 4, 6); }
+      else { ctx.fillRect(px - 5, py - 6, 4, 6); ctx.fillRect(px + 1, py - 6, 4, 7); }
+    }
+
+    /* ----- render loop ----- */
+    var lastT = null, raf = null;
+    function frame(t) {
+      if (!cv.isConnected) { cancelAnimationFrame(raf); _deferCel = false; window.removeEventListener("resize", resize); return; }
+      if (lastT == null) lastT = t;
+      var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+
+      /* timer */
+      var remain = Math.max(0, endAt - t);
+      document.getElementById("spTime").style.width = (100 * remain / (SPRINT_SECS * 1000)) + "%";
+      if (remain <= 0 && !over) { endSprint(); return; }
+
+      /* movement */
+      var moving = climbAlt < targetAlt - 0.01;
+      if (moving) climbAlt = Math.min(targetAlt, climbAlt + dt * (3.2 + Math.min(combo, 6) * 0.5));
+      if (slipT > 0) slipT = Math.max(0, slipT - dt);
+
+      var px = xOf(climbAlt);
+      var py = yOf(climbAlt) + (slipT > 0 ? Math.sin(slipT * 25) * 3.5 : 0);
+
+      /* camera */
+      var camTarget = Math.max(0, Math.min(worldH() - cv.height, py - cv.height * 0.62));
+      if (!camInit) { camY = camTarget; camInit = true; }
+      camY += (camTarget - camY) * Math.min(1, dt * 5);
+
+      /* draw */
+      var W = cv.width, H = cv.height;
+      var sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#DFEDF7"); sky.addColorStop(1, "#C6DAE9");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      /* sun anchored high in the world */
+      var sunY = yOf(totalAlt) - camY - 30;
+      if (sunY > -60 && sunY < H + 60) {
+        ctx.fillStyle = "rgba(245,196,67,.35)"; ctx.beginPath(); ctx.arc(W * 0.78, sunY, 30, 0, 6.3); ctx.fill();
+        ctx.fillStyle = "#F5C443"; ctx.beginPath(); ctx.arc(W * 0.78, sunY, 19, 0, 6.3); ctx.fill();
+      }
+
+      /* far ridge parallax */
+      ctx.fillStyle = "rgba(169,201,177,.5)";
+      ctx.beginPath();
+      var rBase = H * 0.9 - (camY * 0.22) % 400;
+      for (var rx = -40; rx <= W + 40; rx += 60) {
+        var ry = rBase - 200 + Math.sin((rx + camY * 0.22) * 0.02) * 46;
+        if (rx === -40) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+      }
+      ctx.lineTo(W + 40, H + 40); ctx.lineTo(-40, H + 40); ctx.closePath(); ctx.fill();
+
+      /* mountain path band + stone steps */
+      ctx.strokeStyle = "#57906B"; ctx.lineWidth = 44; ctx.lineCap = "round";
+      ctx.beginPath();
+      var a0 = Math.max(0, Math.floor((worldH() - camY - H) / SEG) - 4);
+      var a1 = Math.min(totalAlt, Math.ceil((worldH() - camY) / SEG) + 4);
+      for (var a = a0; a <= a1; a++) {
+        var sx = xOf(a), sy = yOf(a) - camY;
+        if (a === a0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#EFE6D2";
+      for (var s = a0; s <= a1; s++) {
+        ctx.fillRect(Math.round(xOf(s)) - 7, Math.round(yOf(s) - camY) - 2, 14, 4);
+      }
+
+      /* personal-record line */
+      if (best > 0 && startAlt + best <= totalAlt) {
+        var ly = yOf(startAlt + best) - camY;
+        if (ly > -20 && ly < H + 20) {
+          ctx.strokeStyle = "rgba(183,121,31,.75)"; ctx.lineWidth = 2; ctx.setLineDash([7, 6]);
+          ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(W, ly); ctx.stroke(); ctx.setLineDash([]);
+          ctx.font = "13px sans-serif"; ctx.fillStyle = "#B7791F";
+          ctx.fillText("🚩 个人纪录", 10, ly - 6);
+        }
+      }
+
+      drawClimber(px, py - camY, moving, t / 1000);
+      raf = requestAnimationFrame(frame);
+    }
+
+    function endSprint() {
+      over = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      var isBest = ok > best;
+      if (isBest) { store.best.sprint = ok; saveStore(); }
+      sfxBadge();
+      view().innerHTML = '<div class="result">' +
+        '<div class="big">' + ok + ' 题</div>' +
+        '<div class="sub">攀山竞速 · 新掌握 ' + newMastered + ' 词 · 海拔 +' + newMastered + ' 米</div>' +
+        '<div class="msg">' + (isBest ? "🚩 个人新纪录！" : "我的海拔：" + altitudeNow() + " 米") + '</div>' +
+        '<div class="nav-row">' +
+        '<button class="nav-btn" id="again">再来一局</button>' +
+        '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+      document.getElementById("again").onclick = startSprint;
+      document.getElementById("home").onclick = renderHome;
+      flushCelebrations();
+    }
+
+    askNext();
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ==================================================================
+     shared lightweight popover
+     ================================================================== */
+  function popOverlay(innerHtml) {
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay";
+    ov.innerHTML = '<div class="pop-card">' + innerHtml + '</div>';
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    return ov;
+  }
+  function showMasteryInfo() {
+    var ov = popOverlay(
+      '<div class="pop-title">什么算「已掌握」？</div>' +
+      '<div class="pop-body">在 <b>填空挑战、华文解释、英文翻译、攀山竞速</b> 中第一次答对某个词语，' +
+      '它就记为已掌握。<br><br>词语闪卡与游乐场游戏（词雨、组词挑战、词语汉兜）帮助你练习，但不计入掌握。<br><br>' +
+      '掌握数只增不减，它也是你的登山海拔：<b>1 词 = 1 米</b>。</div>' +
+      '<div class="nav-row"><button class="nav-btn primary" id="popOk">知道了</button></div>');
+    ov.querySelector("#popOk").onclick = function () { ov.remove(); };
+  }
+
+  /* ==================================================================
+     进度码 · offline backup/restore (bitmask over WORDS order, which is
+     append-only by project rule, so codes survive vocab additions)
+     ================================================================== */
+  function encodeProgress() {
+    var bytes = [];
+    for (var i = 0; i < Math.ceil(WORDS.length / 8); i++) bytes.push(0);
+    WORDS.forEach(function (w, wi) { if (store.mastered[w.id]) bytes[wi >> 3] |= (1 << (wi & 7)); });
+    var bin = "";
+    for (var b = 0; b < bytes.length; b++) bin += String.fromCharCode(bytes[b]);
+    var b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    var meta = [store.bestStreak || 0, store.best.rain || 0, store.best.handle || 0,
+      store.best.assemble || 0, store.best.sprint || 0].join("-");
+    return "VS1." + STREAM + "." + WORDS.length + "." + b64 + "." + meta;
+  }
+  function decodeProgress(code) {
+    var p = String(code).trim().split(".");
+    if (p.length !== 5 || p[0] !== "VS1") return { err: "进度码格式不正确，请检查是否完整复制。" };
+    if (p[1] !== STREAM) return { err: "这个进度码属于其他 subject level（" + esc(p[1]).toUpperCase() + "），请到对应的 app 恢复。" };
+    var n = parseInt(p[2], 10);
+    if (!(n > 0) || n > WORDS.length) return { err: "进度码与当前词库不匹配。" };
+    var b64 = p[3].replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    var bin;
+    try { bin = atob(b64); } catch (e) { return { err: "进度码无法解析，请检查是否完整复制。" }; }
+    var added = 0;
+    for (var i = 0; i < n; i++) {
+      if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) {
+        var w = WORDS[i];
+        if (w && !store.mastered[w.id]) { store.mastered[w.id] = 1; added++; }
+      }
+    }
+    var meta = p[4].split("-").map(function (x) { return parseInt(x, 10) || 0; });
+    store.bestStreak = Math.max(store.bestStreak || 0, meta[0] || 0);
+    store.best.rain = Math.max(store.best.rain || 0, meta[1] || 0);
+    store.best.handle = Math.max(store.best.handle || 0, meta[2] || 0);
+    store.best.assemble = Math.max(store.best.assemble || 0, meta[3] || 0);
+    store.best.sprint = Math.max(store.best.sprint || 0, meta[4] || 0);
+    saveStore();
+    checkBadges(true); // restore badges silently, no celebration replay
+    return { added: added };
+  }
+  function showProgressCode() {
+    var code = encodeProgress();
+    var ov = popOverlay(
+      '<div class="pop-title">💾 进度码</div>' +
+      '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，把它粘贴到下方即可恢复。<br>' +
+      '<span class="pop-note">进度码包含：已掌握词语、最高连对、各游戏纪录。</span></div>' +
+      '<div class="pop-label">我的进度码</div>' +
+      '<textarea class="code-ta" id="codeOut" readonly>' + code + '</textarea>' +
+      '<div class="nav-row"><button class="nav-btn" id="codeCopy">📋 复制进度码</button></div>' +
+      '<div class="pop-label" style="margin-top:14px">恢复进度</div>' +
+      '<textarea class="code-ta" id="codeIn" placeholder="把进度码粘贴到这里…"></textarea>' +
+      '<div class="feedback" id="codeFb"></div>' +
+      '<div class="nav-row"><button class="nav-btn" id="popClose">关闭</button>' +
+      '<button class="nav-btn primary" id="codeRestore">恢复进度</button></div>');
+    ov.querySelector("#codeCopy").onclick = function () {
+      var ta = ov.querySelector("#codeOut");
+      ta.select(); ta.setSelectionRange(0, 99999);
+      var done = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function () { toast("已复制进度码"); });
+        done = true;
+      }
+      if (!done) { try { document.execCommand("copy"); toast("已复制进度码"); } catch (e) {} }
+    };
+    ov.querySelector("#popClose").onclick = function () { ov.remove(); };
+    ov.querySelector("#codeRestore").onclick = function () {
+      var val = ov.querySelector("#codeIn").value;
+      var fb = ov.querySelector("#codeFb");
+      if (!val.trim()) { fb.className = "feedback show bad"; fb.textContent = "请先粘贴进度码。"; return; }
+      var r = decodeProgress(val);
+      if (r.err) { fb.className = "feedback show bad"; fb.textContent = r.err; return; }
+      ov.remove();
+      toast("✅ 恢复成功：新增 " + r.added + " 个已掌握词语");
+      renderHome();
+    };
+  }
+
   /* ---------- boot ---------- */
   function boot() {
     app.innerHTML = '<div class="topbar"></div><div class="wrapper" id="view">' +
       '<div class="loading">正在装载词库…</div></div>' +
-      '<div class="beta-chip">测试版 v0.2 · 未登入</div>';
+      '<div class="beta-chip">测试版 v0.3 · 未登入</div>';
     setTopbar("landing", "");
 
     fetch(STREAM + ".json")
