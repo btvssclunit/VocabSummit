@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>词山学海 · Vocab Summit · 百德中学</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/app.css">
+<style>
+/* landing-only tweaks: mountains and sea run edge to edge; bases overshoot the viewBox */
+.hero .sun{left:71%;top:19%}
+</style>
+</head>
+<body>
+
+<div class="hero horizon">
+  <div class="sun"></div>
+  <div class="hero-title">
+    <div class="zh">词山学海</div>
+    <div class="en">Vocab Summit</div>
+    <div class="school">百德中学 · Bukit View Secondary School</div>
+  </div>
+  <span class="couplet-v right">书山有路勤为径</span>
+  <span class="couplet-v left">学海无涯苦作舟</span>
+  <svg viewBox="0 0 1000 300" preserveAspectRatio="none" style="height:58%">
+    <defs>
+      <linearGradient id="pkFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9CC0A6"/><stop offset="1" stop-color="#6FA07E"/></linearGradient>
+      <linearGradient id="pkMid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#79AB89"/><stop offset="1" stop-color="#4F8560"/></linearGradient>
+      <linearGradient id="pkFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#57906B"/><stop offset="1" stop-color="#2F5A3F"/></linearGradient>
+    </defs>
+    <!-- back haze ridge spans the full width so no sky gap remains at sea level -->
+    <polygon points="0,300 0,185 110,150 250,182 420,138 590,172 760,132 880,168 1000,142 1000,300" fill="#A9C9B1" opacity=".7"/>
+    <!-- three logo peaks; outer bases overshoot the edges -->
+    <polygon points="380,300 715,85 1080,300" fill="url(#pkFar)"/>
+    <polygon points="715,85 715,300 1080,300" fill="#5E8F70" opacity=".45"/>
+    <polygon points="-90,300 260,60 600,300" fill="url(#pkMid)"/>
+    <polygon points="260,60 260,300 600,300" fill="#3F704F" opacity=".5"/>
+    <polygon points="110,300 490,25 900,300" fill="url(#pkFront)"/>
+    <polygon points="490,25 490,300 900,300" fill="#274A34" opacity=".55"/>
+  </svg>
+  <svg viewBox="0 0 1000 90" preserveAspectRatio="none" style="height:17%">
+    <path d="M0,30 Q125,10 250,30 T500,30 T750,30 T1000,30 L1000,90 L0,90 Z" fill="#2E6391"/>
+    <path d="M0,55 Q125,38 250,55 T500,55 T750,55 T1000,55 L1000,90 L0,90 Z" fill="#1F4A70"/>
+  </svg>
+</div>
+
+<div class="stream-grid">
+  <a class="stream-card" href="g1/"><b>词星大冒险</b><span>G1 · 基础华文</span><span class="tagline">晨光初照，冒险开始</span></a>
+  <a class="stream-card" href="g2/"><b>词将竞技场</b><span>G2 · 普通学术华文</span><span class="tagline">登坛竞技，词将出征</span></a>
+  <a class="stream-card" href="g3/"><b>词王淬炼坊</b><span>G3 · 快捷华文</span><span class="tagline">千锤百炼，词王之路</span></a>
+  <a class="stream-card" href="hcl/"><b>词圣鸿文苑</b><span>高级华文</span><span class="tagline">鸿文在望，词圣之境</span></a>
+</div>
+
+<div class="couplet-h">书山有路勤为径 · 学海无涯苦作舟</div>
+<div class="landing-foot">百德中学 母语部 · 测试版 v0.1（未登入）· 学习进度暂存于本机<br>
+Open-source credits: antfu/handle (MIT) · chanind/hanzi-writer (MIT) · olehermanse/Typing-Game</div>
+
+</body>
+</html>
