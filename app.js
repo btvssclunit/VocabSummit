@@ -123,7 +123,7 @@
   function renderHome() {
     setTopbar("landing", scopedWords().length + " 词在范围内");
     var t = totals();
-    var html = miniHorizon();
+    var html = '<div class="home-grid"><div class="home-left">' + miniHorizon();
 
     html += '<div class="section-label">复习范围 · 可多选</div><div class="card" id="scopeCard">';
     var byLevel = {};
@@ -141,7 +141,7 @@
       '<button class="unit" id="selNone">清空</button></div>' +
       '<div class="scope-sum" id="scopeSum"></div></div>';
 
-    html += '<div class="section-label">今日路线 · 选择你的营地</div>' +
+    html += '</div><div class="home-right"><div class="section-label">今日路线 · 选择你的营地</div>' +
       camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
       camp("cloze", "✍️", "填空挑战", "读句子，打出正确词语") +
       camp("zhmcq", "🔎", "华文解释", "看释义，选出词语") +
@@ -151,7 +151,7 @@
       '<div><b>' + t.c + '</b><span>累计答对</span></div>' +
       '<div><b>' + t.a + '</b><span>累计答题</span></div>' +
       '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div></div>' +
-      '<div style="text-align:center;font-size:10.5px;color:#DCEAF4;text-shadow:0 1px 6px rgba(23,58,90,.5);margin-top:12px">测试版：进度仅保存在此设备，登入系统与排行榜稍后加入。</div>';
+      '<div style="text-align:center;font-size:10.5px;color:#DCEAF4;text-shadow:0 1px 6px rgba(23,58,90,.5);margin-top:12px">测试版：进度仅保存在此设备，登入系统与排行榜稍后加入。</div></div></div>';
 
     view().innerHTML = html;
 
