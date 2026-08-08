@@ -134,6 +134,9 @@
   function sfxBad() { tone(180, 0, 0.22, "square", 0.07); }
   function sfxBadge() { tone(523, 0, 0.14); tone(659, 0.12, 0.14); tone(784, 0.24, 0.14); tone(1047, 0.36, 0.3); }
   function sfxLife() { tone(240, 0, 0.14, "square", 0.08); tone(180, 0.12, 0.2, "square", 0.08); }
+  function sfxThunder() { tone(85, 0, 0.22, "square", 0.05); tone(55, 0.1, 0.34, "square", 0.055); }
+  /* 词雨 pixel FX strip (splash 3 · lightning 2 · ripple 2), base64-embedded */
+  var RAINFX_MAP = {"sp1": [0, 57, 37, 44], "sp2": [39, 56, 56, 45], "sp3": [97, 62, 52, 39], "bolt1": [151, 8, 26, 93], "bolt2": [179, 0, 40, 101], "rip1": [221, 83, 44, 18], "rip2": [267, 79, 60, 22]};
   /* iOS/iPadOS unlock: WebAudio + speech must be primed inside a user gesture */
   document.addEventListener("pointerdown", function () {
     actx();
@@ -960,14 +963,29 @@
       o.el.classList.add("collect");
       o.el.style.transform = "translate(" + bx + "px," + by + "px) scale(.25)";
       (function (el) { setTimeout(function () { el.remove(); }, 480); })(o.el);
+      setTimeout(function () {
+        if (!area.isConnected) return;
+        fxSeq(["sp1", "sp2", "sp3"], b.offsetLeft + b.offsetWidth / 2, b.offsetTop + 10, 90);
+      }, 430);
     }
-    function splashAt(x) {
-      var s = document.createElement("div");
-      s.className = "rain-splash";
-      s.style.left = (x - 14) + "px";
-      s.textContent = "💦";
-      area.appendChild(s);
-      setTimeout(function () { s.remove(); }, 550);
+    function fxShow(name, x, y, ms) {
+      var m = RAINFX_MAP[name]; if (!m) return;
+      var el = document.createElement("div");
+      el.className = "rainfx";
+      el.style.width = m[2] + "px"; el.style.height = m[3] + "px";
+      el.style.backgroundPosition = (-m[0]) + "px " + (-m[1]) + "px";
+      el.style.left = Math.round(x - m[2] / 2) + "px";
+      el.style.top = Math.round(y - m[3]) + "px";
+      area.appendChild(el);
+      setTimeout(function () { el.remove(); }, ms);
+    }
+    function fxSeq(names, x, y, stepMs) {
+      names.forEach(function (n, i) {
+        setTimeout(function () { if (area.isConnected) fxShow(n, x, y, stepMs + 40); }, i * stepMs);
+      });
+    }
+    function splashAt(x) {                       // word lost to the water
+      fxSeq(["sp1", "rip1", "rip2"], x, area.clientHeight - 30, 120);
     }
     function spawn() {
       var w = nextWord();
@@ -978,6 +996,14 @@
       area.appendChild(el);
       var maxX = Math.max(20, area.clientWidth - el.offsetWidth - 20);
       var x = 20 + Math.random() * maxX;
+      if (w.w.length === 4) {                    // 四字词语驾雷登场
+        var lx = x + el.offsetWidth / 2;
+        fxSeq(["bolt1", "bolt2", "bolt1", "bolt2"], lx, 118, 80);
+        var fl = document.createElement("div");
+        fl.className = "rain-flash"; area.appendChild(fl);
+        setTimeout(function () { fl.remove(); }, 320);
+        sfxThunder();
+      }
       live.push({ el: el, w: w, x: x, y: -el.offsetHeight, sway: 14 + Math.random() * 26, phase: Math.random() * 6.28 });
       el.style.transform = "translate(" + x + "px,-40px)";
     }
@@ -1057,12 +1083,33 @@
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !composing) fire();
     });
-    // Keep the input in view when an on-screen keyboard appears (phones).
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", function () {
-        if (!over) area.style.height = Math.max(220, window.visualViewport.height - 210) + "px";
-      });
+    // Phones: drive the whole shell off the *visual* viewport so the game
+    // stays fully visible above the on-screen keyboard (iOS keeps 100vh
+    // fixed and scrolls the page instead — we pin scroll and shrink).
+    function fitViewport() {
+      var shell = view().querySelector(".rain-shell");
+      if (!shell) return;
+      if (window.visualViewport) {
+        window.scrollTo(0, 0);
+        var top = shell.getBoundingClientRect().top;
+        shell.style.height = Math.max(300, window.visualViewport.height - top - 8) + "px";
+        shell.style.minHeight = "0";
+      }
     }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", fitViewport);
+      window.visualViewport.addEventListener("scroll", fitViewport);
+    }
+    var _fitCleanup = setInterval(function () {
+      if (!area.isConnected) {
+        clearInterval(_fitCleanup);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener("resize", fitViewport);
+          window.visualViewport.removeEventListener("scroll", fitViewport);
+        }
+      }
+    }, 1500);
+    fitViewport();
     input.focus();
     spawn(); // first word immediately, don't make players stare at empty sky
     raf = requestAnimationFrame(step);
@@ -1373,9 +1420,9 @@
     var camY = 0, camInit = false;
     var best = store.best.sprint || 0;
 
-    function worldH() { return totalAlt * SEG + 140; }
+    function worldH() { return totalAlt * SEG + 230; }
     function yOf(alt) { return worldH() - alt * SEG - 90; }
-    function xOf(alt) { return cv.width * 0.5 + Math.sin(alt * 0.35) * cv.width * 0.26; }
+    function xOf(alt) { return cv.width * 0.5 + Math.sin(alt * 0.35) * Math.min(cv.width * 0.26, 190); }
 
     function resize() {
       var r = cv.getBoundingClientRect();
@@ -1448,15 +1495,18 @@
     }
 
     /* ----- 8-bit sprite climber (falls back to blocks until image decodes) ----- */
-    function drawClimber(x, y, moving, t) {
+    function drawClimber(x, y, moving, t, faceLeft) {
       var px = Math.round(x), py = Math.round(y);
       if (SPRITE_IMG.complete && SPRITE_IMG.naturalWidth) {
         var f = 0;
         if (celT > 0) f = 5;                            // celebrate flash
         else if (moving) f = 3 + (Math.floor(t * 5) % 2); // climb A/B alternate
         var row = SPRITE_ROW[STREAM] || 0;
+        ctx.save();
+        if (faceLeft) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
         ctx.drawImage(SPRITE_IMG, f * SPRITE_FW, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
           px - SPRITE_FW / 2, py - SPRITE_FH + 6, SPRITE_FW, SPRITE_FH);
+        ctx.restore();
         return;
       }
       var ff = moving ? (Math.floor(t * 6) % 2) : 0;
@@ -1533,6 +1583,45 @@
         drawTile("cloud", cxx, cyy, ck % 2 ? 1 : 0.72);
       }
 
+      /* mountain body: apex at summit, faces widening downward */
+      function drawBody() {
+        var apexY = yOf(totalAlt) - camY - 6;
+        var grd = ctx.createLinearGradient(0, Math.max(-200, apexY), 0, H + 100);
+        grd.addColorStop(0, "#79AB89"); grd.addColorStop(1, "#3F704F");
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, apexY);
+        var ba, hw, ex;
+        for (ba = totalAlt; ba >= 0; ba -= 2) {
+          hw = 74 + (totalAlt - ba) * 15;
+          ex = W * 0.5 + hw;
+          ctx.lineTo(ex, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
+          if (ex > W + 60) break;
+        }
+        ctx.lineTo(W + 80, H + 100); ctx.lineTo(-80, H + 100);
+        for (ba = Math.max(0, ba); ba <= totalAlt; ba += 2) {
+          hw = 74 + (totalAlt - ba) * 15;
+          ex = W * 0.5 - hw;
+          if (ex < -60) continue;
+          ctx.lineTo(ex, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
+        }
+        ctx.closePath(); ctx.fill();
+        /* rocky summit cap */
+        if (yOf(totalAlt - 8) - camY > -80) {
+          ctx.fillStyle = "#C9CFD6";
+          ctx.beginPath();
+          ctx.moveTo(W * 0.5, apexY);
+          for (ba = totalAlt; ba >= totalAlt - 8 && ba >= 0; ba -= 2) {
+            ctx.lineTo(W * 0.5 + 74 + (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
+          }
+          for (ba = Math.max(0, totalAlt - 8); ba <= totalAlt; ba += 2) {
+            ctx.lineTo(W * 0.5 - 74 - (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
+          }
+          ctx.closePath(); ctx.fill();
+        }
+      }
+      drawBody();
+
       /* mountain path band + stone steps */
       var a0 = Math.max(0, Math.floor((worldH() - camY - H) / SEG) - 5);
       var a1 = Math.min(totalAlt, Math.ceil((worldH() - camY) / SEG) + 5);
@@ -1581,7 +1670,7 @@
         }
       }
 
-      drawClimber(px, py - camY, moving, t / 1000);
+      drawClimber(px, py - camY, moving, t / 1000, Math.cos(climbAlt * 0.35) < 0);
       raf = requestAnimationFrame(frame);
     }
 
@@ -1782,7 +1871,7 @@
 
     function worldH() { return totalAlt * SEG + 220; }
     function yOf(a) { return worldH() - a * SEG - 90; }
-    function xOf(a) { return cv.width * 0.5 + Math.sin(a * 0.35) * cv.width * 0.26; }
+    function xOf(a) { return cv.width * 0.5 + Math.sin(a * 0.35) * Math.min(cv.width * 0.26, 190); }
 
     function resize() {
       var r = cv.getBoundingClientRect();
@@ -1884,6 +1973,41 @@
         drawTileM("cloud", cxx, cyy, ck % 2 ? 1 : 0.72);
       }
 
+      /* mountain body: apex at summit, faces widening downward */
+      var apexY = yOf(totalAlt) - camY - 6;
+      var grd = ctx.createLinearGradient(0, Math.max(-200, apexY), 0, H + 100);
+      grd.addColorStop(0, "#79AB89"); grd.addColorStop(1, "#3F704F");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.5, apexY);
+      var ba, hw2, ex2;
+      for (ba = totalAlt; ba >= 0; ba -= 2) {
+        hw2 = 74 + (totalAlt - ba) * 15;
+        ex2 = W * 0.5 + hw2;
+        ctx.lineTo(ex2, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
+        if (ex2 > W + 60) break;
+      }
+      ctx.lineTo(W + 80, H + 100); ctx.lineTo(-80, H + 100);
+      for (ba = Math.max(0, ba); ba <= totalAlt; ba += 2) {
+        hw2 = 74 + (totalAlt - ba) * 15;
+        ex2 = W * 0.5 - hw2;
+        if (ex2 < -60) continue;
+        ctx.lineTo(ex2, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
+      }
+      ctx.closePath(); ctx.fill();
+      if (yOf(totalAlt - 8) - camY > -80) {
+        ctx.fillStyle = "#C9CFD6";
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, apexY);
+        for (ba = totalAlt; ba >= totalAlt - 8 && ba >= 0; ba -= 2) {
+          ctx.lineTo(W * 0.5 + 74 + (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
+        }
+        for (ba = Math.max(0, totalAlt - 8); ba <= totalAlt; ba += 2) {
+          ctx.lineTo(W * 0.5 - 74 - (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+
       var a0 = Math.max(0, Math.floor((worldH() - camY - H) / SEG) - 5);
       var a1 = Math.min(totalAlt, Math.ceil((worldH() - camY) / SEG) + 5);
       function tracePath() {
@@ -1959,8 +2083,11 @@
       var py = Math.round(yOf(charAlt) - camY + Math.sin(t / 600) * 1.5);
       if (SPRITE_IMG.complete && SPRITE_IMG.naturalWidth) {
         var row = SPRITE_ROW[STREAM] || 0;
+        ctx.save();
+        if (Math.cos(charAlt * 0.35) < 0) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
         ctx.drawImage(SPRITE_IMG, 0, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
           px - SPRITE_FW / 2, py - SPRITE_FH + 6, SPRITE_FW, SPRITE_FH);
+        ctx.restore();
       }
 
       raf = requestAnimationFrame(frame);
