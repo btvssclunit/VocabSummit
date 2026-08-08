@@ -438,7 +438,7 @@ button.mtn-pill:active{transform:scale(.96)}
 
 /* ===== Landing v2 · 8-bit hero (landscape-first, single screen) ===== */
 .lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow:hidden}
-.lp-hero{position:relative;width:100vw;height:100vh;background:url("hero_bg.png") center/cover no-repeat;
+.lp-hero{position:relative;width:100vw;height:100vh;background:url("hero_bg.png") center top/cover no-repeat;
   image-rendering:pixelated}
 .lp-logo{position:absolute;left:50%;top:3.5vh;transform:translateX(-50%);width:min(44vw,560px);
   image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55))}
@@ -449,7 +449,7 @@ button.mtn-pill:active{transform:scale(.96)}
   text-shadow:0 0 3px rgba(18,28,52,1),0 0 10px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
 .lp-couplet.left{left:1.6vw}
 .lp-couplet.right{right:1.6vw}
-.lp-group{position:absolute;left:15%;bottom:22.5vh;width:min(18vw,230px);
+.lp-group{position:absolute;left:44%;bottom:22vh;width:min(14vw,175px);
   image-rendering:pixelated;filter:drop-shadow(0 5px 9px rgba(10,20,40,.42))}
 .lp-cards{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);display:flex;gap:14px;
   width:min(96vw,1140px)}
@@ -479,3 +479,11 @@ button.mtn-pill:active{transform:scale(.96)}
     width:min(92vw,520px);margin:46vh auto 0;gap:12px}
   .lp-foot{position:relative;margin-top:18px}
 }
+
+
+/* ===== study ambience: campsite backdrop under all app pages ===== */
+body{background:#EAF2F8 no-repeat fixed center/cover;
+  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("study_bg.png")}
+.mh-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 18%;
+  image-rendering:pixelated}
+.mini-horizon .app-zh,.mini-horizon .mtn-enter{z-index:2}
