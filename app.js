@@ -1128,7 +1128,9 @@
       return;
     }
     var answer = pool[Math.floor(Math.random() * pool.length)];
-    var state = { answer: answer, rows: [], done: false };
+    /* starting hints: G2 = all four 声母 · G3 = 首字声母 · HCL = none */
+    var startHints = STREAM === "g2" ? 4 : (STREAM === "g3" ? 1 : 0);
+    var state = { answer: answer, rows: [], done: false, hintN: startHints, showDef: false };
     renderHandle(state);
   }
   function pyInitials(py) {
@@ -1138,17 +1140,10 @@
     });
   }
   function handleHintHtml(state) {
-    var ini = pyInitials(state.answer.py);
-    var h = '<div class="handle-hints">';
-    if (STREAM === "g2") {
-      h += '<div class="hint-line">声母提示：<b>' + ini.map(esc).join(" · ") + '</b></div>';
-    } else {
-      h += '<div class="hint-line">首字声母：<b>' + esc(ini[0]) + '</b></div>';
-    }
-    if (!state.done && state.rows.length >= 2) {
-      h += '<div class="hint-line">释义提示：' + esc(state.answer.zh) + '</div>';
-    }
-    return h + '</div>';
+    /* 声母 chips live above the grid now; the rail only carries 释义 */
+    var defOn = state.showDef || (!state.done && state.rows.length >= 2);
+    if (!defOn) return "";
+    return '<div class="handle-hints"><div class="hint-line">释义提示：' + esc(state.answer.zh) + '</div></div>';
   }
   function gradeGuess(guess, answer) {
     var res = ["absent", "absent", "absent", "absent"];
@@ -1172,7 +1167,15 @@
       '<div class="prog-big">' + state.rows.length + ' <small>/ 6 次</small></div>' +
       '<div class="streak">连胜 <b>' + streak + '</b> 🏮</div>' +
       handleHintHtml(state) + '</div>' +
-      '<div class="stage"><div class="handle-grid">';
+      '<div class="stage">';
+    var ini = pyInitials(state.answer.py);
+    html += '<div class="handle-hintrow">';
+    for (var hc = 0; hc < 4; hc++) {
+      html += (hc < state.hintN)
+        ? '<div class="handle-hint">' + esc(ini[hc]) + '</div>'
+        : '<div class="handle-hint off">?</div>';
+    }
+    html += '</div><div class="handle-grid">';
     for (var r = 0; r < 6; r++) {
       html += '<div class="handle-row">';
       var row = state.rows[r];
@@ -1184,8 +1187,10 @@
     }
     html += '</div>';
     if (!state.done) {
+      var hintsLeft = state.hintN < 4 || !state.showDef;
       html += '<div class="answer-row handle-input">' +
         '<input class="answer-input" id="hAns" autocomplete="off" maxlength="4" placeholder="输入四字词语…">' +
+        '<button class="nav-btn" id="hHint"' + (hintsLeft ? "" : " disabled") + '>💡 提示</button>' +
         '<button class="check-btn" id="hChk">猜！</button></div>' +
         '<div class="feedback" id="hFb"></div>';
     } else {
@@ -1230,6 +1235,13 @@
     input.addEventListener("compositionend", function () { composing = false; });
     input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !composing) submit(); });
     document.getElementById("hChk").onclick = submit;
+    var hb = document.getElementById("hHint");
+    if (hb) hb.onclick = function () {
+      /* progressive: reveal the next 声母, then the 释义 */
+      if (state.hintN < 4) state.hintN++;
+      else state.showDef = true;
+      tone(523, 0, 0.1); renderHandle(state);
+    };
   }
 
 

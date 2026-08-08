@@ -284,6 +284,10 @@ img{max-width:100%}
 .rain-input-row{display:flex;gap:10px}
 
 /* ---------- 词语汉兜 ---------- */
+.handle-hintrow{display:flex;gap:9px;justify-content:center;margin-bottom:10px}
+.handle-hint{width:64px;height:32px;border-radius:9px;display:grid;place-items:center;
+  font-weight:800;font-size:17px;color:#8A6D1F;background:rgba(245,196,67,.2);border:1.5px dashed var(--gold)}
+.handle-hint.off{color:#9AA7B4;background:transparent;border-color:#C4D0DB;opacity:.6}
 .handle-grid{display:flex;flex-direction:column;gap:9px;margin-bottom:16px;align-items:center}
 .handle-row{display:flex;gap:9px}
 .handle-tile{width:64px;height:64px;border-radius:12px;background:#fff;border:1.5px solid var(--card-line);
@@ -445,7 +449,7 @@ button.mtn-pill:active{transform:scale(.96)}
   text-shadow:0 0 3px rgba(18,28,52,1),0 0 10px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
 .lp-couplet.left{left:1.6vw}
 .lp-couplet.right{right:1.6vw}
-.lp-group{position:absolute;left:21%;bottom:23.5vh;width:min(23vw,290px);
+.lp-group{position:absolute;left:15%;bottom:22.5vh;width:min(18vw,230px);
   image-rendering:pixelated;filter:drop-shadow(0 5px 9px rgba(10,20,40,.42))}
 .lp-cards{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);display:flex;gap:14px;
   width:min(96vw,1140px)}
