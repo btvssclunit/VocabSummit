@@ -389,3 +389,9 @@ img{max-width:100%}
   font-family:var(--serif);font-weight:700;font-size:25px;color:var(--ink);cursor:pointer}
 .asm-chip.used{opacity:.28;pointer-events:none;background:#EAF2F8}
 .asm-chip.shake{animation:shake .3s}
+
+.sq-row{display:flex;align-items:flex-start;gap:10px}
+.sq-row .sq-prompt{flex:1}
+.sq-row .tts{flex:none;margin-top:2px}
+.sopt .opt-tts{margin-left:auto;flex:none;width:27px;height:27px;border-radius:50%;
+  display:grid;place-items:center;background:#EAF2F8;font-size:12.5px;cursor:pointer}

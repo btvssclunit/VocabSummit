@@ -156,6 +156,7 @@
     s.badges = s.badges || {};         // badgeKey -> 1
     s.best = s.best || {};             // rain: score, handle: streak
     s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
+    s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
     s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
     s.bestStreak = s.bestStreak || 0;
     return s;
@@ -322,11 +323,41 @@
   function scopedWords() {
     return WORDS.filter(function (w) { return scope.has(unitKey(w)); });
   }
+  function _bigrams(s) {
+    var t = String(s || "").replace(/[，。、！？；：""''（）\s]/g, "");
+    var set = {};
+    for (var i = 0; i < t.length - 1; i++) set[t.substr(i, 2)] = 1;
+    return set;
+  }
+  function _defSim(a, b) {
+    var A = _bigrams(a.zh), B = _bigrams(b.zh);
+    var ka = Object.keys(A), inter = 0;
+    for (var i = 0; i < ka.length; i++) if (B[ka[i]]) inter++;
+    var union = ka.length + Object.keys(B).length - inter;
+    return union ? inter / union : 0;
+  }
+  /* Manually curated synonym groups: words in the same group never appear
+     as each other's distractors, because both would be defensible answers.
+     Add new groups here as teachers spot them (word text, works across
+     levels; missing words are simply ignored). */
+  var SYNONYM_GROUPS = [
+    ["只要功夫深，铁棒磨成针", "世上无难事，只怕有心人",
+     "不经一番寒彻骨，怎得梅花扑鼻香", "有志者，事竟成"]
+  ];
+  var _synMap = {};
+  SYNONYM_GROUPS.forEach(function (g, gi) { g.forEach(function (w) { _synMap[w] = gi; }); });
+  function _tooSimilar(target, cand) {
+    // Synonym guard 1: curated groups (semantic synonyms worded differently).
+    if (_synMap[target.w] !== undefined && _synMap[target.w] === _synMap[cand.w]) return true;
+    // Synonym guard 2: definitions that overlap heavily (paraphrase pairs
+    // like 除夕×大年三十, 褐色×棕) — both would be defensible answers.
+    return _defSim(target, cand) > 0.25;
+  }
   function distractorsFor(target, pool, n) {
     var same = pool.filter(function (w) {
-      return w.id !== target.id && w.w !== target.w && w.pos === target.pos;
+      return w.id !== target.id && w.w !== target.w && w.pos === target.pos && !_tooSimilar(target, w);
     });
-    var any = pool.filter(function (w) { return w.id !== target.id && w.w !== target.w; });
+    var any = pool.filter(function (w) { return w.id !== target.id && w.w !== target.w && !_tooSimilar(target, w); });
     var picked = shuffle(same).slice(0, n);
     var i = 0, extra = shuffle(any);
     while (picked.length < n && i < extra.length) {
@@ -1269,7 +1300,7 @@
      Answering is the movement; altitude = mastered count (1 词 = 1 米).
      Placeholder pixel climber until Phase 2 spritesheets arrive.
      ================================================================== */
-  var SPRINT_SECS = 90;
+  var SPRINT_OPTS = [60, 90, 120];
   function altitudeNow() { return Object.keys(store.mastered).length; }
   function renderSprintConfig() {
     setTopbar("home", "");
@@ -1280,8 +1311,20 @@
       '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
       '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
       '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
+      '<div class="diff-label">冲刺时长</div><div class="diff" id="secSel">' +
+      SPRINT_OPTS.map(function (s) {
+        return '<button class="dopt' + (s === store.sprintSecs ? " on" : "") + '" data-s="' + s + '">' + s + ' 秒</button>';
+      }).join("") + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›</button></div></div>';
+    Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (b) {
+      b.onclick = function () {
+        Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        store.sprintSecs = parseInt(b.getAttribute("data-s"), 10);
+        saveStore();
+      };
+    });
     document.getElementById("back").onclick = renderHome;
     document.getElementById("go").onclick = startSprint;
   }
@@ -1297,7 +1340,9 @@
       '<span>答对 <b id="spOk">0</b></span>' +
       '<span>连对 <b id="spCombo">🔥0</b></span>' +
       '<span>海拔 <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
-      '<div class="sprint-q card"><div class="sq-prompt" id="spPrompt"></div>' +
+      '<div class="sprint-q card"><div class="sq-row">' +
+      '<div class="sq-prompt" id="spPrompt"></div>' +
+      '<button class="tts sm" id="spSay">🔊</button></div>' +
       '<div class="sopts" id="spOpts"></div></div></div>';
 
     var cv = document.getElementById("spCv");
@@ -1335,7 +1380,8 @@
       return queue[qi++];
     }
     var ok = 0, combo = 0, newMastered = 0, over = false, locked = false;
-    var endAt = performance.now() + SPRINT_SECS * 1000;
+    var sprintMs = (store.sprintSecs || 90) * 1000;
+    var endAt = performance.now() + sprintMs;
     var cur = null;
 
     function askNext() {
@@ -1343,14 +1389,20 @@
       locked = false;
       cur = nextWordS();
       document.getElementById("spPrompt").textContent = cur.zh;
+      document.getElementById("spSay").onclick = function () { speak(cur.zh); };
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
       box.innerHTML = opts.map(function (o, i) {
         return '<button class="sopt" data-i="' + i + '"><span class="letter">' +
-          String.fromCharCode(65 + i) + '</span>' + esc(o.w) + '</button>';
+          String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
+          '<span class="opt-tts" title="朗读">🔊</span></button>';
       }).join("");
       Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (b) {
-        b.onclick = function () {
+        b.onclick = function (e) {
+          if (e.target.classList && e.target.classList.contains("opt-tts")) {
+            speak(opts[parseInt(b.getAttribute("data-i"), 10)].w);
+            return;
+          }
           if (locked || over) return; locked = true;
           var chosen = opts[parseInt(b.getAttribute("data-i"), 10)];
           var right = chosen.id === cur.id;
@@ -1406,7 +1458,7 @@
 
       /* timer */
       var remain = Math.max(0, endAt - t);
-      document.getElementById("spTime").style.width = (100 * remain / (SPRINT_SECS * 1000)) + "%";
+      document.getElementById("spTime").style.width = (100 * remain / sprintMs) + "%";
       if (remain <= 0 && !over) { endSprint(); return; }
 
       /* movement */
