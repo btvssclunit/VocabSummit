@@ -1,0 +1,49 @@
+rules_version = "2";
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeacher() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/teachers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.active == true;
+    }
+
+    function isHod() {
+      return isTeacher()
+        && get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.role == "hod";
+    }
+
+    // student progress + profile (one doc per anonymous uid)
+    match /users/{uid} {
+      allow read:  if (request.auth != null && request.auth.uid == uid) || isTeacher();
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // leaderboard scores (one doc per anonymous uid). Any signed-in user reads
+    // (needed for the in-app board); each student writes only their own doc.
+    match /scores/{uid} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // restore log: students append their own rows, never read/edit/delete them.
+    match /restoreLog/{logId} {
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow read:   if isTeacher();
+      allow update, delete: if false;
+    }
+
+    // moderation flags: student reads only its own, only an HOD writes.
+    match /moderation/{uid} {
+      allow read:  if (request.auth != null && request.auth.uid == uid) || isTeacher();
+      allow write: if isHod();
+    }
+
+    // teacher allowlist: readable by teachers, NEVER client-writable (console only).
+    match /teachers/{uid} {
+      allow read:  if isTeacher();
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教师后台 · 词山学海 Vocab Summit · 百德中学</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* teacher.html is a STANDALONE page: it never loads app.js / profile.js.
+   Real Firebase Email/Password accounts + the teachers/{uid} allowlist are the
+   only boundary (the repo is public, so a client-side password is not one). */
+:root{--sky:#DFEDF7;--ink:#243B4A;--ink-soft:#5A7080;--sea:#2E6391;--deep:#1F4A70;
+  --gold:#E3A63C;--green:#3F704F;--line:#C9DCEA}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans SC",system-ui,sans-serif;color:var(--ink);
+  background:linear-gradient(160deg,#EAF3FA,#D3E4F1);min-height:100vh}
+h1,h2{font-family:"Noto Serif SC",serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.top h1{font-size:22px;margin:0;letter-spacing:.05em}
+.top .sub{font-size:12.5px;color:var(--ink-soft)}
+.spacer{margin-left:auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;
+  box-shadow:0 6px 20px rgba(20,50,80,.06);margin-bottom:16px}
+.btn{border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:14px;
+  background:#fff;color:var(--sea);cursor:pointer;font-weight:600}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#3A2A08}
+.btn:disabled{opacity:.5;cursor:default}
+input,select{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font-size:14px;
+  font-family:inherit;color:var(--ink);background:#F7FAFC}
+label{font-size:12.5px;font-weight:700;color:#3A5A70;display:block;margin:8px 0 4px;letter-spacing:.05em}
+.signin{max-width:380px;margin:8vh auto}
+.msg{font-size:13px;margin-top:10px;min-height:18px}
+.msg.bad{color:#9B3B2E}.msg.ok{color:#256242}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13.5px;
+  background:#fff;color:var(--ink-soft);cursor:pointer}
+.tab.on{background:var(--sea);border-color:var(--sea);color:#fff;font-weight:700}
+.stats{display:flex;flex-wrap:wrap;gap:10px}
+.stat{flex:1;min-width:150px;background:#F1F6FB;border:1px solid #DBE7F1;border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:24px}.stat span{font-size:12px;color:var(--ink-soft)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #E7EFF6;white-space:nowrap}
+th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.04em}
+.scroll{overflow-x:auto}
+.flag-bad{background:#FBEDE9}
+.hint{font-size:12px;color:var(--ink-soft);line-height:1.7}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#EAF1F8;color:#3A5A70}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>教师后台</h1>
+    <span class="sub">词山学海 Vocab Summit · 百德中学</span>
+    <span class="spacer"></span>
+    <span id="whoami" class="sub"></span>
+    <button class="btn" id="signOutBtn" style="display:none">退出登录</button>
+  </div>
+
+  <!-- sign in -->
+  <div class="card signin" id="signinCard">
+    <h2 style="margin-top:0">登录</h2>
+    <div class="hint">仅限已获授权的教师账号（学生无需登录，也无法进入此页）。</div>
+    <label>电邮 Email</label>
+    <input type="email" id="email" style="width:100%" autocomplete="username">
+    <label>密码 Password</label>
+    <input type="password" id="password" style="width:100%" autocomplete="current-password">
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn primary" id="signInBtn">登录</button>
+      <button class="btn" id="resetBtn">忘记密码</button>
+    </div>
+    <div class="msg" id="signinMsg"></div>
+  </div>
+
+  <!-- dashboard -->
+  <div id="dash" style="display:none">
+    <div class="tabs">
+      <button class="tab on" data-tab="overview">概览</button>
+      <button class="tab" data-tab="classes">班级视图</button>
+      <button class="tab" data-tab="hard">词语难点</button>
+      <button class="tab" data-tab="restores">恢复记录</button>
+      <button class="tab" data-tab="mod" id="modTab" style="display:none">处理</button>
+    </div>
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn primary" id="loadBtn">载入 / 刷新数据</button>
+      <span class="hint" id="loadInfo">数据不会自动刷新，请手动载入。</span>
+    </div>
+    <div id="panel"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+(function () {
+  "use strict";
+  var firebaseConfig = {
+    apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
+    authDomain: "vocabsummit.firebaseapp.com",
+    projectId: "vocabsummit",
+    storageBucket: "vocabsummit.firebasestorage.app",
+    messagingSenderId: "471926413442",
+    appId: "1:471926413442:web:6d037f4e7088d429033c9b"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+  var db = firebase.firestore();
+
+  var STREAMS = ["g1", "g2", "g3", "hcl"];
+  var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL" };
+  var CAT_LABEL = { student: "学生", teacher: "教师", parent: "家长", public: "公众", "": "未填写" };
+
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+  var el = function (id) { return document.getElementById(id); };
+
+  var _me = null;          // teacher allowlist doc
+  var _users = [];         // loaded student docs
+  var _restores = [];      // loaded restore log
+  var _wordMap = null;     // id -> {w, zh, level, unit, stream}
+  var _tab = "overview";
+  var _sort = { key: null, dir: 1 };
+  var _classFilter = { school: "", cls: "" };
+
+  /* ---------- auth ---------- */
+  el("signInBtn").onclick = function () {
+    var m = el("signinMsg"); m.className = "msg"; m.textContent = "登录中…";
+    auth.signInWithEmailAndPassword(el("email").value.trim(), el("password").value)
+      .catch(function (e) { m.className = "msg bad"; m.textContent = "登录失败：" + (e.code || e.message); });
+  };
+  el("resetBtn").onclick = function () {
+    var m = el("signinMsg");
+    var email = el("email").value.trim();
+    if (!email) { m.className = "msg bad"; m.textContent = "请先填写电邮，再点忘记密码。"; return; }
+    auth.sendPasswordResetEmail(email)
+      .then(function () { m.className = "msg ok"; m.textContent = "重置密码的邮件已发送，请查收。"; })
+      .catch(function (e) { m.className = "msg bad"; m.textContent = "发送失败：" + (e.code || e.message); });
+  };
+  el("signOutBtn").onclick = function () { auth.signOut(); };
+
+  auth.onAuthStateChanged(function (user) {
+    // ignore any leftover anonymous session (student pages sign in anonymously
+    // in the same browser); teachers use real email/password accounts.
+    if (!user || user.isAnonymous) { showSignedOut(); return; }
+    // check the teachers/{uid} allowlist
+    db.collection("teachers").doc(user.uid).get().then(function (snap) {
+      var d = snap.exists ? snap.data() : null;
+      if (!d || d.active !== true) {
+        showSignedOut("此账号未获授权或已停用。如需协助，请联系 HOD。");
+        auth.signOut();
+        return;
+      }
+      _me = d;
+      showSignedIn(user, d);
+    }).catch(function (e) {
+      showSignedOut("无法验证权限：" + (e.code || e.message) + "（请确认 Firestore 规则已发布）。");
+    });
+  });
+
+  function showSignedOut(msg) {
+    el("dash").style.display = "none";
+    el("signinCard").style.display = "";
+    el("signOutBtn").style.display = "none";
+    el("whoami").textContent = "";
+    if (msg) { var m = el("signinMsg"); m.className = "msg bad"; m.textContent = msg; }
+  }
+  function showSignedIn(user, d) {
+    el("signinCard").style.display = "none";
+    el("dash").style.display = "";
+    el("signOutBtn").style.display = "";
+    el("whoami").textContent = (d.name || user.email) + " · " + (d.role === "hod" ? "HOD" : "教师");
+    el("modTab").style.display = (d.role === "hod") ? "" : "none";
+  }
+
+  /* ---------- tabs ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+    t.onclick = function () {
+      _tab = t.getAttribute("data-tab");
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) { x.classList.toggle("on", x === t); });
+      renderPanel();
+    };
+  });
+
+  /* ---------- data load ---------- */
+  el("loadBtn").onclick = function () {
+    el("loadBtn").disabled = true;
+    el("loadInfo").textContent = "载入中…";
+    var tasks = [
+      db.collection("users").get().then(function (qs) {
+        _users = [];
+        qs.forEach(function (doc) { _users.push({ uid: doc.id, data: doc.data() || {} }); });
+      }),
+      db.collection("restoreLog").orderBy("at", "desc").limit(300).get().then(function (qs) {
+        _restores = [];
+        qs.forEach(function (doc) { _restores.push({ id: doc.id, data: doc.data() || {} }); });
+      }).catch(function () { _restores = []; }),
+      _wordMap ? Promise.resolve() : loadWordMap()
+    ];
+    Promise.all(tasks).then(function () {
+      el("loadBtn").disabled = false;
+      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _restores.length + " 条恢复记录（不自动刷新）。";
+      renderPanel();
+    }).catch(function (e) {
+      el("loadBtn").disabled = false;
+      el("loadInfo").textContent = "载入失败：" + (e.code || e.message) + "（请确认 Firestore 规则已发布）。";
+    });
+  };
+
+  function loadWordMap() {
+    _wordMap = {};
+    return Promise.all(STREAMS.map(function (s) {
+      return fetch(s + ".json").then(function (r) { return r.json(); }).then(function (j) {
+        j.levels.forEach(function (lv) {
+          lv.units.forEach(function (u) {
+            u.components.forEach(function (c) {
+              c.words.forEach(function (w) {
+                _wordMap[w.id] = { w: w.w, zh: w.zh, level: lv.level, unit: u.unit, stream: s };
+              });
+            });
+          });
+        });
+      }).catch(function () {});
+    }));
+  }
+
+  /* ---------- helpers ---------- */
+  function profOf(u) { return (u.data.profile) || {}; }
+  function masteredCount(u, stream) {
+    var p = u.data.progress && u.data.progress[stream];
+    return (p && p.mastered) ? Object.keys(p.mastered).length : 0;
+  }
+  function lastActive(u) {
+    var t = u.data.updatedAt;
+    if (t && t.toDate) { try { return t.toDate().toLocaleDateString("en-CA"); } catch (e) {} }
+    return "—";
+  }
+  function filteredUsers() {
+    return _users.filter(function (u) {
+      var p = profOf(u);
+      if (_classFilter.school && (p.school || "") !== _classFilter.school) return false;
+      if (_classFilter.cls && (p.mtlClass || "") !== _classFilter.cls) return false;
+      return true;
+    });
+  }
+
+  /* ---------- panels ---------- */
+  function renderPanel() {
+    var panel = el("panel");
+    if (!_users.length && _tab !== "restores") {
+      panel.innerHTML = '<div class="card hint">点上方「载入 / 刷新数据」开始。</div>';
+      if (_tab === "restores" && _restores.length) { /* fallthrough */ } else return;
+    }
+    if (_tab === "overview") return renderOverview(panel);
+    if (_tab === "classes") return renderClasses(panel);
+    if (_tab === "hard") return renderHard(panel);
+    if (_tab === "restores") return renderRestores(panel);
+    if (_tab === "mod") return renderMod(panel);
+  }
+
+  function renderOverview(panel) {
+    var byCat = {}, bySchool = {};
+    _users.forEach(function (u) {
+      var p = profOf(u);
+      var c = p.category || "";
+      byCat[c] = (byCat[c] || 0) + 1;
+      var s = p.school || "（未填写）";
+      bySchool[s] = (bySchool[s] || 0) + 1;
+    });
+    var catHtml = ["student", "teacher", "parent", "public", ""].filter(function (k) { return byCat[k]; })
+      .map(function (k) { return '<div class="stat"><b>' + byCat[k] + '</b><span>' + CAT_LABEL[k] + '</span></div>'; }).join("");
+    var schoolRows = Object.keys(bySchool).sort(function (a, b) { return bySchool[b] - bySchool[a]; })
+      .map(function (s) { return '<tr><td>' + esc(s) + '</td><td>' + bySchool[s] + '</td></tr>'; }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">概览</h2>' +
+      '<div class="stats"><div class="stat"><b>' + _users.length + '</b><span>总档案数</span></div>' + catHtml + '</div></div>' +
+      '<div class="card"><h2 style="margin-top:0">按学校 School</h2>' +
+      '<div class="scroll"><table><thead><tr><th>学校</th><th>档案数</th></tr></thead><tbody>' +
+      schoolRows + '</tbody></table></div></div>';
+  }
+
+  function renderClasses(panel) {
+    var schools = {}, classes = {};
+    _users.forEach(function (u) { var p = profOf(u); if (p.school) schools[p.school] = 1; if (p.mtlClass) classes[p.mtlClass] = 1; });
+    var schoolOpts = '<option value="">全部学校</option>' + Object.keys(schools).sort().map(function (s) {
+      return '<option value="' + esc(s) + '"' + (_classFilter.school === s ? " selected" : "") + '>' + esc(s) + '</option>'; }).join("");
+    var classOpts = '<option value="">全部班级</option>' + Object.keys(classes).sort().map(function (c) {
+      return '<option value="' + esc(c) + '"' + (_classFilter.cls === c ? " selected" : "") + '>' + esc(c) + '</option>'; }).join("");
+
+    var rows = filteredUsers().slice();
+    if (_sort.key) {
+      rows.sort(function (a, b) {
+        var va, vb;
+        if (_sort.key === "nick") { va = profOf(a).nickname || ""; vb = profOf(b).nickname || ""; return va.localeCompare(vb) * _sort.dir; }
+        if (_sort.key === "active") { va = lastActive(a); vb = lastActive(b); return (va < vb ? -1 : va > vb ? 1 : 0) * _sort.dir; }
+        va = masteredCount(a, _sort.key); vb = masteredCount(b, _sort.key); return (va - vb) * _sort.dir;
+      });
+    }
+    var head = '<tr><th data-s="nick">昵称</th><th>身份</th><th>班级</th>' +
+      STREAMS.map(function (s) { return '<th data-s="' + s + '">' + STREAM_LABEL[s] + ' 掌握</th>'; }).join("") +
+      '<th data-s="active">最近活跃</th></tr>';
+    var body = rows.map(function (u) {
+      var p = profOf(u);
+      return '<tr><td>' + esc(p.nickname || "（未命名）") + '</td>' +
+        '<td><span class="pill">' + CAT_LABEL[p.category || ""] + '</span></td>' +
+        '<td>' + esc(p.mtlClass || "—") + '</td>' +
+        STREAMS.map(function (s) { return '<td>' + masteredCount(u, s) + '</td>'; }).join("") +
+        '<td>' + lastActive(u) + '</td></tr>';
+    }).join("");
+
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">班级视图</h2>' +
+      '<div class="row"><div><label>学校</label><select id="fSchool">' + schoolOpts + '</select></div>' +
+      '<div><label>班级</label><select id="fClass">' + classOpts + '</select></div>' +
+      '<span class="hint">共 ' + rows.length + ' 人。点表头可按掌握词数排序。</span></div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead>' + head + '</thead><tbody>' +
+      (body || '<tr><td colspan="7" class="hint">没有符合条件的档案。</td></tr>') + '</tbody></table></div></div>';
+
+    el("fSchool").onchange = function () { _classFilter.school = this.value; renderPanel(); };
+    el("fClass").onchange = function () { _classFilter.cls = this.value; renderPanel(); };
+    Array.prototype.forEach.call(panel.querySelectorAll("th[data-s]"), function (th) {
+      th.onclick = function () {
+        var k = th.getAttribute("data-s");
+        if (_sort.key === k) _sort.dir *= -1; else { _sort.key = k; _sort.dir = (k === "nick" ? 1 : -1); }
+        renderPanel();
+      };
+    });
+  }
+
+  function renderHard(panel) {
+    // aggregate: how many students in the filtered set have mastered each word id
+    var set = filteredUsers().filter(function (u) { return profOf(u).category === "student"; });
+    var count = {};
+    set.forEach(function (u) {
+      STREAMS.forEach(function (s) {
+        var p = u.data.progress && u.data.progress[s];
+        if (p && p.mastered) Object.keys(p.mastered).forEach(function (id) { count[id] = (count[id] || 0) + 1; });
+      });
+    });
+    // rank words by LOWEST mastered count. Only meaningful with the word map.
+    var ids = _wordMap ? Object.keys(_wordMap) : Object.keys(count);
+    var rankable = ids.map(function (id) { return { id: id, n: count[id] || 0, w: _wordMap && _wordMap[id] }; })
+      .filter(function (r) { return r.w; });
+    rankable.sort(function (a, b) { return a.n - b.n; });
+    var top = rankable.slice(0, 60);
+    var rows = top.map(function (r) {
+      return '<tr><td><b>' + esc(r.w.w) + '</b></td><td>' + esc(r.w.zh || "") + '</td>' +
+        '<td>' + esc(STREAM_LABEL[r.w.stream]) + '·' + esc(r.w.level) + '·' + esc(r.w.unit) + '</td>' +
+        '<td>' + r.n + ' / ' + set.length + '</td></tr>';
+    }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">词语难点</h2>' +
+      '<div class="hint">在当前筛选的 ' + set.length + ' 名学生中，被最少人掌握的词语（升序）。' +
+      '⚠️ 掌握数低可能是「还没练到」，未必是「难」：目前只有「已掌握」数据，没有逐词错误记录，请结合课堂判断。</div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>词语</th><th>释义</th><th>范围</th><th>掌握人数</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="4" class="hint">暂无数据（请先载入，且需要词库映射）。</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  function renderRestores(panel) {
+    var rows = _restores.map(function (r) {
+      var d = r.data;
+      var when = "—";
+      if (d.at && d.at.toDate) { try { when = d.at.toDate().toLocaleString("en-CA"); } catch (e) {} }
+      var bad = (d.matched === false);
+      return '<tr class="' + (bad ? "flag-bad" : "") + '"><td>' + when + '</td>' +
+        '<td>' + esc(d.nickname || "") + '</td>' +
+        '<td>' + esc(d.mtlClass || "—") + '</td>' +
+        '<td>' + esc(STREAM_LABEL[d.stream] || d.stream || "") + '</td>' +
+        '<td>' + esc(d.codeNick || "") + '</td>' +
+        '<td>' + (bad ? '<b>改用他人昵称</b>' : '相符') + '</td>' +
+        '<td>' + (d.added || 0) + '</td>' +
+        '<td><code>' + esc((d.uid || "").slice(0, 10)) + '</code></td></tr>';
+    }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">恢复记录</h2>' +
+      '<div class="hint">最新在前。红底＝恢复时改用了别人的昵称，值得留意。</div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>时间</th><th>昵称</th><th>班级</th><th>科目</th>' +
+      '<th>进度码昵称</th><th>是否相符</th><th>新增词</th><th>UID</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="8" class="hint">暂无恢复记录（或规则尚未发布）。</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  function renderMod(panel) {
+    if (!_me || _me.role !== "hod") { panel.innerHTML = '<div class="card hint">仅 HOD 可处理。</div>'; return; }
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">处理（仅 HOD）</h2>' +
+      '<div class="hint">对确认作弊的学生写入一条 moderation 记录。学生下次在该设备联网打开时生效，' +
+      '把该科目进度清零。这是社群约束，不是严格封锁：清空浏览器数据会换新 UID、同时丢失全部进度，' +
+      '所以规避的代价与被清零相同。</div>' +
+      '<label>学生 UID</label><input id="mUid" style="width:100%" placeholder="从「恢复记录」或学生的技术编号获取">' +
+      '<div class="row"><div><label>动作</label><select id="mAction"><option value="zero">清零该科目 zero</option></select></div>' +
+      '<div><label>科目</label><select id="mStream">' + STREAMS.map(function (s) { return '<option value="' + s + '">' + STREAM_LABEL[s] + '</option>'; }).join("") + '</select></div></div>' +
+      '<label>备注</label><input id="mNote" style="width:100%" placeholder="例如：2026-08-12 使用了同学的进度码">' +
+      '<div style="margin-top:14px"><button class="btn primary" id="mSave">写入处理记录</button></div>' +
+      '<div class="msg" id="mMsg"></div></div>';
+    el("mSave").onclick = function () {
+      var uid = el("mUid").value.trim();
+      var m = el("mMsg");
+      if (!uid) { m.className = "msg bad"; m.textContent = "请填写学生 UID。"; return; }
+      db.collection("moderation").doc(uid).set({
+        action: el("mAction").value, stream: el("mStream").value,
+        at: new Date().toISOString(), note: el("mNote").value.trim(),
+        by: (_me && _me.name) || ""
+      }).then(function () { m.className = "msg ok"; m.textContent = "已写入。学生下次联网打开该科目时生效。"; })
+        .catch(function (e) { m.className = "msg bad"; m.textContent = "写入失败：" + (e.code || e.message); });
+    };
+  }
+})();
+</script>
+</body>
+</html>

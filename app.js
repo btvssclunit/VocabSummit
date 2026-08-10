@@ -200,6 +200,7 @@
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
+    s.asmPrompt = s.asmPrompt || "def"; // 组词挑战 prompt: def|en|cloze|py (py = practice, no pts)
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
@@ -240,7 +241,7 @@
   function pushLeaderboard() {
     if (!window.WSCloud || !window.WSCloud.saveScore) return;
     var p = loadProfile();
-    if (!p || p.role !== "student") return;
+    if (!p || p.category !== "student") return;
     window.WSCloud.saveScore(STREAM, {
       nickname: p.nickname || "", school: p.school || "",
       alt: Object.keys(store.mastered).length,
@@ -403,15 +404,11 @@
     fb.appendChild(g);
   }
 
-  /* ---------- profile (nickname + school, shared across all 4 levels) ---------- */
-  var PROFILE_KEY = "ws2_profile";
-  function loadProfile() {
-    try { return JSON.parse(localStorage.getItem(PROFILE_KEY)) || null; } catch (e) { return null; }
-  }
-  function saveProfileLocal(p) {
-    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch (e) {}
-    if (window.WSCloud && window.WSCloud.isAvailable()) window.WSCloud.saveProfile(p);
-  }
+  /* ---------- profile (shared across all 4 levels) ----------
+     Owned solely by profile.js / window.WSProfile. These are thin delegations
+     so existing call sites keep working; never read/write ws2_profile here. */
+  function loadProfile() { return window.WSProfile ? window.WSProfile.load() : null; }
+  function saveProfileLocal(p) { if (window.WSProfile) window.WSProfile.save(p); }
   function bump(mode, correct) {
     if (!store.stats[mode]) store.stats[mode] = { a: 0, c: 0 };
     store.stats[mode].a += 1; if (correct) store.stats[mode].c += 1;
@@ -683,10 +680,13 @@
       '<button class="back" id="tbBack">‹</button>' +
       '<div><div class="tb-name">' + META.zh + '</div>' +
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
-      '<div class="tb-right">' + (right || "") + '</div>';
+      '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
+        '<button class="tb-profile" id="tbProfile" title="我的档案" aria-label="我的档案">👤</button></div>';
     document.getElementById("tbBack").onclick = function () {
       if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
     };
+    var pf = document.getElementById("tbProfile");
+    if (pf) pf.onclick = openProfilePanel;
   }
 
   function miniHorizon() {
@@ -851,10 +851,10 @@
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
     if (mh) mh.onclick = startMountain;
-    document.getElementById("pcodeBtn").onclick = showProgressCode;
+    document.getElementById("pcodeBtn").onclick = openProfilePanel;
     document.getElementById("nickDisplay").onclick = function () {
       var cur = loadProfile() || {};
-      renderNicknamePicker(function () { renderHome(); }, { dismissible: true, currentSchool: cur.school, currentRole: cur.role || "student", currentHeard: cur.heardFrom || "" });
+      renderNicknamePicker(function () { renderHome(); }, { dismissible: true, currentSchool: cur.school, currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
     };
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
@@ -877,7 +877,8 @@
     function updateScopeSum() {
       var n = scopedWords().length;
       document.getElementById("scopeSum").textContent = "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
-      document.querySelector(".tb-right").textContent = n + " 词在范围内";
+      var trt = document.getElementById("tbRightText");
+      if (trt) trt.textContent = n + " 词在范围内";
       Object.keys(byLevel).forEach(function (lv) {
         var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
         if (!el) return;
@@ -1059,7 +1060,7 @@
     }
     var getUid = window.WSCloud.getUid || function (cb) { cb(null); };
     var fieldPath = lbFieldPath(), unit = lbUnit(), myVal = lbMyValue();
-    var me = loadProfile() || {}, iAmStudent = me.role === "student";
+    var me = loadProfile() || {}, iAmStudent = me.category === "student";
     getUid(function (myUid) {
       /* fetch a wider window so the 校内 filter still yields a full top-20 */
       window.WSCloud.getScoreBoard(fieldPath, 60, function (raw) {
@@ -1090,7 +1091,7 @@
         /* own standing line — never a bare rank; always something actionable */
         var meLine = "";
         if (!iAmStudent) {
-          meLine = '<div class="lb-me-line">你以「' + esc(me.role === "teacher" ? "老师" : "家长") + '」身份浏览，不参与排名。</div>';
+          meLine = '<div class="lb-me-line">你以「' + esc(me.category === "teacher" ? "老师" : "家长") + '」身份浏览，不参与排名。</div>';
         } else if (myIdx >= 0) {
           meLine = '<div class="lb-me-line">你目前排在第 <b>' + (myIdx + 1) + '</b> 名 · ' + fmtNum(myVal) + unit + '</div>';
         } else {
@@ -1244,12 +1245,25 @@
     { k: "4", stars: "⭐⭐⭐", label: "四个选项" },
     { k: "type", stars: "⭐⭐⭐⭐", label: "打字输入" }
   ];
+  /* pinyin comparison for the practice-only 打拼音 mode: strip tone marks
+     (NFD + combining removal), fold ü/v→u, drop spaces, lowercase. So the
+     student can type "xingwei" / "xing wei" for 行为 (xíng wéi). */
+  function tonelessPy(s) {
+    return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[vü]/gi, "u").replace(/\s+/g, "").toLowerCase();
+  }
   function diffSelector() {
     var html = '<div class="diff-label">挑战难度</div><div class="diff">';
     DIFF_OPTS.forEach(function (d) {
       html += '<button class="dopt' + (store.diff === d.k ? " on" : "") + '" data-d="' + d.k + '">' +
         '<span class="stars">' + d.stars + '</span>' + d.label + '</button>';
     });
+    /* G1/G2 only: type just the pinyin (no tones) as familiarisation. No 历练值,
+       no mastery — practice only (owner request 2026-08-10). */
+    if (STREAM === "g1" || STREAM === "g2") {
+      html += '<button class="dopt' + (store.diff === "pinyin" ? " on" : "") + '" data-d="pinyin">' +
+        '<span class="stars">⌨️</span>打拼音 · 练习不计分</button>';
+    }
     return html + '</div>';
   }
   function wireDiff(state) {
@@ -1264,19 +1278,20 @@
   function renderCloze(state) {
     var w = state.seq[state.i];
     var qtext = esc(w.cloze).replace(/_{2,}/g, "<u></u>");
-    var typing = store.diff === "type";
+    var pyMode = store.diff === "pinyin";
+    var typing = store.diff === "type" || pyMode;
     var html = '<div class="study">' +
       railHtml(state, "填空挑战", "读句子，填出空格里的词语", diffSelector()) +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">' + (typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
+      '<span class="q-tag">' + (pyMode ? "读句子，打出空格里词语的拼音（不用声调，练习不计分）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
       '<div class="q-text">' + qtext + '</div>' +
       '<div class="q-foot"><button class="tts" id="ttsS">🔊 朗读句子</button></div></div>';
 
     if (typing) {
       html += '<div class="answer-row">' +
-        '<input class="answer-input" id="ans" autocomplete="off" placeholder="输入词语…">' +
+        '<input class="answer-input" id="ans" autocomplete="off" placeholder="' + (pyMode ? "输入拼音（不用声调）…" : "输入词语…") + '">' +
         '<button class="check-btn" id="chk">检查</button></div>' +
-        '<button class="hint-btn" id="hint">提示：显示拼音</button>';
+        '<button class="hint-btn" id="hint">' + (pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
     } else {
       var n = parseInt(store.diff, 10);
       var opts = shuffle([w].concat(distractorsFor(w, scopedWords(), n - 1)));
@@ -1298,14 +1313,18 @@
     document.getElementById("ttsS").onclick = function () { speakCloze(w.cloze); };
     function finish(right, attempt) {
       var entering = state.streak, wasMastered = !!store.mastered[w.id];
-      noteStreak(state, right);
+      /* 打拼音 is practice only: no 连对/bestStreak, no 历练值, no mastery. */
+      if (!pyMode) noteStreak(state, right);
       bump("cloze", right);
       if (right) {
         state.correct++;
-        var gained = scoreCorrect(w, CLOZE_BASE[store.diff] || 2, attempt || 1, entering, wasMastered);
-        markMastered(w);        // fires the +10 first-mastery bonus inside
-        gymNote(w.id); sfxOk();
-        showGain(gained);
+        if (!pyMode) {
+          var gained = scoreCorrect(w, CLOZE_BASE[store.diff] || 2, attempt || 1, entering, wasMastered);
+          markMastered(w);        // fires the +10 first-mastery bonus inside
+          gymNote(w.id);
+          showGain(gained);
+        }
+        sfxOk();
       }
       document.getElementById("nextRow").style.display = "flex";
       var nx = document.getElementById("next");
@@ -1316,16 +1335,18 @@
       var ans = document.getElementById("ans");
       var done = false;
       ans.focus();
-      document.getElementById("hint").onclick = function () { this.textContent = "拼音：" + w.py; };
+      document.getElementById("hint").onclick = function () { this.textContent = pyMode ? ("词语：" + w.w) : ("拼音：" + w.py); };
       function submit() {
         if (done) return;
         var val = ans.value.trim();
         if (!val) return;
         var fb = document.getElementById("fb");
-        if (val === w.w) {
+        var okAns = pyMode ? (tonelessPy(val) === tonelessPy(w.py)) : (val === w.w);
+        var tail = pyMode ? "" : esc(w.zh);   // pinyin mode: show word + pinyin, no 释义 clutter
+        if (okAns) {
           done = true;
           fb.className = "feedback show ok";
-          fb.innerHTML = "✔ 正确！<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+          fb.innerHTML = "✔ 正确！<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + tail;
           finish(true, ans.dataset.tried ? 2 : 1);
         } else {
           ans.classList.remove("shake"); void ans.offsetWidth; ans.classList.add("shake");
@@ -1335,7 +1356,7 @@
           setTimeout(function () {
             if (!fb.isConnected) return;
             fb.className = "feedback show bad";
-            fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+            fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + tail;
             speak("正确答案：" + w.w);
             finish(false);
           }, 900);
@@ -1932,6 +1953,20 @@
     };
     renderAssemble(state);
   }
+  var ASM_PROMPTS = [
+    { k: "def", label: "释义" },
+    { k: "en", label: "英文" },
+    { k: "cloze", label: "填空" },
+    { k: "py", label: "拼音·不计分" }
+  ];
+  function asmPromptSelector() {
+    var cur = store.asmPrompt || "def";
+    var html = '<div class="diff-label">出题方式</div><div class="diff">';
+    ASM_PROMPTS.forEach(function (p) {
+      html += '<button class="dopt' + (cur === p.k ? " on" : "") + '" data-ap="' + p.k + '">' + p.label + '</button>';
+    });
+    return html + '</div>';
+  }
   function renderAssemble(state) {
     setTopbar("home", "");
     var w = state.seq[state.i];
@@ -1942,15 +1977,29 @@
       .slice(0, 9 - target.length);
     var chips = shuffle(target.concat(decoys));
 
+    /* prompt mode: def(释义) | en(英文) | cloze(填空) | py(拼音, practice-only).
+       Per-word fallback to 释义 when the chosen field is missing. Chinese-only
+       TTS: no speaker for en/py (English is silent by rule; pinyin IS the sound). */
+    var pm = store.asmPrompt || "def";
+    if (pm === "cloze" && !(w.cloze && w.cloze.indexOf("__") !== -1)) pm = "def";
+    if (pm === "en" && !w.en) pm = "def";
+    var noScore = (pm === "py");
+    var promptTag, promptHtml, ttsBtn = "", ttsFn = null;
+    if (pm === "en") { promptTag = "看英文，拼出词语"; promptHtml = esc(w.en); }
+    else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; promptHtml = esc(w.cloze).replace(/_{2,}/g, "<u></u>"); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读句子</button>'; ttsFn = function () { speakCloze(w.cloze); }; }
+    else if (pm === "py") { promptTag = "看拼音，拼出词语（练习不计分）"; promptHtml = esc(w.py); }
+    else { promptTag = "看释义，拼出词语"; promptHtml = esc(w.zh); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读释义</button>'; ttsFn = function () { speak(w.zh); }; }
+
     var html = '<div class="study"><div class="rail card">' +
       '<div class="mode-name">🧩 组词挑战</div>' +
-      '<div class="mode-desc">看释义，按顺序点出词语的字。</div>' +
+      '<div class="mode-desc">按顺序点出词语的字。</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
-      '<div class="streak">拼对 <b>' + state.perfect + '</b> 🧩</div></div>' +
+      '<div class="streak">拼对 <b>' + state.perfect + '</b> 🧩</div>' +
+      asmPromptSelector() + '</div>' +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">按顺序点出这个词语的字</span>' +
-      '<div class="q-text mcq">' + esc(w.zh) + '</div>' +
-      '<div class="q-foot"><button class="tts" id="asmTts">🔊 朗读释义</button></div></div>' +
+      '<span class="q-tag">' + promptTag + '</span>' +
+      '<div class="q-text mcq">' + promptHtml + '</div>' +
+      '<div class="q-foot">' + ttsBtn + '</div></div>' +
       '<div class="asm-slots" id="asmSlots">' +
       target.map(function () { return '<div class="asm-slot"></div>'; }).join("") + '</div>' +
       '<div class="asm-chips" id="asmChips">' +
@@ -1963,7 +2012,10 @@
       (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›") + '</button></div></div></div>';
     view().innerHTML = html;
 
-    document.getElementById("asmTts").onclick = function () { speak(w.zh); };
+    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
+      b.onclick = function () { store.asmPrompt = b.getAttribute("data-ap"); saveStore(); renderAssemble(state); };
+    });
+    if (ttsFn && document.getElementById("asmTts")) document.getElementById("asmTts").onclick = ttsFn;
     var nextIdx = 0, wrongThis = false, done = false;
     var slots = view().querySelectorAll(".asm-slot");
     Array.prototype.forEach.call(view().querySelectorAll(".asm-chip"), function (chip) {
@@ -1980,8 +2032,9 @@
             done = true;
             if (!wrongThis) {
               state.perfect++;
-              /* 组词 一次拼对: base 3, no 连对 concept here (×1.0). Does not master. */
-              scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
+              /* 组词 一次拼对: base 3, no 连对 concept here (×1.0). Does not master.
+                 拼音出题方式为练习模式，不计历练值。 */
+              if (!noScore) scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
             }
             bump("assemble", !wrongThis);
             sfxOk();
@@ -2873,16 +2926,16 @@
           var role = st.role || "student";
           var profile;
           if (role === "public") {
-            profile = { nickname: st.desc + "·" + st.noun, role: role, school: "",
+            profile = { nickname: st.desc + "·" + st.noun, category: role, school: "",
               heardFrom: ((document.getElementById("npHeard") || {}).value || "").trim() };
           } else {
             var school = st.schoolSel === "other"
               ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
               : "百德中学 Bukit View Secondary School";
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
-            profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
+            profile = { nickname: st.desc + "·" + st.noun, category: role, school: school };
           }
-          saveProfileLocal(profile);
+          saveProfileLocal(profile);   // WSProfile.save merges onto prev (keeps mtlClass/classHistory)
           ov.remove();
           onDone(profile);
         };
@@ -2905,9 +2958,31 @@
   }
 
   /* ==================================================================
-     进度码 · offline backup/restore (bitmask over WORDS order, which is
-     append-only by project rule, so codes survive vocab additions)
+     进度码 · offline backup/restore. VS2 format (nickname-bound + checksum):
+       VS2.{stream}.{n}.{b64bitmask}.{meta}.{nickB64}.{ck}
+     Bitmask is over WORDS order, which is append-only by project rule, so
+     codes survive vocab additions. Binding is friction + attribution, not
+     security (see HANDOFF_dashboard_and_bound_codes.md §1). VS1 still decodes.
+     decode() is PURE (validates, returns a plan, never touches store);
+     commitProgress() is the only thing that writes. The 我的档案 panel
+     (profile.js) snapshots before it calls commit, so undo works.
      ================================================================== */
+  function fnv1a(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h.toString(36);
+  }
+  function utf8ToB64url(str) {
+    try { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+    catch (e) { return ""; }
+  }
+  function b64urlToUtf8(b) {
+    try { var s = String(b).replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return decodeURIComponent(escape(atob(s))); }
+    catch (e) { return ""; }
+  }
   function encodeProgress() {
     var bytes = [];
     for (var i = 0; i < Math.ceil(WORDS.length / 8); i++) bytes.push(0);
@@ -2917,70 +2992,81 @@
     var b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     var meta = [store.bestStreak || 0, store.best.rain || 0, store.best.handle || 0,
       store.best.assemble || 0, store.best.sprint || 0].join("-");
-    return "VS1." + STREAM + "." + WORDS.length + "." + b64 + "." + meta;
+    var nickB64 = utf8ToB64url((loadProfile() || {}).nickname || "");
+    var head = "VS2." + STREAM + "." + WORDS.length + "." + b64 + "." + meta + "." + nickB64;
+    return head + "." + fnv1a(head);
   }
-  function decodeProgress(code) {
-    var p = String(code).trim().split(".");
-    if (p.length !== 5 || p[0] !== "VS1") return { err: "进度码格式不正确，请检查是否完整复制。" };
-    if (p[1] !== STREAM) return { err: "这个进度码属于其他 subject level（" + esc(p[1]).toUpperCase() + "），请到对应的 app 恢复。" };
-    var n = parseInt(p[2], 10);
+  /* build the list of word ids + meta to apply, running every check, WITHOUT
+     touching store. Returns { err } | { ok:true, addIds, meta } */
+  function planFromFields(nStr, b64field, metaField) {
+    var n = parseInt(nStr, 10);
     if (!(n > 0) || n > WORDS.length) return { err: "进度码与当前词库不匹配。" };
-    var b64 = p[3].replace(/-/g, "+").replace(/_/g, "/");
+    var b64 = String(b64field).replace(/-/g, "+").replace(/_/g, "/");
     while (b64.length % 4) b64 += "=";
     var bin;
     try { bin = atob(b64); } catch (e) { return { err: "进度码无法解析，请检查是否完整复制。" }; }
-    var added = 0;
+    var addIds = [];
     for (var i = 0; i < n; i++) {
-      if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) {
-        var w = WORDS[i];
-        if (w && !store.mastered[w.id]) { store.mastered[w.id] = 1; added++; }
-      }
+      if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) { var w = WORDS[i]; if (w) addIds.push(w.id); }
     }
-    var meta = p[4].split("-").map(function (x) { return parseInt(x, 10) || 0; });
-    store.bestStreak = Math.max(store.bestStreak || 0, meta[0] || 0);
-    store.best.rain = Math.max(store.best.rain || 0, meta[1] || 0);
-    store.best.handle = Math.max(store.best.handle || 0, meta[2] || 0);
-    store.best.assemble = Math.max(store.best.assemble || 0, meta[3] || 0);
-    store.best.sprint = Math.max(store.best.sprint || 0, meta[4] || 0);
+    var meta = String(metaField).split("-").map(function (x) { return parseInt(x, 10) || 0; });
+    return { ok: true, addIds: addIds, meta: meta };
+  }
+  function wrongStreamErr(s) {
+    return { err: "这个进度码属于其他 subject level（" + esc(String(s)).toUpperCase() + "），请到对应的 app 恢复。" };
+  }
+  function decodeProgress(code) {
+    var p = String(code).trim().split(".");
+    if (p[0] === "VS2") {
+      if (p.length !== 7) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (fnv1a(p.slice(0, 6).join(".")) !== p[6]) return { err: "进度码不完整或已损坏，请重新复制一次。" };
+      if (p[1] !== STREAM) return wrongStreamErr(p[1]);
+      var plan = planFromFields(p[2], p[3], p[4]);
+      if (plan.err) return plan;
+      var codeNick = b64urlToUtf8(p[5]);
+      var myNick = (loadProfile() || {}).nickname || "";
+      if (codeNick && codeNick !== myNick) {
+        return { mismatch: true, codeNick: codeNick, addIds: plan.addIds, meta: plan.meta };
+      }
+      plan.codeNick = codeNick;
+      return plan;
+    }
+    if (p[0] === "VS1") {
+      if (p.length !== 5) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (p[1] !== STREAM) return wrongStreamErr(p[1]);
+      var plan2 = planFromFields(p[2], p[3], p[4]);
+      if (plan2.err) return plan2;
+      plan2.legacy = true;   // no nickname to compare against
+      return plan2;
+    }
+    return { err: "进度码格式不正确，请检查是否完整复制。" };
+  }
+  /* the ONLY writer: apply a validated plan to store */
+  function commitProgress(plan) {
+    var added = 0;
+    (plan.addIds || []).forEach(function (id) { if (!store.mastered[id]) { store.mastered[id] = 1; added++; } });
+    var m = plan.meta || [];
+    store.bestStreak = Math.max(store.bestStreak || 0, m[0] || 0);
+    store.best.rain = Math.max(store.best.rain || 0, m[1] || 0);
+    store.best.handle = Math.max(store.best.handle || 0, m[2] || 0);
+    store.best.assemble = Math.max(store.best.assemble || 0, m[3] || 0);
+    store.best.sprint = Math.max(store.best.sprint || 0, m[4] || 0);
     saveStore();
-    checkBadges(true); // restore badges silently, no celebration replay
+    checkBadges(true);   // restore badges silently, no celebration replay
     return { added: added };
   }
-  function showProgressCode() {
-    var code = encodeProgress();
-    var ov = popOverlay(
-      '<div class="pop-title">💾 进度码</div>' +
-      '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，把它粘贴到下方即可恢复。<br>' +
-      '<span class="pop-note">进度码包含：已掌握词语、最高连对、各游戏纪录。</span></div>' +
-      '<div class="pop-label">我的进度码</div>' +
-      '<textarea class="code-ta" id="codeOut" readonly>' + code + '</textarea>' +
-      '<div class="nav-row"><button class="nav-btn" id="codeCopy">📋 复制进度码</button></div>' +
-      '<div class="pop-label" style="margin-top:14px">恢复进度</div>' +
-      '<textarea class="code-ta" id="codeIn" placeholder="把进度码粘贴到这里…"></textarea>' +
-      '<div class="feedback" id="codeFb"></div>' +
-      '<div class="nav-row"><button class="nav-btn" id="popClose">关闭</button>' +
-      '<button class="nav-btn primary" id="codeRestore">恢复进度</button></div>');
-    ov.querySelector("#codeCopy").onclick = function () {
-      var ta = ov.querySelector("#codeOut");
-      ta.select(); ta.setSelectionRange(0, 99999);
-      var done = false;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(function () { toast("已复制进度码"); });
-        done = true;
-      }
-      if (!done) { try { document.execCommand("copy"); toast("已复制进度码"); } catch (e) {} }
-    };
-    ov.querySelector("#popClose").onclick = function () { ov.remove(); };
-    ov.querySelector("#codeRestore").onclick = function () {
-      var val = ov.querySelector("#codeIn").value;
-      var fb = ov.querySelector("#codeFb");
-      if (!val.trim()) { fb.className = "feedback show bad"; fb.textContent = "请先粘贴进度码。"; return; }
-      var r = decodeProgress(val);
-      if (r.err) { fb.className = "feedback show bad"; fb.textContent = r.err; return; }
-      ov.remove();
-      toast("✅ 恢复成功：新增 " + r.added + " 个已掌握词语");
-      renderHome();
-    };
+
+  /* open the 我的档案 overlay (profile.js) wired to this stream page */
+  function openProfilePanel() {
+    if (!window.WSProfile) return;
+    WSProfile.open({
+      onChangeNickname: function (done) {
+        var cur = loadProfile() || {};
+        renderNicknamePicker(function () { if (done) done(); },
+          { dismissible: true, currentSchool: cur.school, currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
+      },
+      onChanged: renderHome
+    });
   }
 
   /* ---------- boot ---------- */
@@ -3017,6 +3103,19 @@
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));
         applyAmbience();
         updateStreak();
+
+        /* hand the 我的档案 panel (profile.js) this stream's 进度码 hooks */
+        if (window.WSProfile && window.WSProfile.registerCodeProvider) {
+          window.WSProfile.registerCodeProvider({
+            stream: STREAM,
+            encode: encodeProgress,
+            decode: decodeProgress,          // pure planner (no writes)
+            commit: commitProgress,          // the only writer
+            snapshot: function () { return JSON.parse(JSON.stringify(store)); },
+            restoreSnapshot: function (snap) { store = snap; saveStore(); renderHome(); },
+            onChanged: renderHome
+          });
+        }
 
         function afterProfile() {
           if (window.WSCloud && window.WSCloud.isAvailable()) {

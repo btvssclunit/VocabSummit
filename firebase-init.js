@@ -167,6 +167,44 @@
             .catch(function (e) { console.error("getScoreRank failed:", e); cb(null); });
         } catch (e) { cb(null); }
       });
+    },
+
+    /* ---------- moderation: restore log + teacher-triggered flag ----------
+       (HANDOFF_dashboard_and_bound_codes.md §7). Both are fire-and-forget /
+       graceful: they NEVER block or fail a restore. Until the restoreLog /
+       moderation Firestore rules are published (§8e), writes/reads are denied
+       and these just no-op — the rest of the app is unaffected. */
+
+    /* append one row to the top-level restoreLog collection. entry carries the
+       student's own uid implicitly (added here); required by the create rule. */
+    logRestore: function (entry) {
+      whenReady(function () {
+        try {
+          db.collection("restoreLog").add({
+            uid: _uid,
+            nickname: entry.nickname || "",
+            school: entry.school || "",
+            mtlClass: entry.mtlClass || "",
+            stream: entry.stream || "",
+            codeNick: entry.codeNick || "",
+            matched: !!entry.matched,
+            added: entry.added || 0,
+            at: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(function (e) { console.error("logRestore failed:", e); });
+        } catch (e) { console.error("logRestore failed:", e); }
+      });
+    },
+
+    /* read this student's own moderation flag (moderation/{uid}); cb(data|null).
+       Teacher writes it from the console; client only reads its own. */
+    getModeration: function (cb) {
+      whenReady(function () {
+        try {
+          db.collection("moderation").doc(_uid).get()
+            .then(function (snap) { cb(snap.exists ? (snap.data() || null) : null); })
+            .catch(function (e) { console.error("getModeration failed:", e); cb(null); });
+        } catch (e) { cb(null); }
+      });
     }
   };
 })();

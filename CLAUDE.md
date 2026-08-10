@@ -457,3 +457,82 @@ confer mastery, and this CLAUDE.md's "Mastery gate (locked)" line says 填空挑
 claims. Because 海拔 and the +10 bonus both hinge on this, do not "fix" it silently — the owner must
 decide which modes confer mastery, then code + popover + this file get aligned in one pass. LEADERBOARD_
 DESIGN §11.2 assumed the code already credits all four; it does not.
+
+## Session batch, 2026-08-10 — 我的档案 dashboard + nickname-bound 进度码 (student side)
+
+Built from HANDOFF_dashboard_and_bound_codes.md §1-6 (student side). Steps 7-9 (teacher.html +
+final Firestore rules + §8g owner decisions) are a SEPARATE pass needing Firebase-console work.
+New file profile.js; edits to app.js / app.css / nickname.js / firebase-init.js / index.html + 4
+stream pages. Verified in-browser on a python3 no-cache server (no Node on this machine).
+
+LOCKED decisions (per §11):
+- Profile is owned SOLELY by profile.js / window.WSProfile. app.js and nickname.js delegate
+  loadProfile/saveProfileLocal to it; NEVER read/write ws2_profile directly from those two files.
+- `role` was RENAMED to `category` (same values student|teacher|parent|public, same leaderboard
+  gating). The handoff's "current shape {nickname,school}" was stale — `role` already existed.
+  profile.js.load() migrates role→category and deletes role. All app.js/nickname.js references
+  updated. Stored as the ASCII key, never a Chinese label.
+- New profile fields: mtlClass (students only; uppercased + whitespace-stripped; "" otherwise),
+  classYear, classHistory. WSProfile.save() owns ALL class bookkeeping: clears mtlClass when
+  category leaves student, archives the previous year's class into classHistory on a cross-year
+  change, corrects the current entry within the same year. save() MERGES onto the previously
+  stored profile so panel-only fields survive a nickname re-pick (the picker rebuilds {nickname,
+  category, school[,heardFrom]} but no longer clobbers mtlClass/classHistory).
+- 我的档案 panel: reachable via a 👤 button appended inside setTopbar's tb-right on every stream
+  screen (its text now lives in a #tbRightText span so updateScopeSum no longer wipes the button),
+  and via 👤 我的档案 in the landing greeting (replaced the old 换昵称 link). Sections: 身份 /
+  基本资料 (school, category chips, class input shown only for students) / 我的进度 (per-stream
+  mastered counts read straight from ws2_* localStorage) / 进度码 / 技术信息 (UID + 简短编号 first
+  6 chars + sync status) / 隐私说明. On the landing page no code provider is registered, so 进度码
+  shows the four subject links instead. Home 💾 button + topbar 👤 both open it; showProgressCode
+  was removed.
+- 进度码 is VS2: VS2.{stream}.{n}.{b64bitmask}.{meta}.{nickB64}.{ck}. nickB64 = base64url UTF-8 of
+  the owner's nickname; ck = FNV-1a 32-bit (base36) over the joined preceding fields. VS1 still
+  decodes (shows 这是旧版进度码，无法核对来源). Binding is friction + attribution, not security
+  (nickname is plainly forgeable). decodeProgress() is now PURE (validates, returns a plan, never
+  writes); commitProgress() is the ONLY writer. A mismatched nickname returns {mismatch,codeNick}
+  and the panel offers 改用「codeNick」并恢复 (adopts the identity, then restores) — legitimate new
+  device works, illegitimate copy becomes socially visible. Restore always snapshots to
+  sessionStorage (ws2_{stream}_prerestore) BEFORE commit so 撤销恢复 works this session, and always
+  calls WSCloud.logRestore.
+- firebase-init.js gained logRestore (append to top-level restoreLog) and getModeration (read own
+  moderation/{uid}). Both fire-and-forget / graceful: they NEVER block a restore. Until the §8e
+  rules are published they are DENIED (console shows "logRestore failed: permission-denied") and
+  the app is otherwise unaffected — verified.
+- index.html (landing) now loads the Firebase compat SDK + firebase-init.js + profile.js before
+  nickname.js (it previously loaded only nickname.js), so the landing does anon auth and the panel
+  can show UID/sync there too.
+
+DEFERRED / OPEN:
+- Moderation READ on boot (§7b) NOT wired this session: it must run before mergeCloudProgress, but a
+  local zero would be re-added straight back by the cloud union, and it can't be tested until the
+  teacher side + rules exist. Also §7b's rollback-to-snapshot is not implementable under the §8e
+  rules (students can't read restoreLog), so the workable action is `zero`. Build moderation
+  enforcement together with teacher.html + rules, and decide the cloud-wipe story there.
+- Teacher dashboard (§8) is BUILT as deliverables awaiting owner console work: teacher.html
+  (standalone; never loads app.js/profile.js; Firebase Email/Password + teachers/{uid} allowlist;
+  concept/概览/班级视图/词语难点/恢复记录/处理[HOD]), firestore.rules (the §8e blocks PLUS the
+  scores/{uid} rule the handoff omitted — the leaderboard needs it, so do NOT paste §8e verbatim),
+  and ADMIN.md (rules deploy + Rules-Playground checklist + teacher onboarding + moderation limits +
+  the §8g defaults used). teacher.html loads clean to the sign-in screen; it ignores leftover
+  anonymous sessions (teachers are never anonymous). Full dashboard verification needs a real
+  teacher account + published rules + data — owner console steps in ADMIN.md.
+- §8g owner decisions defaulted (flagged in ADMIN.md §6): pseudonymous (no index-number field);
+  teachers read across schools per §8e with a school filter in the UI. Change on request.
+
+## Session batch, 2026-08-10 — 练习不计分 modes (组词出题方式 + 填空打拼音)
+
+Owner request (same session, mid-build). Two additions, both verified in-browser:
+- 组词挑战 (G2) 出题方式 selector in the rail: 释义 / 英文 / 填空 / 拼音·不计分 (store.asmPrompt,
+  default "def"). def→w.zh, en→w.en, cloze→w.cloze (blank as <u></u>), py→w.py. Per-word fallback
+  to 释义 when en/cloze is missing. Chinese-only TTS: speaker shown only for 释义 (reads 释义) and
+  填空 (reads sentence); 英文 and 拼音 have NO speaker (English is silent by rule; pinyin IS the
+  sound). 拼音 mode is practice-only: skips scoreCorrect (no 历练值). 组词 never conferred mastery.
+- 填空挑战 打拼音 tier (store.diff === "pinyin"), shown in diffSelector ONLY for STREAM g1/g2. Type
+  the toneless pinyin of the blank word; tonelessPy() strips tone marks (NFD + combining removal),
+  folds ü/v→u, drops spaces, lowercases, so "pang da"/"pangda" both match 庞大 (páng dà). Practice
+  only: in renderCloze finish() pyMode skips noteStreak (no 连对/bestStreak), scoreCorrect (no
+  历练值), AND markMastered (no 海拔) — the q-tag says 练习不计分. Hint reveals the 词语 (not pinyin).
+- Note for the MASTERY-GATE discrepancy above: these two 拼音 modes DELIBERATELY do not confer
+  mastery or points (owner: familiarisation only). If the owner later decides the pinyin-typing
+  tier SHOULD confer mastery, flip the pyMode guards in renderCloze.finish().

@@ -44,15 +44,11 @@
     "文化器物": ["玉盘","算盘","香囊","罗盘","折扇","灯笼","竹简","印玺","锦囊","铜镜"]
   };
 
-  /* ---------- profile (nickname + school, shared with app.js) ---------- */
-  var PROFILE_KEY = "ws2_profile";
-  function loadProfile() {
-    try { return JSON.parse(localStorage.getItem(PROFILE_KEY)) || null; } catch (e) { return null; }
-  }
-  function saveProfileLocal(p) {
-    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch (e) {}
-    if (window.WSCloud && window.WSCloud.isAvailable()) window.WSCloud.saveProfile(p);
-  }
+  /* ---------- profile ----------
+     Owned solely by profile.js / window.WSProfile; these are thin delegations
+     so the shape never drifts between this file and app.js. */
+  function loadProfile() { return window.WSProfile ? window.WSProfile.load() : null; }
+  function saveProfileLocal(p) { if (window.WSProfile) window.WSProfile.save(p); }
 
   function renderNicknamePicker(onDone, opts) {
     opts = opts || {};
@@ -192,16 +188,16 @@
           var role = st.role || "student";
           var profile;
           if (role === "public") {
-            profile = { nickname: st.desc + "·" + st.noun, role: role, school: "",
+            profile = { nickname: st.desc + "·" + st.noun, category: role, school: "",
               heardFrom: ((document.getElementById("npHeard") || {}).value || "").trim() };
           } else {
             var school = st.schoolSel === "other"
               ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
               : "百德中学 Bukit View Secondary School";
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
-            profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
+            profile = { nickname: st.desc + "·" + st.noun, category: role, school: school };
           }
-          saveProfileLocal(profile);
+          saveProfileLocal(profile);   // WSProfile.save merges onto prev (keeps mtlClass/classHistory)
           ov.remove();
           onDone(profile);
         };
@@ -227,11 +223,19 @@
       if (greet && profile && profile.nickname) {
         greet.style.display = "";
         greet.innerHTML = '<span class="lp-nick">👤 ' + esc(profile.nickname) + '</span>' +
-          '<button class="code-link" id="lpChangeNick">换昵称</button>';
-        var changeBtn = document.getElementById("lpChangeNick");
-        if (changeBtn) {
-          changeBtn.onclick = function () {
-            renderNicknamePicker(function (p) { reveal(p); }, { dismissible: true, currentSchool: (profile || {}).school || "", currentRole: (profile || {}).role || "student", currentHeard: (profile || {}).heardFrom || "" });
+          '<button class="code-link" id="lpProfileBtn">👤 我的档案</button>';
+        var profBtn = document.getElementById("lpProfileBtn");
+        if (profBtn) {
+          profBtn.onclick = function () {
+            if (!window.WSProfile) return;
+            window.WSProfile.open({
+              onChangeNickname: function (done) {
+                var cur = loadProfile() || {};
+                renderNicknamePicker(function (p) { reveal(p); if (done) done(); },
+                  { dismissible: true, currentSchool: cur.school || "", currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
+              },
+              onChanged: function () { reveal(loadProfile()); }
+            });
           };
         }
       }
