@@ -436,23 +436,84 @@ button.mtn-pill:active{transform:scale(.96)}
 .goal-opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 
 
-/* ===== Landing v2 · 8-bit hero (landscape-first, single screen) ===== */
-.lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow:hidden}
-.lp-hero{position:relative;width:100vw;height:100vh;background:url("hero_bg.png") center top/cover no-repeat;
+/* ===== Landing v2 · 8-bit hero (landscape-first) ===== */
+.lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow-y:auto;overflow-x:hidden}
+.lp-hero{position:relative;width:100vw;height:min(76vh,660px);min-height:420px;
+  background:url("landing_hero_bg.png") center top/cover no-repeat;
   image-rendering:pixelated}
-.lp-logo{position:absolute;left:50%;top:3.5vh;transform:translateX(-50%);width:min(44vw,560px);
-  image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55))}
-.lp-school{position:absolute;left:50%;top:calc(3.5vh + min(44vw,560px)*.375 + 14px);transform:translateX(-50%);
+.lp-logo{position:absolute;left:50%;top:18vh;transform:translateX(-50%);width:min(44vw,560px);
+  image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55));
+  animation:lpLogoFloat 4.2s ease-in-out infinite;will-change:transform}
+/* undulate: gentle vertical bob + a slight breathing scale, like a title card
+   floating over the sea. translateX(-50%) must be re-declared in every frame
+   or the logo jumps out of centre. */
+@keyframes lpLogoFloat{
+  0%,100%{transform:translateX(-50%) translateY(0) scale(1)}
+  50%    {transform:translateX(-50%) translateY(-11px) scale(1.014)}}
+@media (prefers-reduced-motion:reduce){.lp-logo{animation:none}}
+.lp-school{position:absolute;left:50%;top:calc(18vh + min(44vw,560px)*.375 + 14px);transform:translateX(-50%);
   color:#FFF4D6;font-size:15px;font-weight:500;text-shadow:0 1px 4px rgba(15,25,50,.9);white-space:nowrap}
-.lp-couplet{position:absolute;top:17vh;writing-mode:vertical-rl;letter-spacing:.42em;
+.lp-couplet{position:absolute;top:12vh;writing-mode:vertical-rl;letter-spacing:.42em;
   font-family:"Noto Serif SC",serif;font-weight:900;font-size:clamp(22px,2.8vw,34px);color:#FFE9B0;
   text-shadow:0 0 3px rgba(18,28,52,1),0 0 10px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
 .lp-couplet.left{left:1.6vw}
 .lp-couplet.right{right:1.6vw}
-.lp-group{position:absolute;left:44%;bottom:22vh;width:min(14vw,175px);
-  image-rendering:pixelated;filter:drop-shadow(0 5px 9px rgba(10,20,40,.42))}
-.lp-cards{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);display:flex;gap:14px;
-  width:min(96vw,1140px)}
+/* single entry point: 进入 must be tapped before nickname/path selection.
+   16-bit styling = hard edges, no border-radius, stepped/chunky box-shadow
+   instead of soft blur, pixelated arrow glyph. */
+.lp-gate{position:relative;text-align:center;margin:30px auto 0}
+.lp-enter-btn{
+  display:inline-block;border:0;cursor:pointer;
+  font-family:"Noto Serif SC",serif;font-weight:900;
+  font-size:clamp(22px,2.6vw,30px);letter-spacing:.10em;
+  padding:20px 60px;color:#4A3305;
+  background:linear-gradient(180deg,#FFE07A 0%,#F5C443 42%,#E0A526 43%,#D08E15 100%);
+  /* chunky stepped bevel — reads as 16-bit rather than a soft modern button */
+  box-shadow:
+    0 -4px 0 0 #FFF0B8 inset,
+    0 4px 0 0 #A56F0A inset,
+    -4px 0 0 0 #FFDF8C inset,
+    4px 0 0 0 #B87F10 inset,
+    0 0 0 4px #6B4708,
+    0 0 0 8px #2A1B04,
+    0 10px 0 8px rgba(8,16,34,.45);
+  image-rendering:pixelated;
+  transition:transform .08s steps(2), box-shadow .08s steps(2);
+  animation:lpEnterPulse 1.9s steps(2) infinite}
+.lp-enter-btn:hover{transform:translateY(-4px);
+  box-shadow:
+    0 -4px 0 0 #FFF6D0 inset,
+    0 4px 0 0 #A56F0A inset,
+    -4px 0 0 0 #FFE9A8 inset,
+    4px 0 0 0 #B87F10 inset,
+    0 0 0 4px #6B4708,
+    0 0 0 8px #2A1B04,
+    0 14px 0 8px rgba(8,16,34,.5);
+  animation:none}
+.lp-enter-btn:active{transform:translateY(2px);
+  box-shadow:
+    0 4px 0 0 #A56F0A inset,
+    0 0 0 4px #6B4708,
+    0 0 0 8px #2A1B04,
+    0 4px 0 8px rgba(8,16,34,.45);
+  animation:none}
+@keyframes lpEnterPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.14)}}
+@media (prefers-reduced-motion:reduce){.lp-enter-btn{animation:none}}
+
+/* chosen nickname: was a faint 14px line that vanished against the artwork.
+   Now a solid plaque so students can actually see who they are. */
+.lp-greeting{position:relative;display:flex;justify-content:center;align-items:center;
+  gap:14px;flex-wrap:wrap;margin:26px auto 0;width:max-content;max-width:92vw;
+  background:rgba(12,24,48,.88);border:3px solid var(--gold,#D9A72B);
+  padding:14px 26px;box-shadow:0 0 0 3px #2A1B04,0 8px 0 3px rgba(8,16,34,.4)}
+.lp-greeting .lp-nick{font-family:"Noto Serif SC",serif;font-weight:900;
+  font-size:clamp(19px,2.1vw,25px);color:#FFE9B0;letter-spacing:.04em;
+  text-shadow:0 2px 0 rgba(8,16,34,.9)}
+.lp-greeting .code-link{color:#8FD3FF;font-size:14px;text-decoration:underline}
+/* cards sit BELOW the hero photo (not overlaid), so the climbers in the
+   artwork are never cropped/hidden behind the card row */
+.lp-cards{position:relative;left:auto;bottom:auto;transform:none;display:flex;gap:14px;
+  width:min(96vw,1140px);margin:22px auto 0}
 .lp-card{flex:1;display:flex;align-items:center;gap:12px;background:rgba(14,27,54,.85);
   border:2px solid var(--gold,#D9A72B);border-radius:14px;padding:14px 14px;text-decoration:none;
   transition:transform .15s,box-shadow .15s;min-width:0}
@@ -464,8 +525,8 @@ button.mtn-pill:active{transform:scale(.96)}
 .lp-card div{min-width:0}
 .lp-card b{display:block;color:#fff;font-size:19px;font-family:"Noto Serif SC",serif;font-weight:900}
 .lp-card .lv{display:block;color:#F5C443;font-size:15px;font-weight:800;margin-top:6px;letter-spacing:.02em}
-.lp-foot{position:absolute;left:0;right:0;bottom:0;background:rgba(8,16,34,.9);color:#A8BCD8;
-  font-size:11.5px;text-align:center;padding:6px 10px;line-height:1.7}
+.lp-foot{position:relative;left:0;right:0;bottom:auto;background:rgba(8,16,34,.9);color:#A8BCD8;
+  font-size:11.5px;text-align:center;padding:8px 10px;line-height:1.7;margin-top:22px}
 /* portrait fallback: stack and scroll */
 @media (orientation:portrait){
   .lp-body{overflow:auto}
@@ -474,7 +535,6 @@ button.mtn-pill:active{transform:scale(.96)}
   .lp-logo{position:relative;display:block;margin:4vh auto 0;left:auto;transform:none;width:min(86vw,480px)}
   .lp-school{position:relative;display:block;margin:12px auto 0;left:auto;top:auto;transform:none;text-align:center}
   .lp-couplet{display:none}
-  .lp-group{display:none}
   .lp-cards{position:relative;left:auto;bottom:auto;transform:none;flex-direction:column;
     width:min(92vw,520px);margin:46vh auto 0;gap:12px}
   .lp-foot{position:relative;margin-top:18px}
