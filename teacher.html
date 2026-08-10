@@ -60,19 +60,52 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     <button class="btn" id="signOutBtn" style="display:none">退出登录</button>
   </div>
 
-  <!-- sign in -->
+  <!-- sign in / register -->
   <div class="card signin" id="signinCard">
-    <h2 style="margin-top:0">登录</h2>
-    <div class="hint">仅限已获授权的教师账号（学生无需登录，也无法进入此页）。</div>
-    <label>电邮 Email</label>
-    <input type="email" id="email" style="width:100%" autocomplete="username">
-    <label>密码 Password</label>
-    <input type="password" id="password" style="width:100%" autocomplete="current-password">
-    <div style="margin-top:14px;display:flex;gap:10px">
-      <button class="btn primary" id="signInBtn">登录</button>
-      <button class="btn" id="resetBtn">忘记密码</button>
+    <div class="tabs" style="margin-bottom:14px">
+      <button class="tab on" id="tabLogin">登录 Login</button>
+      <button class="tab" id="tabRegister">教师注册 Register</button>
     </div>
+
+    <div id="loginPane">
+      <div class="hint">已获批准的教师登录。学生无需登录，也无法进入此页。</div>
+      <label>电邮 Email</label>
+      <input type="email" id="email" style="width:100%" autocomplete="username">
+      <label>密码 Password</label>
+      <input type="password" id="password" style="width:100%" autocomplete="current-password">
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="btn primary" id="signInBtn">登录</button>
+        <button class="btn" id="resetBtn">忘记密码</button>
+      </div>
+    </div>
+
+    <div id="registerPane" style="display:none">
+      <div class="hint">百德中学华文教师注册。提交后需 HOD 审批，通过后即可登录使用。</div>
+      <label>姓名 Name</label>
+      <input type="text" id="rName" style="width:100%">
+      <label>学校 School</label>
+      <input type="text" id="rSchool" style="width:100%" value="百德中学 Bukit View Secondary School">
+      <label>电邮 Email</label>
+      <input type="email" id="rEmail" style="width:100%" autocomplete="username">
+      <label>设置密码 Password（至少 6 位）</label>
+      <input type="password" id="rPassword" style="width:100%" autocomplete="new-password">
+      <div style="margin-top:14px"><button class="btn primary" id="registerBtn">提交注册申请</button></div>
+    </div>
+
     <div class="msg" id="signinMsg"></div>
+  </div>
+
+  <!-- signed in, but not yet an approved teacher -->
+  <div class="card signin" id="statusCard" style="display:none">
+    <h2 style="margin-top:0" id="statusTitle"></h2>
+    <div class="hint" id="statusBody" style="margin-bottom:8px"></div>
+    <div id="registerHere" style="display:none">
+      <label>姓名 Name</label><input type="text" id="rName2" style="width:100%">
+      <label>学校 School</label><input type="text" id="rSchool2" style="width:100%" value="百德中学 Bukit View Secondary School">
+      <div style="margin-top:12px"><button class="btn primary" id="submitReqBtn">提交注册申请</button></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" id="statusSignOut">退出登录</button></div>
+    <div class="msg" id="statusMsg"></div>
   </div>
 
   <!-- dashboard -->
@@ -82,6 +115,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       <button class="tab" data-tab="classes">班级视图</button>
       <button class="tab" data-tab="hard">词语难点</button>
       <button class="tab" data-tab="restores">恢复记录</button>
+      <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
       <button class="tab" data-tab="mod" id="modTab" style="display:none">处理</button>
     </div>
     <div class="row" style="margin-bottom:14px">
@@ -124,6 +158,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var _me = null;          // teacher allowlist doc
   var _users = [];         // loaded student docs
   var _restores = [];      // loaded restore log
+  var _requests = [];      // pending teacher registration requests
   var _wordMap = null;     // id -> {w, zh, level, unit, stream}
   var _tab = "overview";
   var _sort = { key: null, dir: 1 };
@@ -144,46 +179,115 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       .catch(function (e) { m.className = "msg bad"; m.textContent = "发送失败：" + (e.code || e.message); });
   };
   el("signOutBtn").onclick = function () { auth.signOut(); };
+  el("statusSignOut").onclick = function () { auth.signOut(); };
+
+  /* login / register tab switch on the sign-in card */
+  el("tabLogin").onclick = function () {
+    el("tabLogin").classList.add("on"); el("tabRegister").classList.remove("on");
+    el("loginPane").style.display = ""; el("registerPane").style.display = "none";
+    el("signinMsg").textContent = "";
+  };
+  el("tabRegister").onclick = function () {
+    el("tabRegister").classList.add("on"); el("tabLogin").classList.remove("on");
+    el("registerPane").style.display = ""; el("loginPane").style.display = "none";
+    el("signinMsg").textContent = "";
+  };
+
+  /* self-registration: create the auth account, then file a teacherRequests doc.
+     No access is granted until an HOD approves (writes teachers/{uid}). */
+  el("registerBtn").onclick = function () {
+    var m = el("signinMsg"); m.className = "msg";
+    var name = el("rName").value.trim(), school = el("rSchool").value.trim();
+    var email = el("rEmail").value.trim(), pw = el("rPassword").value;
+    if (!name || !email || pw.length < 6) { m.className = "msg bad"; m.textContent = "请填写姓名、电邮，密码至少 6 位。"; return; }
+    m.textContent = "注册中…";
+    auth.createUserWithEmailAndPassword(email, pw).then(function (cred) {
+      return fileRequest(cred.user.uid, name, school, email);
+    }).catch(function (e) { m.className = "msg bad"; m.textContent = "注册失败：" + (e.code || e.message); });
+    // onAuthStateChanged then shows the pending screen
+  };
+
+  function fileRequest(uid, name, school, email) {
+    return db.collection("teacherRequests").doc(uid).set({
+      name: name, school: school, email: email,
+      status: "pending", requestedAt: new Date().toISOString()
+    });
+  }
 
   auth.onAuthStateChanged(function (user) {
     // ignore any leftover anonymous session (student pages sign in anonymously
     // in the same browser); teachers use real email/password accounts.
     if (!user || user.isAnonymous) { showSignedOut(); return; }
-    // check the teachers/{uid} allowlist
     db.collection("teachers").doc(user.uid).get().then(function (snap) {
       var d = snap.exists ? snap.data() : null;
-      if (!d || d.active !== true) {
-        showSignedOut("此账号未获授权或已停用。如需协助，请联系 HOD。");
-        auth.signOut();
-        return;
-      }
-      _me = d;
-      showSignedIn(user, d);
+      if (d && d.active === true) { _me = d; showSignedIn(user, d); return; }
+      // signed in but not (yet) an approved teacher: pending, revoked, or new
+      db.collection("teacherRequests").doc(user.uid).get().then(function (rs) {
+        if (rs.exists) showStatus(user, "pending", rs.data());
+        else if (d && d.active === false) showStatus(user, "revoked");
+        else showStatus(user, "register");
+      }).catch(function () { showStatus(user, "register"); });
     }).catch(function (e) {
       showSignedOut("无法验证权限：" + (e.code || e.message) + "（请确认 Firestore 规则已发布）。");
     });
   });
 
-  function showSignedOut(msg) {
+  function hideAll() {
+    el("signinCard").style.display = "none";
+    el("statusCard").style.display = "none";
     el("dash").style.display = "none";
+  }
+  function showSignedOut(msg) {
+    hideAll();
     el("signinCard").style.display = "";
     el("signOutBtn").style.display = "none";
     el("whoami").textContent = "";
     if (msg) { var m = el("signinMsg"); m.className = "msg bad"; m.textContent = msg; }
   }
   function showSignedIn(user, d) {
-    el("signinCard").style.display = "none";
+    hideAll();
     el("dash").style.display = "";
     el("signOutBtn").style.display = "";
     el("whoami").textContent = (d.name || user.email) + " · " + (d.role === "hod" ? "HOD" : "教师");
     el("modTab").style.display = (d.role === "hod") ? "" : "none";
+    el("apprTab").style.display = (d.role === "hod") ? "" : "none";
   }
+  function showStatus(user, kind, req) {
+    hideAll();
+    el("statusCard").style.display = "";
+    el("signOutBtn").style.display = "none";
+    el("whoami").textContent = user.email;
+    el("registerHere").style.display = "none";
+    el("statusMsg").textContent = "";
+    if (kind === "pending") {
+      el("statusTitle").textContent = "申请审批中";
+      el("statusBody").innerHTML = "你的教师注册申请已提交，正在等待 HOD 审批。通过后用同一电邮登录即可使用。<br>电邮：" + esc(user.email);
+    } else if (kind === "revoked") {
+      el("statusTitle").textContent = "账号已停用";
+      el("statusBody").textContent = "此账号的教师权限已被停用。如需协助，请联系 HOD。";
+    } else {
+      el("statusTitle").textContent = "完成教师注册";
+      el("statusBody").textContent = "你已登录，但还没有提交教师注册申请。填写以下资料后提交，等待 HOD 审批。";
+      el("registerHere").style.display = "";
+    }
+  }
+  el("submitReqBtn").onclick = function () {
+    var user = auth.currentUser; if (!user) return;
+    var name = el("rName2").value.trim(), school = el("rSchool2").value.trim();
+    var m = el("statusMsg"); m.className = "msg";
+    if (!name) { m.className = "msg bad"; m.textContent = "请填写姓名。"; return; }
+    m.textContent = "提交中…";
+    fileRequest(user.uid, name, school, user.email).then(function () {
+      showStatus(user, "pending", { name: name });
+    }).catch(function (e) { m.className = "msg bad"; m.textContent = "提交失败：" + (e.code || e.message); });
+  };
 
-  /* ---------- tabs ---------- */
-  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+  /* ---------- tabs (dashboard only; scoped by data-tab so the login/register
+     tabs on the sign-in card are not caught) ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll(".tab[data-tab]"), function (t) {
     t.onclick = function () {
       _tab = t.getAttribute("data-tab");
-      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) { x.classList.toggle("on", x === t); });
+      Array.prototype.forEach.call(document.querySelectorAll(".tab[data-tab]"), function (x) { x.classList.toggle("on", x === t); });
       renderPanel();
     };
   });
@@ -201,11 +305,15 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         _restores = [];
         qs.forEach(function (doc) { _restores.push({ id: doc.id, data: doc.data() || {} }); });
       }).catch(function () { _restores = []; }),
+      db.collection("teacherRequests").get().then(function (qs) {
+        _requests = [];
+        qs.forEach(function (doc) { _requests.push({ uid: doc.id, data: doc.data() || {} }); });
+      }).catch(function () { _requests = []; }),
       _wordMap ? Promise.resolve() : loadWordMap()
     ];
     Promise.all(tasks).then(function () {
       el("loadBtn").disabled = false;
-      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _restores.length + " 条恢复记录（不自动刷新）。";
+      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _restores.length + " 条恢复记录 · " + _requests.length + " 个待审批（不自动刷新）。";
       renderPanel();
     }).catch(function (e) {
       el("loadBtn").disabled = false;
@@ -253,15 +361,63 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   /* ---------- panels ---------- */
   function renderPanel() {
     var panel = el("panel");
-    if (!_users.length && _tab !== "restores") {
+    // the student-data views need a load first; restores/approvals/mod don't
+    var needsData = (_tab === "overview" || _tab === "classes" || _tab === "hard");
+    if (needsData && !_users.length) {
       panel.innerHTML = '<div class="card hint">点上方「载入 / 刷新数据」开始。</div>';
-      if (_tab === "restores" && _restores.length) { /* fallthrough */ } else return;
+      return;
     }
     if (_tab === "overview") return renderOverview(panel);
     if (_tab === "classes") return renderClasses(panel);
     if (_tab === "hard") return renderHard(panel);
     if (_tab === "restores") return renderRestores(panel);
+    if (_tab === "approvals") return renderApprovals(panel);
     if (_tab === "mod") return renderMod(panel);
+  }
+
+  function renderApprovals(panel) {
+    if (!_me || _me.role !== "hod") { panel.innerHTML = '<div class="card hint">仅 HOD 可审批。</div>'; return; }
+    var pend = _requests.filter(function (r) { return (r.data.status || "pending") === "pending"; });
+    var rows = pend.map(function (r) {
+      var d = r.data;
+      return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td><td>' + esc(d.school || "") + '</td>' +
+        '<td>' + esc((d.requestedAt || "").slice(0, 10)) + '</td>' +
+        '<td><button class="btn primary appr-ok" data-uid="' + esc(r.uid) + '">批准</button> ' +
+        '<button class="btn appr-no" data-uid="' + esc(r.uid) + '">拒绝</button></td></tr>';
+    }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">审批教师</h2>' +
+      '<div class="hint">批准后，该教师即可用其电邮登录并查看仪表板。仅授予「教师」权限；HOD 只能在控制台设立，无法在此授予。</div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校</th><th>申请日期</th><th>操作</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="5" class="hint">目前没有待审批的申请（记得先「载入 / 刷新数据」）。</td></tr>') + '</tbody></table></div>' +
+      '<div class="msg" id="apprMsg"></div></div>';
+    Array.prototype.forEach.call(panel.querySelectorAll(".appr-ok"), function (b) {
+      b.onclick = function () { approve(b.getAttribute("data-uid")); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".appr-no"), function (b) {
+      b.onclick = function () { reject(b.getAttribute("data-uid")); };
+    });
+  }
+  function reqByUid(uid) { for (var i = 0; i < _requests.length; i++) if (_requests[i].uid === uid) return _requests[i].data; return {}; }
+  function approve(uid) {
+    var d = reqByUid(uid), m = el("apprMsg");
+    if (m) { m.className = "msg"; m.textContent = "处理中…"; }
+    db.collection("teachers").doc(uid).set({
+      name: d.name || "", email: d.email || "", school: d.school || "", role: "teacher", active: true
+    }).then(function () {
+      return db.collection("teacherRequests").doc(uid).delete();
+    }).then(function () {
+      _requests = _requests.filter(function (r) { return r.uid !== uid; });
+      renderApprovals(el("panel"));
+    }).catch(function (e) { if (m) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); } });
+  }
+  function reject(uid) {
+    var m = el("apprMsg");
+    if (m) { m.className = "msg"; m.textContent = "处理中…"; }
+    db.collection("teacherRequests").doc(uid).delete().then(function () {
+      _requests = _requests.filter(function (r) { return r.uid !== uid; });
+      renderApprovals(el("panel"));
+    }).catch(function (e) { if (m) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); } });
   }
 
   function renderOverview(panel) {

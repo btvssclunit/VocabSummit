@@ -810,9 +810,8 @@
       '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值</span></div>' +
       '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div>' +
       '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div>' +
-      '<div class="home-foot">测试版：登入与排行榜稍后加入。<br>' +
-      '<button class="code-link" id="nickDisplay">👤 ' + esc((loadProfile() || {}).nickname || "") + ' · 换昵称</button> · ' +
-      '<button class="code-link" id="pcodeBtn">💾 进度码 · 备份与恢复</button></div></div></div>';
+      '<div class="home-foot">' +
+      '<button class="code-link" id="profileHubBtn">👤 ' + esc((loadProfile() || {}).nickname || "我的档案") + ' · 我的档案（昵称 / 进度码 / 备份）</button></div></div></div>';
 
     view().innerHTML = html;
 
@@ -851,11 +850,7 @@
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
     if (mh) mh.onclick = startMountain;
-    document.getElementById("pcodeBtn").onclick = openProfilePanel;
-    document.getElementById("nickDisplay").onclick = function () {
-      var cur = loadProfile() || {};
-      renderNicknamePicker(function () { renderHome(); }, { dismissible: true, currentSchool: cur.school, currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
-    };
+    document.getElementById("profileHubBtn").onclick = openProfilePanel;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
@@ -2707,11 +2702,13 @@
      Pin positions come from MTN_PATH (hand-traced on this exact image); nudge
      those waypoints if a future image changes the path.
      ================================================================== */
+  /* Hand-traced by pixel-sampling the painted tan staircase on mountain_bg.png
+     (bottom -> summit). Follows the zigzag: bottom bulge, the mid S-curve, then
+     the ridge to the pavilion. Re-trace if the image changes. */
   var MTN_PATH = [
-    [0.613, 0.950], [0.598, 0.869], [0.580, 0.795], [0.562, 0.732],
-    [0.551, 0.668], [0.553, 0.602], [0.555, 0.534], [0.549, 0.465],
-    [0.542, 0.396], [0.536, 0.327], [0.529, 0.258], [0.523, 0.189],
-    [0.519, 0.129], [0.517, 0.086]
+    [0.593, 0.955], [0.625, 0.891], [0.574, 0.828], [0.513, 0.764], [0.521, 0.700],
+    [0.582, 0.637], [0.529, 0.573], [0.537, 0.509], [0.518, 0.446], [0.517, 0.382],
+    [0.519, 0.319], [0.521, 0.255], [0.523, 0.191], [0.525, 0.128], [0.527, 0.064]
   ];
   function mtnPathAt(frac) {
     var n = MTN_PATH.length - 1;
@@ -3072,8 +3069,7 @@
   /* ---------- boot ---------- */
   function boot() {
     app.innerHTML = '<div class="topbar"></div><div class="wrapper" id="view">' +
-      '<div class="loading">正在装载词库…</div></div>' +
-      '<div class="beta-chip">测试版 v0.3 · 未登入</div>';
+      '<div class="loading">正在装载词库…</div></div>';
     setTopbar("landing", "");
 
     fetch(STREAM + ".json")

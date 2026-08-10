@@ -40,10 +40,21 @@ service cloud.firestore {
       allow write: if isHod();
     }
 
-    // teacher allowlist: readable by teachers, NEVER client-writable (console only).
+    // teacher self-registration queue: a signed-in user creates/edits ONLY their
+    // own request; teachers/HOD read the queue; an HOD clears handled ones.
+    match /teacherRequests/{uid} {
+      allow read:          if isTeacher() || (request.auth != null && request.auth.uid == uid);
+      allow create, update: if request.auth != null && request.auth.uid == uid;
+      allow delete:        if isHod();
+    }
+
+    // teacher allowlist (the access gate). Readable by teachers. An HOD may
+    // grant/revoke TEACHER access in-app (approvals), but the "hod" role can
+    // only ever be minted in the console — request.resource.data.role must be
+    // "teacher", so no in-app HOD creation or self-escalation is possible.
     match /teachers/{uid} {
       allow read:  if isTeacher();
-      allow write: if false;
+      allow write: if isHod() && request.resource.data.role == "teacher";
     }
   }
 }

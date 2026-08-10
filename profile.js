@@ -35,7 +35,9 @@
     try { return new Date().getFullYear(); } catch (e) { return 2026; }
   }
   function normClass(s) {
-    return String(s == null ? "" : s).toUpperCase().replace(/\s+/g, "");
+    // year + class, e.g. "2026 3hc3" -> "2026 3HC3": uppercase, trim, collapse
+    // internal whitespace to ONE space (so the year stays separated from class).
+    return String(s == null ? "" : s).trim().toUpperCase().replace(/\s+/g, " ");
   }
 
   /* ---------- load / save ---------- */
@@ -189,8 +191,9 @@
           '<div class="pop-label" style="font-weight:500;margin-top:10px">身份类别 · 当前：' + esc(catShown) + '</div>' +
           '<div class="prof-chips">' + catChips + '</div>' +
           '<div id="profClassWrap"' + (cat === "student" ? "" : ' style="display:none"') + '>' +
-            '<div class="pop-label" style="font-weight:500">班级</div>' +
-            '<input type="text" class="prof-input" id="profClass" placeholder="例如：1C1、2C2A、3C3B、4HC3" value="' + esc(draft.mtlClass) + '">' +
+            '<div class="pop-label" style="font-weight:500">班级 · 请填「年份 + 班级」</div>' +
+            '<input type="text" class="prof-input" id="profClass" placeholder="例如：2026 3HC3" value="' + esc(draft.mtlClass) + '">' +
+            '<div class="pop-note">写上年份，升班后即使忘了更新，老师也能看出是哪一年的班级。</div>' +
           '</div>' +
           '<div class="feedback" id="profSaveFb"></div>' +
           '<div class="nav-row"><button class="nav-btn primary" id="profSave">保存</button></div></div>' +
