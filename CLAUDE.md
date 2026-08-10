@@ -43,6 +43,12 @@ Do NOT introduce subfolders unless the owner has moved to a git client.
 - landing_hero_bg / hero_bg / study_bg / rain_bg / sprint_bg .png — scene backgrounds
 - sprite_g1/g2/g3/hcl_raw.png + tileset_raw.png — 8-bit art awaiting processing (magenta
   #FF00FF background removal, 6-frame layout). Never ship the raw files into a scene.
+- bg-01..05 .png — painterly progression backdrops (1672×941, ~2.5MB each), shared across all
+  four courses. Wired 2026-08-10 as the app-wide body ambience via app.js applyAmbience(): bg-01
+  (staircase-sunrise) → bg-02 (bamboo) → bg-03 (ridge-clouds) → bg-04 (snowpass-dusk) rotate by
+  overall mastery tier (¼ bands); bg-05 (summit-pavilion) shows only when the course is complete
+  (badges.t4). Painterly, so they live on the ambient backdrop — NOT on the pixel-art mountain
+  panorama (drawPanorama still uses sprint_bg.png). The landing page keeps study_bg.png (no app.js).
 
 Kept with the Excel masters, NOT in the repo: generate_vocab_json.py, check_consistency.py.
 
@@ -163,9 +169,11 @@ Phase: login-free public test build.
   Progressive hints: G2 shows all four 声母 from the start; G3/HCL show the first character's 声母
   only; all levels reveal 释义 after 2 wrong guesses.
 - 组词挑战 (G2): character-assembly game (slots + chips).
-- 攀山竞速: fixed-viewport canvas with camera-follow; answering is movement; timer 60/90/120s,
-  choice remembered per device; combo tones; personal-record flag line; TTS for question prompt
-  and options; placeholder pixel climber in the level accent colour until the sprite pipeline lands.
+- 攀山竞速: vertically-scrolling tiling rock wall (climb-wall-tile.png) with a zigzag climber
+  (redesigned 2026-08-10; was a waypoint path). Answering correctly scrolls the wall and the
+  climber zigzags up one hold column per step. Timer 60/90/120s (remembered per device); combo
+  tones; personal-record ledge line; TTS for prompt and options; 8-bit sprite climber (position-
+  only movement, no limb animation).
 - 我的词山: persistent mountain world, one mountain per level, entered from the home mini-horizon.
   Altitude = mastered word count, 1词 = 1米, never decreases (locked rule).
 - Mastery ⓘ popover explaining the generous first-correct rule.
@@ -261,3 +269,31 @@ Rebuilt from DESIGN_词雨灵露_营地商店.md after the original v0.4 files w
   restored by cloud merge on reload; seed UP or clear cloud when testing altitude.
 - Convention change 2026-08-10: code-embedded quotation marks now use 「」 (was curly " "), see Design
   system. Only one curly-quote string existed (the new rain copy); swept clean.
+
+## Art asset drop, 2026-08-10 (wordgrove == VocabSummit, renamed)
+
+Source: Downloads/wordgrove-assets/ (also in Documents/VocabSummit/all-images/). "wordgrove"
+is an old name for THIS project; its CLAUDE_CODE_INSTRUCTIONS.md targets this repo.
+
+- WIRED: the 5 story backgrounds (bg-01..05) as the app-wide progression ambience (see file list).
+- WIRED (owner chose the redesign 2026-08-10): minigame/climb-wall-tile.png. 攀山竞速 (startSprint)
+  was REBUILT from a fixed-viewport waypoint-path climb into a vertically-scrolling tiling rock
+  wall + zigzag climber, per the asset instructions. WALL_IMG tiles seamlessly on Y (tileH scaled
+  to canvas width); climbAlt drives worldY so the texture flows downward as you ascend (STEP_PX=78);
+  the climber sits at a fixed screen anchor (H*0.60) and zigzags between two hold columns (0.34/0.66
+  W), one column per altitude step, with a small up-arc per move. No limb animation (position only,
+  per spec). Removed the now-dead SPRINT_WP / waypointPos / climbFrac. Personal-record shows as a
+  ledge line on the wall. drawPanorama (sprint_bg.png) is no longer used by sprint but still serves
+  我的词山. NOTE: the tile's top/bottom edges are close but not pixel-perfect (per the drop); the
+  busy texture hides it, but eyeball the seam on a long run — regenerate/edge-blend the PNG if it
+  shows (do NOT paper over it in code). The superseded chibi-climber asset is not referenced.
+
+## Nickname pool revision, 2026-08-10
+
+Adopted from Downloads/nickname_pool_revision/ (per Kai Xin's vetting). DESC_CATS/NOUN_CATS
+swapped in both app.js and nickname.js (kept identical). Totals 132 desc / 84 noun →
+122 desc / 85 noun (10,370 combos). Two categories renamed: 正义侠肝 → 正直担当, 独特多元 →
+个性独特. Removed terms that were violent/weaponised (两肋插刀…), romantic (来者不拒…), or
+visual-scenery rather than character traits. Data-only change: the picker already rendered
+{w,zh} chips with 释义 tooltips, so no picker code changed. (Note 滴水穿石 still appears in
+app.js — that is the CEL_T1 celebration quote, not a nickname; correct.)
