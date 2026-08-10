@@ -32,8 +32,11 @@ Do NOT introduce subfolders unless the owner has moved to a git client.
 - G1/G2/G3/HCL_index.html — thin per-stream entries; each sets `window.STREAM` then loads app.js
 - app.css — all styles; BVSS palette lives here as CSS variables
 - app.js — the whole engine (vanilla JS, IIFE, no build step, no frameworks)
-- world.html — 我的词山 mountain-world scene; three_min.js is Three.js r128 (minified; this
-  build has no OrbitControls and no CapsuleGeometry — use Cylinder/Sphere/custom geometries)
+- world.html — 词山群岛 sailing scene (a boat between four island-mountains); three_min.js is
+  Three.js r128 (minified; this build has no OrbitControls and no CapsuleGeometry — use
+  Cylinder/Sphere/custom geometries). NOTE: this is NOT 我的词山. The real 我的词山 (altitude-
+  climbing mountain) is a 2D canvas rendered inline by startMountain() in app.js, reading the
+  in-memory store; camp/shop/zones/gyms all live there. (Corrected 2026-08-10; see HANDOFF doc.)
 - g1/g2/g3/hcl.json — generated vocabulary data (see Vocabulary data below for the edit rules)
 - id_registry.json — stable word ID registry; always commit together with the JSON it matches
 - badge_shkj/hx/gg/jj/whz.png — the five component badges (see Badge system below)
@@ -52,7 +55,8 @@ Kept with the Excel masters, NOT in the repo: generate_vocab_json.py, check_cons
   right-side shadow faces for depth, mountains and sea always run edge to edge, sun on the RIGHT (旭日东升).
 - Light backgrounds carry dark ink text on white cards; deep-sea navy panels carry light text.
 - Vertical couplet uses width:1.15em + word-break (NOT writing-mode, which renders unreliably).
-- Quotation marks in any code-embedded dialogue text: curly double quotes " " (never 「」, never straight ").
+- Quotation marks in any code-embedded dialogue text: use 「」 (never curly double quotes " ", never
+  straight "). Decided 2026-08-10: curly quotes often render with the wrong orientation; 「」 is consistent.
 - No em dashes in prose/docs; use colons and commas.
 - LANDSCAPE IS THE PRIMARY DESIGN TARGET on every screen (PLDs: iPads with keyboards, Chromebooks).
   Portrait phones remain a functional fallback for public sharing / open house. Never lock orientation.
@@ -221,3 +225,39 @@ Phase: login-free public test build.
   mocked-THREE runner (setup + 6 frames, no exception).
 - Level-page mini-horizon uses landing_hero_bg.png (app.js miniHorizon). If a deployed level page
   shows different art, the deployed app.js is stale.
+
+## v0.4 rebuild, 2026-08-10 (词雨灵露 · 你的营地 · 营地商店 · 年度试炼)
+
+Rebuilt from DESIGN_词雨灵露_营地商店.md after the original v0.4 files were confirmed lost
+(not in git history, not in any Downloads folder). All in app.js + app.css; world.html untouched.
+
+- New store fields (loadStore): `lingLu` (灵露 number), `deco` (owned shop keys), `gym`
+  (passed levels), `gymTodo` (level -> {wordId} 待巩固), `homeTab` (study|play). localStorage-only:
+  NOT added to mergeCloudProgress, so they persist locally and are never clobbered by cloud restore
+  (they ARE sent to Firestore as part of the whole store, just not merged back). Not in 进度码.
+- 词雨 renamed 词雨灵露: each caught word earns 灵露 = its char count; the jar counter shows ✨ dew;
+  on game over `store.lingLu += dew`. Score formula unchanged. Pun kept.
+- Home page: 📖 修行 / 🎮 闯关 tabs (store.homeTab). 修行 = quiz modes, 闯关 = games. Badge strip /
+  stats / footer stay under both.
+- 你的营地: permanent base-camp mark at alt 0 in buildMarks (t:"base"), always reachable. Tapping it
+  opens openCamp() — wallet, pets line, 自由试炼 board (launches any mode with the current 修行 scope),
+  and 营地商店 entry. Owned decorations (fire/flag/pine/pavilion) render beside the tent via TILE_MAP.
+- 营地商店 openShop(): 篝火30 / 营旗60 / 青松100 / 小亭200, gated on store.lingLu, owned -> store.deco.
+- Four altitude zones (山脚绿野/云海栈道/雪线冰崖/天阶峰顶): boundaries from the t:"level" marks; a
+  translucent tint per band overlays the panorama + a zone name pill in the mountain HUD. Cosmetic only.
+- 年度试炼 (gyms): folded INTO the 年级峰 (t:"level") popover, NOT a separate mark, to avoid overlap at
+  the boundary. Cumulative design (owner 2026-08-10): 30 words from the level + 10 random from EACH
+  earlier level (中一 30 / 中二 40 / 中三 50 / 中四 60), built by buildGymSeq(). Pass = ALL correct ->
+  store.gym[level]=1 + 四灵 pet (🐢灵龟/🦌麒麟/🐦凤凰/🐉神龙 by level index) + result screen.
+- Option B failure (locked): a failed trial never touches mastery/altitude; missed words go to
+  store.gymTodo[level], the trial relocks, and any correct answer in cloze/MCQ/sprint calls gymNote()
+  which clears that word from every level's 待巩固, re-unlocking the trial.
+- Gym reuses renderMcq via a state.gym flag + state.pool (distractors from the involved levels) and a
+  renderGymResult branch. Gym answers do count toward zhmcq stats (bump) — acceptable, they are 华文解释.
+- Verified in-browser (no Node on this machine, so node --check / jsdom smoke tests were replaced by a
+  full browser pass on a python3 http.server): tabs, currency banking, camp, shop purchase+gating+deco
+  render, zones, gym unlock, cumulative counts (中二=40), Option B fail+待巩固+integrity+relock, recovery,
+  win+pet. Firebase is live locally (WSCloud.isAvailable()=true), so seeding a LOWER mastered count is
+  restored by cloud merge on reload; seed UP or clear cloud when testing altitude.
+- Convention change 2026-08-10: code-embedded quotation marks now use 「」 (was curly " "), see Design
+  system. Only one curly-quote string existed (the new rain copy); swept clean.

@@ -96,6 +96,12 @@ img{max-width:100%}
 .scope-acc.open .chev{transform:rotate(90deg)}
 .units.collapsed{display:none}
 
+.htabs{display:flex;gap:10px;margin-bottom:14px}
+.htab{flex:1;border:1px solid #B9CEDD;border-radius:14px;padding:12px 10px;font-size:16px;font-weight:700;
+  color:var(--ink-soft);background:#fff;cursor:pointer;transition:transform .12s}
+.htab:active{transform:scale(.985)}
+.htab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;box-shadow:0 4px 14px rgba(227,166,60,.35)}
+
 .camps{display:grid;grid-template-columns:1fr;gap:12px}
 .camp{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--card-line);
   border-radius:16px;padding:17px 16px;width:100%;text-align:left;
@@ -370,6 +376,32 @@ img{max-width:100%}
   padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink);background:#F7FAFC}
 .code-link{background:none;border:none;color:#3A5A70;font-size:12.5px;text-decoration:underline;
   cursor:pointer;padding:4px;margin-top:2px}
+
+/* ---------- 你的营地 / 营地商店 / 年度试炼 ---------- */
+.camp-wallet{background:#FDF3DC;border:1px solid #EFD9A4;border-radius:12px;padding:10px 14px;
+  font-size:14px;color:#7A5B12;margin-bottom:8px}
+.camp-wallet b{font-family:var(--serif);font-size:18px;color:var(--gold-deep)}
+.camp-pets{font-size:13.5px;color:#3F704F;font-weight:700;margin-bottom:6px}
+.camp-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-bottom:6px}
+.cb{border:1px solid #B9CEDD;border-radius:12px;padding:12px 10px;font-size:14.5px;font-weight:700;
+  color:var(--ink);background:#F7FAFC;cursor:pointer;transition:transform .12s}
+.cb:hover{transform:translateY(-2px);border-color:var(--gold)}
+.cb:active{transform:scale(.98)}
+.gym-sec{margin-top:12px;padding-top:12px;border-top:1px solid #E4EDF4}
+.gym-sec.done{color:#3F704F;font-weight:700;font-size:14px;line-height:1.7}
+.gym-sec.lock{color:var(--ink-soft);font-size:13.5px;line-height:1.7}
+.gym-todo{color:var(--gold-deep);font-weight:700}
+.gym-go{width:100%}
+.shop-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.shop-row{display:flex;align-items:center;gap:12px;border:1px solid var(--card-line);border-radius:14px;padding:12px 14px}
+.shop-info{flex:1;min-width:0}
+.shop-info b{font-size:16px;display:block;color:var(--ink)}
+.shop-info span{font-size:12.5px;color:var(--ink-soft)}
+.shop-price{font-size:14px;font-weight:700;color:var(--gold-deep);flex:none}
+.shop-buy{border:none;border-radius:999px;padding:9px 18px;font-size:14px;font-weight:700;flex:none;
+  background:var(--gold);color:#3A2A08;cursor:pointer}
+.shop-buy:disabled{background:#D9E3EB;color:#8A94A0;cursor:not-allowed}
+.shop-owned{font-size:13px;font-weight:700;color:#3F704F;flex:none}
 
 /* ---------- 攀山竞速 ---------- */
 .sprint-shell{display:flex;flex-direction:column;gap:10px;height:calc(100vh - 92px);min-height:480px}

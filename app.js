@@ -192,6 +192,11 @@
     s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
+    s.lingLu = s.lingLu || 0;          // 灵露 currency (number), earned in 词雨灵露
+    s.deco = s.deco || {};             // 营地商店 decorations owned: shopKey -> 1
+    s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
+    s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
+    s.homeTab = s.homeTab || "study";  // last home tab: study | play
     return s;
   }
   function saveStore() {
@@ -329,6 +334,28 @@
     store.mastered[w.id] = 1;
     saveStore();
     checkBadges();
+  }
+
+  /* ---------- 年度试炼 pets (四灵) + 待巩固 clearance ---------- */
+  var PETS = [
+    { emoji: "🐢", name: "灵龟" },   // 中一
+    { emoji: "🦌", name: "麒麟" },   // 中二
+    { emoji: "🐦", name: "凤凰" },   // 中三
+    { emoji: "🐉", name: "神龙" }    // 中四
+  ];
+  function petFor(level) {
+    var i = LEVELS.indexOf(level);
+    if (i < 0) i = 0;
+    return PETS[i] || PETS[PETS.length - 1];
+  }
+  /* any correct answer in a study mode clears that word from every level's
+     待巩固 checklist, re-unlocking a relocked 年度试炼 (Option B recovery) */
+  function gymNote(id) {
+    var changed = false;
+    Object.keys(store.gymTodo).forEach(function (lv) {
+      if (store.gymTodo[lv] && store.gymTodo[lv][id]) { delete store.gymTodo[lv][id]; changed = true; }
+    });
+    if (changed) saveStore();
   }
 
   /* ---------- celebrations (T1–T4, literary quotes) ---------- */
@@ -511,17 +538,23 @@
     html += '</div>';
 
     html += '</div><div class="home-right">' +
-      '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
-      camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
-      camp("cloze", "✍️", "填空挑战", "读句子，填出词语 · 可选难度") +
-      camp("zhmcq", "🔎", "华文解释", "看释义，选出词语") +
-      camp("enmcq", "🌐", "英文翻译", "看英译，选出词语") + '</div>';
+      '<div class="htabs">' +
+      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行</button>' +
+      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关</button></div>';
 
-    html += '<div class="section-label" style="margin-top:18px">词语游乐场</div><div class="camps">' +
-      camp("rain", "🌧️", "词雨", "词语随雨落下，打字接住，收集雨水") +
-      camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
-      (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
-      (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
+    if (store.homeTab === "play") {
+      html += '<div class="section-label">词语游乐场</div><div class="camps">' +
+        camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它入海前打出，收进宝缸得灵露") +
+        camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
+        (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
+        (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
+    } else {
+      html += '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
+        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
+        camp("cloze", "✍️", "填空挑战", "读句子，填出词语 · 可选难度") +
+        camp("zhmcq", "🔎", "华文解释", "看释义，选出词语") +
+        camp("enmcq", "🌐", "英文翻译", "看英译，选出词语") + '</div>';
+    }
 
     html += '<button class="badge-strip" id="badgeStrip">';
     var shown = 0;
@@ -567,6 +600,13 @@
       UNIT_LIST.forEach(function (u) { scope.add(u.key); }); renderHome();
     };
     document.getElementById("selNone").onclick = function () { scope.clear(); renderHome(); };
+    Array.prototype.forEach.call(view().querySelectorAll(".htab[data-tab]"), function (btn) {
+      btn.onclick = function () {
+        var tab = btn.getAttribute("data-tab");
+        if (store.homeTab === tab) return;
+        store.homeTab = tab; saveStore(); renderHome();
+      };
+    });
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
@@ -810,7 +850,7 @@
     function finish(right) {
       noteStreak(state, right);
       bump("cloze", right);
-      if (right) { state.correct++; markMastered(w); sfxOk(); }
+      if (right) { state.correct++; markMastered(w); gymNote(w.id); sfxOk(); }
       document.getElementById("nextRow").style.display = "flex";
       var nx = document.getElementById("next");
       nx.onclick = function () { state.i++; renderStep(state); };
@@ -887,7 +927,7 @@
     var w = state.seq[state.i];
     var isZh = state.mode === "zhmcq";
     var prompt = isZh ? w.zh : w.en;
-    var opts = shuffle([w].concat(distractorsFor(w, scopedWords(), 3)));
+    var opts = shuffle([w].concat(distractorsFor(w, state.pool || scopedWords(), 3)));
     view().innerHTML = '<div class="study">' +
       railHtml(state, isZh ? "华文解释" : "英文翻译", isZh ? "看释义，选出词语" : "看英译，选出词语") +
       '<div class="stage"><div class="q-card">' +
@@ -920,7 +960,8 @@
         var fb = document.getElementById("fb");
         function reveal() {
           noteStreak(state, right);
-          if (right) { state.correct++; sfxOk(); }
+          if (right) { state.correct++; sfxOk(); gymNote(w.id); }
+          else if (state.gym) state.wrong[w.id] = 1;
           bump(state.mode, right);
           Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
             var o = opts[bi];
@@ -946,6 +987,7 @@
 
   /* ---------- result ---------- */
   function renderResult(state) {
+    if (state.gym) return renderGymResult(state);
     var total = state.seq.length;
     var pct = total ? Math.round(100 * state.correct / total) : 0;
     var msg = pct >= 90 ? "登顶了！旭日在你身后。" :
@@ -963,6 +1005,66 @@
     document.getElementById("home").onclick = renderHome;
   }
 
+  /* ---------- 年度试炼 (annual gym trial, meaning→word MCQ) ---------- */
+  /* Cumulative trial (owner spec 2026-08-10): 30 words from the current year
+     level, plus 10 random from EACH earlier level. So 中一 = 30, 中二 = 40,
+     中三 = 50, 中四 = 60 — later trials review everything below them. */
+  function buildGymSeq(level) {
+    var idx = LEVELS.indexOf(level); if (idx < 0) idx = 0;
+    var byLv = {};
+    WORDS.forEach(function (w) { (byLv[w.level] = byLv[w.level] || []).push(w); });
+    var involved = [level];
+    var seq = shuffle((byLv[level] || []).slice()).slice(0, 30);
+    for (var j = idx - 1; j >= 0; j--) {
+      var lv = LEVELS[j];
+      involved.push(lv);
+      seq = seq.concat(shuffle((byLv[lv] || []).slice()).slice(0, 10));
+    }
+    var pool = [];   // distractor pool = every word from the involved levels
+    involved.forEach(function (lv) { pool = pool.concat(byLv[lv] || []); });
+    return { seq: shuffle(seq), pool: pool };
+  }
+  function startGym(level) {
+    var g = buildGymSeq(level);
+    if (g.seq.length < 4) { alert("本年级词语不足，暂时无法开启年度试炼。"); return; }
+    var state = { mode: "zhmcq", seq: g.seq, i: 0, correct: 0, revealed: false,
+      streak: 0, gym: level, pool: g.pool, wrong: {} };
+    renderStep(state);
+  }
+  function renderGymResult(state) {
+    ensureIdIndex();
+    var level = state.gym, total = state.seq.length;
+    var wrongIds = Object.keys(state.wrong);
+    var passed = wrongIds.length === 0;
+    setTopbar("home", "");
+    if (passed) {
+      store.gym[level] = 1; saveStore();
+      var pet = petFor(level);
+      sfxBadge();   // reward chime; the result screen below carries the celebration
+      view().innerHTML = '<div class="result">' +
+        '<div class="big">🏅 ' + esc(level) + ' 年度试炼通过！</div>' +
+        '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
+        '<div class="msg">登山伙伴加入队伍：' + pet.emoji + ' <b>' + esc(pet.name) + '</b></div>' +
+        '<div class="nav-row"><button class="nav-btn primary" id="home">回到词山</button></div></div>';
+      document.getElementById("home").onclick = startMountain;
+      return;
+    }
+    // Option B: never demote mastery/altitude; missed words enter 待巩固, trial relocks
+    store.gymTodo[level] = store.gymTodo[level] || {};
+    wrongIds.forEach(function (id) { store.gymTodo[level][id] = 1; });
+    saveStore();
+    var words = wrongIds.map(function (id) { var w = WORDS[_idIndex[id]]; return w ? esc(w.w) : null; }).filter(Boolean);
+    view().innerHTML = '<div class="result">' +
+      '<div class="big">' + state.correct + ' / ' + total + '</div>' +
+      '<div class="sub">' + esc(level) + ' 年度试炼 · 还差一点</div>' +
+      '<div class="msg">这些词进入「待巩固」，在修行中答对即可重开试炼：<br><b>' + words.join("、") + '</b><br>' +
+      '<span style="font-size:12px">（掌握与海拔不受影响，只是试炼暂时上锁）</span></div>' +
+      '<div class="nav-row"><button class="nav-btn" id="again">再试一次</button>' +
+      '<button class="nav-btn primary" id="home">回到词山</button></div></div>';
+    document.getElementById("again").onclick = function () { startGym(level); };
+    document.getElementById("home").onclick = startMountain;
+  }
+
   /* ==================================================================
      词雨 · falling-words typing game (all streams)
      Score per cleared word = 字数 × 10 × combo, plus altitude bonus
@@ -978,8 +1080,8 @@
     setTopbar("home", "");
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">🌧️ 词雨</div>' +
-      '<div class="mode-desc">雨中词语落向大海，在落水前打出它，收进雨水收集缸！<br>字数越多、接得越高、连击越长，得分越高。</div>' +
+      '<div class="mode-name">🌧️ 词雨灵露</div>' +
+      '<div class="mode-desc">词语化作灵雨随风而落，落入江海便消失无踪，趁它在空中打出它，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。✨ 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
       '<div class="diff-label">下落速度</div><div class="diff" id="speedSel">' +
       RAIN_SPEEDS.map(function (s, i) {
         return '<button class="dopt' + (i === 1 ? " on" : "") + '" data-i="' + i + '">' + s.label + '</button>';
@@ -1007,7 +1109,7 @@
     var cfg = RAIN_SPEEDS[speedIdx];
     var pool = scopedWords().filter(function (w) { return w.w.length <= 4; });
     if (pool.length < 8) {
-      alert("所选范围内适合词雨的词语不足（需要至少 8 个 1–4 字的词语）。请扩大复习范围。");
+      alert("所选范围内适合词雨灵露的词语不足（需要至少 8 个 1–4 字的词语）。请扩大复习范围。");
       return;
     }
     setTopbar("home", "");
@@ -1021,15 +1123,15 @@
       '<button class="nav-btn" id="rPause" style="margin-left:auto;padding:6px 14px">⏸ 暂停</button></div>' +
       '<div class="rain-area" id="rArea"><div class="rain-fx"></div><div class="rain-sea"></div>' +
       '<div class="rain-barrel" id="rBarrel"><div class="rain-water" id="rWater"></div>' +
-      '<div class="rain-drops" id="rDrops">💧 0</div></div></div>' +
+      '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
       '<div class="rain-input-row">' +
-      '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集雨水…">' +
+      '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
       '<button class="check-btn" id="rFire">收集</button></div></div>';
 
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
     var live = [];          // {el, w, x, y, sway, phase}
-    var score = 0, combo = 1, cleared = 0, lives = 3, wave = 1;
+    var score = 0, combo = 1, cleared = 0, lives = 3, wave = 1, dew = 0;
     var running = true, over = false, composing = false;
     var lastT = null, spawnTimer = 0, raf = null;
     var bag = shuffle(pool);
@@ -1128,13 +1230,14 @@
       var o = live[hit];
       var altBonus = Math.max(0, Math.round((1 - o.y / area.clientHeight) * 20)); // clear it high
       score += o.w.w.length * 10 * combo + altBonus;
+      dew += o.w.w.length; // 灵露 = 字数，落袋为安
       cleared++; combo = Math.min(5, combo + (cleared % 3 === 0 ? 1 : 0));
       if (cleared % 10 === 0) { wave++; document.getElementById("rWave").textContent = wave; toast("🌊 第 " + wave + " 波来了！"); }
       sfxOk();
       collectToBarrel(o);
       live.splice(hit, 1);
-      document.getElementById("rDrops").textContent = "💧 " + cleared;
-      document.getElementById("rWater").style.height = Math.min(100, cleared * 3) + "%";
+      document.getElementById("rDrops").textContent = "✨ " + dew;
+      document.getElementById("rWater").style.height = Math.min(100, dew * 2) + "%";
       document.getElementById("rScore").textContent = score;
       document.getElementById("rCombo").textContent = "×" + combo;
     }
@@ -1144,10 +1247,13 @@
       live.forEach(function (o) { o.el.remove(); }); live = [];
       var best = store.best.rain || 0;
       var isBest = score > best;
-      if (isBest) { store.best.rain = score; saveStore(); }
+      if (isBest) store.best.rain = score;
+      store.lingLu += dew;          // bank the run's 灵露 into the wallet
+      saveStore();
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + score + '</div>' +
-        '<div class="sub">词雨 · 收集 ' + cleared + ' 滴雨水 · 第 ' + wave + ' 波</div>' +
+        '<div class="sub">词雨灵露 · 接住 ' + cleared + ' 词 · 第 ' + wave + ' 波</div>' +
+        '<div class="msg">✨ 收获灵露 ' + dew + ' · 现有 ' + store.lingLu + '（在词山营地兑换装备）</div>' +
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局</button>' +
@@ -1595,6 +1701,7 @@
           if (right) {
             ok++; combo++; celT = 0.55;
             targetAlt = Math.min(totalAlt, targetAlt + 1);
+            gymNote(cur.id);
             if (!store.mastered[cur.id]) { newMastered++; markMastered(cur); }
             document.getElementById("spOk").textContent = ok;
             document.getElementById("spCombo").textContent = "🔥" + combo;
@@ -1768,6 +1875,7 @@
   function buildMarks() {
     /* fixed map of the whole journey: cumulative word counts in WORDS order */
     var marks = [], cum = 0, i, c, side;
+    marks.push({ t: "base", alt: 0 });   // 你的营地 — permanent landmark, always reachable
     var lastUnit = null, lastLevel = null, unitStartCum = 0, levelStartCum = 0;
     for (i = 0; i < COMP_LIST.length; i++) {
       c = COMP_LIST[i];
@@ -1791,12 +1899,14 @@
     return marks;
   }
   function markDone(m) {
+    if (m.t === "base") return true;
     if (m.t === "comp") return !!store.badges[badgeKeyC(m.comp)];
     if (m.t === "unit") return !!store.badges[badgeKeyU(m.level, m.unit)];
     if (m.t === "level") return !!store.badges[badgeKeyL(m.level)];
     return !!store.badges["t4"];
   }
   function markLabel(m) {
+    if (m.t === "base") return "你的营地";
     if (m.t === "comp") return m.comp.unit + " · " + m.comp.component;
     if (m.t === "unit") return m.unit + " 营地";
     if (m.t === "level") return m.level + " 年级峰";
@@ -1836,9 +1946,37 @@
       ch.onclick = function () { speak(ch.getAttribute("data-say")); };
     });
   }
+  /* 年度试炼 block shown inside the 年级峰 popover (folded in to avoid a
+     second landmark colliding with the level flag at the same altitude) */
+  function gymSectionHtml(m) {
+    var level = m.level, pet = petFor(level);
+    if (store.gym[level]) {
+      return '<div class="gym-sec done">🏅 ' + esc(level) + ' 年度试炼已通过<br>登山伙伴：' +
+        pet.emoji + ' ' + esc(pet.name) + '</div>';
+    }
+    var todo = store.gymTodo[level] || {}, todoIds = Object.keys(todo);
+    if (todoIds.length) {
+      var words = todoIds.map(function (id) {
+        var w = WORDS[_idIndex[id]]; return w ? esc(w.w) : null;
+      }).filter(Boolean);
+      return '<div class="gym-sec lock">🔒 ' + esc(level) + ' 年度试炼 · 待巩固 ' + words.length + ' 词<br>' +
+        '<span class="gym-todo">' + words.join("、") + '</span><br>' +
+        '<span class="pop-hint">在「修行」中答对这些词即可重新开启试炼</span></div>';
+    }
+    if (altitudeNow() < (m.fromAlt || 0)) {
+      return '<div class="gym-sec lock">🔒 登上 ' + esc(level) + ' 山区后开启年度试炼（赢取 ' +
+        pet.emoji + ' ' + esc(pet.name) + '）</div>';
+    }
+    var n = buildGymSeq(level).seq.length;
+    return '<div class="gym-sec">' +
+      '<div class="pop-hint" style="margin-bottom:8px">共 ' + n + ' 题 · 含本级与以往各级词语 · 需全部答对方可通过</div>' +
+      '<button class="nav-btn primary gym-go" id="gymGo">⚔️ 挑战 ' +
+      esc(level) + ' 年度试炼（赢取 ' + pet.emoji + ' ' + esc(pet.name) + '）</button></div>';
+  }
   function openMark(m) {
     ensureIdIndex();
     var html, ids, got, ov;
+    if (m.t === "base") { return openCamp(); }
     if (m.t === "comp") {
       ids = m.comp.ids;
       got = ids.filter(function (id) { return store.mastered[id]; }).length;
@@ -1858,7 +1996,7 @@
       var uDone = units.filter(function (u) { return store.badges[badgeKeyU(u.level, u.unit)]; }).length;
       html = '<div class="pop-title">🚩 ' + esc(m.level) + ' 年级峰</div>' +
         '<div class="pop-body">海拔 ' + m.alt + ' 米<br>单元完成 <b>' + uDone + '</b> / ' + units.length +
-        (markDone(m) ? " · 年级徽章已获得 🏅" : "") + '</div>';
+        (markDone(m) ? " · 年级徽章已获得 🏅" : "") + '</div>' + gymSectionHtml(m);
     } else {
       html = '<div class="pop-title">🏯 顶峰</div>' +
         '<div class="pop-body">海拔 ' + m.alt + ' 米 · 全部词语的终点<br>已掌握 <b>' +
@@ -1867,8 +2005,94 @@
     }
     ov = popOverlay(html + '<div class="nav-row"><button class="nav-btn primary" id="popOk">知道了</button></div>');
     ov.querySelector("#popOk").onclick = function () { ov.remove(); };
+    var gymGo = ov.querySelector("#gymGo");
+    if (gymGo) gymGo.onclick = function () { ov.remove(); startGym(m.level); };
     wireChips(ov);
   }
+
+  /* ---------- 你的营地 base camp popover (自由试炼 hub + shop entry) ---------- */
+  var CAMP_MODES = [
+    { mode: "cloze", label: "✍️ 填空挑战" },
+    { mode: "zhmcq", label: "🔎 华文解释" },
+    { mode: "enmcq", label: "🌐 英文翻译" },
+    { mode: "rain", label: "🌧️ 词雨灵露" },
+    { mode: "sprint", label: "⛰️ 攀山竞速" },
+    { mode: "assemble", label: "🧩 组词挑战", only: "g2" },
+    { mode: "handle", label: "🀄 词语汉兜", not: "g1" }
+  ];
+  function launchMode(mode) {
+    if (!scopedWords().length) { alert("请先在「修行」页选择至少一个单元。"); return; }
+    if (mode === "rain") return renderRainConfig();
+    if (mode === "sprint") return renderSprintConfig();
+    if (mode === "assemble") return startAssemble();
+    if (mode === "handle") return startHandle();
+    startMode(mode);
+  }
+  function openCamp() {
+    var petLine = LEVELS.filter(function (lv) { return store.gym[lv]; })
+      .map(function (lv) { var p = petFor(lv); return p.emoji + " " + esc(p.name); }).join(" · ");
+    var n = scopedWords().length;
+    var board = CAMP_MODES.filter(function (b) {
+      if (b.only && STREAM !== b.only) return false;
+      if (b.not && STREAM === b.not) return false;
+      return true;
+    }).map(function (b) {
+      return '<button class="cb" data-mode="' + b.mode + '">' + b.label + '</button>';
+    }).join("");
+    var html = '<div class="pop-title">⛺ 你的营地</div>' +
+      '<div class="camp-wallet">✨ 灵露 <b>' + store.lingLu + '</b> · 在词雨灵露中接住词语获得</div>' +
+      (petLine ? '<div class="camp-pets">登山伙伴：' + petLine + '</div>' : "") +
+      '<div class="pop-label">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
+      '<div class="camp-board">' + board + '</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="campShop">🛒 营地商店</button>' +
+      '<button class="nav-btn primary" id="campOk">知道了</button></div>';
+    var ov = popOverlay(html);
+    ov.querySelector("#campOk").onclick = function () { ov.remove(); };
+    ov.querySelector("#campShop").onclick = function () { ov.remove(); openShop(); };
+    Array.prototype.forEach.call(ov.querySelectorAll(".cb[data-mode]"), function (btn) {
+      btn.onclick = function () { ov.remove(); launchMode(btn.getAttribute("data-mode")); };
+    });
+  }
+
+  /* ---------- 营地商店 camp shop (灵露兑换) ---------- */
+  var SHOP = [
+    { key: "fire", name: "篝火", price: 30, desc: "夜里暖手，词语更暖心" },
+    { key: "flag", name: "营旗", price: 60, desc: "让全山都看见你的营地" },
+    { key: "pine", name: "青松", price: 100, desc: "亲手栽下一片绿荫" },
+    { key: "pavilion", name: "小亭", price: 200, desc: "营地的终极荣耀" }
+  ];
+  function openShop() {
+    var rows = SHOP.map(function (it) {
+      var owned = !!store.deco[it.key];
+      var afford = store.lingLu >= it.price;
+      var btn = owned
+        ? '<span class="shop-owned">已拥有 ✓</span>'
+        : '<button class="shop-buy" data-key="' + it.key + '"' + (afford ? "" : " disabled") + '>' +
+          (afford ? "兑换" : "灵露不足") + '</button>';
+      return '<div class="shop-row"><div class="shop-info"><b>' + esc(it.name) + '</b>' +
+        '<span>' + esc(it.desc) + '</span></div>' +
+        '<div class="shop-price">✨ ' + it.price + '</div>' + btn + '</div>';
+    }).join("");
+    var html = '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
+      '<div class="camp-wallet">✨ 灵露 <b>' + store.lingLu + '</b></div>' +
+      '<div class="shop-grid">' + rows + '</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button>' +
+      '<button class="nav-btn primary" id="shopOk">知道了</button></div>';
+    var ov = popOverlay(html);
+    ov.querySelector("#shopOk").onclick = function () { ov.remove(); };
+    ov.querySelector("#shopBack").onclick = function () { ov.remove(); openCamp(); };
+    Array.prototype.forEach.call(ov.querySelectorAll(".shop-buy[data-key]"), function (btn) {
+      btn.onclick = function () {
+        var key = btn.getAttribute("data-key");
+        var it = SHOP.filter(function (x) { return x.key === key; })[0];
+        if (!it || store.deco[key] || store.lingLu < it.price) return;
+        store.lingLu -= it.price; store.deco[key] = 1; saveStore();
+        toast("已兑换：" + it.name + " ✨");
+        ov.remove(); openShop();   // re-render with updated wallet + ownership
+      };
+    });
+  }
+
   function showGoalPanel(onChange) {
     var g = store.goalMode;
     var ov = popOverlay(
@@ -1913,6 +2137,7 @@
       '<canvas class="mtn-canvas" id="mtCv"></canvas>' +
       '<div class="mtn-hud">' +
       '<span class="mtn-pill">⛰️ 已掌握 <b>' + alt + '</b> 米 · <span id="mtNow">站在 ' + alt + ' 米</span></span>' +
+      '<span class="mtn-pill" id="mtZone"></span>' +
       '<button class="mtn-pill" id="mtGoal">🎯 目标</button>' +
       '<button class="mtn-pill" id="mtHome" style="display:none">📍 回到我的位置</button></div>' +
       '<div class="mtn-goalbar" id="mtGoalbar"></div>' +
@@ -1926,6 +2151,21 @@
     var totalAlt = WORDS.length;
     var marks = buildMarks();
     var goal = nextGoal(alt);
+
+    /* four altitude zones, boundaries = year-level summits (spec §5) */
+    var ZONE_NAMES = ["🌿 山脚绿野", "☁️ 云海栈道", "❄️ 雪线冰崖", "🏯 天阶峰顶"];
+    var ZONE_TINTS = ["rgba(91,138,102,.16)", "rgba(120,168,200,.17)", "rgba(226,236,246,.22)", "rgba(245,196,67,.14)"];
+    var zoneBounds = [0];
+    marks.forEach(function (m) { if (m.t === "level") zoneBounds.push(m.alt); });
+    if (zoneBounds[zoneBounds.length - 1] < totalAlt) zoneBounds.push(totalAlt);
+    function zoneOf(a) {
+      for (var z = 0; z < zoneBounds.length - 1; z++) {
+        if (a < zoneBounds[z + 1]) return z;
+      }
+      return zoneBounds.length - 2;
+    }
+    function zoneName(z) { return ZONE_NAMES[Math.min(z, ZONE_NAMES.length - 1)]; }
+    function zoneTint(z) { return ZONE_TINTS[Math.min(z, ZONE_TINTS.length - 1)]; }
 
     function worldH() { return totalAlt * SEG + 220; }
     function yOf(a) { return worldH() - a * SEG - 90; }
@@ -2075,6 +2315,13 @@
         ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
       }
 
+      /* altitude zone: tint the sky/atmosphere by the band at screen centre */
+      var centerAlt = (worldH() - 90 - camY - H / 2) / SEG;
+      var zIdx = zoneOf(Math.max(0, Math.min(totalAlt, centerAlt)));
+      ctx.fillStyle = zoneTint(zIdx); ctx.fillRect(0, 0, W, H);
+      var zEl = document.getElementById("mtZone");
+      if (zEl) zEl.textContent = zoneName(zoneOf(Math.max(0, Math.min(totalAlt, charAlt))));
+
       var sunY = yOf(totalAlt) - camY - 40;
       if (sunY > -60 && sunY < H + 60) {
         ctx.fillStyle = "rgba(245,196,67,.35)"; ctx.beginPath(); ctx.arc(W * 0.78, sunY, 30, 0, 6.3); ctx.fill();
@@ -2182,7 +2429,21 @@
         } else if (m.t === "level") {
           mx2 = xOf(m.alt) + ((xOf(m.alt) < W * 0.5) ? 1 : -1) * 84;
           drawTileM("flag", mx2, my2 + 4, 1.15, !done);
+          if (store.gym[m.level]) {   // 年度试炼通过 · 登山伙伴陪在峰顶
+            ctx.font = "18px sans-serif"; ctx.textAlign = "center";
+            ctx.fillText(petFor(m.level).emoji, mx2, my2 - 30);
+            ctx.textAlign = "left";
+          }
           m._sx = mx2; m._sy = my2 - 28;
+        } else if (m.t === "base") {
+          mx2 = xOf(0);
+          drawTileM("tent", mx2, my2 + 8, 1);
+          drawTileM("sign", mx2 - 42, my2 + 6, 0.7);
+          if (store.deco.fire) drawTileM("fire", mx2 + 44, my2 + 8, 0.8);
+          if (store.deco.flag) drawTileM("flag", mx2 - 64, my2 + 4, 1);
+          if (store.deco.pine) drawTileM("pine", mx2 + 80, my2 + 8, 0.9);
+          if (store.deco.pavilion) drawTileM("pavilion", mx2 + 104, my2 - 4, 0.8);
+          m._sx = mx2; m._sy = my2 - 14;
         } else {
           mx2 = xOf(m.alt);
           drawTileM("pavilion", mx2, my2 - 12, 1, !done);
