@@ -84,6 +84,9 @@ Achievement tiers: T1 板块章 (all words in a unit-component mastered, awards 
 T2 单元章 (all components in a unit) → T3 年级章 (all units in a level) → T4 顶级词王 (everything).
 Celebration overlays T1–T4 use the literary-quote sets in app.js (T1 white / T2 navy / T3 shimmer / T4 gold).
 Mastery gate (locked): a correct answer in 填空挑战 at ANY difficulty tier marks the word mastered.
+(Code also marks mastery in 攀山竞速; showMasteryInfo popover additionally claims 华文解释/英文翻译 but
+the code does NOT credit those — unresolved, see the MASTERY-GATE DISCREPANCY note in the 排行榜与积分系统
+session section. Do not change the gate without owner sign-off; 海拔 and the +10 历练值 bonus both hinge on it.)
 All progress is localStorage only (key ws2_{stream}); device-local, nothing leaves the device.
 
 进度码 backup/restore: compact base64 bitmask over word ORDER per stream, copy/paste UI,
@@ -199,8 +202,10 @@ Phase: login-free public test build.
 5. Firebase layer — decisions 2026-08: anonymous auth + Firestore (asia-southeast1); nickname via
    adjective + noun combo picker (e.g. 勤奋的学者; duplicates acceptable; the format avoids
    vulgarities); collect school for reach tracking; anonymous feedback/analytics widget.
-   No real student PII ever. (Supersedes the earlier synthetic-accounts + leaderboards plan;
-   leaderboards are currently dropped.)
+   No real student PII ever. (Supersedes the earlier synthetic-accounts plan.
+   LEADERBOARDS REINSTATED 2026-08-10 per LEADERBOARD_DESIGN — per stream, on anonymous
+   auth; see the 排行榜与积分系统 session section below. This reverses the earlier
+   "leaderboards are currently dropped" note.)
 6. 例句 restoration (optional, unscheduled): requires written CPDD permission + login (see Content rules).
 7. PWA packaging (manifest + service worker + offline queue).
 8. Pre/post assessment instrument: 30-question MCQ for the learning-evidence base.
@@ -386,3 +391,69 @@ Keep the existing users/{uid} rule; ADD the leaderboard block:
 
 Until this is published, the leaderboard shows "加载失败/正在更新" and writes are denied — the rest of
 the app is unaffected.
+
+## Session batch, 2026-08-10 — 排行榜与积分系统 (历练值 scoring + two-board leaderboard)
+
+Built from LEADERBOARD_DESIGN (design approved by owner). All in app.js + app.css + firebase-init.js.
+Build order steps 1-5 done; step 6 (field-level security clamps) deferred as the doc directs.
+
+LOCKED PRINCIPLE (three numbers, never summed, never substituted for one another, never in a
+combined ranked total):
+- 海拔（掌握词数）: breadth. Monotonic, 1 词 = 1 米, counts a word once, never decreases.
+- 历练值: depth. Repeatable; scales with question difficulty × answer streak; banked per term and
+  cumulatively. NEW this session.
+- 灵露: effort currency, 营地商店 only, never on any leaderboard. Unchanged (still 词雨-only — see
+  the open item below).
+
+历练值 scoring (app.js, the 历练值 section near the top of the IIFE):
+- final = round(base × attemptDecay × streakMultiplier) (min 1) + firstMasteryBonus.
+- base per mode/tier: cloze ⭐2/⭐⭐3/⭐⭐⭐5/⭐⭐⭐⭐8 · 华文解释 3 · 英文翻译 2 · 组词一次拼对 3 ·
+  攀山竞速每题 2 · 汉兜 6+1/未用次数 · 词雨 & 闪卡 0.
+- attemptDecay 1.0/0.40/0.15 (1st/2nd/3rd+ try) · streakMultiplier ×1/×1.2/×1.5/×1.8/×2.0 at
+  连对 0-2/3-4/5-7/8-11/12+ (uses the count ENTERING the question; resets on any wrong answer).
+- firstMasteryBonus +10 once per word ever (the moment 海拔 rises), guarded by store.pts.masteryAwarded.
+- Repeats on an already-mastered word: max(1, round(base×0.25)), no streak, capped at 3 scoring
+  repeats per word per Asia/Singapore day (store.pts.repeats). Further correct answers earn 0 历练值
+  but still advance the 连对 streak.
+- store.pts = { total, terms:{termId->n}, masteryAwarded:{}, repeats:{day,counts} }. localStorage is
+  the source of truth; merged into cloud on load as max(local,remote) for total + per-term + a
+  masteryAwarded union (mergeCloudProgress). NOT in 进度码.
+- TERMS array + currentTermId() live near the top of app.js: EDIT ONCE A YEAR when MOE term dates
+  shift (add next year's four terms before Term 1). Falls back to the most recent term when today is
+  outside every range, never returns null.
+- 段位 ladder (LADDER, per stream, 初行客→凌霄客) shows as a pill on the home mini-horizon. Recalibrate
+  the thresholds after one real term of data before announcing them to students.
+
+Leaderboard UI (renderLeaderboard, 词山风云榜): two main tabs 掌握词数 / 历练值; 历练值 has a 本学期 /
+累计 sub-toggle; 校内 / 跨校 scope filter stays. Top 20 + the student's own standing with an actionable
+gap (never a bare rank, never a full cohort list). Only role==="student" profiles are published;
+teachers/parents browse but never rank. Honest-framing note about new-device identity per the doc.
+
+Firestore model CHANGED (firebase-init.js): the leaderboard now uses scores/{uid} — one doc per uid,
+each stream a map field { alt, totalPts, bestStreak, pts:{termId->n} } plus nickname/school. Queried
+with orderBy on nested field paths (e.g. "g3.alt", "g3.totalPts", "g3.pts.2026T3") + limit; own rank
+via a server-side count() (no collection read). The old leaderboard/{stream}/entries writer is retired
+(getLeaderboard kept for backward compat, no longer called). saveScore is gated to students in
+pushLeaderboard().
+
+⚠️ REQUIRES NEW FIRESTORE RULES before the board works (Firebase console → Firestore → Rules). Add:
+
+    match /scores/{uid} {
+      allow read:  if request.auth != null;                        // any signed-in (incl anon) user
+      allow write: if request.auth != null && request.auth.uid == uid;  // only your own doc
+    }
+
+Until published, the board shows "加载失败，请稍后再试" and console logs permission-denied on scores/*;
+everything else works fully offline (verified in-browser 2026-08-10). Field-level clamps (design §8)
+are still to be added later.
+
+⚠️ OPEN ITEM for the owner (design §4, deliberately NOT decided unilaterally): whether study modes
+should also trickle 灵露 (+1 per question answered, +1 more if correct, daily cap 400). Kept OFF this
+session — 灵露 remains 词雨-only, the current shipped behavior. Confirm before adding.
+
+⚠️ MASTERY-GATE DISCREPANCY found this session (pre-existing, NOT changed): the code calls markMastered
+only in 填空挑战 and 攀山竞速, but showMasteryInfo() TELLS students that 华文解释 and 英文翻译 also
+confer mastery, and this CLAUDE.md's "Mastery gate (locked)" line says 填空挑战 only. Three different
+claims. Because 海拔 and the +10 bonus both hinge on this, do not "fix" it silently — the owner must
+decide which modes confer mastery, then code + popover + this file get aligned in one pass. LEADERBOARD_
+DESIGN §11.2 assumed the code already credits all four; it does not.

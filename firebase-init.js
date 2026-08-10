@@ -107,7 +107,8 @@
 
     /* read the whole stream leaderboard, sorted high→low; cb(array|null).
        Each row: {uid, nickname, school, altitude}. Filtering (校内/跨校) is
-       done client-side in app.js on the returned set. */
+       done client-side in app.js on the returned set. (Legacy Board A store;
+       superseded by scores/{uid} below, kept for backward compatibility.) */
     getLeaderboard: function (streamKey, cb) {
       whenReady(function () {
         db.collection("leaderboard").doc(streamKey).collection("entries")
@@ -119,6 +120,52 @@
             });
             cb(rows);
           }).catch(function (e) { console.error("getLeaderboard failed:", e); cb(null); });
+      });
+    },
+
+    /* ---------- scores/{uid} : the leaderboard model (LEADERBOARD_DESIGN §6.2) ----------
+       One doc per anonymous uid; each stream is a map field. Holds ONLY
+       leaderboard-relevant figures (no per-word progress, no PII beyond the
+       chosen nickname + school). Called only for role === "student" (app.js gates).
+       entry = { nickname, school, alt, totalPts, bestStreak, pts:{termId->n} } */
+    saveScore: function (streamKey, entry) {
+      whenReady(function () {
+        var s = { nickname: entry.nickname || "", school: entry.school || "",
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        s[streamKey] = {
+          alt: entry.alt || 0,
+          totalPts: entry.totalPts || 0,
+          bestStreak: entry.bestStreak || 0,
+          pts: entry.pts || {}
+        };
+        db.collection("scores").doc(_uid).set(s, { merge: true })
+          .catch(function (e) { console.error("saveScore failed:", e); });
+      });
+    },
+
+    /* top-N board ordered by a nested field path (e.g. "g3.alt",
+       "g3.totalPts", "g3.pts.2026T3"). cb(rows|null); each row: {uid, data}
+       where data is the full score doc — app.js pulls the ranked value out. */
+    getScoreBoard: function (fieldPath, n, cb) {
+      whenReady(function () {
+        db.collection("scores").orderBy(fieldPath, "desc").limit(n || 20).get()
+          .then(function (qs) {
+            var rows = [];
+            qs.forEach(function (doc) { rows.push({ uid: doc.id, data: doc.data() || {} }); });
+            cb(rows);
+          }).catch(function (e) { console.error("getScoreBoard failed:", e); cb(null); });
+      });
+    },
+
+    /* own rank via a server-side count (no collection read): number of docs
+       strictly above myVal on fieldPath, + 1. cb(rank|null). */
+    getScoreRank: function (fieldPath, myVal, cb) {
+      whenReady(function () {
+        try {
+          db.collection("scores").where(fieldPath, ">", myVal || 0).count().get()
+            .then(function (snap) { cb(((snap.data() || {}).count || 0) + 1); })
+            .catch(function (e) { console.error("getScoreRank failed:", e); cb(null); });
+        } catch (e) { cb(null); }
       });
     }
   };

@@ -203,6 +203,16 @@
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
+    s.lbBoard = s.lbBoard || "alt";    // 排行榜 board: alt (掌握词数) | pts (历练值)
+    s.lbTerm = s.lbTerm || "term";     // 历练值 sub-board: term (本学期) | total (累计)
+    /* 历练值 (effort/depth points) — leaderboard depth metric. Three separate
+       numbers, never summed (see LEADERBOARD_DESIGN): 海拔 breadth, 历练值 depth,
+       灵露 currency. localStorage is the source of truth; Firestore mirrors it. */
+    s.pts = s.pts || {};
+    s.pts.total = s.pts.total || 0;                         // cumulative, all years
+    s.pts.terms = s.pts.terms || {};                        // termId -> banked pts
+    s.pts.masteryAwarded = s.pts.masteryAwarded || {};      // wordId -> 1, guards +10
+    s.pts.repeats = s.pts.repeats || { day: "", counts: {} }; // wordId -> repeats today
     return s;
   }
   function saveStore() {
@@ -228,12 +238,15 @@
   }
   /* only 学生 profiles are published to the leaderboard (teachers/parents never are) */
   function pushLeaderboard() {
-    if (!window.WSCloud || !window.WSCloud.saveLeaderboard) return;
+    if (!window.WSCloud || !window.WSCloud.saveScore) return;
     var p = loadProfile();
     if (!p || p.role !== "student") return;
-    window.WSCloud.saveLeaderboard(STREAM, {
+    window.WSCloud.saveScore(STREAM, {
       nickname: p.nickname || "", school: p.school || "",
-      altitude: Object.keys(store.mastered).length
+      alt: Object.keys(store.mastered).length,
+      totalPts: store.pts.total || 0,
+      bestStreak: store.bestStreak || 0,
+      pts: store.pts.terms || {}
     });
   }
   window.addEventListener("pagehide", flushCloudSyncNow);
@@ -256,6 +269,18 @@
       if (v !== store.best[k]) { store.best[k] = v; changed = true; }
     });
     if ((cloud.bestStreak || 0) > (store.bestStreak || 0)) { store.bestStreak = cloud.bestStreak; changed = true; }
+    /* 历练值 is event-based, not reconcilable from ground truth: keep the higher
+       value on conflict, union the per-term banks and the mastery-bonus guard. */
+    if (cloud.pts) {
+      if ((cloud.pts.total || 0) > (store.pts.total || 0)) { store.pts.total = cloud.pts.total; changed = true; }
+      Object.keys(cloud.pts.terms || {}).forEach(function (tid) {
+        var v = Math.max(store.pts.terms[tid] || 0, cloud.pts.terms[tid] || 0);
+        if (v !== (store.pts.terms[tid] || 0)) { store.pts.terms[tid] = v; changed = true; }
+      });
+      Object.keys(cloud.pts.masteryAwarded || {}).forEach(function (id) {
+        if (!store.pts.masteryAwarded[id]) { store.pts.masteryAwarded[id] = 1; changed = true; }
+      });
+    }
     Object.keys(cloud.stats || {}).forEach(function (mode) {
       if (!store.stats[mode]) store.stats[mode] = { a: 0, c: 0 };
       var la = store.stats[mode].a || 0, lc = store.stats[mode].c || 0;
@@ -267,6 +292,115 @@
       try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
     }
     return changed;
+  }
+
+  /* ================================================================
+     历练值 (effort/depth points) + term banking. See LEADERBOARD_DESIGN.
+     final = round(base × attemptDecay × streakMultiplier)  (min 1)
+             + firstMasteryBonus (+10, once per word, added not multiplied)
+     Repeats on an already-mastered word: quarter base, no streak, capped
+     at 3 scoring repeats per word per Singapore day.
+     ================================================================ */
+
+  /* Edit once a year. Dates inclusive, Asia/Singapore. Add next year's four
+     terms before Term 1; the app falls back to the most recent term when today
+     is outside every range (holidays keep banking into the term that ended). */
+  var TERMS = [
+    { id: "2026T3", from: "2026-06-29", to: "2026-09-04" },
+    { id: "2026T4", from: "2026-09-14", to: "2026-11-13" }
+  ];
+  function todaySG() {
+    try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" }); }
+    catch (e) { return todayStr(); }   // en-CA => YYYY-MM-DD
+  }
+  function currentTermId() {
+    var d = todaySG(), latest = TERMS[0], i, t;
+    for (i = 0; i < TERMS.length; i++) {
+      t = TERMS[i];
+      if (d >= t.from && d <= t.to) return t.id;        // inside a term
+      if (t.to <= d && t.to >= latest.to) latest = t;   // most recent past term
+    }
+    return latest.id;                                   // never null
+  }
+
+  /* 段位 ladder — per stream, at the same fractions of each stream's projected
+     4-year total (LEADERBOARD_DESIGN §5.3). Distinct from badges/achievement tiers. */
+  var LADDER = {
+    g1:  [["初行客", 0], ["寻径人", 600], ["踏云者", 2500], ["破雪士", 5500], ["摩天客", 11000], ["凌霄客", 17500]],
+    g2:  [["初行客", 0], ["寻径人", 700], ["踏云者", 3100], ["破雪士", 7000], ["摩天客", 14000], ["凌霄客", 22000]],
+    g3:  [["初行客", 0], ["寻径人", 800], ["踏云者", 3500], ["破雪士", 8000], ["摩天客", 16000], ["凌霄客", 25000]],
+    hcl: [["初行客", 0], ["寻径人", 1000], ["踏云者", 4200], ["破雪士", 9500], ["摩天客", 18500], ["凌霄客", 29500]]
+  };
+  function currentRank() {
+    var lad = LADDER[STREAM] || LADDER.g1, tot = store.pts.total, cur = lad[0], next = null, i;
+    for (i = 0; i < lad.length; i++) {
+      if (tot >= lad[i][1]) cur = lad[i];
+      else { next = lad[i]; break; }
+    }
+    return { name: cur[0], at: cur[1], next: next ? { name: next[0], at: next[1] } : null, total: tot };
+  }
+
+  /* base 历练值 per question type (LEADERBOARD_DESIGN §2). cloze varies by tier;
+     flash/rain earn none (rain pays 灵露, flash is self-marked). */
+  var CLOZE_BASE = { "2": 2, "3": 3, "4": 5, "type": 8 };
+  var PTS_BASE = { enmcq: 2, zhmcq: 3, assemble: 3, sprint: 2 };
+  var PTS_DECAY = [1.0, 0.40, 0.15];           // attempt 1 / 2 / 3+
+  var FIRST_MASTERY_BONUS = 10;
+  var REPEAT_DAILY_CAP = 3;
+  function attemptDecay(attempt) { return PTS_DECAY[Math.min((attempt || 1) - 1, 2)]; }
+  function streakMult(entering) {
+    if (entering >= 12) return 2.0;
+    if (entering >= 8) return 1.8;
+    if (entering >= 5) return 1.5;
+    if (entering >= 3) return 1.2;
+    return 1.0;
+  }
+  function bankPts(n) {
+    if (!n) return;
+    store.pts.total += n;
+    var tid = currentTermId();
+    store.pts.terms[tid] = (store.pts.terms[tid] || 0) + n;
+    saveStore();
+  }
+  function ensureRepeatDay() {
+    var today = todaySG();
+    if (store.pts.repeats.day !== today) store.pts.repeats = { day: today, counts: {} };
+  }
+  function repeatValue(w, base) {
+    ensureRepeatDay();
+    var n = store.pts.repeats.counts[w.id] || 0;
+    if (n >= REPEAT_DAILY_CAP) return 0;       // still earns 灵露 & streak elsewhere
+    store.pts.repeats.counts[w.id] = n + 1;
+    return Math.max(1, Math.round(base * 0.25));
+  }
+  /* Award 历练值 for one correct answer. Pass the mastery state BEFORE this answer
+     resolved (wasMastered) and the 连对 count ENTERING the question. Returns the
+     points earned (0 for a capped repeat or a base-0 mode). */
+  function scoreCorrect(w, base, attempt, entering, wasMastered) {
+    if (!base) return 0;
+    var earned = wasMastered
+      ? repeatValue(w, base)
+      : Math.max(1, Math.round(base * attemptDecay(attempt) * streakMult(entering)));
+    bankPts(earned);
+    return earned;
+  }
+  /* +10 once per word ever, the moment 海拔 increases. Guarded so a 进度码 restore
+     or device change cannot fire it twice. */
+  function awardMasteryBonus(w) {
+    if (store.pts.masteryAwarded[w.id]) return 0;
+    store.pts.masteryAwarded[w.id] = 1;
+    bankPts(FIRST_MASTERY_BONUS);
+    return FIRST_MASTERY_BONUS;
+  }
+  function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  /* brief "+N 历练值" flourish over the study feedback line */
+  function showGain(n) {
+    if (!n) return;
+    var fb = document.getElementById("fb");
+    if (!fb) return;
+    var g = document.createElement("span");
+    g.className = "pts-gain"; g.textContent = "+" + n + " 历练值";
+    fb.appendChild(g);
   }
 
   /* ---------- profile (nickname + school, shared across all 4 levels) ---------- */
@@ -350,6 +484,7 @@
   function markMastered(w) {
     if (store.mastered[w.id]) { saveStore(); return; }
     store.mastered[w.id] = 1;
+    awardMasteryBonus(w);        // +10 历练值, once per word, the moment 海拔 rises
     saveStore();
     checkBadges();
     applyAmbience();
@@ -555,9 +690,12 @@
   }
 
   function miniHorizon() {
+    var rk = currentRank();
+    var togo = rk.next ? '<span class="mtn-rank-next">再 ' + fmtNum(rk.next.at - rk.total) + ' 历练值 → ' + esc(rk.next.name) + '</span>' : '<span class="mtn-rank-next">已达最高段位</span>';
     return '<div class="mini-horizon horizon">' +
       '<img class="mh-img" src="landing_hero_bg.png" alt="">' +
       '<div class="app-zh">' + META.zh + '</div>' +
+      '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
   }
 
@@ -664,12 +802,12 @@
       '<div><b>我的词语表</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
       '<span class="go">查看 ›</span></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
-      '<div><b>排行榜</b><span>看看你在本源流的排名（只显示学生）</span></div>' +
+      '<div><b>词山风云榜</b><span>掌握词数 · 历练值 两榜排名（只显示学生）</span></div>' +
       '<span class="go">查看 ›</span></button>';
 
     html += '<div class="harbour">' +
       '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
-      '<div><b>' + t.c + '</b><span>累计答对</span></div>' +
+      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值</span></div>' +
       '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div>' +
       '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div>' +
       '<div class="home-foot">测试版：登入与排行榜稍后加入。<br>' +
@@ -853,63 +991,122 @@
     renderStep(state);
   }
 
-  /* ---------- 排行榜 (leaderboard) — per stream, students only ----------
-     Ranked by altitude (mastered word count). 校内 filters to 百德中学; 跨校
-     shows all schools. Tiers 1-10 金 / 11-20 银 / 21-30 铜. Own row highlighted;
-     if outside top 30, a context window (±2) is shown after a divider. Every
-     row shows the full UID so duplicate nicknames are never ambiguous. */
+  /* ---------- 词山风云榜 (leaderboard) — per stream, students only ----------
+     Two boards, never summed (LEADERBOARD_DESIGN §7):
+       掌握词数 (海拔, breadth) — ordered by alt.
+       历练值 (depth) — 本学期 or 累计, ordered by pts.
+     校内 filters to 百德中学; 跨校 shows all schools. Tiers 1-10 金 / 11-20 银 /
+     21-30 铜. Top 20 plus the student's own standing with an actionable gap;
+     a full ranked cohort is never shown. Every row carries the full UID. */
   var LB_BVSS = "百德中学 Bukit View Secondary School";
   function lbMedal(rank) { return rank <= 10 ? "🥇" : rank <= 20 ? "🥈" : rank <= 30 ? "🥉" : ""; }
   function lbTier(rank) { return rank <= 10 ? "gold" : rank <= 20 ? "silver" : rank <= 30 ? "bronze" : ""; }
+  function lbFieldPath() {
+    if (store.lbBoard === "pts")
+      return store.lbTerm === "total" ? STREAM + ".totalPts" : STREAM + ".pts." + currentTermId();
+    return STREAM + ".alt";
+  }
+  function lbValueOf(data) {
+    var sd = (data || {})[STREAM] || {};
+    if (store.lbBoard === "pts")
+      return store.lbTerm === "total" ? (sd.totalPts || 0) : ((sd.pts || {})[currentTermId()] || 0);
+    return sd.alt || 0;
+  }
+  function lbMyValue() {
+    if (store.lbBoard === "pts")
+      return store.lbTerm === "total" ? (store.pts.total || 0) : (store.pts.terms[currentTermId()] || 0);
+    return Object.keys(store.mastered).length;
+  }
+  function lbUnit() { return store.lbBoard === "pts" ? " 历练值" : " 米"; }
   function renderLeaderboard() {
     setTopbar("home", "");
-    var scope = store.lbScope || "school";
-    view().innerHTML = '<div class="lb-wrap"><div class="wl-title">🏆 排行榜 · ' + esc(META.zh) + '</div>' +
-      '<div class="wl-sub">按海拔（已掌握词数）排名 · 只显示「学生」</div>' +
+    var scope = store.lbScope || "school", board = store.lbBoard || "alt";
+    var headline = board === "pts"
+      ? "本学期历练值 · 每学期重新开始，累计历练值永不清零。"
+      : "掌握词数就是你的海拔，1 词 = 1 米，只增不减。";
+    var html = '<div class="lb-wrap"><div class="wl-title">🏆 词山风云榜 · ' + esc(META.zh) + '</div>' +
+      '<div class="lb-tabs2">' +
+      '<button class="lb-tab2' + (board === "alt" ? " on" : "") + '" data-b="alt">掌握词数</button>' +
+      '<button class="lb-tab2' + (board === "pts" ? " on" : "") + '" data-b="pts">历练值</button></div>';
+    if (board === "pts") {
+      html += '<div class="lb-subtoggle">' +
+        '<button class="lb-sub' + (store.lbTerm !== "total" ? " on" : "") + '" data-t="term">本学期</button>' +
+        '<button class="lb-sub' + (store.lbTerm === "total" ? " on" : "") + '" data-t="total">累计</button></div>';
+    }
+    html += '<div class="wl-sub">' + esc(headline) + '</div>' +
       '<div class="lb-toggle">' +
       '<button class="lb-tab' + (scope === "school" ? " on" : "") + '" data-s="school">校内 · 百德中学</button>' +
       '<button class="lb-tab' + (scope === "all" ? " on" : "") + '" data-s="all">跨校 · 不限校</button></div>' +
-      '<div id="lbBody"><div class="wl-empty">加载中…</div></div></div>';
+      '<div id="lbBody"><div class="wl-empty">加载中…</div></div>' +
+      '<div class="lb-note">换设备或清除浏览器数据后，你会以新的身份重新开始。</div></div>';
+    view().innerHTML = html;
+    Array.prototype.forEach.call(view().querySelectorAll(".lb-tab2[data-b]"), function (b) {
+      b.onclick = function () { store.lbBoard = b.getAttribute("data-b"); saveStore(); renderLeaderboard(); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".lb-sub[data-t]"), function (b) {
+      b.onclick = function () { store.lbTerm = b.getAttribute("data-t"); saveStore(); renderLeaderboard(); };
+    });
     Array.prototype.forEach.call(view().querySelectorAll(".lb-tab[data-s]"), function (b) {
       b.onclick = function () { store.lbScope = b.getAttribute("data-s"); saveStore(); renderLeaderboard(); };
     });
+
+    var body = document.getElementById("lbBody");
     if (!window.WSCloud || !window.WSCloud.isAvailable()) {
-      document.getElementById("lbBody").innerHTML = '<div class="wl-empty">排行榜需要联网，暂时无法加载。</div>';
-      return;
+      body.innerHTML = '<div class="wl-empty">排行榜需要联网，暂时无法加载。</div>'; return;
     }
-    if (!window.WSCloud.getLeaderboard) {
-      document.getElementById("lbBody").innerHTML = '<div class="wl-empty">排行榜功能正在更新，请刷新页面后再试。</div>';
-      return;
+    if (!window.WSCloud.getScoreBoard) {
+      body.innerHTML = '<div class="wl-empty">排行榜功能正在更新，请刷新页面后再试。</div>'; return;
     }
     var getUid = window.WSCloud.getUid || function (cb) { cb(null); };
+    var fieldPath = lbFieldPath(), unit = lbUnit(), myVal = lbMyValue();
+    var me = loadProfile() || {}, iAmStudent = me.role === "student";
     getUid(function (myUid) {
-      window.WSCloud.getLeaderboard(STREAM, function (rows) {
-        var body = document.getElementById("lbBody");
-        if (!body) return;
-        if (!rows) { body.innerHTML = '<div class="wl-empty">加载失败，请稍后再试。</div>'; return; }
-        if (scope === "school") rows = rows.filter(function (r) { return r.school === LB_BVSS; });
+      /* fetch a wider window so the 校内 filter still yields a full top-20 */
+      window.WSCloud.getScoreBoard(fieldPath, 60, function (raw) {
+        if (!body.isConnected) return;
+        if (!raw) { body.innerHTML = '<div class="wl-empty">加载失败，请稍后再试。</div>'; return; }
+        var rows = raw.filter(function (r) {
+          var d = r.data || {};
+          if (!d.nickname) return false;                    // 无名登山客 excluded until named
+          if (scope === "school" && d.school !== LB_BVSS) return false;
+          return true;
+        }).map(function (r) {
+          return { uid: r.uid, nickname: (r.data.nickname || ""), school: (r.data.school || ""), val: lbValueOf(r.data) };
+        });
         if (!rows.length) { body.innerHTML = '<div class="wl-empty">还没有人上榜，快去成为第一个！</div>'; return; }
+        var top = rows.slice(0, 20);
         var myIdx = -1, i;
-        for (i = 0; i < rows.length; i++) { if (rows[i].uid === myUid) { myIdx = i; break; } }
-        var TOP = 30, show = [];
-        for (i = 0; i < Math.min(TOP, rows.length); i++) show.push(i);
-        var winStart = -1;
-        if (myIdx >= TOP) {
-          winStart = Math.max(TOP, myIdx - 2);
-          for (i = winStart; i <= Math.min(rows.length - 1, myIdx + 2); i++) show.push(i);
-        }
+        for (i = 0; i < top.length; i++) { if (top[i].uid === myUid) { myIdx = i; break; } }
         var out = "";
-        show.forEach(function (idx) {
-          if (idx === winStart) out += '<div class="lb-gap">· · ·</div>';
-          var r = rows[idx], rank = idx + 1, tier = lbTier(rank), mine = (r.uid === myUid);
+        top.forEach(function (r, idx) {
+          var rank = idx + 1, tier = lbTier(rank), mine = (r.uid === myUid);
           out += '<div class="lb-row' + (tier ? " " + tier : "") + (mine ? " me" : "") + '">' +
             '<span class="lb-rank">' + lbMedal(rank) + ' ' + rank + '</span>' +
             '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + (mine ? " · 你" : "") + '</b>' +
             (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
             '<span class="lb-uid">' + esc(r.uid) + '</span></div>' +
-            '<span class="lb-alt">' + r.altitude + ' 米</span></div>';
+            '<span class="lb-alt">' + fmtNum(r.val) + unit + '</span></div>';
         });
-        body.innerHTML = out;
+        /* own standing line — never a bare rank; always something actionable */
+        var meLine = "";
+        if (!iAmStudent) {
+          meLine = '<div class="lb-me-line">你以「' + esc(me.role === "teacher" ? "老师" : "家长") + '」身份浏览，不参与排名。</div>';
+        } else if (myIdx >= 0) {
+          meLine = '<div class="lb-me-line">你目前排在第 <b>' + (myIdx + 1) + '</b> 名 · ' + fmtNum(myVal) + unit + '</div>';
+        } else {
+          var cutoff = top.length >= 20 ? top[19].val : 0;
+          var gap = Math.max(1, cutoff - myVal + 1);
+          meLine = '<div class="lb-me-line">你现在 ' + fmtNum(myVal) + unit +
+            (top.length >= 20 ? ' · 再 <b>' + fmtNum(gap) + '</b>' + unit + ' 就能进前 20' : ' · 继续加油冲进榜单！') + '</div>';
+          if (window.WSCloud.getScoreRank) {
+            window.WSCloud.getScoreRank(fieldPath, myVal, function (rank) {
+              var el = document.getElementById("lbMeRank");
+              if (el && rank) el.textContent = "（" + (scope === "all" ? "跨校" : "全体") + "约第 " + rank + " 名）";
+            });
+          }
+          meLine = meLine.replace("</div>", ' <span id="lbMeRank" class="lb-me-rank"></span></div>');
+        }
+        body.innerHTML = out + meLine;
       });
     });
   }
@@ -934,19 +1131,31 @@
 
   function railHtml(state, name, desc, extra) {
     var total = state.seq.length;
+    var m = streakMult(state.streak);
+    var mchip = m > 1 ? ' <span class="mult" id="multChip">×' + m.toFixed(1) + '</span>' : '';
     return '<div class="rail card">' +
       '<div class="mode-name">' + name + '</div>' +
       '<div class="mode-desc">' + desc + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + total + '</small></div>' +
       '<div class="prog-track"><div class="prog-fill" style="width:' + Math.round(100 * state.i / total) + '%"></div></div>' +
-      '<div class="streak">连对 <b>' + state.streak + '</b> 🔥</div>' +
+      '<div class="streak">连对 <b>' + state.streak + '</b> 🔥' + mchip + '</div>' +
+      '<div class="rail-pts">历练值 <b>' + fmtNum(store.pts.total) + '</b></div>' +
       (extra || "") + '</div>';
   }
+  /* flash the multiplier chip + reward tone when the 连对 tier just went up */
+  function flashMult(state) {
+    if (!state || !state._multUp) return;
+    state._multUp = false;
+    var c = document.getElementById("multChip");
+    if (c) { c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); sfxBadge(); }
+  }
   function noteStreak(state, right) {
+    var before = streakMult(state.streak);
     if (right) {
       state.streak++;
       if (state.streak > store.bestStreak) { store.bestStreak = state.streak; saveStore(); }
     } else state.streak = 0;
+    state._multUp = streakMult(state.streak) > before;   // tier increased this answer
   }
 
   function renderStep(state) {
@@ -1083,13 +1292,21 @@
       '<div class="nav-row" id="nextRow" style="display:none">' +
       '<button class="nav-btn primary" id="next">下一题 ›</button></div></div></div>';
     view().innerHTML = html;
+    flashMult(state);
 
     wireDiff(state);
     document.getElementById("ttsS").onclick = function () { speakCloze(w.cloze); };
-    function finish(right) {
+    function finish(right, attempt) {
+      var entering = state.streak, wasMastered = !!store.mastered[w.id];
       noteStreak(state, right);
       bump("cloze", right);
-      if (right) { state.correct++; markMastered(w); gymNote(w.id); sfxOk(); }
+      if (right) {
+        state.correct++;
+        var gained = scoreCorrect(w, CLOZE_BASE[store.diff] || 2, attempt || 1, entering, wasMastered);
+        markMastered(w);        // fires the +10 first-mastery bonus inside
+        gymNote(w.id); sfxOk();
+        showGain(gained);
+      }
       document.getElementById("nextRow").style.display = "flex";
       var nx = document.getElementById("next");
       nx.onclick = function () { state.i++; renderStep(state); };
@@ -1109,7 +1326,7 @@
           done = true;
           fb.className = "feedback show ok";
           fb.innerHTML = "✔ 正确！<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
-          finish(true);
+          finish(true, ans.dataset.tried ? 2 : 1);
         } else {
           ans.classList.remove("shake"); void ans.offsetWidth; ans.classList.add("shake");
           sfxBad();
@@ -1183,6 +1400,7 @@
       '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
       '<button class="nav-btn primary" id="next">下一题 ›</button></div></div></div>';
+    flashMult(state);
 
     var tp = document.getElementById("ttsP");
     if (tp) tp.onclick = function () { speak(w.zh); };
@@ -1198,8 +1416,13 @@
         var right = chosen.id === w.id;
         var fb = document.getElementById("fb");
         function reveal() {
+          var entering = state.streak, wasMastered = !!store.mastered[w.id], gained = 0;
           noteStreak(state, right);
-          if (right) { state.correct++; sfxOk(); gymNote(w.id); }
+          if (right) {
+            state.correct++; sfxOk(); gymNote(w.id);
+            /* 华文解释/英文翻译 do not confer mastery, so no +10 here — depth only */
+            gained = scoreCorrect(w, PTS_BASE[state.mode] || 2, 1, entering, wasMastered);
+          }
           else if (state.gym) state.wrong[w.id] = 1;
           bump(state.mode, right);
           Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
@@ -1211,6 +1434,7 @@
           });
           fb.className = "feedback show " + (right ? "ok" : "bad");
           fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+          showGain(gained);
           document.getElementById("nextRow").style.display = "flex";
           document.getElementById("next").onclick = function () { state.i++; renderStep(state); };
         }
@@ -1663,6 +1887,8 @@
       if (val === state.answer.w) {
         state.done = true; state.won = true;
         store.best.handle = (store.best.handle || 0) + 1; saveStore();
+        /* 汉兜 solved: base 6 + 1 per unused guess (LEADERBOARD_DESIGN §2) */
+        scoreCorrect(state.answer, 6 + Math.max(0, 6 - state.rows.length), 1, 0, !!store.mastered[state.answer.id]);
         sfxBadge();
       } else if (state.rows.length >= 6) {
         state.done = true; state.won = false;
@@ -1752,7 +1978,11 @@
           nextIdx++;
           if (nextIdx >= target.length) {
             done = true;
-            if (!wrongThis) state.perfect++;
+            if (!wrongThis) {
+              state.perfect++;
+              /* 组词 一次拼对: base 3, no 连对 concept here (×1.0). Does not master. */
+              scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
+            }
             bump("assemble", !wrongThis);
             sfxOk();
             var fb = document.getElementById("asmFb");
@@ -1971,9 +2201,11 @@
           var right = chosen.id === cur.id;
           bump("sprint", right);
           if (right) {
+            var entering = combo, wasMastered = !!store.mastered[cur.id];
             ok++; combo++; celT = 0.55;
             targetAlt = Math.min(totalAlt, targetAlt + 1);
             gymNote(cur.id);
+            scoreCorrect(cur, PTS_BASE.sprint, 1, entering, wasMastered);
             if (!store.mastered[cur.id]) { newMastered++; markMastered(cur); }
             document.getElementById("spOk").textContent = ok;
             document.getElementById("spCombo").textContent = "🔥" + combo;
