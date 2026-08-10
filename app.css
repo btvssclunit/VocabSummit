@@ -470,8 +470,8 @@ button.mtn-pill:active{transform:scale(.96)}
 
 /* ===== Landing v2 · 8-bit hero (landscape-first) ===== */
 .lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow-y:auto;overflow-x:hidden}
-.lp-hero{position:relative;width:100vw;height:min(76vh,660px);min-height:420px;
-  background:url("landing_hero_bg.png") center top/cover no-repeat;
+.lp-hero{position:relative;width:100vw;height:100vh;
+  background:url("landing_hero_bg.png") center center/cover no-repeat;
   image-rendering:pixelated}
 .lp-logo{position:absolute;left:50%;top:18vh;transform:translateX(-50%);width:min(44vw,560px);
   image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55));
@@ -495,11 +495,11 @@ button.mtn-pill:active{transform:scale(.96)}
    once the gate is hidden) stacks at the TOP of .lp-hero's box instead of
    below the hero art. This reserves that same height so it never happens,
    regardless of which of gate/greeting/cards is the visible one. */
-.lp-hero-spacer{height:min(76vh,660px)}
+.lp-hero-spacer{display:none}   /* v0.4: gate/cards float over the full-height hero, no dark band */
 /* single entry point: 进入 must be tapped before nickname/path selection.
    16-bit styling = hard edges, no border-radius, stepped/chunky box-shadow
    instead of soft blur, pixelated arrow glyph. */
-.lp-gate{position:relative;text-align:center;margin:30px auto 0}
+.lp-gate{position:absolute;right:7vw;bottom:15vh;margin:0;text-align:center;z-index:6}
 .lp-enter-btn{
   display:inline-block;border:0;cursor:pointer;
   font-family:"Noto Serif SC",serif;font-weight:900;
@@ -540,8 +540,9 @@ button.mtn-pill:active{transform:scale(.96)}
 
 /* chosen nickname: was a faint 14px line that vanished against the artwork.
    Now a solid plaque so students can actually see who they are. */
-.lp-greeting{position:relative;display:flex;justify-content:center;align-items:center;
-  gap:14px;flex-wrap:wrap;margin:26px auto 0;width:max-content;max-width:92vw;
+.lp-greeting{position:absolute;left:50%;bottom:24vh;transform:translateX(-50%);z-index:6;
+  display:flex;justify-content:center;align-items:center;
+  gap:14px;flex-wrap:wrap;margin:0;width:max-content;max-width:92vw;
   background:rgba(12,24,48,.88);border:3px solid var(--gold,#D9A72B);
   padding:14px 26px;box-shadow:0 0 0 3px #2A1B04,0 8px 0 3px rgba(8,16,34,.4)}
 .lp-greeting .lp-nick{font-family:"Noto Serif SC",serif;font-weight:900;
@@ -550,8 +551,8 @@ button.mtn-pill:active{transform:scale(.96)}
 .lp-greeting .code-link{color:#8FD3FF;font-size:14px;text-decoration:underline}
 /* cards sit BELOW the hero photo (not overlaid), so the climbers in the
    artwork are never cropped/hidden behind the card row */
-.lp-cards{position:relative;left:auto;bottom:auto;transform:none;display:flex;gap:14px;
-  width:min(96vw,1140px);margin:22px auto 0}
+.lp-cards{position:absolute;left:50%;bottom:8vh;transform:translateX(-50%);display:flex;gap:14px;
+  width:min(96vw,1140px);margin:0;z-index:6}
 .lp-card{flex:1;display:flex;align-items:center;gap:12px;background:rgba(14,27,54,.85);
   border:2px solid var(--gold,#D9A72B);border-radius:14px;padding:14px 14px;text-decoration:none;
   transition:transform .15s,box-shadow .15s;min-width:0}
@@ -563,8 +564,9 @@ button.mtn-pill:active{transform:scale(.96)}
 .lp-card div{min-width:0}
 .lp-card b{display:block;color:#fff;font-size:19px;font-family:"Noto Serif SC",serif;font-weight:900}
 .lp-card .lv{display:block;color:#F5C443;font-size:15px;font-weight:800;margin-top:6px;letter-spacing:.02em}
-.lp-foot{position:relative;left:0;right:0;bottom:auto;background:rgba(8,16,34,.9);color:#A8BCD8;
-  font-size:11.5px;text-align:center;padding:8px 10px;line-height:1.7;margin-top:22px}
+.lp-foot{position:absolute;left:0;right:0;bottom:0;z-index:5;color:#CBD8EA;
+  background:linear-gradient(rgba(8,16,34,0),rgba(8,16,34,.82) 60%);
+  font-size:11.5px;text-align:center;padding:16px 10px 8px;line-height:1.7;margin:0}
 /* portrait fallback: stack and scroll */
 @media (orientation:portrait){
   .lp-body{overflow:auto}
@@ -574,11 +576,11 @@ button.mtn-pill:active{transform:scale(.96)}
   .lp-school{position:relative;display:block;margin:12px auto 0;left:auto;top:auto;transform:none;text-align:center}
   .lp-couplet{display:none}
   .lp-hero-spacer{display:none}
-  .lp-gate{margin-top:46vh}
-  .lp-greeting{margin-top:46vh}
+  .lp-gate{position:relative;right:auto;bottom:auto;margin:46vh auto 0}
+  .lp-greeting{position:relative;left:auto;bottom:auto;transform:none;margin:46vh auto 0}
   .lp-cards{position:relative;left:auto;bottom:auto;transform:none;flex-direction:column;
     width:min(92vw,520px);margin:46vh auto 0;gap:12px}
-  .lp-foot{position:relative;margin-top:18px}
+  .lp-foot{position:relative;left:auto;right:auto;bottom:auto;margin-top:18px}
 }
 
 

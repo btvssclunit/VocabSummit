@@ -222,11 +222,13 @@ Phase: login-free public test build.
   repo drop: always deploy the full file set, never a partial upload.
 - three_min.js is required by world.html. If it is missing or fails to load, the sailing page renders
   as a flat blue page with only the HUD pills: check for that file first before debugging the scene.
-- Landing page layout rule: .lp-logo, .lp-school and .lp-couplet are position:absolute, so a
-  .lp-hero-spacer div (height matching .lp-hero) must sit before the gate in index.html. Without it,
-  whichever normal-flow child is visible (gate, greeting, or cards) stacks at the top of the hero box
-  instead of below the artwork. In portrait, the spacer is hidden and gate/greeting/cards each get
-  46vh top clearance instead.
+- Landing page layout rule (UPDATED 2026-08-10): the landscape landing has NO dark band. .lp-hero
+  is height:100vh (full art, no crop-to-band), and the gate/greeting/cards/foot all float OVER the
+  art via position:absolute (gate lower-right at right:7vw/bottom:15vh; cards centred bottom:8vh;
+  greeting bottom:24vh; foot a gradient strip at bottom). .lp-hero-spacer is now display:none (the
+  floated children no longer need reserved flow space). The portrait @media resets all four back to
+  position:relative and stacks them below the hero with 46vh top clearance (functional fallback;
+  the dark area remains only in portrait, which is secondary per the landscape-first rule).
 - world.html island tuning (this session): heights 26/32/38/44, steeper cone (coneR = R - 9),
   rock cap and summit flag use each island's stream colour so streams are identifiable from afar,
   fog 140/340, name labels 30 x 7.5, chase camera at distance 19, height 13. Smoke-tested with a
