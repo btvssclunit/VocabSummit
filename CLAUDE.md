@@ -1,7 +1,7 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 Read this before touching any file. It is the single source of truth for conventions.
-Last updated: 2026-08-09.
+Last updated: 2026-08-10.
 
 ## What this is
 
@@ -32,11 +32,10 @@ Do NOT introduce subfolders unless the owner has moved to a git client.
 - G1/G2/G3/HCL_index.html — thin per-stream entries; each sets `window.STREAM` then loads app.js
 - app.css — all styles; BVSS palette lives here as CSS variables
 - app.js — the whole engine (vanilla JS, IIFE, no build step, no frameworks)
-- world.html — 词山群岛 sailing scene (a boat between four island-mountains); three_min.js is
-  Three.js r128 (minified; this build has no OrbitControls and no CapsuleGeometry — use
-  Cylinder/Sphere/custom geometries). NOTE: this is NOT 我的词山. The real 我的词山 (altitude-
-  climbing mountain) is a 2D canvas rendered inline by startMountain() in app.js, reading the
-  in-memory store; camp/shop/zones/gyms all live there. (Corrected 2026-08-10; see HANDOFF doc.)
+  (REMOVED 2026-08-10: world.html + world_previous_unedited.html + three_min.js + three.min.js —
+  the 词山群岛 sailing scene was removed per owner decision, footer link deleted, files moved to
+  Trash. May be recommissioned separately later.) 我的词山 (the altitude mountain) lives in app.js
+  startMountain() — see the static-mountain note below.
 - g1/g2/g3/hcl.json — generated vocabulary data (see Vocabulary data below for the edit rules)
 - id_registry.json — stable word ID registry; always commit together with the JSON it matches
 - badge_shkj/hx/gg/jj/whz.png — the five component badges (see Badge system below)
@@ -174,8 +173,11 @@ Phase: login-free public test build.
   climber zigzags up one hold column per step. Timer 60/90/120s (remembered per device); combo
   tones; personal-record ledge line; TTS for prompt and options; 8-bit sprite climber (position-
   only movement, no limb animation).
-- 我的词山: persistent mountain world, one mountain per level, entered from the home mini-horizon.
-  Altitude = mastered word count, 1词 = 1米, never decreases (locked rule).
+- 我的词山: a single static illustrated mountain (mountain_bg.png, shared across all four streams),
+  entered from the home mini-horizon. Fixed landscape view, no scroll/camera/joystick. Unit/年级峰/
+  你的营地/顶峰 pins sit along the painted path; tapping a pin opens the existing popovers. Altitude =
+  mastered word count, 1词 = 1米, never decreases (locked rule). (Redesigned 2026-08-10 from the old
+  procedural canvas — see the static-mountain note below.)
 - Mastery ⓘ popover explaining the generous first-correct rule.
 
 ## Roadmap (in order; decision dates noted)
@@ -220,8 +222,6 @@ Phase: login-free public test build.
 - Unit GitHub account (btvssclunit) recovered Aug 2026; repo lives at btvssclunit.github.io again.
   After the transfer some deployed files were stale or missing, so this session produced a complete
   repo drop: always deploy the full file set, never a partial upload.
-- three_min.js is required by world.html. If it is missing or fails to load, the sailing page renders
-  as a flat blue page with only the HUD pills: check for that file first before debugging the scene.
 - Landing page layout rule (UPDATED 2026-08-10): the landscape landing has NO dark band. .lp-hero
   is height:100vh (full art, no crop-to-band), and the gate/greeting/cards/foot all float OVER the
   art via position:absolute (gate lower-right at right:7vw/bottom:15vh; cards centred bottom:8vh;
@@ -229,10 +229,6 @@ Phase: login-free public test build.
   floated children no longer need reserved flow space). The portrait @media resets all four back to
   position:relative and stacks them below the hero with 46vh top clearance (functional fallback;
   the dark area remains only in portrait, which is secondary per the landscape-first rule).
-- world.html island tuning (this session): heights 26/32/38/44, steeper cone (coneR = R - 9),
-  rock cap and summit flag use each island's stream colour so streams are identifiable from afar,
-  fog 140/340, name labels 30 x 7.5, chase camera at distance 19, height 13. Smoke-tested with a
-  mocked-THREE runner (setup + 6 frames, no exception).
 - Level-page mini-horizon uses landing_hero_bg.png (app.js miniHorizon). If a deployed level page
   shows different art, the deployed app.js is stale.
 
@@ -253,8 +249,9 @@ Rebuilt from DESIGN_词雨灵露_营地商店.md after the original v0.4 files w
   opens openCamp() — wallet, pets line, 自由试炼 board (launches any mode with the current 修行 scope),
   and 营地商店 entry. Owned decorations (fire/flag/pine/pavilion) render beside the tent via TILE_MAP.
 - 营地商店 openShop(): 篝火30 / 营旗60 / 青松100 / 小亭200, gated on store.lingLu, owned -> store.deco.
-- Four altitude zones (山脚绿野/云海栈道/雪线冰崖/天阶峰顶): boundaries from the t:"level" marks; a
-  translucent tint per band overlays the panorama + a zone name pill in the mountain HUD. Cosmetic only.
+- Four altitude zones (山脚绿野/云海栈道/雪线冰崖/天阶峰顶): boundaries from the t:"level" marks. In the
+  static-mountain redesign these ARE the four painted terrain bands of mountain_bg.png; code just shows
+  the current zone name in the HUD (the old canvas per-band tint is gone with the canvas).
 - 年度试炼 (gyms): folded INTO the 年级峰 (t:"level") popover, NOT a separate mark, to avoid overlap at
   the boundary. Cumulative design (owner 2026-08-10): 30 words from the level + 10 random from EACH
   earlier level (中一 30 / 中二 40 / 中三 50 / 中四 60), built by buildGymSeq(). Pass = ALL correct ->
@@ -299,3 +296,25 @@ swapped in both app.js and nickname.js (kept identical). Totals 132 desc / 84 no
 visual-scenery rather than character traits. Data-only change: the picker already rendered
 {w,zh} chips with 释义 tooltips, so no picker code changed. (Note 滴水穿石 still appears in
 app.js — that is the CEL_T1 celebration quote, not a nickname; correct.)
+
+## 我的词山 static-mountain rebuild + sailing removal, 2026-08-10
+
+Per HANDOFF_static_mountain_and_sailing_removal.md. Both in app.js + app.css + index.html.
+
+- **Sailing removed:** footer link in index.html deleted; world.html, world_previous_unedited.html,
+  three_min.js, three.min.js moved to Trash (recoverable; may be recommissioned separately).
+- **Static mountain:** startMountain() fully rebuilt — the ~370-line procedural canvas (rAF loop,
+  camera/camY, worldH/yOf/xOf, drag-pan, joystick, drawn mountain body/trail) was REPLACED by a
+  fixed landscape image (mountain_bg.png, 1672×941, shared across all four streams) with DOM pins.
+  Pins = buildMarks() filtered to base/unit/level/summit (comps fold into the unit popover); each is
+  absolutely positioned at its altitude fraction along MTN_PATH — a hand-traced polyline of the
+  painted path on THIS image. Re-trace MTN_PATH (top of the static-mountain block in app.js) if the
+  image ever changes. A "you are here" marker (.mtn2-hero) sits at current altitude fraction; no
+  animation. Tapping a pin calls the SAME openMark() branches, so all popovers carry over unchanged:
+  unit words · 年级峰+年度试炼 gym · 你的营地 camp+shop · 顶峰. HUD = 已掌握 米 + current zone name +
+  🎯 目标 (showGoalPanel). CSS: .mtn2-* + .m2pill; .mtn2-stage uses aspect-ratio 1672/941 and
+  width:min(96vw,124vh) so the whole scene + HUD fit one view without scrolling.
+- Pin positions are a first hand-traced pass; nudge MTN_PATH by eye if any pin sits off the path.
+  The old .mtn-* canvas CSS and module-level TILE_IMG/drawTileM are now unused by the mountain
+  (TILE_MAP tiles are still used by nothing after this; sprint uses its own drawClimber) — left in
+  place, safe to prune later.

@@ -2116,372 +2116,84 @@
     });
     ov.querySelector("#popOk").onclick = function () { ov.remove(); };
   }
+  /* ==================================================================
+     我的词山 · static illustrated mountain (redesigned 2026-08-10)
+     One fixed landscape image (mountain_bg.png) shared by all four streams;
+     unit / 年级峰 / 你的营地 / 顶峰 pins placed along the painted path by
+     altitude fraction; a "you are here" marker at current progress. No
+     scroll / camera / joystick / render loop. Tapping a pin reuses openMark
+     (unit words · 年度试炼 gym · 营地 camp+shop · summit), so all v0.4
+     popovers carry over unchanged. The four painted terrain bands ARE the
+     four altitude zones; the HUD just labels the current one.
+     Pin positions come from MTN_PATH (hand-traced on this exact image); nudge
+     those waypoints if a future image changes the path.
+     ================================================================== */
+  var MTN_PATH = [
+    [0.610, 0.955], [0.600, 0.875], [0.575, 0.795], [0.552, 0.715],
+    [0.556, 0.635], [0.546, 0.555], [0.534, 0.475], [0.524, 0.400],
+    [0.514, 0.330], [0.508, 0.258], [0.512, 0.180], [0.518, 0.100]
+  ];
+  function mtnPathAt(frac) {
+    var n = MTN_PATH.length - 1;
+    var s = Math.max(0, Math.min(n - 0.0001, frac * n));
+    var i = Math.floor(s), f = s - i, a = MTN_PATH[i], b = MTN_PATH[i + 1];
+    return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f };
+  }
+  function mtnPinIcon(m) {
+    if (m.t === "base") return "⛺";
+    if (m.t === "summit") return "🏯";
+    if (m.t === "level") return store.gym[m.level] ? petFor(m.level).emoji : "🚩";
+    return "";   // unit: a plain dot (gold when its badge is earned)
+  }
   function startMountain() {
     setTopbar("home", "");
+    ensureIdIndex();
     var alt = altitudeNow();
-    view().innerHTML = '<div class="mtn-shell">' +
-      '<canvas class="mtn-canvas" id="mtCv"></canvas>' +
-      '<div class="mtn-hud">' +
-      '<span class="mtn-pill">⛰️ 已掌握 <b>' + alt + '</b> 米 · <span id="mtNow">站在 ' + alt + ' 米</span></span>' +
-      '<span class="mtn-pill" id="mtZone"></span>' +
-      '<button class="mtn-pill" id="mtGoal">🎯 目标</button>' +
-      '<button class="mtn-pill" id="mtHome" style="display:none">📍 回到我的位置</button></div>' +
-      '<div class="mtn-goalbar" id="mtGoalbar"></div>' +
-      '<button class="mtn-interact" id="mtAct" style="display:none"></button>' +
-      '<div class="mtn-joy" id="mtJoy"><div class="mtn-knob" id="mtKnob"></div></div>' +
-      '<div class="mtn-tip">🕹️ 摇杆 / ↑↓ 键行走 · 拖动画面回看 · 走近地标可查看</div></div>';
-
-    var cv = document.getElementById("mtCv");
-    var ctx = cv.getContext("2d");
-    var SEG = 26;
-    var totalAlt = WORDS.length;
+    var totalAlt = WORDS.length || 1;
     var marks = buildMarks();
+    var pins = marks.filter(function (m) {
+      return m.t === "base" || m.t === "unit" || m.t === "level" || m.t === "summit";
+    });
+
+    /* four altitude zones by year-level boundary (for the HUD label only) */
+    var ZONES = ["🌿 山脚绿野", "☁️ 云海栈道", "❄️ 雪线冰崖", "🏯 天阶峰顶"];
+    var bounds = [0];
+    marks.forEach(function (m) { if (m.t === "level") bounds.push(m.alt); });
+    if (bounds[bounds.length - 1] < totalAlt) bounds.push(totalAlt);
+    function zoneName(a) {
+      for (var z = 0; z < bounds.length - 1; z++) { if (a < bounds[z + 1]) return ZONES[Math.min(z, ZONES.length - 1)]; }
+      return ZONES[Math.min(bounds.length - 2, ZONES.length - 1)];
+    }
+
+    var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage">';
+    pins.forEach(function (m, i) {
+      var frac = m.t === "base" ? 0 : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
+      var p = mtnPathAt(frac);
+      var cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "");
+      html += '<button class="' + cls + '" data-i="' + i + '" title="' + esc(markLabel(m)) +
+        '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%">' +
+        mtnPinIcon(m) + '</button>';
+    });
+    var cp = mtnPathAt(Math.min(1, alt / totalAlt));
+    html += '<div class="mtn2-hero" style="left:' + (cp.x * 100).toFixed(2) + '%;top:' + (cp.y * 100).toFixed(2) + '%" title="你在这里"></div>';
+    html += '</div>';   // .mtn2-stage
+    html += '<div class="mtn2-hud">' +
+      '<span class="m2pill">⛰️ 已掌握 <b>' + alt + '</b> 米</span>' +
+      '<span class="m2pill">' + zoneName(alt) + '</span>' +
+      '<button class="m2pill" id="mtGoal">🎯 目标</button></div>';
+    html += '<div class="mtn2-goalbar" id="mtGoalbar"></div>';
+    html += '<div class="mtn2-tip">点地标查看进度 · ⛺ 你的营地 · 🚩 年度试炼 · 🏯 顶峰</div></div>';
+    view().innerHTML = html;
+
     var goal = nextGoal(alt);
+    var gb = document.getElementById("mtGoalbar");
+    if (gb) gb.textContent = goal ? ("🎯 距「" + goal.label + "」还差 " + goal.need + " 词") : "🏯 全部目标已完成！";
 
-    /* four altitude zones, boundaries = year-level summits (spec §5) */
-    var ZONE_NAMES = ["🌿 山脚绿野", "☁️ 云海栈道", "❄️ 雪线冰崖", "🏯 天阶峰顶"];
-    var ZONE_TINTS = ["rgba(91,138,102,.16)", "rgba(120,168,200,.17)", "rgba(226,236,246,.22)", "rgba(245,196,67,.14)"];
-    var zoneBounds = [0];
-    marks.forEach(function (m) { if (m.t === "level") zoneBounds.push(m.alt); });
-    if (zoneBounds[zoneBounds.length - 1] < totalAlt) zoneBounds.push(totalAlt);
-    function zoneOf(a) {
-      for (var z = 0; z < zoneBounds.length - 1; z++) {
-        if (a < zoneBounds[z + 1]) return z;
-      }
-      return zoneBounds.length - 2;
-    }
-    function zoneName(z) { return ZONE_NAMES[Math.min(z, ZONE_NAMES.length - 1)]; }
-    function zoneTint(z) { return ZONE_TINTS[Math.min(z, ZONE_TINTS.length - 1)]; }
-
-    function worldH() { return totalAlt * SEG + 220; }
-    function yOf(a) { return worldH() - a * SEG - 90; }
-    function xOf(a) { return cv.width * 0.5 + Math.sin(a * 0.35) * Math.min(cv.width * 0.26, 190); }
-
-    function resize() {
-      var r = cv.getBoundingClientRect();
-      cv.width = Math.max(280, Math.round(r.width));
-      cv.height = Math.max(170, Math.round(r.height));
-      ctx.imageSmoothingEnabled = false;
-    }
-    resize();
-    window.addEventListener("resize", resize);
-
-    function drawTileM(name, x, y, s, dim) {
-      if (!TILE_IMG.complete || !TILE_IMG.naturalWidth) return;
-      var m = TILE_MAP[name]; if (!m) return;
-      var w = Math.round(m[2] * s), h = Math.round(m[3] * s);
-      if (dim) ctx.globalAlpha = 0.45;
-      ctx.drawImage(TILE_IMG, m[0], m[1], m[2], m[3], Math.round(x - w / 2), Math.round(y - h), w, h);
-      if (dim) ctx.globalAlpha = 1;
-    }
-    function updGoalbar() {
-      goal = nextGoal(altitudeNow());
-      var gb = document.getElementById("mtGoalbar");
-      if (!gb) return;
-      gb.textContent = goal ? ("🎯 距「" + goal.label + "」还差 " + goal.need + " 词") : "🏯 全部目标已完成！";
-    }
-    updGoalbar();
-
-    /* camera: init on character; drag to pan */
-    var charAlt = altitudeNow();      // walking position (float)
-    var frontier = altitudeNow();     // mastered altitude = walkable edge
-    var moveDir = 0;                  // -1 down · 0 idle · +1 up
-    var frontierToastT = 0;
-    var nearMark = null;
-    var camY = Math.max(0, Math.min(worldH() - cv.height, yOf(charAlt) - cv.height * 0.62));
-    var manual = false, dragY0 = null, camY0 = 0, dragMoved = 0;
-    var homeBtn = document.getElementById("mtHome");
-    cv.addEventListener("pointerdown", function (e) {
-      dragY0 = e.clientY; camY0 = camY; dragMoved = 0; cv.setPointerCapture(e.pointerId);
+    var stage = document.getElementById("mtStage");
+    Array.prototype.forEach.call(stage.querySelectorAll(".mtn2-pin[data-i]"), function (btn) {
+      btn.onclick = function () { openMark(pins[parseInt(btn.getAttribute("data-i"), 10)]); };
     });
-    cv.addEventListener("pointermove", function (e) {
-      if (dragY0 == null) return;
-      var dy = e.clientY - dragY0;
-      dragMoved = Math.max(dragMoved, Math.abs(dy));
-      if (dragMoved > 6) {
-        manual = true; homeBtn.style.display = "";
-        camY = Math.max(0, Math.min(worldH() - cv.height, camY0 - dy));
-      }
-    });
-    cv.addEventListener("pointerup", function (e) {
-      var wasTap = dragMoved <= 6;
-      dragY0 = null;
-      if (!wasTap) return;
-      /* landmark hit-test */
-      var r = cv.getBoundingClientRect();
-      var mx = (e.clientX - r.left) * (cv.width / r.width);
-      var my = (e.clientY - r.top) * (cv.height / r.height);
-      var bestM = null, bestD = 40 * 40, i, m, sx, sy, d;
-      for (i = 0; i < marks.length; i++) {
-        m = marks[i];
-        sx = m._sx; sy = m._sy;
-        if (sx == null) continue;
-        d = (mx - sx) * (mx - sx) + (my - sy) * (my - sy);
-        if (d < bestD) { bestD = d; bestM = m; }
-      }
-      if (bestM) openMark(bestM);
-    });
-    document.getElementById("mtGoal").onclick = function () { showGoalPanel(updGoalbar); };
-    homeBtn.onclick = function () { manual = false; homeBtn.style.display = "none"; };
-
-    /* ----- Phase A: walk the mountain ----- */
-    var actBtn = document.getElementById("mtAct");
-    actBtn.onclick = function () { if (nearMark) openMark(nearMark); };
-    var keyDir = 0;
-    function onKey(e, down) {
-      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") { keyDir = down ? 1 : (keyDir === 1 ? 0 : keyDir); e.preventDefault(); }
-      else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") { keyDir = down ? -1 : (keyDir === -1 ? 0 : keyDir); e.preventDefault(); }
-      else if (down && (e.key === "e" || e.key === "E") && nearMark) openMark(nearMark);
-    }
-    function kd(e) { onKey(e, true); } function ku(e) { onKey(e, false); }
-    window.addEventListener("keydown", kd); window.addEventListener("keyup", ku);
-
-    var joy = document.getElementById("mtJoy"), knob = document.getElementById("mtKnob");
-    var joyDir = 0, joyId = null;
-    function joyMove(e) {
-      var r = joy.getBoundingClientRect();
-      var dy = e.clientY - (r.top + r.height / 2);
-      var lim = r.height / 2 - 18;
-      dy = Math.max(-lim, Math.min(lim, dy));
-      knob.style.transform = "translate(-50%, calc(-50% + " + dy + "px))";
-      joyDir = Math.abs(dy) < 8 ? 0 : (dy < 0 ? 1 : -1);
-    }
-    joy.addEventListener("pointerdown", function (e) { joyId = e.pointerId; joy.setPointerCapture(joyId); joyMove(e); e.preventDefault(); });
-    joy.addEventListener("pointermove", function (e) { if (joyId !== null) joyMove(e); });
-    function joyEnd() { joyId = null; joyDir = 0; knob.style.transform = "translate(-50%,-50%)"; }
-    joy.addEventListener("pointerup", joyEnd); joy.addEventListener("pointercancel", joyEnd);
-
-    var raf, lastT = null;
-    function frame(t) {
-      if (!cv.isConnected) {
-        cancelAnimationFrame(raf); window.removeEventListener("resize", resize);
-        window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku);
-        return;
-      }
-      if (lastT == null) lastT = t;
-      var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
-
-      /* walking */
-      moveDir = keyDir || joyDir;
-      var walking = moveDir !== 0;
-      if (walking) {
-        manual = false; homeBtn.style.display = "none";
-        var next = charAlt + moveDir * 3.4 * dt;
-        if (next > frontier) {
-          next = frontier;
-          if (frontierToastT <= 0) { toast("⛰️ 前方还没开辟——掌握更多词语，山径就会向上延伸！"); frontierToastT = 6; }
-        }
-        charAlt = Math.max(0, Math.min(frontier, next));
-        var nowEl = document.getElementById("mtNow");
-        if (nowEl) nowEl.textContent = "站在 " + Math.round(charAlt) + " 米";
-      }
-      if (frontierToastT > 0) frontierToastT -= dt;
-      /* nearest landmark within reach */
-      var bestD = 1.6, cand = null;
-      for (var mi = 0; mi < marks.length; mi++) {
-        var dd = Math.abs(marks[mi].alt - charAlt);
-        if (dd < bestD) { bestD = dd; cand = marks[mi]; }
-      }
-      if (cand !== nearMark) {
-        nearMark = cand;
-        if (nearMark) { actBtn.textContent = "🔍 查看 · " + markLabel(nearMark); actBtn.style.display = ""; }
-        else actBtn.style.display = "none";
-      }
-
-      if (!manual) {
-        var camTarget = Math.max(0, Math.min(worldH() - cv.height, yOf(charAlt) - cv.height * 0.62));
-        camY += (camTarget - camY) * Math.min(1, dt * 5);
-      }
-
-      var W = cv.width, H = cv.height;
-      var pano = drawPanorama(ctx, W, H, camY / Math.max(1, worldH() - cv.height));
-      if (!pano) {
-        var sky = ctx.createLinearGradient(0, 0, 0, H);
-        sky.addColorStop(0, "#2E5FA8"); sky.addColorStop(1, "#8FC0E8");
-        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-      }
-
-      /* altitude zone: tint the sky/atmosphere by the band at screen centre */
-      var centerAlt = (worldH() - 90 - camY - H / 2) / SEG;
-      var zIdx = zoneOf(Math.max(0, Math.min(totalAlt, centerAlt)));
-      ctx.fillStyle = zoneTint(zIdx); ctx.fillRect(0, 0, W, H);
-      var zEl = document.getElementById("mtZone");
-      if (zEl) zEl.textContent = zoneName(zoneOf(Math.max(0, Math.min(totalAlt, charAlt))));
-
-      var sunY = yOf(totalAlt) - camY - 40;
-      if (sunY > -60 && sunY < H + 60) {
-        ctx.fillStyle = "rgba(245,196,67,.35)"; ctx.beginPath(); ctx.arc(W * 0.78, sunY, 30, 0, 6.3); ctx.fill();
-        ctx.fillStyle = "#F5C443"; ctx.beginPath(); ctx.arc(W * 0.78, sunY, 19, 0, 6.3); ctx.fill();
-      }
-      if (!pano) {
-        ctx.fillStyle = "rgba(224,238,250,.42)";
-        ctx.beginPath();
-        var rBase = H * 0.9 - (camY * 0.22) % 400;
-        for (var rx = -40; rx <= W + 40; rx += 60) {
-          var ry = rBase - 200 + Math.sin((rx + camY * 0.22) * 0.02) * 46;
-          if (rx === -40) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
-        }
-        ctx.lineTo(W + 40, H + 40); ctx.lineTo(-40, H + 40); ctx.closePath(); ctx.fill();
-
-        var per = H + 200;
-        for (var ck = 0; ck < 4; ck++) {
-          var cyy = ((ck * 191 + 60 - camY * 0.35) % per + per) % per - 100;
-          var cxx = W * (0.14 + 0.24 * (ck % 3)) + (ck % 2 ? 30 : -20);
-          drawTileM("cloud", cxx, cyy, ck % 2 ? 1 : 0.72);
-        }
-      }
-
-      /* mountain body: apex at summit, faces widening downward */
-      var apexY = yOf(totalAlt) - camY - 6;
-      if (!pano) {
-      var grd = ctx.createLinearGradient(0, Math.max(-200, apexY), 0, H + 100);
-      grd.addColorStop(0, "#79AB89"); grd.addColorStop(1, "#3F704F");
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.moveTo(W * 0.5, apexY);
-      var ba, hw2, ex2;
-      for (ba = totalAlt; ba >= 0; ba -= 2) {
-        hw2 = 74 + (totalAlt - ba) * 15;
-        ex2 = W * 0.5 + hw2;
-        ctx.lineTo(ex2, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
-        if (ex2 > W + 60) break;
-      }
-      ctx.lineTo(W + 80, H + 100); ctx.lineTo(-80, H + 100);
-      for (ba = Math.max(0, ba); ba <= totalAlt; ba += 2) {
-        hw2 = 74 + (totalAlt - ba) * 15;
-        ex2 = W * 0.5 - hw2;
-        if (ex2 < -60) continue;
-        ctx.lineTo(ex2, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
-      }
-      ctx.closePath(); ctx.fill();
-      if (yOf(totalAlt - 8) - camY > -80) {
-        ctx.fillStyle = "#C9CFD6";
-        ctx.beginPath();
-        ctx.moveTo(W * 0.5, apexY);
-        for (ba = totalAlt; ba >= totalAlt - 8 && ba >= 0; ba -= 2) {
-          ctx.lineTo(W * 0.5 + 74 + (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.sin(ba * 2.3) * 7);
-        }
-        for (ba = Math.max(0, totalAlt - 8); ba <= totalAlt; ba += 2) {
-          ctx.lineTo(W * 0.5 - 74 - (totalAlt - ba) * 15, yOf(ba) - camY + 14 + Math.cos(ba * 2.1) * 7);
-        }
-        ctx.closePath(); ctx.fill();
-      }
-      }
-
-      var a0 = Math.max(0, Math.floor((worldH() - camY - H) / SEG) - 5);
-      var a1 = Math.min(totalAlt, Math.ceil((worldH() - camY) / SEG) + 5);
-      function tracePath() {
-        ctx.beginPath();
-        for (var a = a0; a <= a1; a++) {
-          var sx = xOf(a), sy = yOf(a) - camY;
-          if (a === a0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
-        }
-        ctx.stroke();
-      }
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "#5E7A45"; ctx.lineWidth = 52; tracePath();
-      ctx.strokeStyle = "#8A6B43"; ctx.lineWidth = 42; tracePath();
-      ctx.strokeStyle = "#C89B5A"; ctx.lineWidth = 30; tracePath();
-      for (var la = a0; la <= a1; la++) {
-        if (la % 7 === 3) drawTileM("pine", xOf(la) + ((la % 2 === 0) ? -1 : 1) * 82, yOf(la) - camY + 8, la % 14 === 3 ? 1 : 0.8);
-      }
-      for (var s = a0; s <= a1; s++) {
-        drawTileM("steps", xOf(s), yOf(s) - camY + 11, 0.82);
-      }
-
-      /* real curriculum landmarks */
-      var i, m, mx2, my2, done;
-      for (i = 0; i < marks.length; i++) {
-        m = marks[i];
-        if (m.alt < a0 - 2 || m.alt > a1 + 2) { m._sx = null; continue; }
-        done = markDone(m);
-        my2 = yOf(m.alt) - camY;
-        if (m.t === "comp") {
-          mx2 = xOf(m.alt) + m.side * 74;
-          drawTileM("sign", mx2, my2 + 6, 0.8, !done);
-          var bi = badgeImgFor(m.comp.component);
-          if (bi.complete && bi.naturalWidth) {
-            if (!done) ctx.globalAlpha = 0.45;
-            ctx.drawImage(bi, Math.round(mx2 - 13), Math.round(my2 - 60), 26, 26);
-            ctx.globalAlpha = 1;
-          }
-          m._sx = mx2; m._sy = my2 - 20;
-        } else if (m.t === "unit") {
-          var uside = (xOf(m.alt) < W * 0.5) ? 1 : -1;   // camp on the open side
-          mx2 = xOf(m.alt) + uside * 88;
-          drawTileM("tent", mx2, my2 + 8, 1, !done);
-          drawTileM("fire", mx2 + uside * 46, my2 + 8, 0.8, !done);
-          m._sx = mx2 + uside * 20; m._sy = my2 - 12;
-        } else if (m.t === "level") {
-          mx2 = xOf(m.alt) + ((xOf(m.alt) < W * 0.5) ? 1 : -1) * 84;
-          drawTileM("flag", mx2, my2 + 4, 1.15, !done);
-          if (store.gym[m.level]) {   // 年度试炼通过 · 登山伙伴陪在峰顶
-            ctx.font = "18px sans-serif"; ctx.textAlign = "center";
-            ctx.fillText(petFor(m.level).emoji, mx2, my2 - 30);
-            ctx.textAlign = "left";
-          }
-          m._sx = mx2; m._sy = my2 - 28;
-        } else if (m.t === "base") {
-          mx2 = xOf(0);
-          drawTileM("tent", mx2, my2 + 8, 1);
-          drawTileM("sign", mx2 - 42, my2 + 6, 0.7);
-          if (store.deco.fire) drawTileM("fire", mx2 + 44, my2 + 8, 0.8);
-          if (store.deco.flag) drawTileM("flag", mx2 - 64, my2 + 4, 1);
-          if (store.deco.pine) drawTileM("pine", mx2 + 80, my2 + 8, 0.9);
-          if (store.deco.pavilion) drawTileM("pavilion", mx2 + 104, my2 - 4, 0.8);
-          m._sx = mx2; m._sy = my2 - 14;
-        } else {
-          mx2 = xOf(m.alt);
-          drawTileM("pavilion", mx2, my2 - 12, 1, !done);
-          drawTileM("flag", mx2 - 64, my2 - 16, 1, !done);
-          m._sx = mx2; m._sy = my2 - 46;
-        }
-      }
-
-      /* frontier: where mastery ends, the trail waits */
-      if (frontier < totalAlt - 1) {
-        var fy = yOf(frontier + 1) - camY;
-        if (fy > -20 && fy < H + 20) {
-          ctx.strokeStyle = "rgba(255,236,170," + (0.45 + Math.sin(t / 300) * 0.2) + ")";
-          ctx.lineWidth = 2.5; ctx.setLineDash([9, 7]);
-          ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.stroke(); ctx.setLineDash([]);
-          ctx.font = "12px sans-serif"; ctx.fillStyle = "#FFE9BD";
-          ctx.fillText("⛏️ 待开辟 · 掌握新词继续攀登", 12, fy - 8);
-        }
-      }
-
-      /* goal highlight: pulsing gold ring */
-      if (goal && goal.alt >= a0 - 2 && goal.alt <= a1 + 2) {
-        var gx = goal.mark && goal.mark._sx != null ? goal.mark._sx : xOf(goal.alt);
-        var gy = goal.mark && goal.mark._sx != null ? goal.mark._sy : yOf(goal.alt) - camY;
-        var pr = 24 + Math.sin(t / 280) * 4;
-        ctx.strokeStyle = "rgba(245,196,67,.9)"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(gx, gy, pr, 0, 6.3); ctx.stroke();
-        if (!goal.mark) {  /* count-mode milestone marker */
-          drawTileM("flag", gx, gy + 24, 0.7);
-          ctx.font = "12px sans-serif"; ctx.fillStyle = "#FFE9BD";
-          ctx.fillText(goal.alt + " 米", gx + 20, gy + 4);
-        }
-      }
-
-      /* character: walk frames when moving, idle bob otherwise */
-      var px = Math.round(xOf(charAlt));
-      var py = Math.round(yOf(charAlt) - camY + (walking ? 0 : Math.sin(t / 600) * 1.5));
-      if (SPRITE_IMG.complete && SPRITE_IMG.naturalWidth) {
-        var row = SPRITE_ROW[STREAM] || 0;
-        var fr = walking ? (1 + (Math.floor(t / 180) % 2)) : 0;
-        var slopeLeft = Math.cos(charAlt * 0.35) < 0;
-        var faceLeft = moveDir < 0 ? !slopeLeft : slopeLeft;   // descending faces downhill
-        ctx.save();
-        if (faceLeft) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
-        ctx.drawImage(SPRITE_IMG, fr * SPRITE_FW, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
-          px - SPRITE_FW / 2, py - SPRITE_FH + 6, SPRITE_FW, SPRITE_FH);
-        ctx.restore();
-      }
-
-      raf = requestAnimationFrame(frame);
-    }
-    raf = requestAnimationFrame(frame);
+    document.getElementById("mtGoal").onclick = function () { showGoalPanel(function () { startMountain(); }); };
   }
 
   /* ==================================================================
