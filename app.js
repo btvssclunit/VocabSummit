@@ -202,6 +202,7 @@
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
+    s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
     return s;
   }
   function saveStore() {
@@ -216,12 +217,24 @@
     clearTimeout(_cloudSyncTimer);
     _cloudSyncTimer = setTimeout(function () {
       window.WSCloud.saveProgress(STREAM, store);
+      pushLeaderboard();
     }, 2500);
   }
   function flushCloudSyncNow() {
     if (!window.WSCloud || !window.WSCloud.isAvailable()) return;
     clearTimeout(_cloudSyncTimer);
     window.WSCloud.saveProgress(STREAM, store);
+    pushLeaderboard();
+  }
+  /* only 学生 profiles are published to the leaderboard (teachers/parents never are) */
+  function pushLeaderboard() {
+    if (!window.WSCloud || !window.WSCloud.saveLeaderboard) return;
+    var p = loadProfile();
+    if (!p || p.role !== "student") return;
+    window.WSCloud.saveLeaderboard(STREAM, {
+      nickname: p.nickname || "", school: p.school || "",
+      altitude: Object.keys(store.mastered).length
+    });
   }
   window.addEventListener("pagehide", flushCloudSyncNow);
   window.addEventListener("beforeunload", flushCloudSyncNow);
@@ -549,6 +562,39 @@
   }
 
   /* ---------- home ---------- */
+  /* home search bar: look up ANY word in this stream by 词/拼音(去声调)/释义 */
+  function wireHomeSearch() {
+    var hs = document.getElementById("homeSearch");
+    if (!hs) return;
+    ensureIdIndex();
+    hs.oninput = function () {
+      var q = hs.value.trim();
+      var box = document.getElementById("hsResults");
+      if (!box) return;
+      if (!q) { box.innerHTML = ""; return; }
+      var ql = q.toLowerCase();
+      var matches = WORDS.filter(function (w) {
+        if (w.w.indexOf(q) !== -1) return true;
+        if (w.zh && w.zh.indexOf(q) !== -1) return true;
+        var py = (w.py || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+        return py.indexOf(ql) !== -1;
+      }).slice(0, 30);
+      if (!matches.length) { box.innerHTML = '<div class="hs-empty">没有找到相关词语。</div>'; return; }
+      box.innerHTML = matches.map(function (w) {
+        return '<button class="hs-row" data-id="' + esc(w.id) + '">' +
+          '<div class="hs-w"><b>' + esc(w.w) + '</b> <span class="hs-py">' + esc(w.py) + '</span>' +
+          ' <span class="hs-tag">' + esc(w.level) + '·' + esc(w.unit) + '</span></div>' +
+          '<div class="hs-zh">' + esc(w.zh) + '</div></button>';
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".hs-row[data-id]"), function (r) {
+        r.onclick = function () {
+          var w = WORDS[_idIndex[r.getAttribute("data-id")]];
+          if (w) speak(w.w);
+        };
+      });
+    };
+  }
+
   function renderHome() {
     setTopbar("landing", scopedWords().length + " 词在范围内");
     var t = totals();
@@ -557,6 +603,9 @@
     var badgeTotal = COMP_LIST.length + UNIT_LIST.length + LEVELS.length + 1;
 
     var html = '<div class="home-grid"><div class="home-left">' + miniHorizon();
+
+    html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
+      'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
 
     html += '<div class="section-label">复习范围 · 可多选</div><div class="card" id="scopeCard">' +
       '<div class="scope-top">' +
@@ -572,7 +621,9 @@
         '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">';
       byLevel[lv].forEach(function (u) {
         var on = scope.has(u.key) ? " on" : "";
-        html += '<button class="unit' + on + '" data-k="' + esc(u.key) + '">' + esc(u.unit) + ' · ' + u.count + '词</button>';
+        html += '<button class="unit' + on + '" data-k="' + esc(u.key) + '"><b>' + esc(u.unit) + '</b>' +
+          (u.theme ? '<span class="unit-theme">' + esc(u.theme) + '</span>' : '') +
+          '<span class="unit-n">' + u.count + '词</span></button>';
       });
       html += '</div>';
     });
@@ -611,6 +662,9 @@
 
     html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
       '<div><b>我的词语表</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
+      '<span class="go">查看 ›</span></button>';
+    html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
+      '<div><b>排行榜</b><span>看看你在本源流的排名（只显示学生）</span></div>' +
       '<span class="go">查看 ›</span></button>';
 
     html += '<div class="harbour">' +
@@ -654,6 +708,8 @@
     });
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
+    document.getElementById("lbEntry").onclick = renderLeaderboard;
+    wireHomeSearch();
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
     if (mh) mh.onclick = startMountain;
@@ -666,6 +722,7 @@
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
         var mode = btn.getAttribute("data-mode");
+        if (mode === "flash") return renderWordList("all");   // flashcards open the list-menu first
         if (mode === "rain") return renderRainConfig();
         if (mode === "sprint") return renderSprintConfig();
         if (mode === "assemble") return startAssemble();
@@ -742,24 +799,34 @@
     words.forEach(function (w) { counts[wordStatus(w)]++; });
     var chips = [["all", "全部", words.length], ["done", "已掌握", counts.done],
                  ["todo", "待巩固", counts.todo], ["new", "未掌握", counts["new"]]];
+    var list = words.filter(function (w) { return filter === "all" || wordStatus(w) === filter; });
     var html = '<div class="wl-wrap">' +
-      '<div class="wl-head"><div class="wl-title">📋 我的词语表</div>' +
+      '<div class="wl-head"><div class="wl-title">📋 词语表</div>' +
       '<div class="wl-streak">🔥 连续学习 <b>' + store.streak + '</b> 天</div></div>' +
-      '<div class="wl-sub">当前复习范围共 ' + words.length + ' 词。点词语可单独练习。</div>' +
+      '<div class="wl-sub">按年级 · 单元 · 板块排列。点单词单独练习，或用「闪卡」连续学习当前筛选的词。</div>' +
       '<div class="wl-filters">' + chips.map(function (c) {
         return '<button class="wl-chip' + (filter === c[0] ? " on" : "") + '" data-f="' + c[0] + '">' + c[1] + ' ' + c[2] + '</button>';
-      }).join("") + '</div>';
-    var list = words.filter(function (w) { return filter === "all" || wordStatus(w) === filter; });
+      }).join("") + '</div>' +
+      '<div class="wl-actions"><button class="wl-flash" id="wlFlash">🃏 用闪卡学这 ' + list.length + ' 个词</button>' +
+      '<span class="wl-hint">想只练不会的？先点上面的「未掌握」再开闪卡。</span></div>';
     if (!list.length) {
       html += '<div class="wl-empty">这个筛选下暂时没有词语。</div>';
     } else {
-      html += '<div class="wl-list">' + list.map(function (w) {
+      html += '<div class="wl-list">';
+      var curKey = "";
+      list.forEach(function (w) {
+        var gk = w.level + "·" + w.unit + "·" + w.component;
+        if (gk !== curKey) {
+          curKey = gk;
+          html += '<div class="wl-group">' + esc(w.level) + ' · ' + esc(w.unit) + ' · ' + esc(w.component) + '</div>';
+        }
         var st = wordStatus(w);
-        return '<button class="wl-row" data-id="' + esc(w.id) + '">' +
+        html += '<button class="wl-row" data-id="' + esc(w.id) + '">' +
           '<div class="wl-w"><b>' + esc(w.w) + '</b><span class="wl-py">' + esc(w.py) + '</span></div>' +
           '<div class="wl-zh">' + esc(w.zh) + '</div>' +
           '<span class="wl-status s-' + st + '">' + WL_LABEL[st] + '</span></button>';
-      }).join("") + '</div>';
+      });
+      html += '</div>';
     }
     html += '</div>';
     view().innerHTML = html;
@@ -769,6 +836,12 @@
     Array.prototype.forEach.call(view().querySelectorAll(".wl-row[data-id]"), function (r) {
       r.onclick = function () { practiceWord(r.getAttribute("data-id")); };
     });
+    var wf = document.getElementById("wlFlash");
+    if (wf) wf.onclick = function () { startFlashList(list); };
+  }
+  function startFlashList(words) {
+    if (!words || !words.length) { alert("这个筛选下没有可学习的词语。"); return; }
+    renderStep({ mode: "flash", seq: words.slice(), i: 0, correct: 0, revealed: false, streak: 0 });
   }
   function practiceWord(id) {
     ensureIdIndex();
@@ -778,6 +851,67 @@
     var state = { mode: hasCloze ? "cloze" : "zhmcq", seq: [w], i: 0, correct: 0,
       revealed: false, streak: 0, fromWordList: true };
     renderStep(state);
+  }
+
+  /* ---------- 排行榜 (leaderboard) — per stream, students only ----------
+     Ranked by altitude (mastered word count). 校内 filters to 百德中学; 跨校
+     shows all schools. Tiers 1-10 金 / 11-20 银 / 21-30 铜. Own row highlighted;
+     if outside top 30, a context window (±2) is shown after a divider. Every
+     row shows the full UID so duplicate nicknames are never ambiguous. */
+  var LB_BVSS = "百德中学 Bukit View Secondary School";
+  function lbMedal(rank) { return rank <= 10 ? "🥇" : rank <= 20 ? "🥈" : rank <= 30 ? "🥉" : ""; }
+  function lbTier(rank) { return rank <= 10 ? "gold" : rank <= 20 ? "silver" : rank <= 30 ? "bronze" : ""; }
+  function renderLeaderboard() {
+    setTopbar("home", "");
+    var scope = store.lbScope || "school";
+    view().innerHTML = '<div class="lb-wrap"><div class="wl-title">🏆 排行榜 · ' + esc(META.zh) + '</div>' +
+      '<div class="wl-sub">按海拔（已掌握词数）排名 · 只显示「学生」</div>' +
+      '<div class="lb-toggle">' +
+      '<button class="lb-tab' + (scope === "school" ? " on" : "") + '" data-s="school">校内 · 百德中学</button>' +
+      '<button class="lb-tab' + (scope === "all" ? " on" : "") + '" data-s="all">跨校 · 不限校</button></div>' +
+      '<div id="lbBody"><div class="wl-empty">加载中…</div></div></div>';
+    Array.prototype.forEach.call(view().querySelectorAll(".lb-tab[data-s]"), function (b) {
+      b.onclick = function () { store.lbScope = b.getAttribute("data-s"); saveStore(); renderLeaderboard(); };
+    });
+    if (!window.WSCloud || !window.WSCloud.isAvailable()) {
+      document.getElementById("lbBody").innerHTML = '<div class="wl-empty">排行榜需要联网，暂时无法加载。</div>';
+      return;
+    }
+    if (!window.WSCloud.getLeaderboard) {
+      document.getElementById("lbBody").innerHTML = '<div class="wl-empty">排行榜功能正在更新，请刷新页面后再试。</div>';
+      return;
+    }
+    var getUid = window.WSCloud.getUid || function (cb) { cb(null); };
+    getUid(function (myUid) {
+      window.WSCloud.getLeaderboard(STREAM, function (rows) {
+        var body = document.getElementById("lbBody");
+        if (!body) return;
+        if (!rows) { body.innerHTML = '<div class="wl-empty">加载失败，请稍后再试。</div>'; return; }
+        if (scope === "school") rows = rows.filter(function (r) { return r.school === LB_BVSS; });
+        if (!rows.length) { body.innerHTML = '<div class="wl-empty">还没有人上榜，快去成为第一个！</div>'; return; }
+        var myIdx = -1, i;
+        for (i = 0; i < rows.length; i++) { if (rows[i].uid === myUid) { myIdx = i; break; } }
+        var TOP = 30, show = [];
+        for (i = 0; i < Math.min(TOP, rows.length); i++) show.push(i);
+        var winStart = -1;
+        if (myIdx >= TOP) {
+          winStart = Math.max(TOP, myIdx - 2);
+          for (i = winStart; i <= Math.min(rows.length - 1, myIdx + 2); i++) show.push(i);
+        }
+        var out = "";
+        show.forEach(function (idx) {
+          if (idx === winStart) out += '<div class="lb-gap">· · ·</div>';
+          var r = rows[idx], rank = idx + 1, tier = lbTier(rank), mine = (r.uid === myUid);
+          out += '<div class="lb-row' + (tier ? " " + tier : "") + (mine ? " me" : "") + '">' +
+            '<span class="lb-rank">' + lbMedal(rank) + ' ' + rank + '</span>' +
+            '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + (mine ? " · 你" : "") + '</b>' +
+            (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
+            '<span class="lb-uid">' + esc(r.uid) + '</span></div>' +
+            '<span class="lb-alt">' + r.altitude + ' 米</span></div>';
+        });
+        body.innerHTML = out;
+      });
+    });
   }
 
   /* ---------- study mode shared ---------- */
@@ -2177,6 +2311,9 @@
       (petLine ? '<div class="camp-pets">登山伙伴：' + petLine + '</div>' : "") +
       '<div class="pop-label">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
       '<div class="camp-board">' + board + '</div>' +
+      '<div class="camp-uid">识别码 <code id="campUid">载入中…</code>' +
+      '<button class="uid-copy" id="uidCopy">复制</button>' +
+      '<div class="pop-hint">如需向老师反映问题或核对排行榜身份，请提供此识别码。</div></div>' +
       '<div class="nav-row"><button class="nav-btn" id="campShop">🛒 营地商店</button>' +
       '<button class="nav-btn primary" id="campOk">知道了</button></div>';
     var ov = popOverlay(html);
@@ -2185,6 +2322,16 @@
     Array.prototype.forEach.call(ov.querySelectorAll(".cb[data-mode]"), function (btn) {
       btn.onclick = function () { ov.remove(); launchMode(btn.getAttribute("data-mode")); };
     });
+    var uidEl = ov.querySelector("#campUid");
+    if (window.WSCloud && window.WSCloud.isAvailable() && window.WSCloud.getUid) {
+      window.WSCloud.getUid(function (u) { if (uidEl) uidEl.textContent = u || "（离线）"; });
+    } else if (uidEl) { uidEl.textContent = "（离线）"; }
+    ov.querySelector("#uidCopy").onclick = function () {
+      var txt = uidEl ? uidEl.textContent : "";
+      if (!txt || txt === "载入中…" || txt === "（离线）") return;
+      if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("识别码已复制 ✓"); }, function () { toast(txt); });
+      else toast(txt);
+    };
   }
 
   /* ---------- 营地商店 camp shop (灵露兑换) ---------- */
@@ -2613,7 +2760,7 @@
               });
               COMP_LIST.push({ key: lv.level + "·" + u.unit + "·" + c.component, level: lv.level, unit: u.unit, component: c.component, textTitle: c.textTitle || "", ids: ids });
             });
-            UNIT_LIST.push({ key: lv.level + "·" + u.unit, level: lv.level, unit: u.unit, count: count });
+            UNIT_LIST.push({ key: lv.level + "·" + u.unit, level: lv.level, unit: u.unit, theme: u.theme || "", count: count });
           });
         });
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));

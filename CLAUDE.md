@@ -354,3 +354,35 @@ Per HANDOFF_static_mountain_and_sailing_removal.md. Both in app.js + app.css + i
 - Leaderboard + UID design doc received: it is a DRAFT awaiting Kai Xin sign-off — NOT implemented.
   It also reverses the earlier "leaderboards dropped" roadmap note; confirm before building. The
   role/school profile fields above were added now so the data is ready if/when it's approved.
+
+## Session batch 3, 2026-08-10 — leaderboard, search, word-list redesign, data sync
+
+- 姓氏 fix now also applied to the Excel MASTERS (vocab-lists/*.xlsx, column I / 中文释义) so JSON↔master
+  agree; the 4 JSONs were already fixed. openpyxl was pip-installed for this.
+- Leaderboard (per leaderboard_uid_design.md, owner-approved): firebase-init.js gained getUid,
+  saveLeaderboard (writes leaderboard/{stream}/entries/{uid} = {nickname,school,altitude,updatedAt}),
+  getLeaderboard (orderBy altitude desc). app.js: pushLeaderboard() in the cloud-sync path writes ONLY
+  when profile.role==="student"; renderLeaderboard() = per-stream board with 校内/跨校 toggle (store.lbScope),
+  tiers 🥇1-10/🥈11-20/🥉21-30, self-highlight + ±2 context window if outside top 30, every row shows full
+  UID. 识别码 (UID) + 复制 shown in the 你的营地 popover. Home entry card 🏆 排行榜. All Firebase calls are
+  guarded (getUid/getLeaderboard may be absent if an old firebase-init.js is cached → graceful "refresh"
+  message, no crash). REQUIRES the Firestore rules below deployed in the Firebase console before it works.
+- Home search bar (wireHomeSearch): look up ANY word in the stream by 词 / 拼音(tone-insensitive) / 释义;
+  results show 词·拼音·释义 inline, tap = TTS. For classwork/homework lookup.
+- 复习范围 now shows each unit's 主题/theme (UNIT_LIST.theme, from u.theme in the JSON).
+- 词语表 (renderWordList) redesigned per owner: grouped by 年级·单元·板块 headers, filter chips
+  (全部/已掌握/待巩固/未掌握), and a 🃏 闪卡 button that runs flashcards over the CURRENT filtered set
+  (startFlashList) — so students zone in on unknowns then study. The home 词语闪卡 card now opens this
+  list-menu first (was: straight into cards). Tap a row = single-word practice (practiceWord).
+
+## Firestore security rules to add (Firebase console → Firestore → Rules), leaderboard support
+
+Keep the existing users/{uid} rule; ADD the leaderboard block:
+
+    match /leaderboard/{stream}/entries/{uid} {
+      allow read: if request.auth != null;                       // any signed-in (incl anon) user
+      allow write: if request.auth != null && request.auth.uid == uid;  // only your own row
+    }
+
+Until this is published, the leaderboard shows "加载失败/正在更新" and writes are denied — the rest of
+the app is unaffected.

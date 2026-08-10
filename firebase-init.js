@@ -86,6 +86,40 @@
           cb(d && d.progress && d.progress[streamKey] ? d.progress[streamKey] : null);
         }).catch(function (e) { console.error("getProgress failed:", e); cb(null); });
       });
+    },
+
+    /* the live Firebase anonymous UID (识别码), or null if not ready yet */
+    getUid: function (cb) { whenReady(function () { cb(_uid); }); },
+
+    /* leaderboard: one narrow doc per student per stream, holding ONLY
+       nickname + school + altitude (no PII, no per-word progress). Call only
+       for role === "student" (app.js gates this). entry = {nickname, school, altitude} */
+    saveLeaderboard: function (streamKey, entry) {
+      whenReady(function () {
+        db.collection("leaderboard").doc(streamKey).collection("entries").doc(_uid).set({
+          nickname: entry.nickname || "",
+          school: entry.school || "",
+          altitude: entry.altitude || 0,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(function (e) { console.error("saveLeaderboard failed:", e); });
+      });
+    },
+
+    /* read the whole stream leaderboard, sorted high→low; cb(array|null).
+       Each row: {uid, nickname, school, altitude}. Filtering (校内/跨校) is
+       done client-side in app.js on the returned set. */
+    getLeaderboard: function (streamKey, cb) {
+      whenReady(function () {
+        db.collection("leaderboard").doc(streamKey).collection("entries")
+          .orderBy("altitude", "desc").get().then(function (qs) {
+            var rows = [];
+            qs.forEach(function (doc) {
+              var d = doc.data() || {};
+              rows.push({ uid: doc.id, nickname: d.nickname || "", school: d.school || "", altitude: d.altitude || 0 });
+            });
+            cb(rows);
+          }).catch(function (e) { console.error("getLeaderboard failed:", e); cb(null); });
+      });
     }
   };
 })();
