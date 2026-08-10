@@ -219,11 +219,13 @@ img{max-width:100%}
 .ach-unit{margin-bottom:12px}
 .ach-unit-name{font-size:15px;font-weight:700;color:#3A5A70;display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .ach-badges{display:flex;gap:18px;flex-wrap:wrap}
-.ach-badge{display:flex;flex-direction:column;align-items:center;gap:5px;width:86px;text-align:center}
+.ach-badge{display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;text-align:center}
 .ach-badge img{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2.5px solid var(--gold);box-shadow:0 5px 14px rgba(23,58,90,.2);background:#fff}
 .ach-badge.locked img{filter:grayscale(1) opacity(.4);border-color:#C9DCE9}
 .ach-badge-name{font-size:12.5px;font-weight:700}
 .ach-badge.locked .ach-badge-name{color:#9FB3C0}
+.ach-badge-title{font-size:10px;color:#5A7080;line-height:1.25;max-width:104px}
+.ach-badge.locked .ach-badge-title{color:#B4C4D0}
 .ach-badge-count{font-size:11px;color:var(--ink-soft)}
 .ach-t4{text-align:center;margin:26px auto 10px;max-width:520px;background:rgba(18,42,66,.82);
   color:#DCEAF4;border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:16px;font-size:15px}
@@ -374,8 +376,18 @@ img{max-width:100%}
 .pop-label{font-size:12.5px;font-weight:700;color:#3A5A70;margin:10px 0 6px;letter-spacing:.06em}
 .code-ta{width:100%;box-sizing:border-box;height:74px;border:1.5px solid #B9CEDD;border-radius:10px;
   padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink);background:#F7FAFC}
-.code-link{background:none;border:none;color:#3A5A70;font-size:12.5px;text-decoration:underline;
-  cursor:pointer;padding:4px;margin-top:2px}
+.code-link{display:inline-flex;align-items:center;gap:4px;
+  background:#FDF6E4;border:2px solid var(--gold,#D9A72B);border-radius:8px;
+  color:#5C4009;font-size:15px;font-weight:700;letter-spacing:.02em;
+  text-decoration:none;cursor:pointer;padding:6px 12px;margin-top:4px;
+  box-shadow:0 2px 0 0 #B8821A}
+.code-link:active{transform:translateY(1px);box-shadow:none}
+.np-roles{display:flex;gap:8px;margin-bottom:2px}
+.np-role{flex:1;border:1.5px solid #B9CEDD;border-radius:12px;padding:10px 4px;font-size:14px;font-weight:700;
+  color:var(--ink-soft);background:#fff;cursor:pointer}
+.np-role.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
+.np-select{width:100%;box-sizing:border-box;height:44px;border:1.5px solid #B9CEDD;border-radius:10px;
+  padding:0 11px;font-size:15px;color:var(--ink);background:#F7FAFC}
 
 /* ---------- 你的营地 / 营地商店 / 年度试炼 ---------- */
 .camp-wallet{background:#FDF3DC;border:1px solid #EFD9A4;border-radius:12px;padding:10px 14px;
@@ -404,8 +416,8 @@ img{max-width:100%}
 .shop-owned{font-size:13px;font-weight:700;color:#3F704F;flex:none}
 
 /* ---------- 攀山竞速 ---------- */
-.sprint-shell{display:flex;flex-direction:column;gap:10px;height:calc(100vh - 92px);min-height:480px}
-.sprint-canvas{width:100%;flex:1;min-height:180px;border-radius:16px;display:block;
+.sprint-shell{display:flex;flex-direction:column;gap:8px;height:calc(100vh - 68px);min-height:520px}
+.sprint-canvas{width:100%;flex:1;min-height:340px;border-radius:16px;display:block;
   box-shadow:0 6px 20px rgba(23,58,90,.18);image-rendering:pixelated}
 .sprint-hud{display:flex;align-items:center;gap:16px;font-size:14px;color:#3A5A70;flex-wrap:wrap}
 .sprint-hud b{color:var(--ink);font-size:16px}
@@ -548,7 +560,8 @@ button.mtn-pill:active{transform:scale(.96)}
 .lp-greeting .lp-nick{font-family:"Noto Serif SC",serif;font-weight:900;
   font-size:clamp(19px,2.1vw,25px);color:#FFE9B0;letter-spacing:.04em;
   text-shadow:0 2px 0 rgba(8,16,34,.9)}
-.lp-greeting .code-link{color:#8FD3FF;font-size:14px;text-decoration:underline}
+.lp-greeting .code-link{background:rgba(20,40,70,.75);border-color:#8FD3FF;color:#8FD3FF;
+  box-shadow:0 2px 0 0 rgba(20,40,70,.9)}
 /* cards sit BELOW the hero photo (not overlaid), so the climbers in the
    artwork are never cropped/hidden behind the card row */
 .lp-cards{position:absolute;left:50%;bottom:8vh;transform:translateX(-50%);display:flex;gap:14px;
@@ -603,6 +616,40 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
 .mtn-tip{position:absolute;right:12px;bottom:12px;color:rgba(255,255,255,.75);font-size:11.5px;
   background:rgba(15,30,50,.45);border-radius:999px;padding:4px 12px;z-index:2;pointer-events:none}
 @media (hover:hover) and (pointer:fine){ .mtn-joy{display:none} }
+
+/* ===== 个人词语表 (personal word list) ===== */
+.wl-entry{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--card-line);
+  border-radius:16px;padding:15px 16px;width:100%;text-align:left;box-shadow:0 6px 20px rgba(23,58,90,.14);
+  transition:transform .12s;margin-top:12px;cursor:pointer}
+.wl-entry:hover{transform:translateY(-2px)}
+.wl-entry .flag{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;
+  background:#EAF2FB;border:1px solid #CBDDEC;flex:none}
+.wl-entry b{font-size:16px;display:block;color:var(--ink)}
+.wl-entry>div>span{font-size:12.5px;color:var(--ink-soft)}
+.wl-entry .go{margin-left:auto;font-size:13px;color:var(--gold-deep);font-weight:700;flex:none}
+.wl-wrap{max-width:760px;margin:0 auto;padding:6px 12px 24px}
+.wl-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.wl-title{font-family:var(--serif);font-weight:900;font-size:22px;color:var(--ink)}
+.wl-streak{background:#FDF3DC;border:1px solid #EFD9A4;border-radius:999px;padding:6px 14px;font-size:14px;color:#7A5B12}
+.wl-streak b{color:var(--gold-deep);font-size:16px}
+.wl-sub{font-size:13px;color:var(--ink-soft);margin:6px 0 10px}
+.wl-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.wl-chip{border:1px solid #B9CEDD;border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:700;
+  color:var(--ink-soft);background:#fff;cursor:pointer}
+.wl-chip.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
+.wl-list{display:flex;flex-direction:column;gap:8px}
+.wl-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--card-line);border-radius:12px;padding:11px 14px;cursor:pointer;transition:transform .1s}
+.wl-row:hover{transform:translateY(-1px)}
+.wl-w{flex:none;min-width:88px}
+.wl-w b{font-size:17px;color:var(--ink)}
+.wl-py{display:block;font-size:11.5px;color:var(--ink-soft)}
+.wl-zh{flex:1;font-size:13px;color:#41576A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl-status{flex:none;font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px}
+.wl-status.s-done{background:#E3F1E6;color:#3F704F}
+.wl-status.s-todo{background:#FCEBD0;color:#B7791F}
+.wl-status.s-new{background:#EDF2F6;color:#8A94A0}
+.wl-empty{text-align:center;color:var(--ink-soft);padding:30px}
 
 /* ===== 我的词山 · static illustrated mountain (v0.4 redesign 2026-08-10) ===== */
 .mtn2-wrap{position:relative;padding:4px 0 14px}

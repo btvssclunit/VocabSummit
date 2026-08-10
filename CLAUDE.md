@@ -318,3 +318,39 @@ Per HANDOFF_static_mountain_and_sailing_removal.md. Both in app.js + app.css + i
   The old .mtn-* canvas CSS and module-level TILE_IMG/drawTileM are now unused by the mountain
   (TILE_MAP tiles are still used by nothing after this; sprint uses its own drawClimber) — left in
   place, safe to prune later.
+
+## Session batch, 2026-08-10 (evening) — copy, dashboard, sprint modes, profile, data fix
+
+- 词雨灵露 copy: removed sea framing (rain_bg is a meadow) — home card + mode-desc now say 落地前打出;
+  no 大海/入海/江海 anywhere. rain_bg.png swapped to the painterly meadow.
+- Footer 换昵称 / 进度码 links restyled as chunky gold chips (.code-link) — was tiny low-contrast text.
+- README.md: installed the owner's public README, corrected 3 stale lines (static mountain, sailing
+  removed, roadmap → dashboard).
+- 我的词山 MTN_PATH re-traced (denser, upper waypoints shifted right) so pins hug the painted path.
+- 个人词语表 (renderWordList): word-level list over 复习范围, status = 已掌握/待巩固(gymTodo)/未掌握,
+  filter chips, tap a row → practiceWord() single-word cloze/zhmcq. Entry card on home (wlEntry).
+- Daily streak: store.streak + store.lastActive, updateStreak() at boot (local date; increments on
+  consecutive-day open). Shown in 个人词语表 header + the entry card. localStorage-only.
+- 攀山竞速: (a) climb-wall-tile.png replaced with the stone-LEDGE wall; the climber now lands on a
+  REAL ledge every jump — SPRINT_LEDGES lists the 8 shelves per tile (traced by eye; re-trace if the
+  image changes), climbAlt is a ledge index, wall scrolls to bring each ledge to the climber's feet.
+  (b) canvas enlarged (.sprint-shell/.sprint-canvas). (c) question-mode picker: 填空 / 华文解释 /
+  英文翻译 via store.sprintMode (English mode hides TTS per the Chinese-only rule; cloze filters to
+  words with a valid __ blank).
+- 年度试炼 gate CHANGED: now requires mastering ≥80% of that year-level's words (was: reach the zone).
+  gymSectionHtml shows current % when locked.
+- sfxOk upgraded to a rising 3-note reward chime — plays on every correct answer (all modes already
+  call it).
+- Profile schema is now {nickname, role, school}. Picker (BOTH app.js + nickname.js, kept identical)
+  adds a role step (学生/老师/家长) with the note 只有「学生」会出现在排行榜上, and school as a dropdown
+  (百德中学 default / 其他 → free-text). Parent sees 孩子就读的学校. For future usage analysis + leaderboard.
+- DATA FIX: 姓氏 definition corrected to 表示一个人的家族血亲关系的标志和符号 in ALL FOUR JSONs (was the
+  wrong 人的姓和名，通称姓氏). ⚠️ The Excel masters (not in repo) MUST get the same edit or
+  generate_vocab_json.py will revert it. Only zh changed; ids/registry unaffected.
+- 成就墙 now shows each 板块's 课文标题 (《…》) between the component name and the count. textTitle is
+  carried into COMP_LIST at boot (it was already in every JSON component; not 例句, so no CPDD issue).
+- Landing (index.html/app.css): removed the dark band under the hero — .lp-hero fills the viewport,
+  gate/greeting/cards/foot float over the art (button lower-right). Portrait stacks as before.
+- Leaderboard + UID design doc received: it is a DRAFT awaiting Kai Xin sign-off — NOT implemented.
+  It also reverses the earlier "leaderboards dropped" roadmap note; confirm before building. The
+  role/school profile fields above were added now so the data is ready if/when it's approved.

@@ -57,7 +57,12 @@
   function renderNicknamePicker(onDone, opts) {
     opts = opts || {};
     var dismissible = !!opts.dismissible;
-    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null };
+    var _bvss = "百德中学 Bukit View Secondary School";
+    var _cs = opts.currentSchool || "";
+    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
+      role: opts.currentRole || "student",
+      schoolSel: (_cs && _cs !== _bvss) ? "other" : "bvss",
+      schoolOther: (_cs && _cs !== _bvss) ? _cs : "" };
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -110,12 +115,23 @@
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
       } else if (st.step === "confirm") {
         var nickname = st.desc + "·" + st.noun;
+        var role = st.role || "student";
+        var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"]];
+        var schoolLabel = role === "parent" ? "孩子就读的学校 Child’s school" : "你的学校 Your school";
+        var sel = st.schoolSel || "bvss";
         html = '<div class="pop-title">🎉 你的昵称</div>' +
-          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 14px">' +
+          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 12px">' +
           esc(nickname) + '</div>' +
-          '<div class="pop-label">学校</div>' +
-          '<input type="text" id="npSchool" class="code-ta" style="height:44px" placeholder="例如：百德中学" value="' +
-          esc((opts.currentSchool || "")) + '">' +
+          '<div class="pop-label">你的身份 I am a…</div>' +
+          '<div class="np-roles">' + roleBtns.map(function (r) {
+            return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
+          }).join("") + '</div>' +
+          '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
+          '<div class="pop-label">' + schoolLabel + '</div>' +
+          '<select id="npSchool" class="np-select">' +
+          '<option value="bvss"' + (sel === "bvss" ? " selected" : "") + '>百德中学 Bukit View Secondary School</option>' +
+          '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option></select>' +
+          (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(st.schoolOther || "") + '">' : "") +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重新选择</button>' +
           '<button class="nav-btn primary" id="npConfirm">确认</button></div>' + closeBtn;
       }
@@ -151,10 +167,21 @@
         });
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
       } else if (st.step === "confirm") {
+        Array.prototype.forEach.call(card.querySelectorAll(".np-role"), function (b) {
+          b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
+        });
+        var selEl = document.getElementById("npSchool");
+        selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
+        var otherEl = document.getElementById("npSchoolOther");
+        if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
-          var school = document.getElementById("npSchool").value.trim();
-          var profile = { nickname: st.desc + "·" + st.noun, school: school };
+          var role = st.role || "student";
+          var school = st.schoolSel === "other"
+            ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
+            : "百德中学 Bukit View Secondary School";
+          if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
+          var profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
           saveProfileLocal(profile);
           ov.remove();
           onDone(profile);

@@ -161,7 +161,7 @@
     o.connect(g); g.connect(c.destination);
     o.start(c.currentTime + start); o.stop(c.currentTime + start + dur + 0.05);
   }
-  function sfxOk() { tone(660, 0, 0.12); tone(880, 0.1, 0.18); }
+  function sfxOk() { tone(660, 0, 0.10); tone(880, 0.08, 0.10); tone(1175, 0.16, 0.22); }  // rising 3-note reward chime
   function sfxBad() { tone(180, 0, 0.22, "square", 0.07); }
   function sfxBadge() { tone(523, 0, 0.14); tone(659, 0.12, 0.14); tone(784, 0.24, 0.14); tone(1047, 0.36, 0.3); }
   function sfxLife() { tone(240, 0, 0.14, "square", 0.08); tone(180, 0.12, 0.2, "square", 0.08); }
@@ -191,6 +191,7 @@
     s.best = s.best || {};             // rain: score, handle: streak
     s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
     s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
+    s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
     s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
@@ -199,6 +200,8 @@
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
+    s.streak = s.streak || 0;          // 连续学习天数 (daily)
+    s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     return s;
   }
   function saveStore() {
@@ -357,6 +360,21 @@
     }
     document.body.style.backgroundImage =
       'linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("' + img + '")';
+  }
+
+  /* ---------- daily streak (连续学习天数) — device-local ---------- */
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function updateStreak() {
+    var today = todayStr();
+    if (store.lastActive === today) return;            // already counted today
+    var y = new Date(); y.setDate(y.getDate() - 1);
+    var yesterday = y.getFullYear() + "-" + ("0" + (y.getMonth() + 1)).slice(-2) + "-" + ("0" + y.getDate()).slice(-2);
+    store.streak = (store.lastActive === yesterday) ? (store.streak || 0) + 1 : 1;
+    store.lastActive = today;
+    saveStore();
   }
 
   /* ---------- 年度试炼 pets (四灵) + 待巩固 clearance ---------- */
@@ -567,7 +585,7 @@
 
     if (store.homeTab === "play") {
       html += '<div class="section-label">词语游乐场</div><div class="camps">' +
-        camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它入海前打出，收进宝缸得灵露") +
+        camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
         (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
         (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
@@ -590,6 +608,10 @@
     });
     html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
       '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
+
+    html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
+      '<div><b>我的词语表</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
+      '<span class="go">查看 ›</span></button>';
 
     html += '<div class="harbour">' +
       '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
@@ -631,6 +653,7 @@
       };
     });
     document.getElementById("badgeStrip").onclick = renderAchievements;
+    document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
     if (mh) mh.onclick = startMountain;
@@ -687,6 +710,7 @@
           html += '<div class="ach-badge' + (got ? "" : " locked") + '">' +
             '<img src="' + (BADGE_IMG[c.component] || "badge_hx.png") + '" alt="">' +
             '<span class="ach-badge-name">' + esc(c.component) + '</span>' +
+            (c.textTitle ? '<span class="ach-badge-title">' + esc(c.textTitle) + '</span>' : '') +
             '<span class="ach-badge-count">' + done + '/' + c.ids.length + '</span></div>';
         });
         html += '</div></div>';
@@ -696,6 +720,64 @@
     html += '<div class="ach-t4' + (store.badges["t4"] ? " got" : "") + '">👑 顶级词王 · ' +
       (store.badges["t4"] ? "已达成！锲而不舍，金石可镂。" : "掌握全部词语后解锁") + '</div></div>';
     view().innerHTML = html;
+  }
+
+  /* ---------- 个人词语表 (personal word list) ----------
+     Word-level visibility over the current 复习范围: 已掌握 (mastered) /
+     待巩固 (in any gymTodo) / 未掌握. Tapping a row practises just that word.
+     Read-only over the same store — no new per-word state invented. */
+  var WL_LABEL = { done: "已掌握", todo: "待巩固", "new": "未掌握" };
+  function wordStatus(w) {
+    if (store.mastered[w.id]) return "done";
+    var todo = false;
+    Object.keys(store.gymTodo).forEach(function (lv) { if (store.gymTodo[lv] && store.gymTodo[lv][w.id]) todo = true; });
+    return todo ? "todo" : "new";
+  }
+  function renderWordList(filter) {
+    filter = filter || "all";
+    ensureIdIndex();
+    setTopbar("home", "");
+    var words = scopedWords();
+    var counts = { done: 0, todo: 0, "new": 0 };
+    words.forEach(function (w) { counts[wordStatus(w)]++; });
+    var chips = [["all", "全部", words.length], ["done", "已掌握", counts.done],
+                 ["todo", "待巩固", counts.todo], ["new", "未掌握", counts["new"]]];
+    var html = '<div class="wl-wrap">' +
+      '<div class="wl-head"><div class="wl-title">📋 我的词语表</div>' +
+      '<div class="wl-streak">🔥 连续学习 <b>' + store.streak + '</b> 天</div></div>' +
+      '<div class="wl-sub">当前复习范围共 ' + words.length + ' 词。点词语可单独练习。</div>' +
+      '<div class="wl-filters">' + chips.map(function (c) {
+        return '<button class="wl-chip' + (filter === c[0] ? " on" : "") + '" data-f="' + c[0] + '">' + c[1] + ' ' + c[2] + '</button>';
+      }).join("") + '</div>';
+    var list = words.filter(function (w) { return filter === "all" || wordStatus(w) === filter; });
+    if (!list.length) {
+      html += '<div class="wl-empty">这个筛选下暂时没有词语。</div>';
+    } else {
+      html += '<div class="wl-list">' + list.map(function (w) {
+        var st = wordStatus(w);
+        return '<button class="wl-row" data-id="' + esc(w.id) + '">' +
+          '<div class="wl-w"><b>' + esc(w.w) + '</b><span class="wl-py">' + esc(w.py) + '</span></div>' +
+          '<div class="wl-zh">' + esc(w.zh) + '</div>' +
+          '<span class="wl-status s-' + st + '">' + WL_LABEL[st] + '</span></button>';
+      }).join("") + '</div>';
+    }
+    html += '</div>';
+    view().innerHTML = html;
+    Array.prototype.forEach.call(view().querySelectorAll(".wl-chip[data-f]"), function (b) {
+      b.onclick = function () { renderWordList(b.getAttribute("data-f")); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".wl-row[data-id]"), function (r) {
+      r.onclick = function () { practiceWord(r.getAttribute("data-id")); };
+    });
+  }
+  function practiceWord(id) {
+    ensureIdIndex();
+    var w = WORDS[_idIndex[id]];
+    if (!w) return;
+    var hasCloze = w.cloze && w.cloze.indexOf("__") !== -1;
+    var state = { mode: hasCloze ? "cloze" : "zhmcq", seq: [w], i: 0, correct: 0,
+      revealed: false, streak: 0, fromWordList: true };
+    renderStep(state);
   }
 
   /* ---------- study mode shared ---------- */
@@ -1011,6 +1093,19 @@
   /* ---------- result ---------- */
   function renderResult(state) {
     if (state.gym) return renderGymResult(state);
+    if (state.fromWordList) {
+      var w0 = state.seq[0];
+      var ok = state.correct > 0;
+      view().innerHTML = '<div class="result">' +
+        '<div class="big">' + (ok ? "✓ 已掌握" : "再接再厉") + '</div>' +
+        '<div class="sub">' + esc(w0.w) + '　' + esc(w0.py) + '</div>' +
+        '<div class="msg">' + esc(w0.zh) + '</div>' +
+        '<div class="nav-row"><button class="nav-btn" id="again">再练一次</button>' +
+        '<button class="nav-btn primary" id="home">‹ 回词语表</button></div></div>';
+      document.getElementById("again").onclick = function () { practiceWord(w0.id); };
+      document.getElementById("home").onclick = function () { renderWordList("all"); };
+      return;
+    }
     var total = state.seq.length;
     var pct = total ? Math.round(100 * state.correct / total) : 0;
     var msg = pct >= 90 ? "登顶了！旭日在你身后。" :
@@ -1104,7 +1199,7 @@
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">🌧️ 词雨灵露</div>' +
-      '<div class="mode-desc">词语化作灵雨随风而落，落入江海便消失无踪，趁它在空中打出它，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。✨ 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
+      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。✨ 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
       '<div class="diff-label">下落速度</div><div class="diff" id="speedSel">' +
       RAIN_SPEEDS.map(function (s, i) {
         return '<button class="dopt' + (i === 1 ? " on" : "") + '" data-i="' + i + '">' + s.label + '</button>';
@@ -1593,25 +1688,51 @@
   SPRINT_BG.src = "sprint_bg.png";   // vertical panorama backdrop (separate repo file)
   var WALL_IMG = new Image();
   WALL_IMG.src = "climb-wall-tile.png";   // 攀山竞速 vertically-tiling rock wall
+  /* Ledges (protruding shelves) traced on climb-wall-tile.png, ordered bottom→top
+     within one tile: {x, y} as image fractions of each shelf's top surface. The
+     climber lands on one of these every jump; the list repeats each tile. Re-trace
+     if the wall image changes. */
+  var SPRINT_LEDGES = [
+    { x: 0.605, y: 0.804 }, { x: 0.332, y: 0.752 }, { x: 0.055, y: 0.586 },
+    { x: 0.625, y: 0.583 }, { x: 0.107, y: 0.374 }, { x: 0.483, y: 0.326 },
+    { x: 0.500, y: 0.156 }, { x: 0.850, y: 0.153 }
+  ];
   var TILE_IMG = new Image();
   TILE_IMG.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAABQCAMAAADiFLV2AAABAlBMVEX/9qGibpzAY1v5//17kCuCwFW674X/y3+iP2sAAAAAAAA6AB9VV1SIgmx/RxQLIz0mNlgwTjSpbzBWOgDlrgAZOACEuxiftpzLsqvqKxkCZST0xbEmiyXAIgVbDAC6nHZYnABQKFAxXXbIfwDJ1+J/WUKtv8uv4gEzbQAmAEacCAD259L8pCbInCOhYgD/0Q1zFyRdsjPgyTuolkqwKzDuWTh0THSJp8PXUQCP3TLqqmBibyC55UhLhUtffp38fQDz+lUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACbDVwuAAAAQXRSTlP///////////8A/////////////////////////////////////////////////////////////////////////771nsgAAB5cSURBVHja7Z0JQyI5sMed1dl9pvogdEfAUaCFRlBuHEZ0HP3+n+pVVZI+oGnw2jdvh+wO9oEInV//60glHJ0e2n+8wQAGez4TQEDZE44OV/O/DosQIPalRQhxoOUPbmIxfxH70iJa83mZuhxo+a9Ly8lkAgpgj2ciLaPJ8EDLn0xLNQwnYbCHuoB4mYdheKDlT6YlDoeTyZ60TMJhWGa2DrT892mZ7EvLHGkZHmj5s3mBeehNm7CrCTEPAzjERAdavCkF0oxErukD9jA+D9SBlj87hhadztiLF7taHHc6gTpoyx9OC1TH1XEnpNiIGroxYVEbY2sesnN/PC0j1JbqaFfz4nHnQMuBFvRHfL/i72zs5Q4OtPzZfgtSsD8tcKDlT46IAMbjqCL9SqXiVxwHH/WPCm+Zhqw4lfnQi+NDLvePhqU1H48lkUL/rq40I/gD/zEtPj3iw9XV/HnseZ+cnculeA7987vZocfhJPCklRFLi972E4UhWion48AbwyfTkk33HLrn95IWIcbhUBkkUjquCmipVJQfD4ei5Kb/EFpub2u2HQTmd6MlHobKL6QF9/0cLb7/SLQI8am0dLuGlXpd7CrW+/DLcWCzzElYuJ6HdmiDlquMl2u8F3yQQeAtWvC5tLhuwgu16PTfkxc4GD+bVfHFZuwMo3CcQaJSQIuxR74l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";
   var SPRINT_OPTS = [60, 90, 120];
+  var SPRINT_MODES = [
+    { k: "cloze", label: "✍️ 填空" },
+    { k: "zh", label: "🔎 华文解释" },
+    { k: "en", label: "🌐 英文翻译" }
+  ];
   function altitudeNow() { return Object.keys(store.mastered).length; }
   function renderSprintConfig() {
     setTopbar("home", "");
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">⛰️ 攀山竞速</div>' +
-      '<div class="mode-desc">90 秒登山冲刺：看释义选词语，答对就向上攀登！<br>' +
+      '<div class="mode-desc">登山冲刺：答对就向上攀登！<br>' +
       '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
       '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
       '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
+      '<div class="diff-label">题目类型</div><div class="diff" id="modeSel">' +
+      SPRINT_MODES.map(function (m) {
+        return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
+      }).join("") + '</div>' +
       '<div class="diff-label">冲刺时长</div><div class="diff" id="secSel">' +
       SPRINT_OPTS.map(function (s) {
         return '<button class="dopt' + (s === store.sprintSecs ? " on" : "") + '" data-s="' + s + '">' + s + ' 秒</button>';
       }).join("") + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›</button></div></div>';
+    Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (b) {
+      b.onclick = function () {
+        Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        store.sprintMode = b.getAttribute("data-m");
+        saveStore();
+      };
+    });
     Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (b) {
       b.onclick = function () {
         Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (x) { x.classList.remove("on"); });
@@ -1624,8 +1745,15 @@
     document.getElementById("go").onclick = startSprint;
   }
   function startSprint() {
+    var smode = store.sprintMode || "zh";
     var all = scopedWords();
-    if (all.length < 8) { alert("请先选择足够的复习范围（至少 8 词）。"); return; }
+    if (smode === "cloze") all = all.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
+    if (all.length < 8) {
+      alert(smode === "cloze"
+        ? "所选范围内有填空句的词语不足（至少 8 个）。请扩大复习范围或改选其他题型。"
+        : "请先选择足够的复习范围（至少 8 词）。");
+      return;
+    }
     _deferCel = true;
     setTopbar("home", "");
     view().innerHTML = '<div class="sprint-shell">' +
@@ -1680,8 +1808,17 @@
       if (over || !document.getElementById("spPrompt")) return;
       locked = false;
       cur = nextWordS();
-      document.getElementById("spPrompt").textContent = cur.zh;
-      document.getElementById("spSay").onclick = function () { speak(cur.zh); };
+      var say = document.getElementById("spSay");
+      if (smode === "en") {
+        document.getElementById("spPrompt").textContent = cur.en;
+        say.style.display = "none";   // English is never read aloud (TTS rule)
+      } else if (smode === "cloze") {
+        document.getElementById("spPrompt").textContent = cur.cloze;
+        say.style.display = ""; say.onclick = function () { speakCloze(cur.cloze); };
+      } else {
+        document.getElementById("spPrompt").textContent = cur.zh;
+        say.style.display = ""; say.onclick = function () { speak(cur.zh); };
+      }
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
       box.innerHTML = opts.map(function (o, i) {
@@ -1776,49 +1913,55 @@
       if (celT > 0) celT = Math.max(0, celT - dt);
 
       var W = cv.width, H = cv.height;
-      var STEP_PX = 78;                       // wall scroll distance per altitude step
-      var anchorY = H * 0.60;                  // climber sits here; the wall scrolls past
-      var colL = W * 0.34, colR = W * 0.66;    // two hold columns for the zigzag
+      var anchorY = H * 0.60;                   // the climber's feet rest here, on a ledge
 
-      /* scrolling rock wall: tile climb-wall-tile.png seamlessly on the Y axis.
-         Climbing raises worldY, so the texture flows downward (= ascent). */
+      /* scrolling rock wall where the climber lands on a REAL ledge every jump.
+         climbAlt is a ledge index (each correct answer = +1). SPRINT_LEDGES gives
+         the shelves within one tile; the list repeats per tile so the wall tiles
+         seamlessly and every landing sits on a shelf. */
       if (WALL_IMG.complete && WALL_IMG.naturalWidth) {
         var tileH = W * (WALL_IMG.naturalHeight / WALL_IMG.naturalWidth);
-        var worldY = climbAlt * STEP_PX;
-        var off = ((worldY % tileH) + tileH) % tileH;
-        for (var wy = off - tileH; wy < H; wy += tileH) {
-          ctx.drawImage(WALL_IMG, 0, Math.round(wy), W, Math.ceil(tileH));
+        var NL = SPRINT_LEDGES.length;
+        var ledgeH = function (gi) {            // world art-height of ledge gi (up = larger)
+          var tt = Math.floor(gi / NL), li = ((gi % NL) + NL) % NL;
+          return (tt + 1 - SPRINT_LEDGES[li].y) * tileH;
+        };
+        var ledgeX = function (gi) {
+          var li = ((Math.floor(gi) % NL) + NL) % NL;
+          return SPRINT_LEDGES[li].x;
+        };
+        var i0 = Math.floor(climbAlt), fstep = climbAlt - i0;
+        var curH = ledgeH(i0) + (ledgeH(i0 + 1) - ledgeH(i0)) * fstep;   // camera height
+
+        var wLo = Math.floor((curH - (H - anchorY)) / tileH);
+        var wHi = Math.floor((curH + anchorY) / tileH);
+        for (var wt = wLo; wt <= wHi; wt++) {
+          var sy = anchorY - ((wt + 1) * tileH - curH);
+          ctx.drawImage(WALL_IMG, 0, Math.round(sy), W, Math.ceil(tileH) + 1);
         }
         ctx.fillStyle = "rgba(12,24,48,.12)"; ctx.fillRect(0, 0, W, H);   // depth wash
+
+        if (best > 0) {                          // personal-record ledge line
+          var recY = anchorY - (ledgeH(startAlt + best) - curH);
+          if (recY > 14 && recY < H - 6) {
+            ctx.strokeStyle = "rgba(255,220,120,.9)"; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+            ctx.beginPath(); ctx.moveTo(0, recY); ctx.lineTo(W, recY); ctx.stroke(); ctx.setLineDash([]);
+            ctx.font = "bold 11px sans-serif"; ctx.fillStyle = "#FFE9BD"; ctx.textAlign = "right";
+            ctx.fillText("个人纪录", W - 10, recY - 6); ctx.textAlign = "left";
+          }
+        }
+
+        var x0 = ledgeX(i0), x1 = ledgeX(i0 + 1);
+        var slipX = slipT > 0 ? Math.sin(slipT * 25) * 3.5 : 0;
+        var px = (x0 + (x1 - x0) * fstep) * W + slipX;
+        var py = anchorY - Math.sin(fstep * Math.PI) * (tileH * 0.06);   // hop arc between ledges
+        drawClimber(px, py, moving, t / 1000, x1 < x0);
       } else {
         var sky = ctx.createLinearGradient(0, 0, 0, H);
         sky.addColorStop(0, "#3B4A5A"); sky.addColorStop(1, "#6A7A88");
         ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        drawClimber(W * 0.5, anchorY, moving, t / 1000, false);
       }
-
-      /* personal-record ledge line, positioned on the wall relative to the climber */
-      if (best > 0) {
-        var recY = anchorY - ((startAlt + best) - climbAlt) * STEP_PX;
-        if (recY > 14 && recY < H - 6) {
-          ctx.strokeStyle = "rgba(255,220,120,.9)"; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
-          ctx.beginPath(); ctx.moveTo(0, recY); ctx.lineTo(W, recY); ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.font = "bold 11px sans-serif"; ctx.fillStyle = "#FFE9BD"; ctx.textAlign = "right";
-          ctx.fillText("个人纪录", W - 10, recY - 6); ctx.textAlign = "left";
-        }
-      }
-
-      /* climber: fixed screen anchor, zigzag between the two hold columns per step */
-      var step = Math.floor(climbAlt);
-      var fstep = climbAlt - step;
-      var fromX = (step % 2 === 0) ? colL : colR;
-      var toX = (step % 2 === 0) ? colR : colL;
-      var slipX = slipT > 0 ? Math.sin(slipT * 25) * 3.5 : 0;
-      var px = fromX + (toX - fromX) * fstep + slipX;
-      var py = anchorY - Math.sin(fstep * Math.PI) * 12;   // slight up-arc each move
-      var faceLeft = toX < fromX;
-
-      drawClimber(px, py, moving, t / 1000, faceLeft);
       raf = requestAnimationFrame(frame);
     }
 
@@ -1949,9 +2092,13 @@
         '<span class="gym-todo">' + words.join("、") + '</span><br>' +
         '<span class="pop-hint">在「修行」中答对这些词即可重新开启试炼</span></div>';
     }
-    if (altitudeNow() < (m.fromAlt || 0)) {
-      return '<div class="gym-sec lock">🔒 登上 ' + esc(level) + ' 山区后开启年度试炼（赢取 ' +
-        pet.emoji + ' ' + esc(pet.name) + '）</div>';
+    var lvWords = WORDS.filter(function (w) { return w.level === level; });
+    var lvGot = lvWords.filter(function (w) { return store.mastered[w.id]; }).length;
+    var lvPct = lvWords.length ? Math.round(100 * lvGot / lvWords.length) : 0;
+    if (lvPct < 80) {   // gate: master 80% of the year's words first
+      return '<div class="gym-sec lock">🔒 先掌握本年级 80% 词语才能开启年度试炼<br>' +
+        '<span class="gym-todo">当前进度 ' + lvPct + '%（' + lvGot + ' / ' + lvWords.length + ' 词）</span><br>' +
+        '<span class="pop-hint">继续在「修行」中掌握本年级词语（赢取 ' + pet.emoji + ' ' + esc(pet.name) + '）</span></div>';
     }
     var n = buildGymSeq(level).seq.length;
     return '<div class="gym-sec">' +
@@ -2129,9 +2276,10 @@
      those waypoints if a future image changes the path.
      ================================================================== */
   var MTN_PATH = [
-    [0.610, 0.955], [0.600, 0.875], [0.575, 0.795], [0.552, 0.715],
-    [0.556, 0.635], [0.546, 0.555], [0.534, 0.475], [0.524, 0.400],
-    [0.514, 0.330], [0.508, 0.258], [0.512, 0.180], [0.518, 0.100]
+    [0.613, 0.950], [0.598, 0.869], [0.580, 0.795], [0.562, 0.732],
+    [0.551, 0.668], [0.553, 0.602], [0.555, 0.534], [0.549, 0.465],
+    [0.542, 0.396], [0.536, 0.327], [0.529, 0.258], [0.523, 0.189],
+    [0.519, 0.129], [0.517, 0.086]
   ];
   function mtnPathAt(frac) {
     var n = MTN_PATH.length - 1;
@@ -2211,7 +2359,12 @@
   function renderNicknamePicker(onDone, opts) {
     opts = opts || {};
     var dismissible = !!opts.dismissible;
-    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null };
+    var _bvss = "百德中学 Bukit View Secondary School";
+    var _cs = opts.currentSchool || "";
+    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
+      role: opts.currentRole || "student",
+      schoolSel: (_cs && _cs !== _bvss) ? "other" : "bvss",
+      schoolOther: (_cs && _cs !== _bvss) ? _cs : "" };
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -2264,12 +2417,23 @@
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
       } else if (st.step === "confirm") {
         var nickname = st.desc + "·" + st.noun;
+        var role = st.role || "student";
+        var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"]];
+        var schoolLabel = role === "parent" ? "孩子就读的学校 Child’s school" : "你的学校 Your school";
+        var sel = st.schoolSel || "bvss";
         html = '<div class="pop-title">🎉 你的昵称</div>' +
-          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 14px">' +
+          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 12px">' +
           esc(nickname) + '</div>' +
-          '<div class="pop-label">学校</div>' +
-          '<input type="text" id="npSchool" class="code-ta" style="height:44px" placeholder="例如：百德中学" value="' +
-          esc((opts.currentSchool || "")) + '">' +
+          '<div class="pop-label">你的身份 I am a…</div>' +
+          '<div class="np-roles">' + roleBtns.map(function (r) {
+            return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
+          }).join("") + '</div>' +
+          '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
+          '<div class="pop-label">' + schoolLabel + '</div>' +
+          '<select id="npSchool" class="np-select">' +
+          '<option value="bvss"' + (sel === "bvss" ? " selected" : "") + '>百德中学 Bukit View Secondary School</option>' +
+          '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option></select>' +
+          (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(st.schoolOther || "") + '">' : "") +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重新选择</button>' +
           '<button class="nav-btn primary" id="npConfirm">确认</button></div>' + closeBtn;
       }
@@ -2305,10 +2469,21 @@
         });
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
       } else if (st.step === "confirm") {
+        Array.prototype.forEach.call(card.querySelectorAll(".np-role"), function (b) {
+          b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
+        });
+        var selEl = document.getElementById("npSchool");
+        selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
+        var otherEl = document.getElementById("npSchoolOther");
+        if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
-          var school = document.getElementById("npSchool").value.trim();
-          var profile = { nickname: st.desc + "·" + st.noun, school: school };
+          var role = st.role || "student";
+          var school = st.schoolSel === "other"
+            ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
+            : "百德中学 Bukit View Secondary School";
+          if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
+          var profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
           saveProfileLocal(profile);
           ov.remove();
           onDone(profile);
@@ -2436,13 +2611,14 @@
                 ids.push(w.id);
                 count++;
               });
-              COMP_LIST.push({ key: lv.level + "·" + u.unit + "·" + c.component, level: lv.level, unit: u.unit, component: c.component, ids: ids });
+              COMP_LIST.push({ key: lv.level + "·" + u.unit + "·" + c.component, level: lv.level, unit: u.unit, component: c.component, textTitle: c.textTitle || "", ids: ids });
             });
             UNIT_LIST.push({ key: lv.level + "·" + u.unit, level: lv.level, unit: u.unit, count: count });
           });
         });
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));
         applyAmbience();
+        updateStreak();
 
         function afterProfile() {
           if (window.WSCloud && window.WSCloud.isAvailable()) {
