@@ -458,6 +458,12 @@ button.mtn-pill:active{transform:scale(.96)}
   text-shadow:0 0 3px rgba(18,28,52,1),0 0 10px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
 .lp-couplet.left{left:1.6vw}
 .lp-couplet.right{right:1.6vw}
+/* .lp-logo/.lp-school/.lp-couplet are position:absolute (out of flow), so
+   without this spacer the first normal-flow child (gate, or greeting/cards
+   once the gate is hidden) stacks at the TOP of .lp-hero's box instead of
+   below the hero art. This reserves that same height so it never happens,
+   regardless of which of gate/greeting/cards is the visible one. */
+.lp-hero-spacer{height:min(76vh,660px)}
 /* single entry point: 进入 must be tapped before nickname/path selection.
    16-bit styling = hard edges, no border-radius, stepped/chunky box-shadow
    instead of soft blur, pixelated arrow glyph. */
@@ -535,6 +541,9 @@ button.mtn-pill:active{transform:scale(.96)}
   .lp-logo{position:relative;display:block;margin:4vh auto 0;left:auto;transform:none;width:min(86vw,480px)}
   .lp-school{position:relative;display:block;margin:12px auto 0;left:auto;top:auto;transform:none;text-align:center}
   .lp-couplet{display:none}
+  .lp-hero-spacer{display:none}
+  .lp-gate{margin-top:46vh}
+  .lp-greeting{margin-top:46vh}
   .lp-cards{position:relative;left:auto;bottom:auto;transform:none;flex-direction:column;
     width:min(92vw,520px);margin:46vh auto 0;gap:12px}
   .lp-foot{position:relative;margin-top:18px}
