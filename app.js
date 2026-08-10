@@ -716,7 +716,7 @@
     document.getElementById("pcodeBtn").onclick = showProgressCode;
     document.getElementById("nickDisplay").onclick = function () {
       var cur = loadProfile() || {};
-      renderNicknamePicker(function () { renderHome(); }, { dismissible: true, currentSchool: cur.school });
+      renderNicknamePicker(function () { renderHome(); }, { dismissible: true, currentSchool: cur.school, currentRole: cur.role || "student", currentHeard: cur.heardFrom || "" });
     };
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
@@ -2511,7 +2511,8 @@
     var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
       role: opts.currentRole || "student",
       schoolSel: (_cs && _cs !== _bvss) ? "other" : "bvss",
-      schoolOther: (_cs && _cs !== _bvss) ? _cs : "" };
+      schoolOther: (_cs && _cs !== _bvss) ? _cs : "",
+      heardFrom: opts.currentHeard || "" };
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -2565,9 +2566,23 @@
       } else if (st.step === "confirm") {
         var nickname = st.desc + "·" + st.noun;
         var role = st.role || "student";
-        var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"]];
-        var schoolLabel = role === "parent" ? "孩子就读的学校 Child’s school" : "你的学校 Your school";
+        var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"], ["public", "🌏 公众人士"]];
         var sel = st.schoolSel || "bvss";
+        var detailHtml;
+        if (role === "public") {
+          detailHtml = '<div class="pop-label">您从何处得知本站？ How did you hear about us?</div>' +
+            '<input type="text" id="npHeard" class="code-ta" style="height:44px;margin-top:8px" placeholder="例如：朋友介绍、社交媒体、报章… e.g. friend, social media, news" value="' + esc(st.heardFrom || "") + '">';
+        } else {
+          var schoolLabel = role === "parent" ? "孩子就读的学校 Child’s school"
+            : role === "teacher" ? "你的学校 / 机构 Your school / organisation"
+            : "你的学校 Your school";
+          var otherPh = role === "teacher" ? "请输入学校 / 机构名称 School / organisation name" : "请输入学校名称 School name";
+          detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
+            '<select id="npSchool" class="np-select">' +
+            '<option value="bvss"' + (sel === "bvss" ? " selected" : "") + '>百德中学 Bukit View Secondary School</option>' +
+            '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option></select>' +
+            (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
+        }
         html = '<div class="pop-title">🎉 你的昵称</div>' +
           '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 12px">' +
           esc(nickname) + '</div>' +
@@ -2576,11 +2591,7 @@
             return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
           }).join("") + '</div>' +
           '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
-          '<div class="pop-label">' + schoolLabel + '</div>' +
-          '<select id="npSchool" class="np-select">' +
-          '<option value="bvss"' + (sel === "bvss" ? " selected" : "") + '>百德中学 Bukit View Secondary School</option>' +
-          '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option></select>' +
-          (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(st.schoolOther || "") + '">' : "") +
+          detailHtml +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重新选择</button>' +
           '<button class="nav-btn primary" id="npConfirm">确认</button></div>' + closeBtn;
       }
@@ -2620,17 +2631,25 @@
           b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
         });
         var selEl = document.getElementById("npSchool");
-        selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
+        if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
         var otherEl = document.getElementById("npSchoolOther");
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
+        var heardEl = document.getElementById("npHeard");
+        if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
           var role = st.role || "student";
-          var school = st.schoolSel === "other"
-            ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
-            : "百德中学 Bukit View Secondary School";
-          if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
-          var profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
+          var profile;
+          if (role === "public") {
+            profile = { nickname: st.desc + "·" + st.noun, role: role, school: "",
+              heardFrom: ((document.getElementById("npHeard") || {}).value || "").trim() };
+          } else {
+            var school = st.schoolSel === "other"
+              ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
+              : "百德中学 Bukit View Secondary School";
+            if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
+            profile = { nickname: st.desc + "·" + st.noun, role: role, school: school };
+          }
           saveProfileLocal(profile);
           ov.remove();
           onDone(profile);
