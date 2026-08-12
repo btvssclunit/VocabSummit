@@ -648,9 +648,21 @@ BUILD PROGRESS (2026-08-12):
 - COPY OF THE RULES FOR THE OWNER: /Users/kaixinchun/Documents/VocabSummit/firestore/ (firestore.rules
   + README.txt with the publish + TTL steps). It is a COPY — repo-clone/firestore.rules is the source
   of truth; re-copy it there whenever the rules change.
-- STILL NEEDED to go live (owner console steps, then a real two-browser test): publish the rooms rules
-  block + set the Firestore TTL policy on rooms.expiresAt, and deploy the files. Only the real
-  cross-device round trip (teacher creates → phone joins → live board updates) remains unverified.
+- LIVE-TEST FIXES 2026-08-13 (found by the owner on a real mobile round trip):
+  1. **RE-JOIN WAS DENIED (rules bug, needs a RE-PUBLISH).** A returning student already has a player
+     doc, so Firestore treats .set() as an UPDATE — and the old update rule required status=="running",
+     which locked out anyone rejoining during the lobby. FIX: create + update now share one condition
+     (uid matches AND status in ["lobby","running"]). Students may join/rejoin any time until 结束.
+  2. Client half of the same bug: doJoin() zeroed answered/correct/score, so a rejoin WIPED progress.
+     It now reads the existing row first and carries score/correct/answered forward (merge write,
+     original joinedAt + late flag preserved). The 词雨 HUD also hardcoded 得分 0 — now seeds myScore.
+  3. **No scenery in rooms.** The overlay painted an opaque flat gradient over everything. It now lifts
+     the student's earned ambience image off document.body (applyAmbience's bg-01..05) and lays a dark
+     scrim over it; setBackdrop(mode) swaps in rain_bg.png / sprint_bg.png once the room mode is known,
+     and .arena-rain uses the same rain_bg.png + gradient as the main 词雨. Verified desktop + mobile.
+- STILL NEEDED: RE-PUBLISH firestore.rules (fix #1 above — the old ruleset still blocks rejoin), set the
+  Firestore TTL policy on rooms.expiresAt if not yet done, and redeploy arena.js. The owner's rules copy
+  at Documents/VocabSummit/firestore/ has been re-synced with a note about the required re-publish.
 
 
 

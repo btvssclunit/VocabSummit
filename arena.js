@@ -35,6 +35,7 @@
     var s = document.createElement("style"); s.id = STYLE_ID;
     s.textContent =
       ".arena-ov{position:fixed;inset:0;z-index:90;background:linear-gradient(160deg,#12213F,#0C1730);" +
+      "background-size:cover;background-position:center;" +
       "color:#EAF2F8;font-family:'Noto Sans SC',system-ui,sans-serif;display:flex;flex-direction:column;" +
       "align-items:center;justify-content:center;padding:20px;overflow:auto}" +
       ".arena-card{width:100%;max-width:560px;background:rgba(20,40,70,.55);border:2px solid #D9A72B;" +
@@ -68,7 +69,9 @@
       ".arena-row.me{background:rgba(227,166,60,.18);border-radius:8px}" +
       ".arena-rk{width:26px;color:#FFE9B0;font-weight:800}.arena-sc{margin-left:auto;font-weight:800;color:#FFE9B0}" +
       ".arena-rain{position:relative;width:100%;max-width:620px;height:52vh;min-height:280px;overflow:hidden;" +
-      "background:rgba(20,40,70,.4);border:1px solid rgba(143,211,255,.3);border-radius:14px;margin-bottom:10px}" +
+      "border:1px solid rgba(143,211,255,.3);border-radius:14px;margin-bottom:10px;" +
+      "background-image:url('rain_bg.png'),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));" +
+      "background-size:cover;background-position:center;image-rendering:pixelated}" +
       ".arena-rword{position:absolute;left:0;top:0;background:rgba(255,255,255,.95);color:#243B4A;border-radius:10px;" +
       "padding:6px 12px;text-align:center;font-weight:700;font-size:21px;will-change:transform}" +
       ".arena-rword .py{display:block;font-size:11px;color:#5A7080;font-weight:400}" +
@@ -89,6 +92,29 @@
     ov.className = "arena-ov";
     document.body.appendChild(ov);
     function close() { detach(); ov.remove(); }
+
+    /* Backdrop: reuse the app's own scenery instead of a flat gradient. The body
+       already carries the student's earned ambience (bg-01..05 via applyAmbience),
+       so lift that image and lay a dark scrim over it for text contrast. Falls back
+       to the gradient if no image is found. Per-mode art is applied in setBackdrop. */
+    var ambienceUrl = (function () {
+      try {
+        var bg = getComputedStyle(document.body).backgroundImage || "";
+        var m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        return m ? m[1] : null;
+      } catch (e) { return null; }
+    })();
+    function setBackdrop(mode) {
+      var art = ambienceUrl;
+      if (mode === "sprint") art = "sprint_bg.png";
+      else if (mode === "rain") art = "rain_bg.png";
+      if (!art) return;                       // keep the CSS gradient fallback
+      var scrim = (mode === "rain" || mode === "sprint")
+        ? "linear-gradient(rgba(10,20,40,.72),rgba(10,20,40,.80))"   // gameplay: heavier, keeps HUD legible
+        : "linear-gradient(rgba(10,20,40,.62),rgba(12,23,48,.74))";
+      ov.style.backgroundImage = scrim + ',url("' + art + '")';
+    }
+    setBackdrop(null);
 
     var myUid = null, code = null, roomUnsub = null, room = null;
     ctx.getUid ? ctx.getUid(function (u) { myUid = u; }) : null;
@@ -123,10 +149,22 @@
         room = snap.data(); code = c;
         if (room.status === "ended") { renderJoin("这个擂台已经结束了。"); return; }
         var p = ctx.profile || {};
-        return db().collection("rooms").doc(c).collection("players").doc(myUid).set({
-          nickname: p.nickname || "无名登山客", mtlClass: p.mtlClass || "",
-          joinedAt: ts(), answered: 0, correct: 0, score: 0, finished: false,
-          late: room.status === "running", lastSeen: ts()
+        var pdoc = db().collection("rooms").doc(c).collection("players").doc(myUid);
+        /* RE-JOIN SAFE: a student who left (or was disconnected) already has a row.
+           Carry their existing score forward instead of zeroing it, and merge so the
+           original joinedAt/late flags survive. */
+        return pdoc.get().then(function (ps) {
+          var prev = ps.exists ? (ps.data() || {}) : null;
+          if (prev) {
+            myScore = prev.score || 0; myCorrect = prev.correct || 0; myAnswered = prev.answered || 0;
+          }
+          return pdoc.set({
+            nickname: p.nickname || "无名登山客", mtlClass: p.mtlClass || "",
+            joinedAt: prev ? (prev.joinedAt || ts()) : ts(),
+            answered: myAnswered, correct: myCorrect, score: myScore, finished: false,
+            late: prev ? !!prev.late : room.status === "running",
+            lastSeen: ts()
+          }, { merge: true });
         }).then(function () { subscribeRoom(); });
       }).catch(function (e) { renderJoin("加入失败：" + (e.code || e.message) + "（老师需先发布 rooms 规则）。"); });
     }
@@ -164,6 +202,7 @@
     var stopGame = null;   // set by real-time modes (rain) so finishNow can halt their loop
 
     function startPlay() {
+      setBackdrop(room.mode);                 // per-mode scenery once the room config is known
       if (room.mode === "rain") { started = true; startRainPlay(); return; }
       if (!(room.mode === "cloze" || room.mode === "zhmcq" || room.mode === "enmcq" || room.mode === "sprint")) {
         ov.innerHTML = '<div class="arena-card"><div class="arena-t">该模式即将推出</div>' +
@@ -290,7 +329,7 @@
       var liveW = [], bag = shuffle(pool), composing = false, lastT = null, spawnTimer = 0, raf = null;
 
       ov.innerHTML =
-        '<div class="arena-hud"><span>得分 <b id="arScore">0</b></span>' +
+        '<div class="arena-hud"><span>得分 <b id="arScore">' + myScore + '</b></span>' +   // carries a rejoin's score
         '<span>连击 <b id="arCombo">×1</b></span>' +
         (livesMax ? '<span id="arLives">' + "❤️".repeat(livesMax) + '</span>' : '') +
         '<span class="arena-timer" id="arTimer">⏱ …</span></div>' +

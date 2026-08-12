@@ -67,11 +67,13 @@ service cloud.firestore {
       allow delete: if isTeacher() && resource.data.hostUid == request.auth.uid;
 
       match /players/{uid} {
-        allow read:   if request.auth != null;
-        allow create: if request.auth != null && request.auth.uid == uid
+        allow read: if request.auth != null;
+        // create AND update share one condition on purpose: re-joining writes to an
+        // EXISTING doc, which Firestore treats as an update. Requiring "running" for
+        // update locked out anyone who left and came back during the lobby. Students
+        // may (re)join and write their own row any time the room is not ended.
+        allow create, update: if request.auth != null && request.auth.uid == uid
                       && get(/databases/$(database)/documents/rooms/$(code)).data.status in ["lobby", "running"];
-        allow update: if request.auth != null && request.auth.uid == uid
-                      && get(/databases/$(database)/documents/rooms/$(code)).data.status == "running";
         allow delete: if isTeacher();
       }
     }
