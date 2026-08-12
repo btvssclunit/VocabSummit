@@ -148,6 +148,86 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL" };
   var CAT_LABEL = { student: "学生", teacher: "教师", parent: "家长", public: "公众", "": "未填写" };
 
+  /* ---------- school-name canonicalisation (dashboard grouping) ----------
+     Fold free-text + legacy variants ("HIHS", "holy innocents high school",
+     the bare "百德中学"…) to one canonical "中文 English" so 概览 / 班级视图
+     count each school once. The student dropdown now writes canonical values,
+     so this mainly cleans up old / hand-typed entries. Keep the list in sync
+     with profile.js SG_SCHOOLS (verified 2026). */
+  var SCHOOL_BVSS = "百德中学 Bukit View Secondary School";
+  var SCHOOL_LIST = [
+    "美雅中学 Admiralty Secondary School","伊布拉欣中学 Ahmad Ibrahim Secondary School","安德逊中学 Anderson Secondary School",
+    "茂乔中学 Ang Mo Kio Secondary School","圣公会中学 Anglican High School","英华学校（巴克路） Anglo-Chinese School (Barker Road)",
+    "英华自主中学 Anglo-Chinese School (Independent)","圣升英校 Assumption English School","巴特礼中学 Bartley Secondary School",
+    "培德中学 Beatty Secondary School","育青中学 Bedok Green Secondary School","尚义中学 Bedok South Secondary School",
+    "务德中学 Bedok View Secondary School","明智中学 Bendemeer Secondary School","文礼中学 Boon Lay Secondary School",
+    "博文中学 Bowen Secondary School","务立中学 Broadrick Secondary School","武吉巴督中学 Bukit Batok Secondary School",
+    "红山中学 Bukit Merah Secondary School","武吉班让政府中学 Bukit Panjang Government High School","康培中学 Canberra Secondary School",
+    "公教中学 Catholic High School","四德女子中学 Cedar Girls' Secondary School","尚育中学 Changkat Changi Secondary School",
+    "加东修道院女校 CHIJ Katong Convent","圣婴女子中学（大巴窑） CHIJ Secondary (Toa Payoh)","圣若瑟修院学校 CHIJ St. Joseph's Convent",
+    "圣尼各拉女校 CHIJ St. Nicholas Girls' School","圣婴德兰女校 CHIJ St. Theresa's Convent","基督堂中学 Christ Church Secondary School",
+    "蔡厝港中学 Chua Chu Kang Secondary School","中正中学（总校） Chung Cheng High School (Main)","中正中学（义顺） Chung Cheng High School (Yishun)",
+    "锦文中学 Clementi Town Secondary School","立才中学 Commonwealth Secondary School","康柏中学 Compassvale Secondary School",
+    "克信女子中学 Crescent Girls' School","达迈中学 Damai Secondary School","德义中学 Deyi Secondary School",
+    "德能中学 Dunearn Secondary School","德明政府中学 Dunman High School","德明中学 Dunman Secondary School",
+    "东源中学 East Spring Secondary School","育德中学 Edgefield Secondary School","永青中学 Evergreen Secondary School",
+    "花菲卫理中学 Fairfield Methodist School (Secondary)","法嘉中学 Fajar Secondary School","辅华中学 Fuhua Secondary School",
+    "颜永成学校 Gan Eng Seng School","芽笼美以美中学 Geylang Methodist School (Secondary)","绿苑中学 Greendale Secondary School",
+    "群立中学 Greenridge Secondary School","光洋中学 Guangyang Secondary School","海星天主教中学 Hai Sing Catholic School",
+    "育林中学 Hillgrove Secondary School","圣婴中学 Holy Innocents' High School","后港中学 Hougang Secondary School",
+    "华义中学 Hua Yi Secondary School","华侨中学 Hwa Chong Institution","俊源中学 Junyuan Secondary School",
+    "裕廊中学 Jurong Secondary School","裕廊西中学 Jurong West Secondary School","丰嘉中学 Jurongville Secondary School",
+    "聚英中学 Juying Secondary School","岗丽中学 Kent Ridge Secondary School","科兰芝中学 Kranji Secondary School",
+    "国专长老会中学 Kuo Chuan Presbyterian Secondary School","洛阳中学 Loyang View Secondary School","文殊中学 Manjusri Secondary School",
+    "海星中学 Maris Stella High School","士林中学 Marsiling Secondary School","美华中学 Mayflower Secondary School",
+    "美廉中学 Meridian Secondary School","美以美女子中学 Methodist Girls' School (Secondary)","蒙福中学 Montfort Secondary School",
+    "南侨中学 Nan Chiau High School","南华中学 Nan Hua High School","南洋女子中学校 Nanyang Girls' High School",
+    "国家初级学院 National Junior College","军港中学 Naval Base Secondary School","光伟中学 New Town Secondary School",
+    "义安中学 Ngee Ann Secondary School","德贤中学 North View Secondary School","德新中学 North Vista Secondary School",
+    "思源中学 Northbrooks Secondary School","德景中学 Northland Secondary School","新加坡国立大学附属数理中学 NUS High School of Mathematics and Science",
+    "兰景中学 Orchid Park Secondary School","欧南中学 Outram Secondary School","励志中学 Pasir Ris Crest Secondary School",
+    "思励中学 Pasir Ris Secondary School","巴耶利峇美以美女中 Paya Lebar Methodist Girls' School (Secondary)","培华中学 Pei Hwa Secondary School",
+    "培才中学 Peicai Secondary School","培雅中学 Peirce Secondary School","平仪中学 Ping Yi Secondary School",
+    "长老会中学 Presbyterian High School","培道中学 Punggol Secondary School","女皇镇中学 Queenstown Secondary School",
+    "女皇道中学 Queensway Secondary School","莱佛士女子中学 Raffles Girls' School (Secondary)","莱佛士书院 Raffles Institution",
+    "励正中学 Regent Secondary School","立化中学 River Valley High School","立德中学 Riverside Secondary School",
+    "新科技中学 School of Science and Technology, Singapore","新加坡艺术学院 School of the Arts, Singapore","胜宝旺中学 Sembawang Secondary School",
+    "成康中学 Seng Kang Secondary School","实勤中学 Serangoon Garden Secondary School","实仁中学 Serangoon Secondary School",
+    "新加坡女子学校 Singapore Chinese Girls' School","新加坡体育学校 Singapore Sports School","泉原中学 Springfield Secondary School",
+    "圣安德烈中学 St. Andrew's Secondary School","圣安东尼女校（中学） St. Anthony's Canossian Secondary School","圣加俾尔中学 St. Gabriel's Secondary School",
+    "圣希尔达中学 St. Hilda's Secondary School","圣若瑟书院 St. Joseph's Institution","圣玛格烈中学 St. Margaret's School (Secondary)",
+    "圣伯特理中学 St. Patrick's School","瑞士村中学 Swiss Cottage Secondary School","淡滨尼中学 Tampines Secondary School",
+    "丹绒加东女校 Tanjong Katong Girls' School","丹绒加东中学 Tanjong Katong Secondary School","淡马锡初级学院 Temasek Junior College",
+    "淡马锡中学 Temasek Secondary School","协和中学 Unity Secondary School","维多利亚学校 Victoria School",
+    "伟源中学 West Spring Secondary School","维林中学 Westwood Secondary School","惠厉中学 Whitley Secondary School",
+    "林景中学 Woodgrove Secondary School","辅廉中学 Woodlands Ring Secondary School","辅仁中学 Woodlands Secondary School",
+    "新民中学 Xinmin Secondary School","永康中学 Yio Chu Kang Secondary School","义顺中学 Yishun Secondary School",
+    "毅道中学 Yishun Town Secondary School","耘青中学 Yuan Ching Secondary School","裕华中学 Yuhua Secondary School",
+    "尤索夫依萨中学 Yusof Ishak Secondary School","育英中学 Yuying Secondary School","正华中学 Zhenghua Secondary School",
+    "中华中学 Zhonghua Secondary School"
+  ];
+  function schoolKey(s) {
+    return String(s == null ? "" : s).toLowerCase().replace(/[\s'’.,()（）·・]/g, "");
+  }
+  var CANON_BY_KEY = {};
+  [SCHOOL_BVSS].concat(SCHOOL_LIST).forEach(function (name) {
+    CANON_BY_KEY[schoolKey(name)] = name;
+    var m = name.match(/^([^A-Za-z]+)\s+(.+)$/);   // "中文 English" → also index each half
+    if (m) { CANON_BY_KEY[schoolKey(m[1])] = name; CANON_BY_KEY[schoolKey(m[2])] = name; }
+  });
+  var SCHOOL_ALIAS = {};
+  (function () {
+    var add = function (canon, variants) { variants.forEach(function (v) { SCHOOL_ALIAS[schoolKey(v)] = canon; }); };
+    add("圣婴中学 Holy Innocents' High School", ["HIHS", "Holy Innocents", "Holy Innocents High", "Holy Innocents' High"]);
+    add(SCHOOL_BVSS, ["BVSS", "Bukit View", "Bukit View Sec", "Bukit View Secondary"]);
+  })();
+  function canonSchool(raw) {
+    var s = String(raw == null ? "" : raw).trim().replace(/\s+/g, " ");
+    if (!s) return "（未填写）";
+    var k = schoolKey(s);
+    return SCHOOL_ALIAS[k] || CANON_BY_KEY[k] || s;   // unknown: show the trimmed original
+  }
+
   var esc = function (s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -352,7 +432,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   function filteredUsers() {
     return _users.filter(function (u) {
       var p = profOf(u);
-      if (_classFilter.school && (p.school || "") !== _classFilter.school) return false;
+      if (_classFilter.school && canonSchool(p.school) !== _classFilter.school) return false;
       if (_classFilter.cls && (p.mtlClass || "") !== _classFilter.cls) return false;
       return true;
     });
@@ -426,7 +506,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       var p = profOf(u);
       var c = p.category || "";
       byCat[c] = (byCat[c] || 0) + 1;
-      var s = p.school || "（未填写）";
+      var s = canonSchool(p.school);
       bySchool[s] = (bySchool[s] || 0) + 1;
     });
     var catHtml = ["student", "teacher", "parent", "public", ""].filter(function (k) { return byCat[k]; })
@@ -443,7 +523,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 
   function renderClasses(panel) {
     var schools = {}, classes = {};
-    _users.forEach(function (u) { var p = profOf(u); if (p.school) schools[p.school] = 1; if (p.mtlClass) classes[p.mtlClass] = 1; });
+    _users.forEach(function (u) { var p = profOf(u); var cs = canonSchool(p.school); if (cs !== "（未填写）") schools[cs] = 1; if (p.mtlClass) classes[p.mtlClass] = 1; });
     var schoolOpts = '<option value="">全部学校</option>' + Object.keys(schools).sort().map(function (s) {
       return '<option value="' + esc(s) + '"' + (_classFilter.school === s ? " selected" : "") + '>' + esc(s) + '</option>'; }).join("");
     var classOpts = '<option value="">全部班级</option>' + Object.keys(classes).sort().map(function (c) {

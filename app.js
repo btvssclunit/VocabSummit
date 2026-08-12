@@ -2847,10 +2847,11 @@
     var dismissible = !!opts.dismissible;
     var _bvss = "百德中学 Bukit View Secondary School";
     var _cs = opts.currentSchool || "";
+    var _csKnown = _cs && window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(_cs);
     var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
       role: opts.currentRole || "student",
-      schoolSel: (_cs && _cs !== _bvss) ? "other" : "bvss",
-      schoolOther: (_cs && _cs !== _bvss) ? _cs : "",
+      schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
+      schoolOther: (_cs && !_csKnown) ? _cs : "",
       heardFrom: opts.currentHeard || "" };
 
     var ov = document.createElement("div");
@@ -2906,7 +2907,7 @@
         var nickname = st.desc + "·" + st.noun;
         var role = st.role || "student";
         var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"], ["public", "🌏 公众人士"]];
-        var sel = st.schoolSel || "bvss";
+        var sel = st.schoolSel || _bvss;
         var detailHtml;
         if (role === "public") {
           detailHtml = '<div class="pop-label">您从何处得知本站？ How did you hear about us?</div>' +
@@ -2918,8 +2919,10 @@
           var otherPh = role === "teacher" ? "请输入学校 / 机构名称 School / organisation name" : "请输入学校名称 School name";
           detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
             '<select id="npSchool" class="np-select">' +
-            '<option value="bvss"' + (sel === "bvss" ? " selected" : "") + '>百德中学 Bukit View Secondary School</option>' +
-            '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option></select>' +
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel)
+              : ('<option value="' + esc(_bvss) + '"' + (sel === _bvss ? " selected" : "") + '>' + esc(_bvss) + '</option>' +
+                 '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>')) +
+            '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
         html = '<div class="pop-title">🎉 你的昵称</div>' +
@@ -2985,7 +2988,7 @@
           } else {
             var school = st.schoolSel === "other"
               ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
-              : "百德中学 Bukit View Secondary School";
+              : st.schoolSel;
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
             profile = { nickname: st.desc + "·" + st.noun, category: role, school: school };
           }

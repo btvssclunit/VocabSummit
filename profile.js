@@ -40,6 +40,178 @@
     return String(s == null ? "" : s).trim().toUpperCase().replace(/\s+/g, " ");
   }
 
+  /* ---------- Singapore secondary schools (shared dropdown source) ----------
+     The ONE source of truth for the school <select> in the nickname picker
+     (nickname.js / app.js) and the 我的档案 panel below. profile.js loads before
+     both on every page, so they read window.SG_SCHOOLS. Format "中文 English";
+     百德 pinned first, the rest A→Z by English name; 其他 = free-text escape
+     hatch. Verified 2026 (see sg_secondary_schools.md). Edit the list here only. */
+  var SCHOOL_BVSS = "百德中学 Bukit View Secondary School";
+  var SCHOOL_LIST = [
+    "美雅中学 Admiralty Secondary School",
+    "伊布拉欣中学 Ahmad Ibrahim Secondary School",
+    "安德逊中学 Anderson Secondary School",
+    "茂乔中学 Ang Mo Kio Secondary School",
+    "圣公会中学 Anglican High School",
+    "英华学校（巴克路） Anglo-Chinese School (Barker Road)",
+    "英华自主中学 Anglo-Chinese School (Independent)",
+    "圣升英校 Assumption English School",
+    "巴特礼中学 Bartley Secondary School",
+    "培德中学 Beatty Secondary School",
+    "育青中学 Bedok Green Secondary School",
+    "尚义中学 Bedok South Secondary School",
+    "务德中学 Bedok View Secondary School",
+    "明智中学 Bendemeer Secondary School",
+    "文礼中学 Boon Lay Secondary School",
+    "博文中学 Bowen Secondary School",
+    "务立中学 Broadrick Secondary School",
+    "武吉巴督中学 Bukit Batok Secondary School",
+    "红山中学 Bukit Merah Secondary School",
+    "武吉班让政府中学 Bukit Panjang Government High School",
+    "康培中学 Canberra Secondary School",
+    "公教中学 Catholic High School",
+    "四德女子中学 Cedar Girls' Secondary School",
+    "尚育中学 Changkat Changi Secondary School",
+    "加东修道院女校 CHIJ Katong Convent",
+    "圣婴女子中学（大巴窑） CHIJ Secondary (Toa Payoh)",
+    "圣若瑟修院学校 CHIJ St. Joseph's Convent",
+    "圣尼各拉女校 CHIJ St. Nicholas Girls' School",
+    "圣婴德兰女校 CHIJ St. Theresa's Convent",
+    "基督堂中学 Christ Church Secondary School",
+    "蔡厝港中学 Chua Chu Kang Secondary School",
+    "中正中学（总校） Chung Cheng High School (Main)",
+    "中正中学（义顺） Chung Cheng High School (Yishun)",
+    "锦文中学 Clementi Town Secondary School",
+    "立才中学 Commonwealth Secondary School",
+    "康柏中学 Compassvale Secondary School",
+    "克信女子中学 Crescent Girls' School",
+    "达迈中学 Damai Secondary School",
+    "德义中学 Deyi Secondary School",
+    "德能中学 Dunearn Secondary School",
+    "德明政府中学 Dunman High School",
+    "德明中学 Dunman Secondary School",
+    "东源中学 East Spring Secondary School",
+    "育德中学 Edgefield Secondary School",
+    "永青中学 Evergreen Secondary School",
+    "花菲卫理中学 Fairfield Methodist School (Secondary)",
+    "法嘉中学 Fajar Secondary School",
+    "辅华中学 Fuhua Secondary School",
+    "颜永成学校 Gan Eng Seng School",
+    "芽笼美以美中学 Geylang Methodist School (Secondary)",
+    "绿苑中学 Greendale Secondary School",
+    "群立中学 Greenridge Secondary School",
+    "光洋中学 Guangyang Secondary School",
+    "海星天主教中学 Hai Sing Catholic School",
+    "育林中学 Hillgrove Secondary School",
+    "圣婴中学 Holy Innocents' High School",
+    "后港中学 Hougang Secondary School",
+    "华义中学 Hua Yi Secondary School",
+    "华侨中学 Hwa Chong Institution",
+    "俊源中学 Junyuan Secondary School",
+    "裕廊中学 Jurong Secondary School",
+    "裕廊西中学 Jurong West Secondary School",
+    "丰嘉中学 Jurongville Secondary School",
+    "聚英中学 Juying Secondary School",
+    "岗丽中学 Kent Ridge Secondary School",
+    "科兰芝中学 Kranji Secondary School",
+    "国专长老会中学 Kuo Chuan Presbyterian Secondary School",
+    "洛阳中学 Loyang View Secondary School",
+    "文殊中学 Manjusri Secondary School",
+    "海星中学 Maris Stella High School",
+    "士林中学 Marsiling Secondary School",
+    "美华中学 Mayflower Secondary School",
+    "美廉中学 Meridian Secondary School",
+    "美以美女子中学 Methodist Girls' School (Secondary)",
+    "蒙福中学 Montfort Secondary School",
+    "南侨中学 Nan Chiau High School",
+    "南华中学 Nan Hua High School",
+    "南洋女子中学校 Nanyang Girls' High School",
+    "国家初级学院 National Junior College",
+    "军港中学 Naval Base Secondary School",
+    "光伟中学 New Town Secondary School",
+    "义安中学 Ngee Ann Secondary School",
+    "德贤中学 North View Secondary School",
+    "德新中学 North Vista Secondary School",
+    "思源中学 Northbrooks Secondary School",
+    "德景中学 Northland Secondary School",
+    "新加坡国立大学附属数理中学 NUS High School of Mathematics and Science",
+    "兰景中学 Orchid Park Secondary School",
+    "欧南中学 Outram Secondary School",
+    "励志中学 Pasir Ris Crest Secondary School",
+    "思励中学 Pasir Ris Secondary School",
+    "巴耶利峇美以美女中 Paya Lebar Methodist Girls' School (Secondary)",
+    "培华中学 Pei Hwa Secondary School",
+    "培才中学 Peicai Secondary School",
+    "培雅中学 Peirce Secondary School",
+    "平仪中学 Ping Yi Secondary School",
+    "长老会中学 Presbyterian High School",
+    "培道中学 Punggol Secondary School",
+    "女皇镇中学 Queenstown Secondary School",
+    "女皇道中学 Queensway Secondary School",
+    "莱佛士女子中学 Raffles Girls' School (Secondary)",
+    "莱佛士书院 Raffles Institution",
+    "励正中学 Regent Secondary School",
+    "立化中学 River Valley High School",
+    "立德中学 Riverside Secondary School",
+    "新科技中学 School of Science and Technology, Singapore",
+    "新加坡艺术学院 School of the Arts, Singapore",
+    "胜宝旺中学 Sembawang Secondary School",
+    "成康中学 Seng Kang Secondary School",
+    "实勤中学 Serangoon Garden Secondary School",
+    "实仁中学 Serangoon Secondary School",
+    "新加坡女子学校 Singapore Chinese Girls' School",
+    "新加坡体育学校 Singapore Sports School",
+    "泉原中学 Springfield Secondary School",
+    "圣安德烈中学 St. Andrew's Secondary School",
+    "圣安东尼女校（中学） St. Anthony's Canossian Secondary School",
+    "圣加俾尔中学 St. Gabriel's Secondary School",
+    "圣希尔达中学 St. Hilda's Secondary School",
+    "圣若瑟书院 St. Joseph's Institution",
+    "圣玛格烈中学 St. Margaret's School (Secondary)",
+    "圣伯特理中学 St. Patrick's School",
+    "瑞士村中学 Swiss Cottage Secondary School",
+    "淡滨尼中学 Tampines Secondary School",
+    "丹绒加东女校 Tanjong Katong Girls' School",
+    "丹绒加东中学 Tanjong Katong Secondary School",
+    "淡马锡初级学院 Temasek Junior College",
+    "淡马锡中学 Temasek Secondary School",
+    "协和中学 Unity Secondary School",
+    "维多利亚学校 Victoria School",
+    "伟源中学 West Spring Secondary School",
+    "维林中学 Westwood Secondary School",
+    "惠厉中学 Whitley Secondary School",
+    "林景中学 Woodgrove Secondary School",
+    "辅廉中学 Woodlands Ring Secondary School",
+    "辅仁中学 Woodlands Secondary School",
+    "新民中学 Xinmin Secondary School",
+    "永康中学 Yio Chu Kang Secondary School",
+    "义顺中学 Yishun Secondary School",
+    "毅道中学 Yishun Town Secondary School",
+    "耘青中学 Yuan Ching Secondary School",
+    "裕华中学 Yuhua Secondary School",
+    "尤索夫依萨中学 Yusof Ishak Secondary School",
+    "育英中学 Yuying Secondary School",
+    "正华中学 Zhenghua Secondary School",
+    "中华中学 Zhonghua Secondary School"
+  ];
+  window.SG_SCHOOLS = {
+    BVSS: SCHOOL_BVSS,
+    LIST: SCHOOL_LIST,
+    isKnown: function (v) { return v === SCHOOL_BVSS || SCHOOL_LIST.indexOf(v) !== -1; },
+    /* <option>s for a school <select>. `sel` = the currently stored value; a
+       non-empty value that is NOT a listed school selects 其他 (the caller then
+       shows a free-text box). BVSS is always pinned first. */
+    optionsHtml: function (sel) {
+      var known = this.isKnown(sel);
+      var out = '<option value="' + esc(SCHOOL_BVSS) + '"' + (sel === SCHOOL_BVSS ? " selected" : "") + '>' + esc(SCHOOL_BVSS) + '</option>';
+      for (var i = 0; i < SCHOOL_LIST.length; i++) {
+        out += '<option value="' + esc(SCHOOL_LIST[i]) + '"' + (sel === SCHOOL_LIST[i] ? " selected" : "") + '>' + esc(SCHOOL_LIST[i]) + '</option>';
+      }
+      out += '<option value="other"' + (((sel && !known) || sel === "other") ? " selected" : "") + '>其他 Others</option>';
+      return out;
+    }
+  };
+
   /* ---------- load / save ---------- */
   function load() {
     var p;
@@ -133,6 +305,11 @@
       category: prof.category || "",
       mtlClass: prof.mtlClass || ""
     };
+    // which <option> the school <select> shows: a listed school, "other"
+    // (free-text), or "" (nothing chosen yet). draft.school holds the value.
+    draft.schoolPick = draft.school
+      ? ((window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(draft.school)) ? draft.school : "other")
+      : "";
 
     function progressHtml() {
       var rows = ["g1", "g2", "g3", "hcl"].map(function (k) {
@@ -187,7 +364,12 @@
         // ---- 基本资料 ----
         '<div class="prof-sec"><div class="pop-label">基本资料</div>' +
           '<div class="pop-label" style="font-weight:500">学校</div>' +
-          '<input type="text" class="prof-input" id="profSchool" placeholder="例如：百德中学" value="' + esc(draft.school) + '">' +
+          '<select class="np-select" id="profSchool">' +
+            (draft.schoolPick === "" ? '<option value="" selected>请选择学校 Select school…</option>' : "") +
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick)
+              : ('<option value="' + esc(draft.school) + '" selected>' + esc(draft.school || "百德中学 Bukit View Secondary School") + '</option>')) +
+          '</select>' +
+          (draft.schoolPick === "other" ? '<input type="text" class="prof-input" id="profSchoolOther" style="margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(draft.school) + '">' : "") +
           '<div class="pop-label" style="font-weight:500;margin-top:10px">身份类别 · 当前：' + esc(catShown) + '</div>' +
           '<div class="prof-chips">' + catChips + '</div>' +
           '<div id="profClassWrap"' + (cat === "student" ? "" : ' style="display:none"') + '>' +
@@ -238,7 +420,17 @@
       };
 
       var schoolEl = ov.querySelector("#profSchool");
-      if (schoolEl) schoolEl.oninput = function () { draft.school = schoolEl.value; };
+      if (schoolEl) schoolEl.onchange = function () {
+        draft.schoolPick = schoolEl.value;
+        if (draft.schoolPick !== "other") {
+          draft.school = schoolEl.value;             // "" (please-select) or a listed school
+        } else if (window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(draft.school)) {
+          draft.school = "";                          // was a listed school → start the text box empty
+        }
+        render();
+      };
+      var schoolOtherEl = ov.querySelector("#profSchoolOther");
+      if (schoolOtherEl) schoolOtherEl.oninput = function () { draft.school = schoolOtherEl.value; };
       var classEl = ov.querySelector("#profClass");
       if (classEl) classEl.oninput = function () { draft.mtlClass = classEl.value; };
 
