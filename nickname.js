@@ -251,6 +251,12 @@
         renderNicknamePicker(function (p) { reveal(p); }, { dismissible: false });
       }
     };
+
+    // C-2: a student who already has a profile shouldn't have to re-enter the
+    // gate every time. Show the four course cards straight away, so pressing
+    // "back" from a stream lands on the course list, not the entry gate.
+    var already = loadProfile();
+    if (already && already.nickname) reveal(already);
   }
 
   if (document.readyState === "loading") {

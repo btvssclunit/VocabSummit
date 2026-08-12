@@ -303,6 +303,24 @@
       flashCode("✅ 恢复成功：新增 " + (res.added || 0) + " 个已掌握词语", true);
     }
 
+    /* current mastered set for THIS stream, read from localStorage (used to show
+       the student exactly what a restore will do — it only ever adds). */
+    function currentMasteredSet() {
+      try { var s = JSON.parse(localStorage.getItem("ws2_" + _provider.stream)); return (s && s.mastered) || {}; }
+      catch (e) { return {}; }
+    }
+    function diffLine(plan) {
+      var cur = currentMasteredSet();
+      var codeCount = (plan.addIds || []).length;
+      var have = Object.keys(cur).length;
+      var newly = (plan.addIds || []).filter(function (id) { return !cur[id]; }).length;
+      var after = have + newly;
+      return '<div class="pop-body" style="background:#F1F6FB;border:1px solid #DBE7F1;border-radius:10px;padding:10px 12px;margin-top:8px">' +
+        '进度码里有 <b>' + codeCount + '</b> 个已掌握词语。<br>' +
+        '你现在有 <b>' + have + '</b> 个。<br>' +
+        '恢复后会合并成 <b>' + after + '</b> 个 —— <b>只增不减</b>，绝不会少于现在的 ' + have + ' 个。</div>';
+    }
+
     function onRestore() {
       var inEl = ov.querySelector("#profCodeIn");
       var val = inEl ? inEl.value : "";
@@ -316,7 +334,7 @@
           '<div class="pop-title">这不是你的进度码</div>' +
           '<div class="pop-body">这个进度码属于「' + esc(plan.codeNick) + '」，和你现在的昵称「' + esc(me.nickname || "") + '」不一样。<br><br>' +
           '如果这是你以前用过的昵称，可以改用它继续。<br>' +
-          '如果这是同学的进度码，请不要恢复，那不是你的学习记录。</div>',
+          '如果这是同学的进度码，请不要恢复，那不是你的学习记录。</div>' + diffLine(plan),
           '改用「' + esc(plan.codeNick) + '」并恢复',
           function () {
             save({ nickname: plan.codeNick });     // adopt the identity, then restore
@@ -329,8 +347,8 @@
       var legacyNote = plan.legacy ? '<div class="pop-note">这是旧版进度码，无法核对来源。</div>' : "";
       confirmDialog(
         '<div class="pop-title">恢复进度</div>' + legacyNote +
-        '<div class="pop-body">恢复进度会把进度码里的已掌握词语并入你现在的记录。掌握数只增不减。<br>' +
-        '恢复后，你可以在这次使用中撤销一次。</div>',
+        '<div class="pop-body">恢复进度会把进度码里的已掌握词语<b>并入</b>你现在的记录。</div>' + diffLine(plan) +
+        '<div class="pop-note" style="margin-top:8px">恢复后，你可以在这次使用中撤销一次。</div>',
         "确定恢复",
         function () { commitRestore(plan, true, plan.codeNick || ""); });
     }

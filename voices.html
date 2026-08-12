@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语音诊断 · Vocab Summit TTS diagnostic</title>
+<style>
+  body{font-family:"Noto Sans SC",system-ui,sans-serif;margin:0;padding:18px;color:#243B4A;background:#EAF3FA}
+  h1{font-size:20px}
+  .hint{font-size:13px;color:#5A7080;line-height:1.7;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:10px;overflow:hidden}
+  th,td{padding:8px 10px;border-bottom:1px solid #E7EFF6;text-align:left;vertical-align:top}
+  th{background:#F1F6FB;font-size:12px}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  button{border:1px solid #B9CEDD;border-radius:8px;padding:6px 12px;background:#fff;cursor:pointer;font-size:13px}
+  button.play{background:#E3A63C;border-color:#E3A63C;color:#3A2A08;font-weight:700}
+  .pick{font-size:12px;color:#25513A}
+  .best{background:#E8F3EC}
+  .espeak{background:#FBEDE9}
+  input{border:1.5px solid #B9CEDD;border-radius:8px;padding:7px 10px;font-size:14px;width:260px}
+</style>
+</head>
+<body>
+<h1>🔊 语音诊断 TTS diagnostic</h1>
+<div class="hint">
+  在学生的 Chromebook / iPad 上打开此页，逐一「试听」，找出念起来<b>有声调、正确</b>的那个语音，
+  记下它的 <code>name</code> 与 <code>lang</code>，回报给老师。<br>
+  绿底 = 本 app 目前会选用的语音（评分最高）。红底 = eSpeak（普通话无声调，已被排到最后）。<br>
+  测试词（可改）：
+  <input id="phrase" value="快乐 学习 银行 挑剔">
+</div>
+<div style="margin-bottom:10px"><button id="reload">🔄 重新载入语音列表</button></div>
+<table><thead><tr><th>#</th><th>name</th><th>lang</th><th>本地?</th><th>评分</th><th>试听</th></tr></thead>
+<tbody id="rows"><tr><td colspan="6" class="hint">载入中…（部分设备需数秒）</td></tr></tbody></table>
+
+<script>
+function scoreVoice(v){
+  var lang=(v.lang||"").toLowerCase(), name=v.name||"";
+  var isZh=lang.indexOf("zh")===0||lang.indexOf("cmn")===0;
+  var nameZh=/普通话|中文|chinese|mandarin/i.test(name);
+  if(!isZh&&!nameZh) return -1000;
+  var s=0;
+  if(lang==="zh-cn"||lang==="zh_cn") s+=40; else if(lang.indexOf("zh")===0) s+=20; else if(isZh) s+=15;
+  if(/普通话/.test(name)) s+=25;
+  if(/google/i.test(name)) s+=30;
+  if(/中文|chinese|mandarin/i.test(name)) s+=8;
+  if(/espeak/i.test(name)) s-=100;
+  return s;
+}
+function speakWith(voice){
+  if(!window.speechSynthesis) return;
+  var u=new SpeechSynthesisUtterance(document.getElementById("phrase").value||"快乐");
+  u.voice=voice; u.lang=voice.lang||"zh-CN"; u.rate=0.9;
+  speechSynthesis.cancel(); setTimeout(function(){ speechSynthesis.speak(u); },50);
+}
+function render(){
+  var vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
+  var best=null,bestScore=-1000;
+  vs.forEach(function(v){ var s=scoreVoice(v); if(s>-1000&&s>bestScore){bestScore=s;best=v;} });
+  var tb=document.getElementById("rows");
+  if(!vs.length){ tb.innerHTML='<tr><td colspan="6" class="hint">此设备没有回报任何语音。</td></tr>'; return; }
+  tb.innerHTML=vs.map(function(v,i){
+    var s=scoreVoice(v);
+    var cls=(v===best)?"best":(/espeak/i.test(v.name)?"espeak":"");
+    return '<tr class="'+cls+'"><td>'+i+'</td><td>'+(v.name||"")+(v===best?' <span class="pick">← app 会用这个</span>':'')+'</td>'+
+      '<td><code>'+(v.lang||"")+'</code></td><td>'+(v.localService?'是':'否')+'</td>'+
+      '<td>'+(s<=-1000?'—（非中文）':s)+'</td>'+
+      '<td><button class="play" data-i="'+i+'">▶ 试听</button></td></tr>';
+  }).join("");
+  Array.prototype.forEach.call(tb.querySelectorAll("button[data-i]"),function(b){
+    b.onclick=function(){ speakWith(vs[parseInt(b.getAttribute("data-i"),10)]); };
+  });
+}
+document.getElementById("reload").onclick=render;
+if(window.speechSynthesis){ render(); speechSynthesis.onvoiceschanged=render; setTimeout(render,600); }
+else document.getElementById("rows").innerHTML='<tr><td colspan="6" class="hint">此浏览器不支持语音合成。</td></tr>';
+</script>
+</body>
+</html>

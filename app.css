@@ -308,6 +308,12 @@ img{max-width:100%}
 .rain-word .rw{display:block;font-family:var(--serif);font-weight:700;font-size:21px;letter-spacing:.05em}
 .rain-word .rp{display:block;font-size:11px;color:var(--ink-soft)}
 .rain-word.pop{transition:transform .2s,opacity .2s;opacity:0;transform:scale(1.5)!important}
+/* U-4: on phones, make falling words bigger + easier to read */
+@media (max-width:480px){
+  .rain-word{padding:8px 14px}
+  .rain-word .rw{font-size:27px}
+  .rain-word .rp{font-size:13px}
+}
 .rain-input-row{display:flex;gap:10px}
 
 /* ---------- 词语汉兜 ---------- */
@@ -627,18 +633,27 @@ button.mtn-pill:active{transform:scale(.96)}
   font-size:11.5px;text-align:center;padding:16px 10px 8px;line-height:1.7;margin:0}
 /* portrait fallback: stack and scroll */
 @media (orientation:portrait){
+  /* portrait rebuild (feedback U-1/2/3). NB: gate/greeting/cards/foot are all
+     CHILDREN of .lp-hero, so the hero can't be a short banner. Instead make it a
+     normal flex-column container: the logo sits at the top over the art, and
+     everything flows straight down under it. Kills all three bugs at once —
+     no per-frame translateX shoving the logo off-screen (animation off, in
+     flow), no background-size:auto side-crop (cover), and no stacked 46vh
+     margins leaving a screen of blank (natural flow). */
   .lp-body{overflow:auto}
-  .lp-hero{height:auto;min-height:100vh;padding-bottom:12px;background-position:72% top;background-size:auto 62vh}
-  .lp-hero{background-color:#12213F}
-  .lp-logo{position:relative;display:block;margin:4vh auto 0;left:auto;transform:none;width:min(86vw,480px)}
-  .lp-school{position:relative;display:block;margin:12px auto 0;left:auto;top:auto;transform:none;text-align:center}
-  .lp-couplet{display:none}
-  .lp-hero-spacer{display:none}
-  .lp-gate{position:relative;right:auto;bottom:auto;margin:46vh auto 0}
-  .lp-greeting{position:relative;left:auto;bottom:auto;transform:none;margin:46vh auto 0}
+  .lp-hero{position:relative;width:100%;height:auto;min-height:100vh;padding:0 0 26px;
+    display:flex;flex-direction:column;align-items:center;
+    background:url("landing_hero_bg.png") center top/cover no-repeat;background-color:#12213F}
+  .lp-logo{position:relative;left:auto;top:auto;transform:none;display:block;
+    margin:5vh auto 0;width:min(72vw,400px);animation:none}
+  .lp-school{position:relative;left:auto;top:auto;transform:none;display:block;
+    margin:10px auto 0;text-align:center;white-space:nowrap}
+  .lp-couplet,.lp-hero-spacer{display:none}
+  .lp-gate{position:relative;right:auto;left:auto;bottom:auto;transform:none;margin:24px auto 0}
+  .lp-greeting{position:relative;left:auto;bottom:auto;transform:none;margin:24px auto 0}
   .lp-cards{position:relative;left:auto;bottom:auto;transform:none;flex-direction:column;
-    width:min(92vw,520px);margin:46vh auto 0;gap:12px}
-  .lp-foot{position:relative;left:auto;right:auto;bottom:auto;margin-top:18px}
+    width:min(92vw,520px);margin:20px auto 0;gap:12px}
+  .lp-foot{position:relative;left:auto;right:auto;bottom:auto;margin:20px auto 0}
 }
 
 

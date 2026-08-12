@@ -100,18 +100,21 @@ This is a CL app: only Chinese is ever read aloud. No English TTS anywhere (英�
 Speaker buttons: flashcard word + 释义 on both faces, 填空挑战 sentence (blank spoken as a pause via
 "，", never the answer), 华文解释 prompt, per-option speakers in all MCQ modes, and auto-speak of
 the word after every answered question. The speak() stack encodes hard-won device lessons — keep ALL:
-1. Never pass pinyin strings to the engine (Android reads them as toneless English). Pass hanzi;
-   POLY_MAP substitutes known polyphonic words (行为 xíng wéi, 行当 háng dang, …). Extend the map
-   when a mispronunciation is reported.
-2. Two-pass voice lookup: lang match first, then voice NAME keywords (普通话/中文/Chinese/Mandarin),
-   because managed ChromeOS devices misreport or blank the lang field.
+1. Never pass pinyin strings to the engine (read as toneless English). Pass HANZI ONLY. A word
+   that is genuinely mispronounced may only be fixed with a homophone HANZI, never pinyin.
+   (POLY_MAP was REMOVED 2026-08-12: it fed pinyin like "kuài lè" to the engine, which broke tones
+   on managed Chromebooks — the exact thing rule #1 forbids. Do NOT reintroduce a hanzi→pinyin map.)
+2. Score voices (scoreVoice), do NOT take the first zh-* voice: managed Chromebooks ship eSpeak-NG
+   (reports zh/cmn but toneless Mandarin), often ordered before Google 普通话. eSpeak is scored to
+   the back so it is only ever a last resort; Google 普通话 / zh-CN win. voices.html is a diagnostic
+   page (lists every voice + per-voice 试听) to run on a student device and confirm the right one.
 3. cancel() then speak() in the same tick silently drops the utterance on ChromeOS: keep the
    setTimeout(50) guard. Samsung devices need the same 50ms delay between cancel and speak.
 4. voiceschanged listener + 200ms retry (voices load async).
-5. One-time warning toast when no Chinese voice exists (⚠️ 未找到中文语音…); permanent fix is IT admin
-   enabling Google 普通话 in the ChromeOS admin console.
+5. One-time warning toast when no Chinese voice exists at all (⚠️ 未找到中文语音…); permanent fix is
+   IT admin enabling Google 普通话 in the ChromeOS admin console.
 Watchlist after the 2026-08-09 pinyin fixes: verify 撇 (piě) and 拧 (nǐng) on devices; 绷 is
-deliberately bēng in G3 and běng in HCL. Add POLY_MAP entries if any are misread.
+deliberately bēng in G3 and běng in HCL. Fix any misread word with a homophone hanzi, never pinyin.
 
 ## Vocabulary data and pipeline
 
@@ -536,3 +539,45 @@ Owner request (same session, mid-build). Two additions, both verified in-browser
 - Note for the MASTERY-GATE discrepancy above: these two 拼音 modes DELIBERATELY do not confer
   mastery or points (owner: familiarisation only). If the owner later decides the pinyin-typing
   tier SHOULD confer mastery, flip the pyMode guards in renderCloze.finish().
+
+## Student trial feedback, 2026-08-12 (batch 1 of N — see the 4 FEEDBACK_*.md files)
+
+28 Google-Form responses (mostly G3/HCL) + teacher observation. The feedback is split into four
+files meant to be worked in separate passes. DONE this batch:
+- **C-1 restore safety** (profile.js): the restore path already used union (commitProgress, only-
+  increase) + a confirm dialog + sessionStorage snapshot + 撤销恢复. Added a DIFF line to the confirm
+  dialog: 「进度码里有 X 个…你现在有 Y 个…合并成 Z 个 — 只增不减」. NOTE: restoreSnapshot (the UNDO
+  hook) intentionally does a full `store = snap` replace — that is correct for undo; do NOT change it
+  to a merge (the feedback conflated it with the restore path). The restore path itself never
+  replaces.
+- **C-2 landing back-nav** (nickname.js): initLandingGate now auto-reveals the four course cards when
+  a profile already exists, so pressing back from a stream lands on the course list, not the entry
+  gate. First-time (no profile) still shows the gate → picker.
+- **G-1** (app.js railHtml): 词语闪卡 no longer renders 连对 / 历练值 (they never change in flashcards).
+  Gated on `state.mode === "flash"`.
+- **G-3a/b TTS** (app.js): removed POLY_MAP (see TTS section above) + made voice selection score-based
+  (eSpeak pushed to the back). Added voices.html diagnostic. ⚠️ G-3b still needs a DEVICE MEASUREMENT:
+  run voices.html on a student Chromebook to confirm which voice is correct; if a device has ONLY
+  eSpeak zh, that is the Web-Speech ceiling on managed Chromebooks and pre-rendered audio becomes a
+  separate decision.
+- **Data fixes** (T-1/T-3 + single-word T-2): 挑剔 py tiāo tī → tiāo ti (g2/g3/hcl); 吭声 zh reworded
+  (hcl); 新陈代谢 zh reworded to carry morpheme clues (hcl). Vocab-data quotation marks use CURLY
+  doubles “ ” (per T-1), distinct from the 「」 rule for app.js UI strings. Applied to BOTH the JSONs
+  AND the Excel masters (vocab-lists/*.xlsx via openpyxl this session) — fully synced, no revert risk.
+- **U-1/U-2/U-3 mobile landing** (app.css @media orientation:portrait): gate/greeting/cards are
+  CHILDREN of .lp-hero, so the hero can't be a short banner — rebuilt the portrait block as a
+  flex-column (logo in flow at top, everything stacks under it). Kills logo-crop (animation off + in
+  flow), bg side-crop (cover), and the stacked-46vh blank gap in one go.
+- **U-4 词雨 readability** (app.css @media max-width:480 bigger .rain-word; app.js maxLive=4 on phones).
+- **U-5 sprint climber** (app.js): SPRITE_SCALE=2.0 + a foot shadow; imageSmoothingEnabled was already
+  false. Feet anchor kept at py+6 so it still lands on the ledge.
+- **G-2 词雨** (app.js): RAIN_LIVES=5 (removed the duplicate hardcoded `3`), 8-step RAIN_SPEEDS with a
+  much slower floor, 固定/递增 modes (store.rainRamp), speed persisted (store.rainSpeed). Ramp walks the
+  table one step per wave from slowest, capped — replaced the old per-wave ×0.12 multiplier entirely.
+  Config shows a mode toggle; ramp disables the speed picker; wave toast shows the speed level.
+
+PENDING (owner-gated content audits, each its own pass — need Excel masters + human judgement):
+- FEEDBACK_CONTENT.md T-2 general (audit ALL 4-char 汉兜 hints for morpheme clues) + T-4 (cloze
+  sentences using chars beyond the stream's taught range). Do an automated first-pass filter, then
+  human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
+  student Chromebook).
