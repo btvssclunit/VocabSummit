@@ -200,6 +200,7 @@
     s.rainSpeed = (s.rainSpeed != null) ? s.rainSpeed : 3; // 词雨 speed level index (0-7), default mid
     s.rainRamp = s.rainRamp || false;  // 词雨 递增速度 mode (false = 固定速度)
     s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
+    s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
     s.lingLu = s.lingLu || 0;          // 灵露 currency (number), earned in 词雨灵露
@@ -703,7 +704,23 @@
       '<img class="mh-img" src="landing_hero_bg.png" alt="">' +
       '<div class="app-zh">' + META.zh + '</div>' +
       '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
+      '<span class="mtn-arena" id="arenaPill">🏔️ 加入结伴登峰</span>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
+  }
+  /* open the 结伴登峰 live room (arena.js). Awards 海拔 (mastery) but NO 历练值/灵露. */
+  function openArena() {
+    if (!window.WSArena || !window.WSArena.open) { alert("结伴登峰暂不可用，请刷新页面后再试。"); return; }
+    window.WSArena.open({
+      stream: STREAM,
+      words: WORDS,
+      profile: loadProfile() || {},
+      getUid: function (cb) { if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null); },
+      conferMastery: function (ids) {
+        var changed = false;
+        (ids || []).forEach(function (id) { if (!store.mastered[id]) { store.mastered[id] = 1; changed = true; } });
+        if (changed) { saveStore(); checkBadges(true); applyAmbience(); }   // 海拔 only, never scoreCorrect
+      }
+    });
   }
 
   /* ---------- home ---------- */
@@ -786,6 +803,10 @@
         (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
         (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
     } else {
+      html += '<div class="section-label">每次题数 · 填空 / 华文 / 英文</div><div class="diff" id="qlenSel">' +
+        [10, 20, 30, 40, 50].map(function (n) {
+          return '<button class="dopt' + (store.quizLen === n ? " on" : "") + '" data-q="' + n + '">' + n + ' 题</button>';
+        }).join("") + '</div>';
       html += '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
         camp("cloze", "✍️", "填空挑战", "读句子，填出词语 · 可选难度") +
@@ -794,13 +815,15 @@
     }
 
     html += '<button class="badge-strip" id="badgeStrip">';
-    var shown = 0;
-    COMP_LIST.forEach(function (c) {
-      if (shown >= 4) return;
-      var got = store.badges[badgeKeyC(c)];
-      html += '<span class="badge-chip' + (got ? "" : " locked") + '"><img src="' +
-        (BADGE_IMG[c.component] || "badge_hx.png") + '" alt=""></span>';
-      shown++;
+    /* One badge per component TYPE present in THIS stream (G1:3 · G2/G3:4 · HCL:5),
+       in narrative order, ALL full-colour on the dashboard. The locked-vs-earned
+       greyscale distinction lives in 成就墙 (renderAchievements) only, seen after
+       tapping in. */
+    var badgeOrder = ["生活空间", "核心", "巩固", "进阶", "文化站"];
+    var compPresent = {};
+    COMP_LIST.forEach(function (c) { compPresent[c.component] = 1; });
+    badgeOrder.filter(function (comp) { return compPresent[comp]; }).forEach(function (comp) {
+      html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "badge_hx.png") + '" alt=""></span>';
     });
     html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
       '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
@@ -857,6 +880,15 @@
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     var mh = view().querySelector(".mini-horizon");
     if (mh) mh.onclick = startMountain;
+    var arenaPill = document.getElementById("arenaPill");
+    if (arenaPill) arenaPill.onclick = function (e) { e.stopPropagation(); openArena(); };
+    Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (b) {
+      b.onclick = function () {
+        Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        store.quizLen = parseInt(b.getAttribute("data-q"), 10); saveStore();
+      };
+    });
     document.getElementById("profileHubBtn").onclick = openProfilePanel;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
@@ -1126,8 +1158,20 @@
       }
       if (!pool.length) { alert("所选范围内没有可用的填空句。"); return; }
     }
-    var seq = shuffle(pool);
-    if (mode !== "flash") seq = seq.slice(0, Math.min(QUIZ_LEN, seq.length));
+    var seq;
+    if (mode === "flash") {
+      seq = shuffle(pool);                 // flashcards run over the whole scope
+    } else {
+      /* WEAK-FIRST: present not-yet-mastered words first, in curriculum order, so a
+         student progresses (a 19-word section shows 1–10, then 11–19 next round)
+         instead of re-seeing words they've already mastered — which was stalling
+         badge progress. Mastered words fill in as review only once the unmastered
+         ones are exhausted. */
+      var unmastered = [], reviewed = [];
+      pool.forEach(function (w) { (store.mastered[w.id] ? reviewed : unmastered).push(w); });
+      var ordered = unmastered.concat(shuffle(reviewed));
+      seq = ordered.slice(0, Math.min(store.quizLen || QUIZ_LEN, ordered.length));
+    }
     var state = { mode: mode, seq: seq, i: 0, correct: 0, revealed: false, streak: 0 };
     renderStep(state);
   }

@@ -765,6 +765,11 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
   border:1px solid rgba(255,233,189,.35);border-radius:12px;padding:6px 11px;font-size:12.5px;font-weight:700;
   display:flex;flex-direction:column;gap:1px;line-height:1.3;max-width:60%}
 .mtn-rank-next{font-size:10.5px;font-weight:500;opacity:.85}
+/* 结伴登峰 join pill on the home mini-horizon */
+.mtn-arena{position:absolute;left:10px;bottom:8px;z-index:3;background:rgba(227,166,60,.92);color:#3A2A08;
+  border:1px solid #FFE9B0;border-radius:12px;padding:6px 12px;font-size:12.5px;font-weight:800;
+  cursor:pointer;box-shadow:0 2px 0 0 #A9791C}
+.mtn-arena:active{transform:translateY(1px);box-shadow:none}
 .camp-uid{margin-top:12px;padding-top:12px;border-top:1px solid #E4EDF4;font-size:12.5px;color:var(--ink-soft)}
 .camp-uid code{font-family:monospace;font-size:11px;color:#3A5A70;word-break:break-all}
 .uid-copy{margin-left:6px;border:1px solid var(--gold);background:#FDF6E4;color:#5C4009;border-radius:8px;

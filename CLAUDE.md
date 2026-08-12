@@ -589,7 +589,25 @@ PENDING (owner-gated content audits, each its own pass — need Excel masters + 
   human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
   student Chromebook).
 
-## 结伴登峰 (arena) — DECISIONS LOCKED 2026-08-12, NOT YET BUILT
+## 结伴登峰 (arena) — DECISIONS LOCKED 2026-08-12; STUDENT SIDE + RULES BUILT, TEACHER SIDE + GAME MODES PENDING
+
+BUILD PROGRESS (2026-08-12):
+- ✅ firestore.rules: rooms/{code} + rooms/{code}/players/{uid} block added (player create allowed in
+  lobby OR running per D-5 late-join). ⚠️ owner must PUBLISH + set a Firestore TTL policy on
+  rooms.expiresAt before anything works.
+- ✅ arena.js (NEW, student side, loaded before app.js on the 4 stream pages): self-contained overlay
+  (join → lobby → play → results), throttled per-player writes (≤5s + final), own minimal cloze/MCQ
+  renderers (NOT renderCloze — keeps §7 isolation). Quiz modes done: cloze / zhmcq / enmcq. Awards the
+  arena session-score only; on finish calls ctx.conferMastery(correctIds) → app.js marks those words
+  MASTERED (海拔) with NO scoreCorrect/历练值 (D-2). Unknown modes (rain/sprint) show "即将推出".
+- ✅ app.js: 「加入结伴登峰」 pill on the home mini-horizon → openArena() (passes stream/words/profile/
+  getUid/conferMastery). conferMastery marks mastery + saveStore + checkBadges + applyAmbience only.
+- PENDING: teacher.html 结伴登峰 tab (setup form that FREEZES wordIds from the host's JSON + live board +
+  全屏 + CSV export + 开始/结束) — REQUIRED to create a room, so nothing is end-to-end testable until it
+  + the published rules exist. Then the two real-time game modes (攀山竞速 / 词雨灵露) as room modes
+  (same word pool + host config, compare scores — arena.js currently degrades these gracefully).
+
+
 
 Teacher-hosted live in-class competition (spec: DESIGN_ARENA_课堂擂台.md). Owner §12 decisions resolved
 (Kai Xin, 2026-08-12) — record them here so they survive to the build session:
