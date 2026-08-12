@@ -246,15 +246,20 @@
     } else {
       var hist = {};
       if (prev.classHistory) Object.keys(prev.classHistory).forEach(function (y) { hist[y] = prev.classHistory[y]; });
-      // year the class is being set: honour an explicit classYear (tests / future),
-      // else this calendar year.
-      var yr = p.classYear || currentYear();
-      if (prev.mtlClass && prev.mtlClass !== newClass && prev.classYear && prev.classYear !== yr) {
-        // a genuine cross-year change: archive the previous year's class first
-        hist[String(prev.classYear)] = prev.mtlClass;
-      } else if (prev.mtlClass && prev.mtlClass === newClass) {
-        // unchanged: keep the year it was originally set
-        yr = prev.classYear || yr;
+      // Year the class is being set. Read an EXPLICIT classYear only from the
+      // caller's argument (tests / migration) — never inherit prev.classYear
+      // onto a change, or a new-year class stays stamped with the old year and
+      // the Jan-2 prompt would keep re-firing. A change stamps the current year
+      // (archiving the previous year's class); an unchanged class keeps its year.
+      var explicitYear = profile && profile.classYear;
+      var yr;
+      if (newClass !== prev.mtlClass) {
+        yr = explicitYear || currentYear();
+        if (prev.mtlClass && prev.classYear && prev.classYear !== yr) {
+          hist[String(prev.classYear)] = prev.mtlClass;
+        }
+      } else {
+        yr = explicitYear || prev.classYear || currentYear();
       }
       hist[String(yr)] = newClass;
       p.mtlClass = newClass;
@@ -596,11 +601,42 @@
     ov.querySelector("#cdOk").onclick = function () { ov.remove(); onOk(); };
   }
 
+  /* New-school-year class nudge. The class field is entered MANUALLY (student
+     types "2026 3HC3" — we never auto-set the year). Each year, from Jan 2, if a
+     student's registered class is from a previous year (or missing) and they
+     haven't been nudged yet this year, prompt them to update it themselves.
+     Jan 1 is skipped on purpose; the flag classPromptYear stops re-nagging. */
+  function maybePromptClassUpdate(openPanel) {
+    var p = load();
+    if (!p || p.category !== "student") return;
+    var now = new Date(), yr = now.getFullYear();
+    if (now.getMonth() === 0 && now.getDate() < 2) return;   // not until Jan 2
+    if ((p.classYear || 0) >= yr) return;                    // class already current this year
+    if (p.classPromptYear === yr) return;                    // already nudged this year
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay"; ov.style.zIndex = "80";
+    ov.innerHTML = '<div class="pop-card">' +
+      '<div class="pop-title">🎊 新学年了！</div>' +
+      '<div class="pop-body">现在是 ' + yr + ' 年。你目前登记的班级是「<b>' + esc(p.mtlClass || "未填写") + '</b>」。<br>' +
+      '请到「我的档案」把它更新为今年的班级，例如：<b>' + yr + ' 3HC3</b>。</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="clpLater">以后再说</button>' +
+      '<button class="nav-btn primary" id="clpUpdate">现在更新</button></div></div>';
+    ov.addEventListener("click", function (e) { if (e.target === ov) { markNudged(yr); ov.remove(); } });
+    document.body.appendChild(ov);
+    function markNudged(y) { save({ classPromptYear: y }); }
+    ov.querySelector("#clpLater").onclick = function () { markNudged(yr); ov.remove(); };
+    ov.querySelector("#clpUpdate").onclick = function () {
+      markNudged(yr); ov.remove();
+      if (typeof openPanel === "function") openPanel();
+    };
+  }
+
   window.WSProfile = {
     load: load,
     save: save,
     uid: uid,
     open: open,
-    registerCodeProvider: registerCodeProvider
+    registerCodeProvider: registerCodeProvider,
+    maybePromptClassUpdate: maybePromptClassUpdate
   };
 })();

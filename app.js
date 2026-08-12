@@ -3179,9 +3179,17 @@
               mergeCloudProgress(cloud);
               applyAmbience();   // cloud merge may raise the mastery tier
               renderHome();
+              promptClassIfDue();
             });
           } else {
             renderHome();
+            promptClassIfDue();
+          }
+        }
+        function promptClassIfDue() {
+          // new-school-year nudge (from Jan 2): manual class update, never auto
+          if (window.WSProfile && window.WSProfile.maybePromptClassUpdate) {
+            window.WSProfile.maybePromptClassUpdate(openProfilePanel);
           }
         }
         var profile = loadProfile();

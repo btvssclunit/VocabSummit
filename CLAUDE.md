@@ -481,6 +481,13 @@ LOCKED decisions (per §11):
   change, corrects the current entry within the same year. save() MERGES onto the previously
   stored profile so panel-only fields survive a nickname re-pick (the picker rebuilds {nickname,
   category, school[,heardFrom]} but no longer clobbers mtlClass/classHistory).
+  - Class is entered MANUALLY as "YYYY Class" (student types "2026 3HC3"); the year is NOT auto-set
+    (owner 2026-08-12, overriding DESIGN_奖励经济 §6's auto-year idea). Instead WSProfile.
+    maybePromptClassUpdate(openPanel) — called at boot in app.js — nudges a student, from Jan 2 each
+    year, to update their class when classYear < current year (or missing) and they haven't been
+    nudged this year (store.classPromptYear flag). save() now stamps classYear = the current year on
+    any class CHANGE (previously it inherited the old year, so a new-year update never advanced it and
+    the prompt would re-fire — fixed 2026-08-12).
 - 我的档案 panel: reachable via a 👤 button appended inside setTopbar's tb-right on every stream
   screen (its text now lives in a #tbRightText span so updateScopeSum no longer wipes the button),
   and via 👤 我的档案 in the landing greeting (replaced the old 换昵称 link). Sections: 身份 /
@@ -581,3 +588,25 @@ PENDING (owner-gated content audits, each its own pass — need Excel masters + 
   sentences using chars beyond the stream's taught range). Do an automated first-pass filter, then
   human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
   student Chromebook).
+
+## 结伴登峰 (arena) — DECISIONS LOCKED 2026-08-12, NOT YET BUILT
+
+Teacher-hosted live in-class competition (spec: DESIGN_ARENA_课堂擂台.md). Owner §12 decisions resolved
+(Kai Xin, 2026-08-12) — record them here so they survive to the build session:
+- D-1 name: 结伴登峰 (student button 「加入结伴登峰」, teacher tab 结伴登峰). NOT 课堂擂台.
+- D-2 credit: a correct answer marks the word MASTERED (掌握/海拔) but awards NO 历练值 and NO 灵露.
+  ⚠️ This ADDS a mastery-conferring path beyond 填空挑战/攀山竞速 — update the MASTERY-GATE note + the
+  showMasteryInfo popover when built. 历练值 stays self-directed-only so a keen teacher can't inflate
+  the 词山风云榜. Structurally: arena code must NEVER call scoreCorrect/bankPts; it may call the mastery
+  mark only. Keep arena in its own arena.js overlay, never entering renderStep().
+- D-3 modes (v1): 填空挑战 + 华文解释 + 英文翻译 + 攀山竞速 + 词雨灵露. Teacher picks ONE per room.
+  For 词雨 the host also sets time / lives / pinyin on-off / 固定-vs-递增 speed; for 攀山竞速 the timer.
+  (汉兜 / 组词 excluded from v1.) NOTE: this is BIGGER than the spec's cloze-only v1 — the two real-time
+  games need a "same word pool + same config, compare scores" room model, not the frozen-question model.
+- D-4: prompt for 班级 at join if missing, allow skip, show 未填班级 on the board.
+- D-5: allow late-joiners while running, mark the row with ⏱.
+- D-6 host: any approved teacher (not HOD-only). Caveat: other-school self-registered teachers can host
+  on our Firebase quota — revisit before any public (SgLDC) announcement.
+Owner console steps required before it works: publish the rooms Firestore rules block, and set the
+Firestore TTL policy on rooms.expiresAt. Build order per spec §11 (rules → arena.js → html includes →
+app.js pill → teacher.html tab → CLAUDE.md full section).
