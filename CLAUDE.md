@@ -589,6 +589,26 @@ PENDING (owner-gated content audits, each its own pass — need Excel masters + 
   human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
   student Chromebook).
 
+## 营地场景 (campsite) — DECISIONS 2026-08-12, BUILD QUEUED AFTER ARENA
+
+Per DESIGN_营地场景_商店_v2.md + 附录三 (layout constraints). Owner decisions:
+- **STATIC scene for v1** (owner 2026-08-12, for speed): fixed decoration slots + pets FIXED in a
+  loose cluster between the 住所 and the 篝火 — no walking avatar, no pet-follow (附录二's walking
+  character is DEFERRED, not rejected; the static layout is designed so the pet cluster later becomes
+  the "return point" and walking layers on additively). There is no camp walk-sprite in the assets.
+- 附录三 constraints are binding: three depth bands; centre vista (cx 35–65, by<72) kept clear;
+  framing items overlap the painted treeline at the edges; walking-corridor rule (front band cx 30–70
+  near-empty) still respected so the future avatar needs no re-layout; design for 22 simultaneous
+  decos (16 A/B + 1 dwelling + 5 C) + 4 pets; density fallback = per-item student show/hide (never
+  auto-rotation); pet sizes are FINE as spec'd (w≈5–6; the "pets too big" review note was wrong —
+  judge by composited render, never native px).
+- VERIFIED IN CODE 2026-08-12: 灵露 is credited ONLY at 词雨 game-over (app.js store.lingLu += dew).
+  闪卡/打拼音 do NOT earn 灵露 yet → per v2 §2, C-tier prices are 600/700/700/800 until that
+  earn-scheme ships. 海拔-unlock thresholds: 50% / 80% of the stream's word count. Fixed placement
+  (no dragging); no shop_stall.png; proximity prompts deferred; keep the 4 permanent camp buttons.
+- Method: composite the real PNGs into a rendered scene and tune CAMP_LAYOUT by eye (sparse AND
+  full-22 states) BEFORE wiring openCampScene() — same render-then-tune loop as the mountain path.
+
 ## 结伴登峰 (arena) — DECISIONS LOCKED 2026-08-12; STUDENT SIDE + RULES BUILT, TEACHER SIDE + GAME MODES PENDING
 
 BUILD PROGRESS (2026-08-12):
@@ -602,10 +622,35 @@ BUILD PROGRESS (2026-08-12):
   MASTERED (海拔) with NO scoreCorrect/历练值 (D-2). Unknown modes (rain/sprint) show "即将推出".
 - ✅ app.js: 「加入结伴登峰」 pill on the home mini-horizon → openArena() (passes stream/words/profile/
   getUid/conferMastery). conferMastery marks mastery + saveStore + checkBadges + applyAmbience only.
-- PENDING: teacher.html 结伴登峰 tab (setup form that FREEZES wordIds from the host's JSON + live board +
-  全屏 + CSV export + 开始/结束) — REQUIRED to create a room, so nothing is end-to-end testable until it
-  + the published rules exist. Then the two real-time game modes (攀山竞速 / 词雨灵露) as room modes
-  (same word pool + host config, compare scores — arena.js currently degrades these gracefully).
+- ✅ teacher.html 结伴登峰 tab (visible to ALL teachers): setup (stream / unit checkboxes / mode /
+  cloze-tier / qCount / duration; 词雨 extras: speed 1-8, 固定/递增, 拼音 on/off, 生命 时间制/3/5/8) →
+  freezes wordIds from the host-fetched stream JSON (cloze rooms filter to valid __ blanks; rain rooms
+  filter to ≤4-char words, min 8) → 6-char code (alphabet has no O/0/I/1/L; retry ×3 on collision) →
+  live board (onSnapshot on players, huge .arena-code for the projector, countdown, 开始/结束/导出CSV/
+  全屏 via requestFullscreen, 关闭这场 deletes players then the room — TTL does NOT cascade).
+  gameCfg {speed,ramp,py,lives} is written on rain rooms only.
+- ✅ arena.js game modes: sprint = same-paper speed answering on 华文解释 prompts (高度 = 答对数 in the
+  HUD; arena scoring; v1 does not adapt the canvas climb wall). rain = falling-words in the overlay:
+  same frozen pool + host gameCfg for everyone, per-device fall order (fairness = pool + config),
+  score 字数×10×combo (combo +1 per 3 clears, cap ×5), lives mode ends early at 0 ❤️, time cap always
+  applies, IME composition guarded. NO 灵露 banked; typed/answered-correct words confer mastery.
+- ✅ playerCount: the HOST's players-onSnapshot writes rooms/{code}.playerCount on change (only the
+  host may write the room doc under the rules), so student lobbies show a live count.
+- ✅ VERIFIED 2026-08-12 by driving arena.js against a MOCK Firestore in-browser (full lifecycle, since
+  real rooms need published rules): join→player row written; lobby shows host/mode/count; status flip
+  to running starts questions; scoring formula correct (100 + speed 50 + streak 10 = 160 on an instant
+  first answer); 3-question round → result card; final write {answered,correct,score,finished:true};
+  results board sorts by score, highlights self, shows the ⏱ late marker. RAIN room: renders host
+  gameCfg (3 lives / pinyin on / speed idx), typing a falling word scores 字数×10×combo (4-char = 40),
+  host 结束 → finish path stops the rAF loop, clears the field, confers mastery.
+- ✅ D-2 VERIFIED against the REAL app.js hook (not the mock): conferMastery raised 掌握 5→8 while
+  store.pts.total stayed 0. Mastery yes, 历练值 never. Test pollution was reverted afterwards.
+- COPY OF THE RULES FOR THE OWNER: /Users/kaixinchun/Documents/VocabSummit/firestore/ (firestore.rules
+  + README.txt with the publish + TTL steps). It is a COPY — repo-clone/firestore.rules is the source
+  of truth; re-copy it there whenever the rules change.
+- STILL NEEDED to go live (owner console steps, then a real two-browser test): publish the rooms rules
+  block + set the Firestore TTL policy on rooms.expiresAt, and deploy the files. Only the real
+  cross-device round trip (teacher creates → phone joins → live board updates) remains unverified.
 
 
 

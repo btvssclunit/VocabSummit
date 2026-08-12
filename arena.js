@@ -66,7 +66,15 @@
       ".arena-board{width:100%;max-width:620px;margin-top:14px}" +
       ".arena-row{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid rgba(143,211,255,.18);font-size:14px}" +
       ".arena-row.me{background:rgba(227,166,60,.18);border-radius:8px}" +
-      ".arena-rk{width:26px;color:#FFE9B0;font-weight:800}.arena-sc{margin-left:auto;font-weight:800;color:#FFE9B0}";
+      ".arena-rk{width:26px;color:#FFE9B0;font-weight:800}.arena-sc{margin-left:auto;font-weight:800;color:#FFE9B0}" +
+      ".arena-rain{position:relative;width:100%;max-width:620px;height:52vh;min-height:280px;overflow:hidden;" +
+      "background:rgba(20,40,70,.4);border:1px solid rgba(143,211,255,.3);border-radius:14px;margin-bottom:10px}" +
+      ".arena-rword{position:absolute;left:0;top:0;background:rgba(255,255,255,.95);color:#243B4A;border-radius:10px;" +
+      "padding:6px 12px;text-align:center;font-weight:700;font-size:21px;will-change:transform}" +
+      ".arena-rword .py{display:block;font-size:11px;color:#5A7080;font-weight:400}" +
+      ".arena-rin{display:flex;gap:8px;width:100%;max-width:620px}" +
+      ".arena-rin input{flex:1;font-size:20px;padding:12px;border-radius:12px;border:2px solid #B9CEDD;text-align:center}" +
+      ".arena-rin button{border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;background:var(--gold,#E3A63C);color:#3A2A08;cursor:pointer}";
     document.head.appendChild(s);
   }
 
@@ -153,9 +161,11 @@
     /* ---------- play ---------- */
     var started = false, seq = [], qi = 0, myScore = 0, myCorrect = 0, myAnswered = 0, streak = 0;
     var correctIds = [], endMs = 0, tickTimer = null, writeTimer = null, lastWrite = 0, qStart = 0, done = false;
+    var stopGame = null;   // set by real-time modes (rain) so finishNow can halt their loop
 
     function startPlay() {
-      if (!(room.mode === "cloze" || room.mode === "zhmcq" || room.mode === "enmcq")) {
+      if (room.mode === "rain") { started = true; startRainPlay(); return; }
+      if (!(room.mode === "cloze" || room.mode === "zhmcq" || room.mode === "enmcq" || room.mode === "sprint")) {
         ov.innerHTML = '<div class="arena-card"><div class="arena-t">该模式即将推出</div>' +
           '<div class="arena-sub">「' + esc(scopeLine()) + '」的实时对战正在开发中。</div>' +
           '<button class="arena-btn" id="arOk">知道了</button></div>';
@@ -176,6 +186,7 @@
     }
     function hud() {
       return '<div class="arena-hud"><span>得分 <b id="arScore">' + myScore + '</b></span>' +
+        (room.mode === "sprint" ? '<span>⛰️ 高度 <b>' + myCorrect + '</b> 米</span>' : '') +
         '<span>答对 <b>' + myCorrect + '</b>/' + myAnswered + '</span>' +
         '<span class="arena-timer" id="arTimer">⏱ …</span></div>';
     }
@@ -196,7 +207,8 @@
           var n = parseInt(tier, 10) || 3;
           opts = shuffle([w].concat(distractors(w, n - 1)));
         }
-      } else if (room.mode === "zhmcq") {
+      } else if (room.mode === "zhmcq" || room.mode === "sprint") {
+        // sprint room = same-paper speed answering on 华文解释 prompts; 高度 = 答对数
         body = esc(w.zh || ""); opts = shuffle([w].concat(distractors(w, 3)));
       } else {
         body = esc(w.en || w.zh || ""); opts = shuffle([w].concat(distractors(w, 3)));
@@ -227,10 +239,12 @@
       if (done) return;
       myAnswered++;
       var secs = (Date.now() - qStart) / 1000;
+      var gained = 0;
       if (correct) {
         var speed = Math.round(50 * Math.max(0, 1 - secs / 15));
         streak = streak + 1; var sb = Math.min(50, streak * 10);
-        myScore += 100 + speed + sb; myCorrect++;
+        gained = 100 + speed + sb;
+        myScore += gained; myCorrect++;
         if (correctIds.indexOf(w.id) === -1) correctIds.push(w.id);
       } else { streak = 0; }
       // reveal
@@ -241,11 +255,116 @@
           b.onclick = null;
         });
       }
-      if (fb) { fb.className = "arena-fb " + (correct ? "ok" : "bad"); fb.textContent = correct ? "✔ 正确 +" + (myScore) : "✘ 正确答案：" + w.w; }
+      if (fb) { fb.className = "arena-fb " + (correct ? "ok" : "bad"); fb.textContent = correct ? "✔ 正确 +" + gained : "✘ 正确答案：" + w.w; }
       var sc = ov.querySelector("#arScore"); if (sc) sc.textContent = myScore;
       scheduleWrite();
       qi++;
       setTimeout(function () { if (!done) renderQ(); }, correct ? 550 : 1100);
+    }
+
+    /* ---------- 词雨灵露 room mode ----------
+       Same frozen word POOL + same host config for everyone; fall order is
+       per-device random (it recycles the pool), fairness = pool + config.
+       Score = 字数×10×combo, the game's own formula. NO 灵露 is banked (D-2);
+       correctly typed words DO confer mastery via correctIds. */
+    var ARENA_RAIN_SPEEDS = [
+      [10, 6000], [14, 5200], [19, 4600], [25, 4000],
+      [32, 3400], [40, 2900], [50, 2400], [62, 2000]
+    ];
+    function startRainPlay() {
+      var cfg = room.gameCfg || {};
+      var showPy = cfg.py !== false, ramp = !!cfg.ramp;
+      var livesMax = cfg.lives || 0;                     // 0 = time-only
+      var speedIdx = Math.min(7, Math.max(0, cfg.speed != null ? cfg.speed : 2));
+      var pool = (room.wordIds || []).map(function (id) { return wordIndex[id]; })
+        .filter(Boolean).filter(function (w) { return w.w && w.w.length <= 4; });
+      if (pool.length < 4) {
+        ov.innerHTML = '<div class="arena-card"><div class="arena-t">词池不足</div>' +
+          '<div class="arena-sub">本擂台的词雨词池太小，无法开始。请告知老师。</div>' +
+          '<button class="arena-btn" id="arOk">知道了</button></div>';
+        ov.querySelector("#arOk").onclick = close; return;
+      }
+      var startedAt = room.startedAt && room.startedAt.toMillis ? room.startedAt.toMillis() : Date.now();
+      endMs = startedAt + (room.durationS || 300) * 1000;
+      var lives = livesMax, combo = 1, cleared = 0, wave = 1;
+      var liveW = [], bag = shuffle(pool), composing = false, lastT = null, spawnTimer = 0, raf = null;
+
+      ov.innerHTML =
+        '<div class="arena-hud"><span>得分 <b id="arScore">0</b></span>' +
+        '<span>连击 <b id="arCombo">×1</b></span>' +
+        (livesMax ? '<span id="arLives">' + "❤️".repeat(livesMax) + '</span>' : '') +
+        '<span class="arena-timer" id="arTimer">⏱ …</span></div>' +
+        '<div class="arena-rain" id="arRain"></div>' +
+        '<div class="arena-rin"><input id="arRIn" autocomplete="off" placeholder="打出词语…">' +
+        '<button id="arRFire">收集</button></div>';
+      var area = ov.querySelector("#arRain"), input = ov.querySelector("#arRIn");
+      input.focus();
+      input.addEventListener("compositionstart", function () { composing = true; });
+      input.addEventListener("compositionend", function () { composing = false; });
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !composing) fire(); });
+      ov.querySelector("#arRFire").onclick = fire;
+
+      function speedNow() { return ARENA_RAIN_SPEEDS[ramp ? Math.min(ARENA_RAIN_SPEEDS.length - 1, wave - 1) : speedIdx]; }
+      function nextWord() { if (!bag.length) bag = shuffle(pool); return bag.pop(); }
+      function spawn() {
+        var w = nextWord();
+        var el = document.createElement("div");
+        el.className = "arena-rword";
+        el.innerHTML = esc(w.w) + (showPy ? '<span class="py">' + esc(w.py || "") + '</span>' : "");
+        area.appendChild(el);
+        var x = Math.random() * Math.max(10, area.clientWidth - el.offsetWidth - 10);
+        liveW.push({ el: el, w: w, x: x, y: -el.offsetHeight, sway: 10 + Math.random() * 20, phase: Math.random() * 6.28 });
+      }
+      function step(t) {
+        if (done || !area.isConnected) { if (raf) cancelAnimationFrame(raf); return; }
+        if (lastT == null) lastT = t;
+        var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+        spawnTimer += dt * 1000;
+        var sp = speedNow();
+        if (spawnTimer >= sp[1] && liveW.length < 6) { spawnTimer = 0; spawn(); }
+        var floorY = area.clientHeight - 8;
+        for (var i = liveW.length - 1; i >= 0; i--) {
+          var o = liveW[i];
+          o.y += sp[0] * dt; o.phase += dt * 1.4;
+          o.el.style.transform = "translate(" + (o.x + Math.sin(o.phase) * o.sway) + "px," + o.y + "px)";
+          if (o.y > floorY) {
+            o.el.remove(); liveW.splice(i, 1);
+            combo = 1; setCombo();
+            if (livesMax) {
+              lives--;
+              var lv = ov.querySelector("#arLives");
+              if (lv) lv.textContent = "❤️".repeat(Math.max(0, lives)) + "🖤".repeat(livesMax - Math.max(0, lives));
+              if (lives <= 0) return finishNow(false);
+            }
+          }
+        }
+        raf = requestAnimationFrame(step);
+      }
+      function setCombo() { var c = ov.querySelector("#arCombo"); if (c) c.textContent = "×" + combo; }
+      function fire() {
+        if (done) return;
+        var val = (input.value || "").trim(); input.value = "";
+        if (!val) return;
+        myAnswered++;
+        var hit = -1;
+        for (var i = 0; i < liveW.length; i++) if (liveW[i].w.w === val) { hit = i; break; }
+        if (hit === -1) { scheduleWrite(); return; }
+        var o = liveW[hit];
+        o.el.remove(); liveW.splice(hit, 1);
+        cleared++; myCorrect++;
+        myScore += o.w.w.length * 10 * combo;
+        if (correctIds.indexOf(o.w.id) === -1) correctIds.push(o.w.id);
+        if (cleared % 3 === 0) combo = Math.min(5, combo + 1);
+        setCombo();
+        if (cleared % 10 === 0) wave++;
+        var sc = ov.querySelector("#arScore"); if (sc) sc.textContent = myScore;
+        scheduleWrite();
+      }
+      stopGame = function () { if (raf) cancelAnimationFrame(raf); };
+      spawn();
+      raf = requestAnimationFrame(step);
+      tickTimer = setInterval(tick, 500);
+      tick();
     }
 
     /* ---------- score writes (throttled) ---------- */
@@ -263,6 +382,7 @@
       if (done) return; done = true;
       if (tickTimer) clearInterval(tickTimer);
       if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
+      if (stopGame) { try { stopGame(); } catch (e) {} stopGame = null; }
       writeNow(true);
       // confer mastery for every word answered correctly (海拔 only, no 历练值)
       if (ctx.conferMastery && correctIds.length) { try { ctx.conferMastery(correctIds); } catch (e) {} }

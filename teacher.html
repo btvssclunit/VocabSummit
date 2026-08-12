@@ -44,6 +44,12 @@ th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #E7EFF6;white-spa
 th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.04em}
 .scroll{overflow-x:auto}
 .flag-bad{background:#FBEDE9}
+.arena-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:900;font-size:min(18vw,120px);
+  letter-spacing:.1em;text-align:center;color:#243B4A;margin:12px 0;background:#F1F6FB;
+  border:3px solid #D9A72B;border-radius:16px;padding:10px}
+.arena-live table td{font-size:15px;padding:9px 10px}
+.arena-live:fullscreen{background:#fff;padding:28px;overflow:auto}
+.arena-live:fullscreen .arena-code{font-size:min(22vw,180px)}
 .hint{font-size:12px;color:var(--ink-soft);line-height:1.7}
 .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#EAF1F8;color:#3A5A70}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
@@ -115,6 +121,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       <button class="tab" data-tab="classes">班级视图</button>
       <button class="tab" data-tab="hard">词语难点</button>
       <button class="tab" data-tab="restores">恢复记录</button>
+      <button class="tab" data-tab="arena">结伴登峰</button>
       <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
       <button class="tab" data-tab="mod" id="modTab" style="display:none">处理</button>
     </div>
@@ -451,6 +458,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     if (_tab === "classes") return renderClasses(panel);
     if (_tab === "hard") return renderHard(panel);
     if (_tab === "restores") return renderRestores(panel);
+    if (_tab === "arena") return renderArena(panel);
     if (_tab === "approvals") return renderApprovals(panel);
     if (_tab === "mod") return renderMod(panel);
   }
@@ -619,6 +627,200 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>时间</th><th>昵称</th><th>班级</th><th>科目</th>' +
       '<th>进度码昵称</th><th>是否相符</th><th>新增词</th><th>UID</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="8" class="hint">暂无恢复记录（或规则尚未发布）。</td></tr>') + '</tbody></table></div></div>';
+  }
+
+  /* ================= 结伴登峰 (arena) teacher room console ================= */
+  var ARENA_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no O/0/I/1/L (whiteboard-safe)
+  var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
+  var _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: {} };
+  var _setup = { stream: "g3", scope: {}, mode: "cloze", tier: "3", qCount: 20, durationS: 300,
+                 rainSpeed: 2, rainRamp: false, rainPy: true, rainLives: 5 };
+
+  function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
+  function fetchStreamJson(stream) {
+    if (_arena.json[stream]) return Promise.resolve(_arena.json[stream]);
+    return fetch(stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
+      var units = [], byKey = {};
+      j.levels.forEach(function (lv) {
+        lv.units.forEach(function (u) {
+          var key = lv.level + "·" + u.unit, words = [];
+          u.components.forEach(function (c) { c.words.forEach(function (w) { words.push(w); }); });
+          units.push({ key: key, count: words.length }); byKey[key] = words;
+        });
+      });
+      _arena.json[stream] = { units: units, byKey: byKey }; return _arena.json[stream];
+    });
+  }
+
+  function renderArena(panel) { if (_arena.code) return renderArenaLive(panel); renderArenaSetup(panel); }
+
+  function renderArenaSetup(panel) {
+    panel.innerHTML = '<div class="card"><h2 style="margin-top:0">结伴登峰 · 出题设置</h2>' +
+      '<div class="hint">选好范围与模式后生成擂台码，写在白板上让学生加入。全班答同一套题（顺序已冻结），公平比拼。' +
+      '得分只用于本场投影排名——不计历练值；学生答对的词会计入其「已掌握」。</div>' +
+      '<label>科目</label><div class="row" id="arStream"></div>' +
+      '<label>单元范围</label><div id="arScope" class="hint">选择科目后显示单元…</div>' +
+      '<label>模式</label><div class="row" id="arMode"></div>' +
+      '<div id="arTierRow"><label>填空难度</label><div class="row" id="arTier"></div></div>' +
+      '<div id="arRainRow" style="display:none">' +
+        '<label>词雨 · 下落速度（1 最慢 – 8 最快）</label><div class="row" id="arRs"></div>' +
+        '<label>词雨 · 速度模式</label><div class="row" id="arRr"></div>' +
+        '<label>词雨 · 拼音辅助</label><div class="row" id="arRp"></div>' +
+        '<label>词雨 · 生命（时间制 = 只按时长结束）</label><div class="row" id="arRl"></div></div>' +
+      '<div class="row"><div><label>题数</label><select id="arQ"><option>10</option><option>15</option><option selected>20</option><option>30</option></select></div>' +
+      '<div><label>时长（分钟）</label><select id="arDur"><option value="180">3</option><option value="300" selected>5</option><option value="480">8</option><option value="600">10</option></select></div></div>' +
+      '<div style="margin-top:14px"><button class="btn primary" id="arGen">生成擂台码</button></div>' +
+      '<div class="msg" id="arMsg"></div></div>';
+    el("arStream").innerHTML = STREAMS.map(function (s) { return '<button class="btn arS' + (s === _setup.stream ? " primary" : "") + '" data-s="' + s + '">' + STREAM_LABEL[s] + '</button>'; }).join(" ");
+    Array.prototype.forEach.call(el("arStream").querySelectorAll(".arS"), function (b) { b.onclick = function () { _setup.stream = b.getAttribute("data-s"); _setup.scope = {}; renderArenaSetup(panel); }; });
+    el("arMode").innerHTML = Object.keys(ARENA_MODE_ZH).map(function (k) { return '<button class="btn arM' + (k === _setup.mode ? " primary" : "") + '" data-m="' + k + '">' + ARENA_MODE_ZH[k] + '</button>'; }).join(" ");
+    Array.prototype.forEach.call(el("arMode").querySelectorAll(".arM"), function (b) { b.onclick = function () { _setup.mode = b.getAttribute("data-m"); renderArenaSetup(panel); }; });
+    el("arTier").innerHTML = [["2", "⭐"], ["3", "⭐⭐"], ["4", "⭐⭐⭐"], ["type", "打字"]].map(function (t) { return '<button class="btn arT' + (t[0] === _setup.tier ? " primary" : "") + '" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join(" ");
+    Array.prototype.forEach.call(el("arTier").querySelectorAll(".arT"), function (b) { b.onclick = function () { _setup.tier = b.getAttribute("data-t"); renderArenaSetup(panel); }; });
+    el("arTierRow").style.display = _setup.mode === "cloze" ? "" : "none";
+    el("arRainRow").style.display = _setup.mode === "rain" ? "" : "none";
+    if (_setup.mode === "rain") {
+      el("arRs").innerHTML = [0,1,2,3,4,5,6,7].map(function (i) { return '<button class="btn arRs' + (i === _setup.rainSpeed ? " primary" : "") + '" data-i="' + i + '">' + (i + 1) + '</button>'; }).join(" ");
+      Array.prototype.forEach.call(el("arRs").querySelectorAll(".arRs"), function (b) { b.onclick = function () { _setup.rainSpeed = parseInt(b.getAttribute("data-i"), 10); renderArenaSetup(panel); }; });
+      el("arRs").style.opacity = _setup.rainRamp ? ".4" : "1";
+      el("arRs").style.pointerEvents = _setup.rainRamp ? "none" : "auto";
+      el("arRr").innerHTML = '<button class="btn' + (!_setup.rainRamp ? " primary" : "") + '" id="arRrF">固定速度</button> ' +
+        '<button class="btn' + (_setup.rainRamp ? " primary" : "") + '" id="arRrR">递增（从最慢起逐波加速）</button>';
+      el("arRrF").onclick = function () { _setup.rainRamp = false; renderArenaSetup(panel); };
+      el("arRrR").onclick = function () { _setup.rainRamp = true; renderArenaSetup(panel); };
+      el("arRp").innerHTML = '<button class="btn' + (_setup.rainPy ? " primary" : "") + '" id="arRpY">显示拼音</button> ' +
+        '<button class="btn' + (!_setup.rainPy ? " primary" : "") + '" id="arRpN">隐藏拼音</button>';
+      el("arRpY").onclick = function () { _setup.rainPy = true; renderArenaSetup(panel); };
+      el("arRpN").onclick = function () { _setup.rainPy = false; renderArenaSetup(panel); };
+      el("arRl").innerHTML = [[0, "时间制"], [3, "3 命"], [5, "5 命"], [8, "8 命"]].map(function (o) {
+        return '<button class="btn arRl' + (o[0] === _setup.rainLives ? " primary" : "") + '" data-l="' + o[0] + '">' + o[1] + '</button>';
+      }).join(" ");
+      Array.prototype.forEach.call(el("arRl").querySelectorAll(".arRl"), function (b) { b.onclick = function () { _setup.rainLives = parseInt(b.getAttribute("data-l"), 10); renderArenaSetup(panel); }; });
+    }
+    el("arQ").value = String(_setup.qCount); el("arQ").onchange = function () { _setup.qCount = parseInt(this.value, 10); };
+    el("arDur").value = String(_setup.durationS); el("arDur").onchange = function () { _setup.durationS = parseInt(this.value, 10); };
+    fetchStreamJson(_setup.stream).then(function (data) {
+      var sc = el("arScope");
+      sc.innerHTML = '<div style="margin-bottom:6px"><button class="btn" id="arAll">全选</button> <button class="btn" id="arNone">清空</button></div>' +
+        data.units.map(function (u) { return '<label style="display:inline-block;margin:3px 10px 3px 0;font-weight:400"><input type="checkbox" class="arU" value="' + esc(u.key) + '"' + (_setup.scope[u.key] ? " checked" : "") + '> ' + esc(u.key) + ' (' + u.count + ')</label>'; }).join("");
+      Array.prototype.forEach.call(sc.querySelectorAll(".arU"), function (c) { c.onchange = function () { if (c.checked) _setup.scope[c.value] = 1; else delete _setup.scope[c.value]; }; });
+      el("arAll").onclick = function () { data.units.forEach(function (u) { _setup.scope[u.key] = 1; }); renderArenaSetup(panel); };
+      el("arNone").onclick = function () { _setup.scope = {}; renderArenaSetup(panel); };
+    }).catch(function () { el("arScope").textContent = "词库载入失败。"; });
+    el("arGen").onclick = function () { generateRoom(panel); };
+  }
+
+  function generateRoom(panel) {
+    var m = el("arMsg"); m.className = "msg";
+    if (!Object.keys(_setup.scope).length) { m.className = "msg bad"; m.textContent = "请至少选择一个单元。"; return; }
+    m.textContent = "生成中…";
+    fetchStreamJson(_setup.stream).then(function (data) {
+      var pool = [];
+      Object.keys(_setup.scope).forEach(function (k) { (data.byKey[k] || []).forEach(function (w) { pool.push(w); }); });
+      if (_setup.mode === "cloze") pool = pool.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
+      if (_setup.mode === "rain") pool = pool.filter(function (w) { return w.w && w.w.length <= 4; });
+      var minNeed = _setup.mode === "rain" ? 8 : 4;
+      if (pool.length < minNeed) { m.className = "msg bad"; m.textContent = "所选范围可用词太少（本模式需要至少 " + minNeed + " 个）。"; return; }
+      for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      var q = Math.min(_setup.qCount, pool.length);
+      tryCreate(pool.slice(0, q).map(function (w) { return w.id; }), q, 0, m, panel);
+    });
+  }
+  function tryCreate(wordIds, q, attempt, m, panel) {
+    if (attempt >= 3) { m.className = "msg bad"; m.textContent = "生成失败，请重试。"; return; }
+    var code = arenaCode(), doc = db.collection("rooms").doc(code);
+    doc.get().then(function (snap) {
+      if (snap.exists) return tryCreate(wordIds, q, attempt + 1, m, panel);
+      var roomDoc = {
+        hostUid: auth.currentUser.uid, hostName: (_me && _me.name) || "老师", school: (_me && _me.school) || "",
+        stream: _setup.stream, mode: _setup.mode, tier: _setup.tier, scope: Object.keys(_setup.scope),
+        wordIds: wordIds, qCount: q, durationS: _setup.durationS, status: "lobby",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(), startedAt: null,
+        expiresAt: firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 6 * 3600 * 1000)), playerCount: 0
+      };
+      if (_setup.mode === "rain") {
+        roomDoc.gameCfg = { speed: _setup.rainSpeed, ramp: _setup.rainRamp, py: _setup.rainPy, lives: _setup.rainLives };
+      }
+      return doc.set(roomDoc).then(function () { _arena.code = code; _arena.players = []; _arena.room = null; subscribeArena(); renderArena(panel); });
+    }).catch(function (e) { m.className = "msg bad"; m.textContent = "创建失败：" + (e.code || e.message) + "（请确认 rooms 规则已发布）。"; });
+  }
+
+  function subscribeArena() {
+    if (_arena.unsub) _arena.unsub();
+    if (_arena.punsub) _arena.punsub();
+    _arena.unsub = db.collection("rooms").doc(_arena.code).onSnapshot(function (snap) {
+      _arena.room = snap.exists ? snap.data() : null;
+      if (_tab === "arena") renderArenaLive(el("panel"));
+    });
+    _arena.punsub = db.collection("rooms").doc(_arena.code).collection("players").onSnapshot(function (qs) {
+      var rows = []; qs.forEach(function (d) { rows.push(Object.assign({ uid: d.id }, d.data())); });
+      _arena.players = rows;
+      // keep the room's playerCount current so student lobbies show a live count
+      // (only the host may write the room doc; write only on change)
+      var room = _arena.room || {};
+      if ((room.playerCount || 0) !== rows.length && room.status !== "ended") {
+        db.collection("rooms").doc(_arena.code).set({ playerCount: rows.length }, { merge: true }).catch(function () {});
+      }
+      if (_tab === "arena") renderArenaLive(el("panel"));
+    });
+  }
+
+  function statusZh(s) { return s === "running" ? "进行中" : s === "ended" ? "已结束" : "等待开始"; }
+  function arenaRemaining() {
+    var room = _arena.room || {};
+    if (room.status !== "running" || !room.startedAt || !room.startedAt.toMillis) return null;
+    return Math.max(0, Math.round((room.startedAt.toMillis() + (room.durationS || 0) * 1000 - Date.now()) / 1000));
+  }
+  function renderArenaLive(panel) {
+    var room = _arena.room || {};
+    var rows = _arena.players.slice().sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    var status = room.status || "lobby", rem = arenaRemaining();
+    panel.innerHTML = '<div class="card arena-live" id="arenaCard">' +
+      '<div class="row" style="align-items:center"><h2 style="margin:0">结伴登峰</h2>' +
+      '<span class="hint" style="margin-left:auto">' + (STREAM_LABEL[room.stream] || "") + ' · ' + (ARENA_MODE_ZH[room.mode] || "") + ' · ' + (room.qCount || "") + ' 题 · ' + Math.round((room.durationS || 0) / 60) + ' 分钟</span></div>' +
+      '<div class="arena-code">' + esc(_arena.code) + '</div>' +
+      '<div class="row" style="justify-content:center;font-size:16px">👥 <b id="arPc">' + rows.length + '</b> 人 · <span id="arSt">' + statusZh(status) + '</span>' + (rem != null ? ' · ⏱ <b id="arRem">' + rem + 's</b>' : '') + '</div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>昵称</th><th>班级</th><th>答对/已答</th><th>得分</th></tr></thead><tbody>' +
+      (rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.nickname || "") + (r.late ? " ⏱" : "") + '</td><td>' + esc(r.mtlClass || "未填班级") + '</td><td>' + (r.correct || 0) + '/' + (r.answered || 0) + '</td><td><b>' + (r.score || 0) + '</b></td></tr>'; }).join("") || '<tr><td colspan="5" class="hint">等待学生加入…</td></tr>') +
+      '</tbody></table></div>' +
+      '<div class="row" style="margin-top:14px">' +
+      (status === "lobby" ? '<button class="btn primary" id="arStart">开始</button>' : '') +
+      (status !== "ended" ? '<button class="btn" id="arEnd">结束</button>' : '') +
+      '<button class="btn" id="arCsv">导出CSV</button><button class="btn" id="arFs">全屏</button>' +
+      '<button class="btn" id="arClose">关闭这场</button></div><div class="msg" id="arLiveMsg"></div></div>';
+    var b;
+    if ((b = el("arStart"))) b.onclick = startArena;
+    if ((b = el("arEnd"))) b.onclick = endArena;
+    el("arCsv").onclick = exportArenaCsv;
+    el("arFs").onclick = function () { var c = el("arenaCard"); if (c && c.requestFullscreen) c.requestFullscreen().catch(function () {}); };
+    el("arClose").onclick = closeArena;
+    if (_arena.tick) clearInterval(_arena.tick);
+    if (status === "running") _arena.tick = setInterval(function () {
+      var r = arenaRemaining(), t = el("arRem"); if (t && r != null) t.textContent = r + "s";
+    }, 1000);
+  }
+  function startArena() {
+    db.collection("rooms").doc(_arena.code).set({ status: "running", startedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+      .catch(function (e) { var m = el("arLiveMsg"); if (m) { m.className = "msg bad"; m.textContent = "开始失败：" + (e.code || e.message); } });
+  }
+  function endArena() { db.collection("rooms").doc(_arena.code).set({ status: "ended" }, { merge: true }).catch(function () {}); }
+  function closeArena() {
+    var code = _arena.code;
+    if (_arena.unsub) _arena.unsub(); if (_arena.punsub) _arena.punsub(); if (_arena.tick) clearInterval(_arena.tick);
+    // best-effort cleanup (TTL removes the room in ~6h but doesn't cascade to players)
+    _arena.players.forEach(function (r) { db.collection("rooms").doc(code).collection("players").doc(r.uid).delete().catch(function () {}); });
+    db.collection("rooms").doc(code).delete().catch(function () {});
+    _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: _arena.json };
+    renderArena(el("panel"));
+  }
+  function exportArenaCsv() {
+    var rows = _arena.players.slice().sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+    var csv = "排名,昵称,班级,答对,已答,得分\n" + rows.map(function (r, i) {
+      return [i + 1, '"' + (r.nickname || "") + '"', '"' + (r.mtlClass || "") + '"', r.correct || 0, r.answered || 0, r.score || 0].join(",");
+    }).join("\n");
+    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "arena_" + _arena.code + ".csv"; a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
   function renderMod(panel) {

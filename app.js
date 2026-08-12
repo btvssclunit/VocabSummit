@@ -996,7 +996,8 @@
         var st = wordStatus(w);
         html += '<button class="wl-row" data-id="' + esc(w.id) + '">' +
           '<div class="wl-w"><b>' + esc(w.w) + '</b><span class="wl-py">' + esc(w.py) + '</span></div>' +
-          '<div class="wl-zh">' + esc(w.zh) + '</div>' +
+          '<div class="wl-zh">' + esc(w.zh) +
+            (w.en ? '<span class="wl-en">' + esc(w.en) + '</span>' : '') + '</div>' +
           '<span class="wl-status s-' + st + '">' + WL_LABEL[st] + '</span></button>';
       });
       html += '</div>';
@@ -1162,14 +1163,15 @@
     if (mode === "flash") {
       seq = shuffle(pool);                 // flashcards run over the whole scope
     } else {
-      /* WEAK-FIRST: present not-yet-mastered words first, in curriculum order, so a
-         student progresses (a 19-word section shows 1–10, then 11–19 next round)
-         instead of re-seeing words they've already mastered — which was stalling
-         badge progress. Mastered words fill in as review only once the unmastered
-         ones are exhausted. */
+      /* WEAK-FIRST, RANDOM WITHIN BUCKET: present not-yet-mastered words first so a
+         student keeps progressing (a 19-word section works through 1–19 across
+         rounds) instead of re-seeing words they've already mastered — which was
+         stalling badge progress. The unmastered bucket is SHUFFLED (not curriculum
+         order) so students can't blindly follow their textbook/handbook. Mastered
+         words fill in as review, shuffled, only once the unmastered ones run out. */
       var unmastered = [], reviewed = [];
       pool.forEach(function (w) { (store.mastered[w.id] ? reviewed : unmastered).push(w); });
-      var ordered = unmastered.concat(shuffle(reviewed));
+      var ordered = shuffle(unmastered).concat(shuffle(reviewed));
       seq = ordered.slice(0, Math.min(store.quizLen || QUIZ_LEN, ordered.length));
     }
     var state = { mode: mode, seq: seq, i: 0, correct: 0, revealed: false, streak: 0 };
