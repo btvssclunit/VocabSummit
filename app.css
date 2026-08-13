@@ -53,7 +53,8 @@ img{max-width:100%}
 .topbar .back{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.8);border:1px solid #B9CEDD;color:#3A5A70;font-size:16px;flex:none}
 .topbar .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em}
 .topbar .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
-.topbar .tb-right{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}
+.topbar .tb-right{margin-left:auto;font-size:12.5px;color:var(--ink-soft);
+  display:flex;align-items:center;flex:none;min-width:0}
 .wrapper{max-width:1200px;margin:0 auto;padding:18px 22px 70px}
 .loading{color:#EAF4FA;text-align:center;padding:60px 0}
 .beta-chip{position:fixed;right:12px;bottom:10px;z-index:60;font-size:10.5px;color:#DCEAF4;
@@ -483,7 +484,40 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 @media (max-width:520px){
   .tb-nick{display:none}
   .tb-profile{padding:2px;width:36px;justify-content:center}
+  .tb-en{padding:0 8px;gap:2px}
+  .tb-en .tb-en-zh{font-size:14px}
+  .tb-en .tb-en-en{font-size:10.5px}
 }
+/* ---------- 英文提示 (EN aid, G1/G2) ----------
+   决定一 of DESIGN_english-toggle-fading-and-flow-numbering. The gloss spans
+   are always rendered and gated here, so the toggle is one class flip on
+   <body> and never needs a re-render. NAV/BUTTON SHELL TEXT ONLY — no rule
+   here may ever be extended to 题干/释义/句子. */
+.enlab{display:none}
+body.en-aid .enlab{display:block;font-family:var(--sans);font-size:10.5px;line-height:1.25;
+  letter-spacing:.01em;font-weight:400;color:#7C93A5;margin-top:1px;text-transform:none}
+body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseline}
+/* on gold/selected surfaces the soft grey loses contrast */
+.unit.on .enlab,.htab.on .enlab,.nav-btn.primary .enlab{color:#6B5010}
+.camp .go .enlab{color:var(--gold-deep);text-align:right}
+.enlab-always{display:block;font-size:12.5px;color:#7C93A5;line-height:1.5}
+/* 中/EN toggle — icon-only on purpose: a student who cannot read the interface
+   must still be able to find the control that fixes that. */
+.tb-en{display:inline-flex;align-items:center;gap:3px;flex:none;height:36px;padding:0 11px;
+  background:rgba(255,255,255,.82);border:1px solid #B9CEDD;border-radius:999px;
+  color:#3A5A70;cursor:pointer;margin-left:6px;touch-action:manipulation;line-height:1}
+.tb-en:active{transform:translateY(1px)}
+.tb-en .tb-en-zh{font-family:var(--serif);font-weight:800;font-size:15px}
+.tb-en .tb-en-en{font-size:11.5px;font-weight:700;letter-spacing:.04em;opacity:.55}
+.tb-en.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;
+  box-shadow:0 3px 12px rgba(227,166,60,.35)}
+.tb-en.on .tb-en-en{opacity:1}
+/* ---------- 动线编号 (决定四) ----------
+   Permanent, small, and ONLY on genuinely multi-step decision flows. Never on
+   浏览/目的地 pages (排行榜/成就墙/我的词山) — see the note in app.js stepNo(). */
+.step-no{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;
+  background:var(--gold);color:#3A2A08;font-family:var(--sans);font-size:11px;font-weight:800;
+  letter-spacing:0;margin-right:7px;vertical-align:middle;flex:none}
 /* ---------- 头像选择器 ---------- */
 .prof-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);
   background:#F1F6FB;cursor:pointer;flex:none;padding:0;overflow:hidden}
@@ -903,7 +937,23 @@ button.m2pill{cursor:pointer}
 .camp-deco,.camp-dwelling,.camp-pet{position:absolute;transform:translateX(-50%);
   image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(10,20,10,.25))}
 .camp-dwelling{z-index:5}
-.camp-pet{z-index:6}
+.camp-pet{z-index:900}
+/* 地貌景观: belongs to the location, always furthest back, never interactive */
+.camp-scenery{z-index:2}
+/* 随身装备 free placement (2026-08-14). touch-action:none is REQUIRED — without
+   it a touch drag scrolls the page instead of moving the item. Overrides the
+   pointer-events:none above, so only equipped gear is grabbable. */
+.camp-move{pointer-events:auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.camp-move:active{cursor:grabbing}
+.camp-move.camp-dragging{cursor:grabbing;
+  filter:drop-shadow(0 8px 10px rgba(10,20,10,.4)) brightness(1.06)}
+.camp-hint{text-align:center;font-size:12px;color:#5A7080;margin:6px auto 0}
+.shop-slot-note{font-weight:600;color:#6A8296;letter-spacing:0}
+.shop-note{font-size:12.5px;color:#5A7080;line-height:1.7;margin:2px 0 10px}
+.shop-equip{border:1.5px solid var(--sea1,#2E6391);background:#fff;color:var(--sea1,#2E6391);
+  border-radius:10px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;
+  touch-action:manipulation}
+.shop-equip:hover{background:#EAF3FA}
 .camp2-hud{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px auto 0;max-width:96vw}
 .ling-icon{width:14px;height:auto;vertical-align:-2px;image-rendering:pixelated}
 .shop2-card{background:var(--card,#fff);border-radius:18px;max-width:640px;width:min(96vw,640px);

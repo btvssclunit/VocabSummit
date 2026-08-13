@@ -36,7 +36,10 @@ body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.6;min-heigh
     url("study_bg.png"),
     linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 30%,var(--sky2) 56%,var(--sea1) 88%,var(--sea3) 100%)}
 h1,h2{font-family:var(--serif)}
-.wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
+/* 1180px left half a 1920px screen empty on the data-dense tabs. The tables are
+   the reason this page exists, so the shell now tracks the viewport; .signin
+   keeps its own narrow max-width, so the login card is unaffected. */
+.wrap{max-width:min(1720px,97vw);margin:0 auto;padding:20px 18px 60px}
 /* topbar echoes the student 顶栏: frosted plate, serif name, small caps sub,
    plus a small 校徽 chip (the cheapest brand anchor on a data-dense page). */
 .top{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;
@@ -104,7 +107,7 @@ body.gate .signin{margin:auto;width:100%;
 /* 概览统计条 = app.css 的 .harbour 深海军玻璃条（金色衬线数字），取代原来的
    平面浅蓝方块；每个分类配一枚现成徽章当图标，零新增美术。 */
 .harbour{background:rgba(18,42,66,.82);border:1px solid rgba(255,255,255,.2);border-radius:16px;
-  padding:16px 22px;display:flex;gap:28px;color:#EAF4FA;justify-content:center;flex-wrap:wrap}
+  padding:16px 22px;display:flex;gap:28px;color:#EAF4FA;justify-content:space-evenly;flex-wrap:wrap}
 .harbour>div{text-align:center;min-width:76px}
 .harbour>div>b{display:block;font-family:var(--serif);font-size:26px;font-weight:900;color:var(--sun)}
 .harbour>div>span{font-size:11.5px;opacity:.85;letter-spacing:.06em}
@@ -115,9 +118,60 @@ body.gate .signin{margin:auto;width:100%;
 .hb-icon.none{visibility:hidden}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #E7EFF6;white-space:nowrap}
-th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.06em}
+th{color:#3A5A70;user-select:none;font-size:12px;letter-spacing:.06em;vertical-align:bottom}
 tbody tr:hover{background:#F7FBFE}
 .scroll{overflow-x:auto}
+/* 班级视图 is 160+ rows: the header has to stay put while scrolling, so the
+   table scrolls inside its own box rather than with the page. Sticky needs an
+   OPAQUE header background (the card is translucent), hence the solid #F3F8FC. */
+.tbl{overflow:auto;max-height:calc(100vh - 330px);min-height:260px;
+  border:1px solid var(--line);border-radius:12px;background:#fff}
+.tbl thead th{position:sticky;top:0;z-index:3;background:#F3F8FC;box-shadow:inset 0 -1px 0 var(--line)}
+.wrapcell{white-space:normal;min-width:190px}
+.col-n{text-align:right}
+td.col-n b{font-size:13.5px}
+.col-uid{width:1%}
+code.uid{background:#F0F5FA;border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+.btn.tiny{padding:2px 8px;font-size:11px;border-radius:8px;font-weight:600}
+.btn.tiny.ok{background:#E4F0E6;border-color:#8FBF9E;color:#2F5A3C}
+/* ---------- Excel 式表头筛选 ----------
+   Header = clickable label (sort) + a separate ▼ button (filter), so sorting
+   and filtering never fight over the same tap target. The dropdown is appended
+   to <body>, not the cell, or .tbl's overflow would clip it. */
+th .th-in{display:flex;align-items:center;gap:6px;justify-content:space-between}
+th .th-lab{cursor:pointer;white-space:nowrap}
+th .th-lab:hover{color:var(--sea1);text-decoration:underline}
+th .fbtn{border:1px solid transparent;border-radius:6px;background:none;cursor:pointer;
+  font-size:9px;color:#8AA2B4;padding:2px 4px;line-height:1;flex:none}
+th .fbtn:hover{background:#E3EEF7;color:var(--sea1)}
+th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
+.fdd{position:absolute;z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 14px 36px rgba(23,58,90,.3);padding:11px 12px;width:262px;font-size:13px}
+.fdd .fdd-t{font-family:var(--serif);font-weight:700;font-size:13px;color:var(--gold-deep);
+  letter-spacing:.06em;margin-bottom:8px}
+.fdd input{width:100%}
+.fdd .fmini{display:flex;gap:6px;margin:8px 0 6px}
+.fdd .flist{max-height:224px;overflow:auto;border:1px solid var(--line);border-radius:9px;
+  padding:5px 8px;background:#F9FCFE}
+.fdd .flist label{display:flex;gap:7px;align-items:center;margin:0;padding:3px 0;cursor:pointer;
+  font-weight:400;font-size:12.5px;letter-spacing:0;color:var(--ink);white-space:normal}
+.fdd .flist label input{width:auto;flex:none}
+.fdd .flist .fn{margin-left:auto;color:var(--ink-soft);font-size:11px;flex:none}
+.fdd .frange{display:flex;gap:6px;align-items:center}
+.fdd .fact{display:flex;gap:6px;margin-top:10px}
+/* active-filter summary above the table: every filter is visible and removable
+   in one place, so a teacher can never be confused by a hidden filter. */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.fchip{display:inline-flex;align-items:center;gap:7px;background:#FBEEDA;border:1px solid var(--gold);
+  border-radius:999px;padding:3px 6px 3px 11px;font-size:12px;color:#7A5310}
+.fchip button{border:none;background:none;cursor:pointer;color:#7A5310;font-size:14px;
+  line-height:1;padding:0 3px}
+.fchip button:hover{color:var(--bad)}
+/* 概览: two count tables side by side instead of one stretched across 1700px */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;align-items:start}
+.grid2>.card{margin-bottom:0}
+.bar{background:#E9F1F8;border-radius:999px;height:7px;min-width:56px;overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--sun))}
 .flag-bad{background:#FBEDE9}
 .arena-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:900;font-size:min(18vw,120px);
   letter-spacing:.1em;text-align:center;color:var(--ink);margin:12px 0;
@@ -129,6 +183,8 @@ tbody tr:hover{background:#F7FBFE}
 .arena-live:fullscreen .arena-code{font-size:min(22vw,180px)}
 .hint{font-size:12px;color:var(--ink-soft);line-height:1.7}
 .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#EAF1F8;color:#3A5A70}
+.pill.ok{background:#E4F0E6;color:#2F5A3C}
+.pill.warn{background:#FBEEDA;color:#7A5310}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
 .tov{position:fixed;inset:0;background:rgba(20,40,70,.5);display:flex;align-items:center;
@@ -358,7 +414,11 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var _wordMap = null;     // id -> {w, zh, level, unit, stream}
   var _tab = "overview";
   var _sort = { key: null, dir: 1 };
-  var _classFilter = { school: "", cls: "" };
+  /* per-column filters, keyed by column key. Shape depends on the column type:
+     list -> {vals:{value:1}} · text -> {q:"…"} · num/date -> {min:"",max:""}.
+     Absent key = that column is unfiltered. 词语难点 reads the same state
+     through filteredUsers(), so both tabs always agree on the cohort. */
+  var _colF = {};
 
   /* ---------- auth ---------- */
   el("signInBtn").onclick = function () {
@@ -545,23 +605,330 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     var p = u.data.progress && u.data.progress[stream];
     return (p && p.mastered) ? Object.keys(p.mastered).length : 0;
   }
+  /* ---- 英文提示 fading (决定三) ----
+     The toggle only exists in G1/G2, and the telemetry rides inside that
+     stream's progress doc. A student normally has one of the two; if both,
+     take the record with more effective sessions. */
+  function enTelOf(u) {
+    var best = null;
+    ["g1", "g2"].forEach(function (s) {
+      var p = u.data.progress && u.data.progress[s];
+      if (!p || !p.enTel) return;
+      var t = { on: !!p.enAid, tel: p.enTel };
+      if (!best || (t.tel.sessionsTotal || 0) > (best.tel.sessionsTotal || 0)) best = t;
+    });
+    return best;
+  }
+  /* 最近 5 session 的 on 比例 vs 再往前 5 的比例。
+     ⚠️ 上线默认阈值：差距 ≥ 0.4（5 次里差 2 次）才算升/降。设计文档要求累积
+     一学期真实数据后再校准，比照 段位 ladder 的做法。 */
+  var EN_TREND_DELTA = 0.4;
+  function enTrend(tel) {
+    var L = (tel && tel.last10Sessions) || [], i, offRun = 0;
+    if (L.length < 3) return { label: "数据不足", cls: "" };
+    for (i = L.length - 1; i >= 0 && !L[i]; i--) offRun++;
+    if (offRun >= 5) return { label: "已关闭", cls: "ok" };
+    if (L.length < 6) return { label: "观察中", cls: "" };
+    var recent = L.slice(-5), prev = L.slice(-10, -5);
+    function ratio(a) { return a.filter(Boolean).length / a.length; }
+    var d = ratio(recent) - ratio(prev);
+    if (d <= -EN_TREND_DELTA) return { label: "下降", cls: "ok" };
+    if (d >= EN_TREND_DELTA) return { label: "上升", cls: "warn" };
+    return { label: "持平", cls: "" };
+  }
+  /* 状态 and 趋势 are now two separate columns so each can be filtered on its
+     own (「给我所有趋势=下降的学生」). 回退 rides inside the 趋势 value rather
+     than being a third column: it is rare, and folding it in keeps it findable
+     in the filter list. */
+  function enStatus(u) { var e = enTelOf(u); return e ? (e.on ? "开" : "关") : "—"; }
+  function enTrendVal(u) {
+    var e = enTelOf(u);
+    if (!e) return "—";
+    var tr = enTrend(e.tel);
+    /* 回退旗标: re-enabled after 5+ consecutive off sessions. Shown separately
+       because a rolling average would quietly absorb it. Not necessarily bad —
+       often a harder unit — but worth a teacher's eye. */
+    var back = (e.tel.regressionAt && (e.tel.sessionsTotal - e.tel.regressionAt) <= 10);
+    return tr.label + (back ? " · 🔁 回退" : "");
+  }
   function lastActive(u) {
     var t = u.data.updatedAt;
     if (t && t.toDate) { try { return t.toDate().toLocaleDateString("en-CA"); } catch (e) {} }
     return "—";
   }
+
+  /* ---------- 班级视图 column model ----------
+     Each column declares its raw value (used for BOTH sorting and filtering)
+     and its cell HTML, so one generic dropdown drives every header. Types:
+       list — 值清单 with search + checkboxes (Excel's default)
+       text — 包含搜索 (for 识别码: 160 distinct uids make a checklist useless)
+       num  — 最小/最大
+       date — 日期区间; lastActive returns ISO YYYY-MM-DD, so string compare
+              is chronological and no Date parsing is needed. */
+  var _cols = null;
+  function classCols() {
+    if (_cols) return _cols;
+    var cols = [
+      { k: "uid", label: "识别码", type: "text", cls: "col-uid",
+        raw: function (u) { return u.uid || ""; },
+        cell: function (u) {
+          var full = String(u.uid || "");
+          return '<code class="uid" title="' + esc(full) + '">' + esc(full.slice(0, 8)) + '</code> ' +
+            '<button class="btn tiny copy-uid" data-uid="' + esc(full) + '" title="复制完整识别码">复制</button>';
+        } },
+      { k: "nick", label: "昵称", type: "list",
+        raw: function (u) { return profOf(u).nickname || "（未命名）"; },
+        cell: function (u) { return esc(profOf(u).nickname || "（未命名）"); } },
+      { k: "cat", label: "身份", type: "list",
+        raw: function (u) { return CAT_LABEL[profOf(u).category || ""]; },
+        cell: function (u) { return '<span class="pill">' + CAT_LABEL[profOf(u).category || ""] + '</span>'; } },
+      /* shows the CANONICAL school (same folding 概览 uses) so the filter list
+         has one entry per school instead of one per typo; the raw text the
+         student actually typed stays in the tooltip for the HOD to correct. */
+      { k: "school", label: "学校", type: "list", cls: "wrapcell",
+        raw: function (u) { return canonSchool(profOf(u).school); },
+        cell: function (u) {
+          var p = profOf(u), c = canonSchool(p.school);
+          if (c === "（未填写）") return '<span class="hint">—</span>';
+          return '<span title="学生填写：' + esc(p.school || "") + '">' + esc(c) + '</span>';
+        } },
+      { k: "cls", label: "班级", type: "list",
+        raw: function (u) { return profOf(u).mtlClass || "（未填写）"; },
+        cell: function (u) { return esc(profOf(u).mtlClass || "—"); } }
+    ];
+    STREAMS.forEach(function (s) {
+      cols.push({ k: s, label: STREAM_LABEL[s] + " 掌握", type: "num", cls: "col-n",
+        raw: function (u) { return masteredCount(u, s); },
+        cell: function (u) {
+          var n = masteredCount(u, s);
+          return n ? '<b>' + n + '</b>' : '<span class="hint">0</span>';
+        } });
+    });
+    cols.push({ k: "en", label: "英文提示", type: "list",
+      raw: enStatus,
+      cell: function (u) {
+        var v = enStatus(u);
+        if (v === "—") return '<span class="hint">—</span>';
+        return '<span class="pill ' + (v === "开" ? "warn" : "ok") + '">' + v + '</span>';
+      } });
+    cols.push({ k: "trend", label: "提示趋势", type: "list",
+      raw: enTrendVal,
+      cell: function (u) {
+        var e = enTelOf(u);
+        if (!e) return '<span class="hint">—</span>';
+        var tr = enTrend(e.tel);
+        var back = (e.tel.regressionAt && (e.tel.sessionsTotal - e.tel.regressionAt) <= 10)
+          ? ' <span class="pill warn" title="连续关闭后又重新开启，可能遇到更难的内容">🔁 回退</span>' : '';
+        return '<span class="pill' + (tr.cls ? " " + tr.cls : "") + '">' + tr.label + '</span>' + back;
+      } });
+    cols.push({ k: "active", label: "最近活跃", type: "date",
+      raw: lastActive,
+      cell: function (u) { var v = lastActive(u); return v === "—" ? '<span class="hint">—</span>' : v; } });
+    _cols = cols;
+    return cols;
+  }
+  function colByKey(k) {
+    var cols = classCols();
+    for (var i = 0; i < cols.length; i++) if (cols[i].k === k) return cols[i];
+    return null;
+  }
+
+  function passFilter(u, col) {
+    var f = _colF[col.k];
+    if (!f) return true;
+    var v = col.raw(u);
+    if (col.type === "list") return !!(f.vals && f.vals[String(v)]);
+    if (col.type === "text") return String(v).toLowerCase().indexOf(String(f.q).toLowerCase()) !== -1;
+    if (col.type === "num") {
+      var n = Number(v);
+      if (f.min !== "" && n < Number(f.min)) return false;
+      if (f.max !== "" && n > Number(f.max)) return false;
+      return true;
+    }
+    if (col.type === "date") {
+      var s = String(v);
+      if (!f.min && !f.max) return true;
+      if (s === "—") return false;            // 无活跃日期的档案不落在任何日期区间内
+      if (f.min && s < f.min) return false;
+      if (f.max && s > f.max) return false;
+      return true;
+    }
+    return true;
+  }
   function filteredUsers() {
+    var cols = classCols();
     return _users.filter(function (u) {
-      var p = profOf(u);
-      if (_classFilter.school && canonSchool(p.school) !== _classFilter.school) return false;
-      if (_classFilter.cls && (p.mtlClass || "") !== _classFilter.cls) return false;
+      for (var i = 0; i < cols.length; i++) if (!passFilter(u, cols[i])) return false;
       return true;
     });
+  }
+  function filterCount() { var n = 0, k; for (k in _colF) if (_colF.hasOwnProperty(k)) n++; return n; }
+
+  /* ---------- 表头筛选下拉 ----------
+     Appended to <body>, never inside .tbl, whose overflow would clip it.
+     Edits are held in the dropdown until 应用 is pressed, because applying
+     re-renders the whole panel and would otherwise tear the dropdown down
+     under the teacher's finger on every checkbox. */
+  var _dd = { el: null, onDoc: null, onKey: null };
+  function closeFilterDrop() {
+    if (_dd.el && _dd.el.parentNode) _dd.el.parentNode.removeChild(_dd.el);
+    if (_dd.onDoc) document.removeEventListener("mousedown", _dd.onDoc, true);
+    if (_dd.onKey) document.removeEventListener("keydown", _dd.onKey, true);
+    _dd = { el: null, onDoc: null, onKey: null };
+  }
+  function openFilterDrop(col, anchor) {
+    if (!col) return;
+    closeFilterDrop();
+    var f = _colF[col.k], keys = null;
+    var html = '<div class="fdd-t">' + esc(col.label) + '</div>';
+    if (col.type === "list") {
+      /* distinct values come from ALL loaded profiles, not the currently
+         filtered set: a value that vanishes from the list the moment you
+         filter another column is the single most confusing thing about
+         cascading filter UIs. */
+      var counts = {};
+      _users.forEach(function (u) { var v = String(col.raw(u)); counts[v] = (counts[v] || 0) + 1; });
+      keys = Object.keys(counts).sort(function (a, b) { return a.localeCompare(b, "zh-Hans-CN"); });
+      html += '<input type="text" id="fq" placeholder="搜索值…">' +
+        '<div class="fmini"><button class="btn tiny" id="fAll">全选</button>' +
+        '<button class="btn tiny" id="fNone">清空</button></div>' +
+        '<div class="flist" id="flist">' + keys.map(function (v) {
+          var on = !f || !f.vals || !!f.vals[v];
+          return '<label data-v="' + esc(v.toLowerCase()) + '">' +
+            '<input type="checkbox" class="fv" value="' + esc(v) + '"' + (on ? " checked" : "") + '>' +
+            '<span>' + esc(v) + '</span><span class="fn">' + counts[v] + '</span></label>';
+        }).join("") + '</div>';
+    } else if (col.type === "text") {
+      html += '<input type="text" id="fq" placeholder="包含…" value="' + esc(f ? f.q : "") + '">';
+    } else {
+      var t = (col.type === "date") ? "date" : "number";
+      html += '<div class="frange"><input type="' + t + '" id="fmin" placeholder="最小" value="' + esc(f ? f.min : "") + '">' +
+        '<span class="hint">至</span>' +
+        '<input type="' + t + '" id="fmax" placeholder="最大" value="' + esc(f ? f.max : "") + '"></div>';
+    }
+    html += '<div class="fact"><button class="btn primary tiny" id="fApply">应用</button>' +
+      '<button class="btn tiny" id="fClear">清除</button>' +
+      '<button class="btn tiny" id="fCancel">取消</button></div>';
+
+    var dd = document.createElement("div");
+    dd.className = "fdd";
+    dd.innerHTML = html;
+    document.body.appendChild(dd);
+    _dd.el = dd;
+    // sits under its ▼ button, pulled back in when it would leave the viewport
+    var r = anchor.getBoundingClientRect();
+    var maxL = window.scrollX + document.documentElement.clientWidth - dd.offsetWidth - 10;
+    dd.style.top = (r.bottom + window.scrollY + 5) + "px";
+    dd.style.left = Math.max(8, Math.min(r.left + window.scrollX, maxL)) + "px";
+
+    var q = dd.querySelector("#fq");
+    if (col.type === "list") {
+      q.oninput = function () {
+        var s = q.value.trim().toLowerCase();
+        Array.prototype.forEach.call(dd.querySelectorAll("#flist label"), function (l) {
+          l.style.display = (!s || l.getAttribute("data-v").indexOf(s) !== -1) ? "" : "none";
+        });
+      };
+      // 全选/清空 act on what the search currently SHOWS (Excel does the same),
+      // so "search 3HC, 全选" is a one-step way to pick a whole class group
+      var setAll = function (on) {
+        Array.prototype.forEach.call(dd.querySelectorAll(".fv"), function (c) {
+          if (c.parentNode.style.display !== "none") c.checked = on;
+        });
+      };
+      dd.querySelector("#fAll").onclick = function () { setAll(true); };
+      dd.querySelector("#fNone").onclick = function () { setAll(false); };
+    }
+    if (q) q.focus();
+
+    dd.querySelector("#fApply").onclick = function () {
+      if (col.type === "list") {
+        var vals = {}, n = 0;
+        Array.prototype.forEach.call(dd.querySelectorAll(".fv"), function (c) {
+          if (c.checked) { vals[c.value] = 1; n++; }
+        });
+        if (n === keys.length) delete _colF[col.k];      // everything ticked = no filter
+        else _colF[col.k] = { vals: vals };
+      } else if (col.type === "text") {
+        var s = dd.querySelector("#fq").value.trim();
+        if (s) _colF[col.k] = { q: s }; else delete _colF[col.k];
+      } else {
+        var lo = dd.querySelector("#fmin").value.trim(), hi = dd.querySelector("#fmax").value.trim();
+        if (lo || hi) _colF[col.k] = { min: lo, max: hi }; else delete _colF[col.k];
+      }
+      closeFilterDrop();
+      renderPanel();
+    };
+    dd.querySelector("#fClear").onclick = function () { delete _colF[col.k]; closeFilterDrop(); renderPanel(); };
+    dd.querySelector("#fCancel").onclick = closeFilterDrop;
+
+    _dd.onDoc = function (e) { if (_dd.el && !_dd.el.contains(e.target)) closeFilterDrop(); };
+    _dd.onKey = function (e) { if (e.key === "Escape") closeFilterDrop(); };
+    // deferred, or the very click that opened this dropdown closes it again
+    setTimeout(function () {
+      if (!_dd.el) return;
+      document.addEventListener("mousedown", _dd.onDoc, true);
+      document.addEventListener("keydown", _dd.onKey, true);
+    }, 0);
+  }
+
+  /* every active filter is listed above the table and removable there, so a
+     teacher can never be left staring at a short list without seeing why */
+  function filterBarHtml() {
+    var out = [];
+    classCols().forEach(function (c) {
+      var f = _colF[c.k];
+      if (!f) return;
+      var d;
+      if (c.type === "list") {
+        var ks = Object.keys(f.vals || {});
+        d = !ks.length ? "（未选任何值）" : (ks.length <= 2 ? ks.join("、") : ks.length + " 个值");
+      } else if (c.type === "text") { d = "含「" + f.q + "」"; }
+      else { d = (f.min || "不限") + " – " + (f.max || "不限"); }
+      out.push('<span class="fchip">' + esc(c.label) + '：' + esc(d) +
+        '<button class="fx" data-k="' + esc(c.k) + '" title="清除此筛选">✕</button></span>');
+    });
+    if (!out.length) return "";
+    return '<div class="fbar">' + out.join("") +
+      '<button class="btn small" id="fClearAll">清除所有筛选</button></div>';
+  }
+  function wireFilterBar(panel) {
+    Array.prototype.forEach.call(panel.querySelectorAll(".fx"), function (b) {
+      b.onclick = function () { delete _colF[b.getAttribute("data-k")]; renderPanel(); };
+    });
+    var all = panel.querySelector("#fClearAll");
+    if (all) all.onclick = function () { _colF = {}; renderPanel(); };
+  }
+
+  /* UID is 28 chars: the column shows the first 8 (enough to eyeball against a
+     student's 技术编号, which shows 6) and this copies the full string for the
+     处理 tab / Firestore console. execCommand fallback for non-secure origins. */
+  function copyUid(txt, btn) {
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = "已复制";
+      btn.classList.add("ok");
+      setTimeout(function () { btn.textContent = old; btn.classList.remove("ok"); }, 1200);
+    };
+    var fallback = function () {
+      var ta = document.createElement("textarea");
+      ta.value = txt;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {}
+      ta.parentNode.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done, fallback);
+    } else { fallback(); }
   }
 
   /* ---------- panels ---------- */
   function renderPanel() {
     var panel = el("panel");
+    closeFilterDrop();   // a re-render orphans any open dropdown
     // the student-data views need a load first; restores/approvals/mod don't
     var needsData = (_tab === "overview" || _tab === "classes" || _tab === "hard");
     if (needsData && !_users.length) {
@@ -623,81 +990,147 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   }
 
   function renderOverview(panel) {
-    var byCat = {}, bySchool = {};
+    var byCat = {}, bySchool = {}, byClass = {};
     _users.forEach(function (u) {
       var p = profOf(u);
       var c = p.category || "";
       byCat[c] = (byCat[c] || 0) + 1;
       var s = canonSchool(p.school);
       bySchool[s] = (bySchool[s] || 0) + 1;
+      // 班级 only means anything for students; the field is cleared for everyone else
+      if (p.category === "student") {
+        var cl = p.mtlClass || "（未填写）";
+        byClass[cl] = (byClass[cl] || 0) + 1;
+      }
     });
     var catHtml = ["student", "teacher", "parent", "public", ""].filter(function (k) { return byCat[k]; })
       .map(function (k) { return harbourCell(byCat[k], CAT_LABEL[k], CAT_BADGE[k]); }).join("");
-    var schoolRows = Object.keys(bySchool).sort(function (a, b) { return bySchool[b] - bySchool[a]; })
-      .map(function (s) { return '<tr><td>' + esc(s) + '</td><td>' + bySchool[s] + '</td></tr>'; }).join("");
+    /* one stretched 2-column table across 1700px was mostly whitespace; the two
+       counts now sit side by side, each with a share bar so the shape of the
+       distribution reads without comparing numbers. */
+    function countCard(title, map, headLabel) {
+      var keys = Object.keys(map).sort(function (a, b) { return map[b] - map[a]; });
+      var max = keys.length ? map[keys[0]] : 1;
+      var rows = keys.map(function (k) {
+        return '<tr><td>' + esc(k) + '</td><td class="col-n"><b>' + map[k] + '</b></td>' +
+          '<td style="width:34%"><div class="bar"><i style="width:' +
+          Math.max(4, Math.round(map[k] / max * 100)) + '%"></i></div></td></tr>';
+      }).join("");
+      return '<div class="card"><h2 style="margin-top:0">' + title + '</h2>' +
+        '<div style="max-height:440px;overflow:auto"><table><thead><tr><th>' + esc(headLabel) +
+        '</th><th class="col-n">档案数</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="3" class="hint">暂无数据。</td></tr>') + '</tbody></table></div></div>';
+    }
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">概览</h2>' +
       '<div class="harbour">' + harbourCell(_users.length, "总档案数", "badge_hx.png") + catHtml + '</div></div>' +
-      '<div class="card"><h2 style="margin-top:0">按学校 School</h2>' +
-      '<div class="scroll"><table><thead><tr><th>学校</th><th>档案数</th></tr></thead><tbody>' +
-      schoolRows + '</tbody></table></div></div>';
+      '<div class="grid2">' +
+      countCard("按学校 School", bySchool, "学校") +
+      countCard("按班级 Class（学生）", byClass, "班级") +
+      '</div>' + campSpendHtml();
+  }
+
+  /* ---------- 营地商店：谁买了什么 ----------
+     Read-only. store.deco / store.lingLu ride inside each stream's progress doc
+     (saveProgress writes the WHOLE store), so this needs no new collection and
+     no rules change. Added 2026-08-14 to settle one question before the 营地
+     便携化改版: does anyone actually own the items the overhaul would remove?
+     If every count here is 0, the overhaul is a clean cut with nothing to
+     refund. Safe to delete this card once that decision is made. */
+  var DECO_ZH = {
+    fire: "篝火", flag: "营旗", stonelantern: "石灯笼", bamboofence: "竹篱笆", windchime: "风铃",
+    cat: "打盹的猫", waterjar: "水缸", signpost: "木牌路标", pine: "青松", pavilion: "小亭",
+    teatable: "木桌椅茶具", well: "水井", bridge: "小石桥", bookchest: "书箱", garden: "菜园",
+    lanterns: "灯笼串", koipond: "锦鲤池", sakura: "樱花树", maple: "红枫",
+    cabin: "木屋", tower: "楼阁"
+  };
+  function campSpendHtml() {
+    var owners = {}, anyOwner = 0, dewTotal = 0, dewMax = 0, dewHolders = 0;
+    _users.forEach(function (u) {
+      var owned = {}, dew = 0;
+      STREAMS.forEach(function (s) {
+        var p = (u.data.progress && u.data.progress[s]) || {};
+        if (p.deco) Object.keys(p.deco).forEach(function (k) { if (p.deco[k]) owned[k] = 1; });
+        dew += Number(p.lingLu || 0);
+      });
+      var ks = Object.keys(owned);
+      if (ks.length) anyOwner++;
+      ks.forEach(function (k) { owners[k] = (owners[k] || 0) + 1; });
+      if (dew > 0) { dewHolders++; dewTotal += dew; if (dew > dewMax) dewMax = dew; }
+    });
+    var keys = Object.keys(owners).sort(function (a, b) { return owners[b] - owners[a]; });
+    var rows = keys.map(function (k) {
+      return '<tr><td>' + esc(DECO_ZH[k] || k) + ' <code>' + esc(k) + '</code></td>' +
+        '<td class="col-n"><b>' + owners[k] + '</b></td></tr>';
+    }).join("");
+    return '<div class="card"><h2 style="margin-top:0">营地商店 · 已购道具</h2>' +
+      '<div class="hint" style="margin-bottom:10px">' +
+      (anyOwner
+        ? '⚠️ 已有 <b>' + anyOwner + '</b> 份档案拥有营地道具。若改版要移除某项，请先决定退还／保留。'
+        : '目前<b>没有任何档案</b>拥有营地道具（' + _users.length + ' 份档案全部为 0）。改版可直接进行，无需迁移。') +
+      ' 灵露持有：' + dewHolders + ' 人，共 ' + dewTotal + '，最高 ' + dewMax + '。</div>' +
+      (rows ? '<div class="scroll"><table><thead><tr><th>道具</th><th class="col-n">拥有人数</th></tr></thead><tbody>' +
+        rows + '</tbody></table></div>' : '') + '</div>';
   }
 
   function renderClasses(panel) {
-    var schools = {}, classes = {};
-    _users.forEach(function (u) { var p = profOf(u); var cs = canonSchool(p.school); if (cs !== "（未填写）") schools[cs] = 1; if (p.mtlClass) classes[p.mtlClass] = 1; });
-    var schoolOpts = '<option value="">全部学校</option>' + Object.keys(schools).sort().map(function (s) {
-      return '<option value="' + esc(s) + '"' + (_classFilter.school === s ? " selected" : "") + '>' + esc(s) + '</option>'; }).join("");
-    var classOpts = '<option value="">全部班级</option>' + Object.keys(classes).sort().map(function (c) {
-      return '<option value="' + esc(c) + '"' + (_classFilter.cls === c ? " selected" : "") + '>' + esc(c) + '</option>'; }).join("");
-
+    var cols = classCols();
     var rows = filteredUsers().slice();
     if (_sort.key) {
-      rows.sort(function (a, b) {
-        var va, vb;
-        if (_sort.key === "nick") { va = profOf(a).nickname || ""; vb = profOf(b).nickname || ""; return va.localeCompare(vb) * _sort.dir; }
-        if (_sort.key === "active") { va = lastActive(a); vb = lastActive(b); return (va < vb ? -1 : va > vb ? 1 : 0) * _sort.dir; }
-        va = masteredCount(a, _sort.key); vb = masteredCount(b, _sort.key); return (va - vb) * _sort.dir;
+      var sc = colByKey(_sort.key);
+      if (sc) rows.sort(function (a, b) {
+        var va = sc.raw(a), vb = sc.raw(b);
+        if (sc.type === "num") return (Number(va) - Number(vb)) * _sort.dir;
+        return String(va).localeCompare(String(vb), "zh-Hans-CN") * _sort.dir;
       });
     }
     var canEdit = _me && _me.role === "hod";
-    var head = '<tr><th data-s="nick">昵称</th><th>身份</th><th>学校</th><th>班级</th>' +
-      STREAMS.map(function (s) { return '<th data-s="' + s + '">' + STREAM_LABEL[s] + ' 掌握</th>'; }).join("") +
-      '<th data-s="active">最近活跃</th>' + (canEdit ? '<th>操作</th>' : '') + '</tr>';
+    var head = '<tr>' + cols.map(function (c) {
+      var arrow = (_sort.key === c.k) ? (_sort.dir > 0 ? " ▲" : " ▼") : "";
+      return '<th class="' + (c.cls || "") + '"><div class="th-in">' +
+        '<span class="th-lab" data-s="' + esc(c.k) + '" title="点击排序">' + esc(c.label) + arrow + '</span>' +
+        '<button class="fbtn' + (_colF[c.k] ? " on" : "") + '" data-f="' + esc(c.k) + '" title="筛选此列">▼</button>' +
+        '</div></th>';
+    }).join("") + (canEdit ? '<th>操作</th>' : '') + '</tr>';
     var body = rows.map(function (u) {
-      var p = profOf(u);
-      return '<tr><td>' + esc(p.nickname || "（未命名）") + '</td>' +
-        '<td><span class="pill">' + CAT_LABEL[p.category || ""] + '</span></td>' +
-        '<td>' + esc(p.school || "—") + '</td>' +
-        '<td>' + esc(p.mtlClass || "—") + '</td>' +
-        STREAMS.map(function (s) { return '<td>' + masteredCount(u, s) + '</td>'; }).join("") +
-        '<td>' + lastActive(u) + '</td>' +
-        (canEdit ? '<td><button class="btn small edit-prof" data-uid="' + esc(u.uid) + '">编辑</button></td>' : '') +
-        '</tr>';
+      return '<tr>' + cols.map(function (c) {
+        return '<td class="' + (c.cls || "") + '">' + c.cell(u) + '</td>';
+      }).join("") +
+      (canEdit ? '<td><button class="btn small edit-prof" data-uid="' + esc(u.uid) + '">编辑</button></td>' : '') +
+      '</tr>';
     }).join("");
 
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">班级视图</h2>' +
-      '<div class="row"><div><label>学校</label><select id="fSchool">' + schoolOpts + '</select></div>' +
-      '<div><label>班级</label><select id="fClass">' + classOpts + '</select></div>' +
-      '<span class="hint">共 ' + rows.length + ' 人。点表头可按掌握词数排序。' + (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</span></div>' +
-      '<div class="scroll" style="margin-top:12px"><table><thead>' + head + '</thead><tbody>' +
-      (body || '<tr><td colspan="' + (canEdit ? 9 : 8) + '" class="hint">没有符合条件的档案。</td></tr>') + '</tbody></table></div></div>';
+      '<div class="hint" style="margin-bottom:10px">共 <b>' + rows.length + '</b> / ' + _users.length + ' 份档案。' +
+      '点列名排序，点列名旁的 <b>▼</b> 按该列筛选，多列可叠加（与 Excel 相同）。' +
+      '筛选同时套用到「词语难点」。' + (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
+      filterBarHtml() +
+      '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
+      (body || '<tr><td colspan="' + (cols.length + (canEdit ? 1 : 0)) +
+        '" class="hint">没有符合条件的档案（试试清除上方的筛选）。</td></tr>') +
+      '</tbody></table></div></div>';
 
-    el("fSchool").onchange = function () { _classFilter.school = this.value; renderPanel(); };
+    wireFilterBar(panel);
+    Array.prototype.forEach.call(panel.querySelectorAll(".th-lab"), function (s) {
+      s.onclick = function () {
+        var k = s.getAttribute("data-s");
+        if (_sort.key === k) _sort.dir *= -1;
+        else { _sort.key = k; var c = colByKey(k); _sort.dir = (c && c.type === "num") ? -1 : 1; }
+        renderPanel();
+      };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".fbtn"), function (b) {
+      b.onclick = function (e) { e.stopPropagation(); openFilterDrop(colByKey(b.getAttribute("data-f")), b); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".copy-uid"), function (b) {
+      b.onclick = function () { copyUid(b.getAttribute("data-uid"), b); };
+    });
     if (canEdit) {
       Array.prototype.forEach.call(panel.querySelectorAll(".edit-prof"), function (b) {
         b.onclick = function () { openEditProfile(b.getAttribute("data-uid")); };
       });
     }
-    el("fClass").onchange = function () { _classFilter.cls = this.value; renderPanel(); };
-    Array.prototype.forEach.call(panel.querySelectorAll("th[data-s]"), function (th) {
-      th.onclick = function () {
-        var k = th.getAttribute("data-s");
-        if (_sort.key === k) _sort.dir *= -1; else { _sort.key = k; _sort.dir = (k === "nick" ? 1 : -1); }
-        renderPanel();
-      };
-    });
   }
 
   /* HOD-only fix for wrongly-entered student profiles (school/class/nickname/身份).
@@ -770,10 +1203,13 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     }).join("");
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">词语难点</h2>' +
-      '<div class="hint">在当前筛选的 ' + set.length + ' 名学生中，被最少人掌握的词语（升序）。' +
-      '⚠️ 掌握数低可能是「还没练到」，未必是「难」：目前只有「已掌握」数据，没有逐词错误记录，请结合课堂判断。</div>' +
+      '<div class="hint" style="margin-bottom:10px">在当前筛选的 ' + set.length + ' 名学生中，被最少人掌握的词语（升序）。' +
+      '⚠️ 掌握数低可能是「还没练到」，未必是「难」：目前只有「已掌握」数据，没有逐词错误记录，请结合课堂判断。' +
+      (filterCount() ? '' : '在「班级视图」用表头 ▼ 筛选，可把这里缩到某个班级。') + '</div>' +
+      filterBarHtml() +
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>词语</th><th>释义</th><th>范围</th><th>掌握人数</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="4" class="hint">暂无数据（请先载入，且需要词库映射）。</td></tr>') + '</tbody></table></div></div>';
+    wireFilterBar(panel);
   }
 
   function renderRestores(panel) {

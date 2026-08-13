@@ -201,12 +201,32 @@
     s.rainRamp = s.rainRamp || false;  // 词雨 递增速度 mode (false = 固定速度)
     s.diff = s.diff || ((STREAM === "g1" || STREAM === "g2") ? "2" : "3");  // cloze difficulty: 2|3|4|type
     s.pyAid = s.pyAid || false;        // 拼音辅助: 学生自选，默认关闭
+    /* 英文提示 (G1/G2): 导航/按钮外壳文字下方的极小字号英文注释。学生自选，默认关闭。
+       题目内容（题干、释义、句子）永远纯中文，不受此开关影响。 */
+    s.enAid = s.enAid || false;
+    /* fading 遥测: 设备/session 信号，供教师后台判断辅助是否在淡出。
+       不进 进度码（这是遥测，不是可转移的学习进度）。 */
+    s.enTel = s.enTel || {};
+    s.enTel.sessionsTotal = s.enTel.sessionsTotal || 0;
+    s.enTel.sessionsWithEnOn = s.enTel.sessionsWithEnOn || 0;
+    s.enTel.last10Sessions = s.enTel.last10Sessions || [];   // 滚动窗口，最多 10 项
+    s.enTel.manualOnCount = s.enTel.manualOnCount || 0;
+    s.enTel.manualOffCount = s.enTel.manualOffCount || 0;
+    s.enTel.lastPromptSessionIdx = s.enTel.lastPromptSessionIdx || 0;
+    s.enTel.promptCount = s.enTel.promptCount || 0;          // lifetime
+    s.enTel.promptTerm = s.enTel.promptTerm || "";           // 学期上限用
+    s.enTel.promptTermCount = s.enTel.promptTermCount || 0;
+    s.enTel.regressionAt = s.enTel.regressionAt || 0;        // 回退旗标: 记录当时的 sessionsTotal
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
     s.quizMode = s.quizMode || "cloze"; // 学习挑战 题型: cloze|zhmcq|enmcq (§2.1 merged entry)
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
     s.lingLu = s.lingLu || 0;          // 灵露 currency (number), earned in 词雨灵露
-    s.deco = s.deco || {};             // 营地商店 decorations owned: shopKey -> 1
+    s.deco = s.deco || {};             // 营地商店 items OWNED: key -> 1 (never pruned:
+                                       // an archived key stays put so a pre-便携化
+                                       // purchase can still be refunded if it comes to that)
+    s.equip = s.equip || {};           // 随身装备 EQUIPPED: slot -> key (one per slot)
+    s.decoPos = s.decoPos || {};       // 自由摆放: key -> {x,y} percent, 整理营地 clears it
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
@@ -315,6 +335,30 @@
         } else if (cw.id > (store.pts.week.id || "")) {
           store.pts.week = { id: cw.id, n: cw.n || 0 }; changed = true;
         }
+      }
+    }
+    /* 英文提示 fading telemetry: counters merge by max (they only ever grow),
+       and the rolling window / prompt bookkeeping follow whichever record has
+       seen more sessions. store.enAid itself is a DEVICE preference and is
+       deliberately NOT merged — a student may want English on the classroom
+       Chromebook and off at home. */
+    if (cloud.enTel) {
+      var ct = cloud.enTel, lt = store.enTel, localSessions = lt.sessionsTotal || 0;
+      ["sessionsTotal", "sessionsWithEnOn", "manualOnCount", "manualOffCount",
+       "promptCount", "lastPromptSessionIdx", "regressionAt"].forEach(function (k) {
+        var v = Math.max(lt[k] || 0, ct[k] || 0);
+        if (v !== (lt[k] || 0)) { lt[k] = v; changed = true; }
+      });
+      /* the rolling window is a sequence, not a counter: take it whole from the
+         record that has seen more sessions rather than interleaving two devices */
+      if ((ct.sessionsTotal || 0) > localSessions && ct.last10Sessions && ct.last10Sessions.length) {
+        lt.last10Sessions = ct.last10Sessions.slice(-10);
+        changed = true;
+      }
+      if (ct.promptTerm === lt.promptTerm) {
+        lt.promptTermCount = Math.max(lt.promptTermCount || 0, ct.promptTermCount || 0);
+      } else if (ct.promptTerm && !lt.promptTerm) {
+        lt.promptTerm = ct.promptTerm; lt.promptTermCount = ct.promptTermCount || 0; changed = true;
       }
     }
     Object.keys(cloud.stats || {}).forEach(function (mode) {
@@ -468,6 +512,7 @@
   function bump(mode, correct) {
     if (!store.stats[mode]) store.stats[mode] = { a: 0, c: 0 };
     store.stats[mode].a += 1; if (correct) store.stats[mode].c += 1;
+    enNoteSession();   // 有效 session = 至少答了一题；每个模式的答题都走 bump()
     saveStore();
   }
   function totals() {
@@ -741,6 +786,9 @@
       '<div><div class="tb-name">' + META.zh + '</div>' +
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
       '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
+        /* 中/EN 英文提示 toggle (G1/G2). Icon-only by design: findable without
+           being able to read the interface it fixes. */
+        enToggleHtml() +
         /* avatar + nickname in one pill: this is now the ONLY 我的档案 entry on a
            stream page (the duplicate chip under the stats bar was removed
            2026-08-13). Nickname hides under 520px so the topbar still fits. */
@@ -753,6 +801,7 @@
     };
     var pf = document.getElementById("tbProfile");
     if (pf) pf.onclick = openProfilePanel;
+    wireEnToggle();
   }
 
   function miniHorizon() {
@@ -827,10 +876,11 @@
     html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
       'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
 
-    html += '<div class="section-label">复习范围 · 可多选</div><div class="card" id="scopeCard">' +
+    html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + enl("复习范围") + '</div>' +
+      '<div class="card" id="scopeCard">' +
       '<div class="scope-top">' +
-      '<button class="unit" id="selAll">全选</button>' +
-      '<button class="unit" id="selNone">清空</button>' +
+      '<button class="unit" id="selAll">全选' + enli("全选") + '</button>' +
+      '<button class="unit" id="selNone">清空' + enli("清空") + '</button>' +
       '<span class="scope-sum" id="scopeSum"></span></div>';
     var byLevel = {};
     UNIT_LIST.forEach(function (u) { (byLevel[u.level] = byLevel[u.level] || []).push(u); });
@@ -850,12 +900,13 @@
     html += '</div>';
 
     html += '</div><div class="home-right">' +
+      '<div class="section-label">' + stepNo(2) + '选择方式' + enl("选择方式") + '</div>' +
       '<div class="htabs">' +
-      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行</button>' +
-      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关</button></div>';
+      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + enl("修行") + '</button>' +
+      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + enl("闯关") + '</button></div>';
 
     if (store.homeTab === "play") {
-      html += '<div class="section-label">词语游乐场</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + enl("今日路线") + '</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
         ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
@@ -865,7 +916,7 @@
          「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
          being spread across the home page. 词语闪卡 keeps its own card — different
          interaction (看词认义/点读), not a question-answering mode. */
-      html += '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + enl("今日路线") + '</div><div class="camps">' +
         camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") +
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
@@ -881,14 +932,14 @@
     badgeOrder.filter(function (comp) { return compPresent[comp]; }).forEach(function (comp) {
       html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "badge_hx.png") + '" alt=""></span>';
     });
-    html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
+    html += '<span class="badge-note">成就徽章' + enli("成就徽章") + ' · ' + badgeCount + '/' + badgeTotal +
       '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
 
     html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
-      '<div><b>我的词语表</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
+      '<div><b>我的词语表' + enli("我的词语表") + '</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
       '<span class="go">查看 ›</span></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
-      '<div><b>词山风云榜</b><span>掌握词数 · 历练值 两榜排名（只显示学生）</span></div>' +
+      '<div><b>词山风云榜' + enli("词山风云榜") + '</b><span>掌握词数 · 历练值 两榜排名（只显示学生）</span></div>' +
       '<span class="go">查看 ›</span></button>';
 
     html += '<div class="harbour">' +
@@ -952,10 +1003,14 @@
       };
     });
     updateScopeSum();
+    /* 淡出邀请: only after a real round has been played this load, never on the
+       boot render — a student who just opened the app has not "seen enough". */
+    maybeEnFadePrompt();
 
     function camp(mode, icon, name, desc) {
       return '<button class="camp" data-mode="' + mode + '"><span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + '</b><span>' + desc + '</span></div><span class="go">出发 ›</span></button>';
+        '<div><b>' + name + enli(name) + '</b><span>' + desc + '</span></div>' +
+        '<span class="go">出发 ›' + enl("出发") + '</span></button>';
     }
     function updateScopeSum() {
       var n = scopedWords().length;
@@ -1379,8 +1434,10 @@
     return String(s == null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "")
       .replace(/[vü]/gi, "u").replace(/\s+/g, "").toLowerCase();
   }
-  function diffSelector() {
-    var html = '<div class="diff-label">挑战难度</div><div class="diff">';
+  /* stepN: only the config SCREEN numbers this group (决定四). The mid-round
+     rail reuses diffSelector too, and a numeral there would be meaningless. */
+  function diffSelector(stepN) {
+    var html = '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + enl("挑战难度") + '</div><div class="diff">';
     DIFF_OPTS.forEach(function (d) {
       html += '<button class="dopt' + (store.diff === d.k ? " on" : "") + '" data-d="' + d.k + '">' +
         '<span class="stars">' + d.stars + '</span>' + d.label + '</button>';
@@ -1435,11 +1492,186 @@
   /* extra class for the annotated line-height — keyed on whether ruby is
      actually present, so a fallback to plain text keeps the normal spacing */
   function qCls(html) { return html.indexOf("<ruby") >= 0 ? " has-py" : ""; }
+  /* ================================================================
+     英文提示 (EN aid) — DESIGN_english-toggle-fading-and-flow-numbering
+     决定一：G1/G2 only. ONLY navigation/button shell text carries a tiny
+     English gloss (修行/闯关/词语闪卡/出发…). Quiz CONTENT — 题干、释义、
+     句子、选项 — stays pure Chinese whether the toggle is on or off; that is
+     the same immersion rule as the Chinese-only TTS policy, and it is why the
+     toggle cannot really weaken 中文沉浸.
+     决定二/三: soft fade-out prompt + telemetry, both below.
+
+     Mechanism: the gloss spans are ALWAYS in the DOM and CSS-gated on
+     body.en-aid, so toggling is a single class flip — no re-render, so a
+     student can flip it mid-question with nothing else changing on screen
+     (and, unlike 拼音辅助, no chance of redrawing anything).
+     ================================================================ */
+  function enAidAvailable() { return STREAM === "g1" || STREAM === "g2"; }
+  function enAidOn() { return !!(store.enAid && enAidAvailable()); }
+  function applyEnAid() { document.body.classList.toggle("en-aid", enAidOn()); }
+  /* Shell labels only. Keep this list SHORT and navigational: it is a
+     decoding crutch for the interface, not a translation layer for the app. */
+  var EN_LAB = {
+    "复习范围": "Choose your units",
+    "全选": "Select all",
+    "清空": "Clear",
+    "选择方式": "Pick a path",
+    "修行": "Practice",
+    "闯关": "Games",
+    "今日路线": "Pick an activity",
+    "学习挑战": "Quiz",
+    "词语闪卡": "Flashcards",
+    "词雨灵露": "Word Rain",
+    "攀山竞速": "Climb Race",
+    "组词挑战": "Build the Word",
+    "词语汉兜": "Word Puzzle",
+    "出发": "Start",
+    "我的词语表": "My word list",
+    "词山风云榜": "Leaderboard",
+    "成就徽章": "Badges",
+    "题型": "Question type",
+    "每次题数": "How many questions",
+    "挑战难度": "Difficulty",
+    "学习支援": "Extra help",
+    "填空挑战": "Fill in the blank",
+    "华文解释": "Chinese meaning",
+    "英文翻译": "English meaning",
+    "题目类型": "Question type",
+    "冲刺时长": "How long",
+    "速度模式": "Speed mode",
+    "下落速度": "Falling speed",
+    "拼音辅助": "Show pinyin",
+    "开始挑战": "Start",
+    "开始攀登": "Start climbing",
+    "开始游戏": "Start game",
+    "回营地": "Back",
+    "下一题": "Next"
+  };
+  /* block gloss, sits under the Chinese label */
+  function enl(key) {
+    if (!enAidAvailable()) return "";
+    var t = EN_LAB[key];
+    return t ? '<span class="enlab">' + esc(t) + '</span>' : "";
+  }
+  /* inline gloss, for short button text that must stay on one line */
+  function enli(key) {
+    if (!enAidAvailable()) return "";
+    var t = EN_LAB[key];
+    return t ? '<span class="enlab i">' + esc(t) + '</span>' : "";
+  }
+  /* 决定一 · 发现方式: the control is an ICON pill (中/EN), never a Chinese
+     word — a student who cannot read the interface must still be able to find
+     the thing that fixes that. It lives in the topbar so it is reachable from
+     every screen. 隐私: device-local, never on any leaderboard or badge wall. */
+  function enToggleHtml() {
+    if (!enAidAvailable()) return "";
+    return '<button class="tb-en' + (store.enAid ? " on" : "") + '" id="tbEn" ' +
+      'title="中文 / English" aria-label="English hints 英文提示" ' +
+      'aria-pressed="' + (store.enAid ? "true" : "false") + '">' +
+      '<span class="tb-en-zh">中</span><span class="tb-en-en">EN</span></button>';
+  }
+  function wireEnToggle() {
+    var b = document.getElementById("tbEn");
+    if (!b) return;
+    b.onclick = function () {
+      var t = store.enTel, L = t.last10Sessions, i, offRun = 0;
+      store.enAid = !store.enAid;
+      if (store.enAid) {
+        t.manualOnCount += 1;
+        /* 回退旗标: turned back ON after 5+ consecutive OFF sessions. Flagged
+           for the teacher separately, because a rolling average would just
+           quietly drift back up and hide it. Not assumed to be a bad sign —
+           it often means a harder unit, which is exactly worth noticing. */
+        for (i = L.length - 1; i >= 0 && !L[i]; i--) offRun++;
+        if (offRun >= EN_REGRESSION_RUN) t.regressionAt = t.sessionsTotal;
+      } else {
+        t.manualOffCount += 1;
+      }
+      saveStore();
+      applyEnAid();
+      b.classList.toggle("on", store.enAid);
+      b.setAttribute("aria-pressed", store.enAid ? "true" : "false");
+      toast(store.enAid ? "英文提示已开启 English hints on" : "英文提示已关闭 English hints off");
+    };
+  }
+
+  /* --- 决定二/三: 有效 session 计数 + 淡出提示 ---
+     「有效 session」= 这次登入至少答了一题（任何模式）。纯开机不算。曝光量比
+     日历天数更能反映「该看够了」，因为按钮标签就那十几个词。
+     ⚠️ 以下四个数字为上线默认值，按设计文档需累积一学期真实数据后再校准。 */
+  var EN_FADE_SESSIONS = 5;      // 连续 ON 满 5 个有效 session 后邀请一次
+  var EN_PROMPT_COOLDOWN = 10;   // 拒绝后至少再等 10 个 session
+  var EN_PROMPT_TERM_CAP = 2;    // 每学期最多提示 2 次
+  var EN_REGRESSION_RUN = 5;     // 连续关闭 5+ session 后重开 = 回退
+  var _enSessionCounted = false, _enPromptShown = false;
+  /* called from bump(), i.e. the moment the first question of this load is
+     answered — every mode routes its answers through bump() */
+  function enNoteSession() {
+    if (!enAidAvailable() || _enSessionCounted) return;
+    _enSessionCounted = true;
+    var t = store.enTel, on = !!store.enAid;
+    t.sessionsTotal += 1;
+    if (on) t.sessionsWithEnOn += 1;
+    t.last10Sessions.push(on);
+    while (t.last10Sessions.length > 10) t.last10Sessions.shift();
+    saveStore();
+  }
+  function enFadeEligible() {
+    if (!enAidOn()) return false;
+    if (!_enSessionCounted || _enPromptShown) return false;   // only after a real round, once per load
+    var t = store.enTel, L = t.last10Sessions, i;
+    if (L.length < EN_FADE_SESSIONS) return false;
+    for (i = L.length - EN_FADE_SESSIONS; i < L.length; i++) if (!L[i]) return false;
+    if (t.promptTerm === currentTermId() && t.promptTermCount >= EN_PROMPT_TERM_CAP) return false;
+    if (t.lastPromptSessionIdx && (t.sessionsTotal - t.lastPromptSessionIdx) < EN_PROMPT_COOLDOWN) return false;
+    return true;
+  }
+  /* An invitation, never an instruction (SDT): 拒绝没有代价，接受后随时可以
+     重开，重开也不会立刻再被问一次（cooldown 以「提示过」计算，不看结果）。
+     ⚠️ 文案与语气仍待 owner 定案（设计文档开放项 1）。 */
+  function maybeEnFadePrompt() {
+    if (!enFadeEligible()) return;
+    _enPromptShown = true;
+    var t = store.enTel, term = currentTermId();
+    t.promptCount += 1;
+    t.lastPromptSessionIdx = t.sessionsTotal;
+    if (t.promptTerm !== term) { t.promptTerm = term; t.promptTermCount = 0; }
+    t.promptTermCount += 1;
+    saveStore();
+    var ov = popOverlay(
+      '<div class="pop-title">🌱 要不要试试关掉英文？</div>' +
+      '<div class="pop-body">你已经用英文提示学了一阵子了。<br>' +
+      '要不要先关掉，自己看看中文认不认得？<br>' +
+      '<span style="color:#5A7080">看不懂随时可以再打开（右上角的 <b>中/EN</b>），不会扣分，也不会影响成绩。</span>' +
+      '<br><br><span class="enlab-always">Want to try it without the English? ' +
+      'You can turn it back on any time with the 中/EN button.</span></div>' +
+      '<div class="nav-row"><button class="nav-btn" id="enKeep">我再用一阵子</button>' +
+      '<button class="nav-btn primary" id="enTry">试试关掉</button></div>');
+    ov.querySelector("#enKeep").onclick = function () { ov.remove(); };
+    ov.querySelector("#enTry").onclick = function () {
+      store.enAid = false;
+      store.enTel.manualOffCount += 1;
+      saveStore(); applyEnAid(); ov.remove();
+      var b = document.getElementById("tbEn");
+      if (b) { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); }
+      toast("好，先自己试试看。看不懂就按右上角的 中/EN");
+    };
+  }
+
+  /* 决定四 · 动线编号: a small permanent numeral on the groups of a genuinely
+     multi-step decision flow (范围 → 方式 → 营地 → 设置 → 出发). Deliberately
+     NOT used on 排行榜 / 成就墙 / 我的词山 — those are destinations with no
+     correct order, and numbering them would teach students that the numbers
+     mean nothing. Numbering restarts per SCREEN (each screen is a self-
+     contained set of choices), and optional aids (学习支援/拼音辅助) are never
+     numbered — they are not steps. */
+  function stepNo(n) { return '<span class="step-no">' + n + '</span>'; }
+
   function pyAidToggleHtml() {
     if (!pyAidAvailable()) return "";
-    return '<div class="diff-label">学习支援</div><div class="diff">' +
+    return '<div class="diff-label">学习支援' + enl("学习支援") + '</div><div class="diff">' +
       '<button class="dopt' + (store.pyAid ? " on" : "") + '" data-pyaid="1">' +
-      '<span class="stars">拼</span>拼音辅助</button></div>';
+      '<span class="stars">拼</span><span>拼音辅助' + enl("拼音辅助") + '</span></button></div>';
   }
   function wirePyAidToggle(onToggle) {
     var b = view().querySelector(".dopt[data-pyaid]");
@@ -1525,7 +1757,7 @@
     }
     html += '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
-      '<button class="nav-btn primary" id="next">下一题 ›</button></div></div></div>';
+      '<button class="nav-btn primary" id="next">下一题 ›' + enli("下一题") + '</button></div></div></div>';
     view().innerHTML = html;
     flashMult(state);
 
@@ -1646,7 +1878,7 @@
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
-      '<button class="nav-btn primary" id="next">下一题 ›</button></div></div></div>';
+      '<button class="nav-btn primary" id="next">下一题 ›' + enli("下一题") + '</button></div></div></div>';
     flashMult(state);
 
     var tp = document.getElementById("ttsP");
@@ -1824,28 +2056,29 @@
      rail (题型, 填空 difficulty) is chosen HERE, then the round starts. Difficulty
      is shown only when 填空 is the selected 题型 — the other two have no tiers. */
   var QUIZ_MODES = [
-    { k: "cloze", label: "✍️ 填空挑战", desc: "读句子，填出空格里的词语" },
-    { k: "zhmcq", label: "🔎 华文解释", desc: "看释义，选出词语" },
-    { k: "enmcq", label: "🌐 英文翻译", desc: "看英译，选出词语" }
+    { k: "cloze", label: "✍️ 填空挑战", zh: "填空挑战", desc: "读句子，填出空格里的词语" },
+    { k: "zhmcq", label: "🔎 华文解释", zh: "华文解释", desc: "看释义，选出词语" },
+    { k: "enmcq", label: "🌐 英文翻译", zh: "英文翻译", desc: "看英译，选出词语" }
   ];
   function renderQuizConfig() {
     setTopbar("home", "");
     var m = store.quizMode || "cloze";
     var cur = QUIZ_MODES.filter(function (x) { return x.k === m; })[0] || QUIZ_MODES[0];
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">✍️ 学习挑战</div>' +
+      '<div class="mode-name">✍️ 学习挑战' + enli("学习挑战") + '</div>' +
       '<div class="mode-desc">' + esc(cur.desc) + '<br>答对可累积历练值；填空挑战答对还会提升海拔。</div>' +
-      '<div class="diff-label">题型</div><div class="diff" id="qmodeSel">' +
+      '<div class="diff-label">' + stepNo(1) + '题型' + enl("题型") + '</div><div class="diff" id="qmodeSel">' +
       QUIZ_MODES.map(function (x) {
-        return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' + x.label + '</button>';
+        return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' +
+          '<span>' + x.label + enl(x.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">每次题数</div><div class="diff" id="qlenSel">' +
+      '<div class="diff-label">' + stepNo(2) + '每次题数' + enl("每次题数") + '</div><div class="diff" id="qlenSel">' +
       [10, 20, 30, 40, 50].map(function (n) {
         return '<button class="dopt' + (store.quizLen === n ? " on" : "") + '" data-q="' + n + '">' + n + ' 题</button>';
       }).join("") + '</div>' +
-      (m === "cloze" ? diffSelector() : pyAidToggleHtml()) +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
-      '<button class="nav-btn primary" id="go">开始挑战 ›</button></div></div>';
+      (m === "cloze" ? diffSelector(3) : pyAidToggleHtml()) +
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始挑战 ›' + enli("开始挑战") + '</button></div></div>';
 
     Array.prototype.forEach.call(view().querySelectorAll("#qmodeSel .dopt"), function (b) {
       b.onclick = function () { store.quizMode = b.getAttribute("data-m"); saveStore(); renderQuizConfig(); };
@@ -1870,27 +2103,29 @@
     setTopbar("home", "");
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">🌧️ 词雨灵露</div>' +
+      '<div class="mode-name">🌧️ 词雨灵露' + enli("词雨灵露") + '</div>' +
       '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
-      '<div class="diff-label">速度模式</div><div class="diff" id="rampSel">' +
+      '<div class="diff-label">' + stepNo(1) + '速度模式' + enl("速度模式") + '</div><div class="diff" id="rampSel">' +
       '<button class="dopt' + (!store.rainRamp ? " on" : "") + '" data-r="0">🔒 固定速度</button>' +
       '<button class="dopt' + (store.rainRamp ? " on" : "") + '" data-r="1">📈 递增速度（从最慢开始，逐波加速）</button></div>' +
-      '<div class="diff-label" id="speedLbl">下落速度</div><div class="diff" id="speedSel">' +
+      '<div class="diff-label" id="speedLbl">' + stepNo(2) + '下落速度' + enl("下落速度") + '</div><div class="diff" id="speedSel">' +
       RAIN_SPEEDS.map(function (s, i) {
         return '<button class="dopt' + (i === store.rainSpeed ? " on" : "") + '" data-i="' + i + '">' + s.label + '</button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">拼音辅助</div><div class="diff">' +
+      '<div class="diff-label">拼音辅助' + enl("拼音辅助") + '</div><div class="diff">' +
       '<button class="dopt on" id="pySel">在词语下方显示拼音</button></div>' +
       '<div class="rain-best">本机最高分：<b>' + best + '</b> · ❤️ 生命 ' + RAIN_LIVES + '</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
-      '<button class="nav-btn primary" id="go">开始游戏 ›</button></div></div>';
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始游戏 ›' + enli("开始游戏") + '</button></div></div>';
     var speedIdx = store.rainSpeed, showPy = true, ramp = !!store.rainRamp;
     function syncSpeedEnabled() {
       // in 递增 mode the speed picker is ignored (always starts slowest)
       var sel = document.getElementById("speedSel"), lbl = document.getElementById("speedLbl");
       sel.style.opacity = ramp ? ".4" : "1";
       sel.style.pointerEvents = ramp ? "none" : "auto";
-      lbl.textContent = ramp ? "下落速度（递增模式由最慢自动加速）" : "下落速度";
+      /* innerHTML, not textContent: this label carries the step numeral and the
+         英文提示 gloss, and textContent would wipe both */
+      lbl.innerHTML = stepNo(2) + (ramp ? "下落速度（递增模式由最慢自动加速）" : "下落速度") + enl("下落速度");
     }
     syncSpeedEnabled();
     Array.prototype.forEach.call(view().querySelectorAll("#rampSel .dopt"), function (b) {
@@ -2345,7 +2580,7 @@
       '<div class="feedback" id="asmFb"></div>' +
       '<div class="nav-row" id="asmNextRow" style="display:none">' +
       '<button class="nav-btn primary" id="asmNext">' +
-      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›") + '</button></div></div></div>';
+      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›" + enli("下一题")) + '</button></div></div></div>';
     view().innerHTML = html;
 
     Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
@@ -2455,31 +2690,32 @@
   TILE_IMG.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAABQCAMAAADiFLV2AAABAlBMVEX/9qGibpzAY1v5//17kCuCwFW674X/y3+iP2sAAAAAAAA6AB9VV1SIgmx/RxQLIz0mNlgwTjSpbzBWOgDlrgAZOACEuxiftpzLsqvqKxkCZST0xbEmiyXAIgVbDAC6nHZYnABQKFAxXXbIfwDJ1+J/WUKtv8uv4gEzbQAmAEacCAD259L8pCbInCOhYgD/0Q1zFyRdsjPgyTuolkqwKzDuWTh0THSJp8PXUQCP3TLqqmBibyC55UhLhUtffp38fQDz+lUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACbDVwuAAAAQXRSTlP///////////8A/////////////////////////////////////////////////////////////////////////771nsgAAB5cSURBVHja7Z0JQyI5sMed1dl9pvogdEfAUaCFRlBuHEZ0HP3+n+pVVZI+oGnw2jdvh+wO9oEInV//60glHJ0e2n+8wQAGez4TQEDZE44OV/O/DosQIPalRQhxoOUPbmIxfxH70iJa83mZuhxo+a9Ly8lkAgpgj2ciLaPJ8EDLn0xLNQwnYbCHuoB4mYdheKDlT6YlDoeTyZ60TMJhWGa2DrT892mZ7EvLHGkZHmj5s3mBeehNm7CrCTEPAzjERAdavCkF0oxErukD9jA+D9SBlj87hhadztiLF7taHHc6gTpoyx9OC1TH1XEnpNiIGroxYVEbY2sesnN/PC0j1JbqaFfz4nHnQMuBFvRHfL/i72zs5Q4OtPzZfgtSsD8tcKDlT46IAMbjqCL9SqXiVxwHH/WPCm+Zhqw4lfnQi+NDLvePhqU1H48lkUL/rq40I/gD/zEtPj3iw9XV/HnseZ+cnculeA7987vZocfhJPCklRFLi972E4UhWion48AbwyfTkk33HLrn95IWIcbhUBkkUjquCmipVJQfD4ei5Kb/EFpub2u2HQTmd6MlHobKL6QF9/0cLb7/SLQI8am0dLuGlXpd7CrW+/DLcWCzzElYuJ6HdmiDlquMl2u8F3yQQeAtWvC5tLhuwgu16PTfkxc4GD+bVfHFZuwMo3CcQaJSQIuxR74l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";
   var SPRINT_OPTS = [60, 90, 120];
   var SPRINT_MODES = [
-    { k: "cloze", label: "✍️ 填空" },
-    { k: "zh", label: "🔎 华文解释" },
-    { k: "en", label: "🌐 英文翻译" }
+    { k: "cloze", label: "✍️ 填空", zh: "填空挑战" },
+    { k: "zh", label: "🔎 华文解释", zh: "华文解释" },
+    { k: "en", label: "🌐 英文翻译", zh: "英文翻译" }
   ];
   function altitudeNow() { return Object.keys(store.mastered).length; }
   function renderSprintConfig() {
     setTopbar("home", "");
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">⛰️ 攀山竞速</div>' +
+      '<div class="mode-name">⛰️ 攀山竞速' + enli("攀山竞速") + '</div>' +
       '<div class="mode-desc">登山冲刺：答对就向上攀登！<br>' +
       '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
       '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
       '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
-      '<div class="diff-label">题目类型</div><div class="diff" id="modeSel">' +
+      '<div class="diff-label">' + stepNo(1) + '题目类型' + enl("题目类型") + '</div><div class="diff" id="modeSel">' +
       SPRINT_MODES.map(function (m) {
-        return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
+        return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' +
+          '<span>' + m.label + enl(m.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">冲刺时长</div><div class="diff" id="secSel">' +
+      '<div class="diff-label">' + stepNo(2) + '冲刺时长' + enl("冲刺时长") + '</div><div class="diff" id="secSel">' +
       SPRINT_OPTS.map(function (s) {
         return '<button class="dopt' + (s === store.sprintSecs ? " on" : "") + '" data-s="' + s + '">' + s + ' 秒</button>';
       }).join("") + '</div>' +
       pyAidToggleHtml() +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
-      '<button class="nav-btn primary" id="go">开始攀登 ›</button></div></div>';
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始攀登 ›' + enli("开始攀登") + '</button></div></div>';
     Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (b) {
       b.onclick = function () {
         Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (x) { x.classList.remove("on"); });
@@ -2934,89 +3170,124 @@
      the painted treeline, front-band cx 30–70 kept near-empty (future-proofs
      a walking corridor even though nothing walks yet).
      ================================================================== */
-  var CAMP_LAYOUT = {
-    // key            file                        cx   by   w
-    pavilion:     { file: "deco_pavilion.png",     cx: 14, by: 66, w: 13 },
-    pine:         { file: "deco_pine.png",         cx: 90, by: 68, w: 12 },
-    sakura:       { file: "deco_sakura.png",       cx:  9, by: 73, w: 14 },
-    maple:        { file: "deco_maple.png",        cx: 89, by: 71, w: 13 },
-    viewdeck:     { file: "deco_viewdeck.png",     cx:  3, by: 54, w: 12 },
-    waterfall:    { file: "deco_waterfall.png",    cx: 99, by: 51, w: 12 },
-    fire:         { file: "deco_fire.png",         cx: 33, by: 87, w: 11 },
-    flag:         { file: "deco_flag.png",         cx: 65, by: 80, w:  6 },
-    lanterns:     { file: "deco_lanterns.png",     cx: 72, by: 76, w: 11 },
-    bamboofence:  { file: "deco_bamboofence.png",  cx: 59, by: 78, w: 10 },
-    windchime:    { file: "deco_windchime.png",    cx: 75, by: 80, w:  4 },
-    cat:          { file: "deco_cat.png",          cx: 60, by: 97, w:  7 },
-    stonelantern: { file: "deco_stonelantern.png", cx: 24, by: 86, w:  6 },
-    waterjar:     { file: "deco_waterjar.png",     cx: 20, by: 90, w:  7 },
-    signpost:     { file: "deco_signpost.png",     cx:  4, by: 97, w:  7 },
-    teatable:     { file: "deco_teatable.png",     cx: 78, by: 95, w: 11 },
-    well:         { file: "deco_well.png",         cx:  8, by: 93, w:  9 },
-    bridge:       { file: "deco_bridge.png",       cx: 16, by: 97, w: 13 },
-    bookchest:    { file: "deco_bookchest.png",    cx: 82, by: 88, w:  8 },
-    garden:       { file: "deco_garden.png",       cx: 88, by: 93, w: 12 },
-    koipond:      { file: "deco_koipond.png",      cx: 76, by: 98, w: 16 }
-  };
-  var DWELLING_SLOT = { cx: 50, by: 85, w: 19 };
-  var DWELLING_FILES = { 1: "tent.png", 2: "tent_cabin.png", 3: "tent_tower.png" };
-  /* fixed cluster by the fire — NOT a following pet (deferred, see note above) */
+  /* ---- v2 便携化改版, 2026-08-14 (DESIGN_营地_随身装备与自由摆放.md) ----
+     The camp is now TWO systems that behave differently on purpose:
+       随身装备 GEAR — player-owned, bought with 灵露, ONE equipped per slot,
+         and freely draggable anywhere in the ground band (§4).
+       地貌景观 SCENERY — belongs to the LOCATION, not the player. Appears by
+         海拔, never bought, never dragged. Clutter is structurally impossible
+         here because the system controls it, not accumulation.
+     The rule behind every entry: if a hiker would not carry it up the
+     mountain, it is scenery or it is cut. The garden-era art (水井/锦鲤池/
+     小石桥/楼阁…) moved to archived_art/, NOT deleted. 营旗 was cut outright
+     (owner 2026-08-14: the sprite never matched the pixel-art gear style). */
   var PET_LAYOUT = {
+    /* fixed cluster by the fire — NOT a following pet (still deferred, §7) */
     gui:   { file: "pet_gui.png",   cx: 30, by: 93, w: 5 },
     qilin: { file: "pet_qilin.png", cx: 36, by: 96, w: 6 },
     feng:  { file: "pet_feng.png",  cx: 42, by: 91, w: 6 },
     long:  { file: "pet_long.png",  cx: 46, by: 97, w: 7 }
   };
 
-  /* ---------- shop catalogue ---------- */
-  var SHOP_A = [   // 小件 20–60 灵露
-    { key: "fire", name: "篝火", price: 30, file: "deco_fire.png", desc: "夜里暖手，词语更暖心" },
-    { key: "flag", name: "营旗", price: 60, file: "deco_flag.png", desc: "让全山都看见你的营地" },
-    { key: "stonelantern", name: "石灯笼", price: 40, file: "deco_stonelantern.png", desc: "照亮营地一角" },
-    { key: "bamboofence", name: "竹篱笆", price: 30, file: "deco_bamboofence.png", desc: "圈出你的小天地" },
-    { key: "windchime", name: "风铃", price: 25, file: "deco_windchime.png", desc: "风一吹就响" },
-    { key: "cat", name: "打盹的猫", price: 50, file: "deco_cat.png", desc: "营地里的常住客" },
-    { key: "waterjar", name: "水缸", price: 35, file: "deco_waterjar.png", desc: "储水防旱" },
-    { key: "signpost", name: "木牌路标", price: 20, file: "deco_signpost.png", desc: "指向远方的路" }
+  /* Slots exist even where only one item fills them today, so the wider
+     portable range the owner wants later drops in with no refactor (§3). */
+  var GEAR_SLOTS = [
+    { slot: "dwelling", name: "住所" }, { slot: "light",   name: "照明" },
+    { slot: "scout",    name: "探勘" }, { slot: "water",   name: "饮水" },
+    { slot: "storage",  name: "收纳" }, { slot: "living",  name: "起居" },
+    { slot: "tea",      name: "茶点" }, { slot: "cook",    name: "炊事" },
+    { slot: "food",     name: "干粮" }
   ];
-  var SHOP_B = [   // 中件 100–300 灵露
-    { key: "pine", name: "青松", price: 100, file: "deco_pine.png", desc: "亲手栽下一片绿荫" },
-    { key: "pavilion", name: "小亭", price: 200, file: "deco_pavilion.png", desc: "营地的雅致一景" },
-    { key: "teatable", name: "木桌椅茶具", price: 150, file: "deco_teatable.png", desc: "泡一壶茶，歇一歇" },
-    { key: "well", name: "水井", price: 180, file: "deco_well.png", desc: "清凉井水，四季不干" },
-    { key: "bridge", name: "小石桥", price: 220, file: "deco_bridge.png", desc: "跨过溪水的小桥" },
-    { key: "bookchest", name: "书箱", price: 120, file: "deco_bookchest.png", desc: "藏书好去处" },
-    { key: "garden", name: "菜园", price: 140, file: "deco_garden.png", desc: "自己种的最香" },
-    { key: "lanterns", name: "灯笼串", price: 160, file: "deco_lanterns.png", desc: "夜里最温暖的一排光" }
+  /* ⚠️ PRICES for the nine new gear items are MINE, not the design doc's (it
+     specifies no prices). They follow the existing 20–1000 灵露 scale and
+     inherit from the archived equivalent where one exists (行军木箱←书箱 120,
+     野餐垫←木桌椅茶具 150, 水壶架←水缸 35→60). Single numbers, trivial to
+     retune — flagged for the owner like the old C-tier pricing was. */
+  var GEAR = [
+    // 住所 is a TIER CHAIN (existing dwellingTier mechanic reused, §3), not a free swap
+    { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "tent.png",                w: 20, desc: "起点的家 · 免费" },
+    { key: "windproof", slot: "dwelling", tier: 2, name: "防风帐篷", price: 800,  file: "gear_tent_windproof.png", w: 20, desc: "住所二级 · 挡得住山风" },
+    { key: "alpine",    slot: "dwelling", tier: 3, name: "高山帐篷", price: 1000, file: "gear_tent_alpine.png",    w: 20, desc: "住所三级 · 雪线之上也扎得稳" },
+    { key: "lanterns",  slot: "light",   name: "灯笼串",     price: 160, file: "deco_lanterns.png",  w: 11, desc: "夜里最温暖的一排光" },
+    { key: "lantern",   slot: "light",   name: "提灯",       price: 90,  file: "gear_lantern.png",   w:  7, desc: "挂上木杆，照亮一小圈" },
+    { key: "telescope", slot: "scout",   name: "望远镜",     price: 220, file: "gear_telescope.png", w:  7, desc: "望向下一座山峰" },
+    { key: "compass",   slot: "scout",   name: "罗盘架",     price: 180, file: "gear_compass.png",   w:  7, desc: "辨明方向再出发" },
+    { key: "canteen",   slot: "water",   name: "水壶架",     price: 60,  file: "gear_canteen.png",   w:  8, desc: "随身的水，随时补给" },
+    { key: "chest",     slot: "storage", name: "行军木箱",   price: 120, file: "gear_chest.png",     w:  9, desc: "装书、装干粮、装路上的收获" },
+    { key: "chair",     slot: "living",  name: "折叠椅",     price: 80,  file: "gear_chair.png",     w:  9, desc: "坐下来，歇一歇" },
+    { key: "picnicmat", slot: "tea",     name: "野餐垫茶具", price: 150, file: "gear_picnicmat.png", w: 15, desc: "铺开垫子，泡一壶茶" },
+    { key: "stove",     slot: "cook",    name: "野炊炉",     price: 140, file: "gear_stove.png",     w:  8, desc: "一口小锅，热汤暖身" },
+    { key: "rations",   slot: "food",    name: "干粮袋",     price: 70,  file: "gear_rations.png",   w:  9, desc: "馒头，和路上的力气" }
   ];
-  /* C-tier pricing: v2's 800–1500 assumed 闪卡/打拼音 also earn 灵露 — VERIFIED
-     2026-08-13 that they do not (灵露 is 词雨-only), so per the design doc's own
-     fallback rule these are reduced (~half), preserving relative order. Flagged
-     for the owner to adjust the four numbers directly if they feel differently. */
-  var SHOP_C = [
-    { key: "koipond", name: "锦鲤池", price: 500, file: "deco_koipond.png", desc: "锦鲤悠游，年年有余" },
-    { key: "sakura", name: "樱花树", price: 650, file: "deco_sakura.png", desc: "一季花开，满树粉白" },
-    { key: "maple", name: "红枫", price: 650, file: "deco_maple.png", desc: "秋来满树红" }
+  /* small/cheap/iconic — owned = always out, no slot, no exclusivity (§2c) */
+  var TRINKETS = [
+    { key: "fire",      name: "篝火",     price: 30, file: "deco_fire.png",      w: 11, desc: "夜里暖手，词语更暖心" },
+    { key: "windchime", name: "风铃",     price: 25, file: "deco_windchime.png", w:  4, desc: "风一吹就响" },
+    { key: "cat",       name: "打盹的猫", price: 50, file: "deco_cat.png",       w:  7, desc: "营地里的常住客" },
+    { key: "signpost",  name: "木牌路标", price: 20, file: "deco_signpost.png",  w:  7, desc: "指向远方的路" }
   ];
-  var DWELLING_SHOP = [
-    { tier: 2, name: "木屋", price: 800, file: "tent_cabin.png", desc: "住所二级 · 替换帐篷", requires: null },
-    { tier: 3, name: "楼阁", price: 1000, file: "tent_tower.png", desc: "住所三级 · 替换木屋", requires: 2 }
+  /* 地貌景观: system-placed, 海拔-gated, never purchasable, never draggable.
+     ⚠️ The three tree thresholds are the doc's PROPOSED %, flagged there for
+     the owner to adjust exactly like the old C-tier pricing. */
+  var SCENERY = [
+    { key: "pine",      name: "青松",     file: "deco_pine.png",      pct: 0.15, cx: 90, by: 68, w: 12, desc: "山脚的松林" },
+    { key: "sakura",    name: "樱花树",   file: "deco_sakura.png",    pct: 0.35, cx:  9, by: 73, w: 14, desc: "一季花开，满树粉白" },
+    { key: "viewdeck",  name: "望山台",   file: "deco_viewdeck.png",  pct: 0.50, cx:  3, by: 54, w: 12, desc: "一览群峰的高台" },
+    { key: "maple",     name: "红枫",     file: "deco_maple.png",     pct: 0.60, cx: 89, by: 71, w: 13, desc: "秋来满树红" },
+    { key: "waterfall", name: "悬泉飞瀑", file: "deco_waterfall.png", pct: 0.80, cx: 99, by: 51, w: 12, desc: "飞泉直落，云雾缭绕" }
   ];
-  /* 望山台 / 悬泉飞瀑: 海拔-unlock only, never purchasable (owner 2026-08-13:
-     50% / 80% of this stream's total word count). */
-  var PRESTIGE_UNLOCK = [
-    { key: "viewdeck", name: "望山台", file: "deco_viewdeck.png", pct: 0.5, desc: "一览群峰的高台" },
-    { key: "waterfall", name: "悬泉飞瀑", file: "deco_waterfall.png", pct: 0.8, desc: "飞泉直落，云雾缭绕" }
-  ];
-  function dwellingTier() { return store.deco.tower ? 3 : store.deco.cabin ? 2 : 1; }
-  function prestigeUnlocked(p) { return altitudeNow() >= Math.round((WORDS.length || 0) * p.pct); }
+  /* §6 starter layout = what a new player sees, and the 整理营地 reset target.
+     Not a constraint: every one of these can be dragged anywhere in BOUNDS. */
+  var DEFAULT_POS = {
+    tent: { x: 50, y: 82 }, windproof: { x: 50, y: 82 }, alpine: { x: 50, y: 82 },
+    fire: { x: 35, y: 90 }, stove: { x: 27, y: 84 }, lantern: { x: 68, y: 80 },
+    lanterns: { x: 72, y: 78 }, chair: { x: 60, y: 90 }, picnicmat: { x: 78, y: 96 },
+    chest: { x: 84, y: 88 }, canteen: { x: 18, y: 92 }, rations: { x: 23, y: 98 },
+    telescope: { x: 8, y: 68 }, compass: { x: 91, y: 64 },
+    windchime: { x: 75, y: 80 }, cat: { x: 60, y: 97 }, signpost: { x: 4, y: 97 }
+  };
+  // ground band only: drops are clamped out of the sky and the painted peaks
+  var POS_BOUNDS = { x0: 3, x1: 97, y0: 60, y1: 99 };
+
+  function gearByKey(k) {
+    var all = GEAR.concat(TRINKETS);
+    for (var i = 0; i < all.length; i++) if (all[i].key === k) return all[i];
+    return null;
+  }
+  /* legacy cabin/tower keys are still honoured: if anyone bought a 木屋 under
+     the pre-2026-08-14 shop, they keep an equivalent tier instead of silently
+     losing 800 灵露. Their store.deco entry is never deleted either. */
+  function dwellingTier() {
+    if (store.deco.alpine || store.deco.tower) return 3;
+    if (store.deco.windproof || store.deco.cabin) return 2;
+    return 1;
+  }
+  function dwellingKey() { return ["tent", "windproof", "alpine"][dwellingTier() - 1]; }
+  function equippedIn(slot) {
+    if (slot === "dwelling") return dwellingKey();
+    var k = store.equip[slot];
+    if (k && store.deco[k]) return k;
+    var owned = GEAR.filter(function (g) { return g.slot === slot && store.deco[g.key]; });
+    return owned.length ? owned[0].key : null;   // auto-equip a fresh purchase
+  }
+  function ownedGearIn(slot) { return GEAR.filter(function (g) { return g.slot === slot; }); }
+  function sceneryUnlocked(s) { return altitudeNow() >= Math.round((WORDS.length || 0) * s.pct); }
+  function clampPos(p) {
+    return { x: Math.min(POS_BOUNDS.x1, Math.max(POS_BOUNDS.x0, p.x)),
+             y: Math.min(POS_BOUNDS.y1, Math.max(POS_BOUNDS.y0, p.y)) };
+  }
+  function posOf(key) { return clampPos(store.decoPos[key] || DEFAULT_POS[key] || { x: 50, y: 90 }); }
+  // lower on screen draws in front; recomputed live while dragging
+  function zFor(y) { return 100 + Math.round(y * 4); }
 
   /* shared sprite element with a graceful no-white-screen fallback: if the
      bundled PNG somehow 404s, hide the broken image rather than show a
      browser placeholder icon. */
-  function campSprite(cls, file, cx, by, w, title) {
-    return '<img class="' + cls + '" src="' + file + '" alt="" title="' + esc(title || "") + '" ' +
-      'style="left:' + cx + '%;bottom:' + (100 - by) + '%;width:' + w + '%" ' +
+  function campSprite(cls, file, cx, by, w, title, key) {
+    return '<img class="' + cls + '" ' + (key ? 'data-key="' + esc(key) + '" ' : '') +
+      'src="' + file + '" alt="" title="' + esc(title || "") + '" ' +
+      'style="left:' + cx + '%;bottom:' + (100 - by) + '%;width:' + w + '%' +
+      (key ? ';z-index:' + zFor(by) : '') + '" ' +
       'onerror="this.style.display=\'none\'">';
   }
 
@@ -3038,26 +3309,33 @@
     if (mode === "handle") return startHandle();
     startMode(mode);
   }
+  /* every sprite the student can actually move: the equipped item in each slot
+     (住所 included — owner 2026-08-14 chose consistency over a fixed tent
+     anchor) plus every owned trinket. Swapping an item out of its slot does
+     NOT discard its saved position; re-equipping restores where it was left. */
+  function placedItems() {
+    var out = [];
+    GEAR_SLOTS.forEach(function (s) {
+      var k = equippedIn(s.slot);
+      var g = k && gearByKey(k);
+      if (g) out.push(g);
+    });
+    TRINKETS.forEach(function (t) { if (store.deco[t.key]) out.push(t); });
+    return out;
+  }
   function openCampScene() {
     setTopbar("home", "");
     var sprites = "";
-    // decorations owned, drawn back-to-front (by ascending) so nearer items overlap farther ones
-    Object.keys(CAMP_LAYOUT).filter(function (k) { return store.deco[k]; })
-      .sort(function (a, b) { return CAMP_LAYOUT[a].by - CAMP_LAYOUT[b].by; })
-      .forEach(function (k) {
-        var it = CAMP_LAYOUT[k]; var shopIt = SHOP_A.concat(SHOP_B, SHOP_C).filter(function (x) { return x.key === k; })[0];
-        sprites += campSprite("camp-deco", it.file, it.cx, it.by, it.w, shopIt ? shopIt.name : "");
-      });
-    // 望山台 / 悬泉飞瀑: appear automatically once the 海拔 threshold is reached
-    PRESTIGE_UNLOCK.forEach(function (p) {
-      if (prestigeUnlocked(p)) {
-        var it = CAMP_LAYOUT[p.key];
-        sprites += campSprite("camp-deco", it.file, it.cx, it.by, it.w, p.name);
-      }
+    // 地貌景观 first: always furthest back, system-placed, never draggable
+    SCENERY.forEach(function (s) {
+      if (sceneryUnlocked(s)) sprites += campSprite("camp-deco camp-scenery", s.file, s.cx, s.by, s.w, s.name);
     });
-    // dwelling: tent -> cabin -> tower, mutually exclusive, drawn last (front-most, it's the hero)
-    var dwFile = DWELLING_FILES[dwellingTier()];
-    sprites += campSprite("camp-dwelling", dwFile, DWELLING_SLOT.cx, DWELLING_SLOT.by, DWELLING_SLOT.w, "你的住所");
+    // 随身装备 + 小摆件: free placement, drawn back-to-front by their own y
+    placedItems().map(function (it) {
+      return { it: it, p: posOf(it.key) };
+    }).sort(function (a, b) { return a.p.y - b.p.y; }).forEach(function (r) {
+      sprites += campSprite("camp-deco camp-move", r.it.file, r.p.x, r.p.y, r.it.w, r.it.name + "（可拖动）", r.it.key);
+    });
     // pets: fixed cluster near the fire (静态位置, 跟随留待日后)
     LEVELS.forEach(function (lv) {
       if (!store.gym[lv]) return;
@@ -3079,7 +3357,9 @@
       sprites + '</div>' +
       '<div class="camp2-hud"><span class="m2pill">' + campLingluIcon() + ' <b>' + fmtNum(store.lingLu) + '</b></span>' +
       '<button class="m2pill" id="campShopBtn">🛒 营地商店</button>' +
+      '<button class="m2pill" id="campTidyBtn">🧹 整理营地</button>' +
       '<button class="m2pill" id="campUidBtn">🪪 识别码</button></div>' +
+      '<div class="camp-hint">按住装备可以拖到你喜欢的位置</div>' +
       '<div class="pop-label" style="text-align:center;margin-top:14px">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
       '<div class="camp-board" id="campBoard">' + board + '</div>' +
       '<div class="nav-row" style="max-width:520px;margin:14px auto 0"><button class="nav-btn" id="campBack">‹ 返回</button></div>' +
@@ -3089,8 +3369,69 @@
     document.getElementById("campBack").onclick = renderHome;
     document.getElementById("campShopBtn").onclick = openShopScene;
     document.getElementById("campUidBtn").onclick = showCampUid;
+    document.getElementById("campTidyBtn").onclick = function () {
+      /* popOverlay + two nav buttons is app.js's own confirm pattern — profile.js
+         has a confirmDialog() helper but it is NOT exported to app.js. */
+      var ov = popOverlay(
+        '<div class="pop-title">🧹 整理营地</div>' +
+        '<div class="pop-body">把所有装备摆回建议的位置。<br>你拥有的东西一件都不会少，只是位置回到默认。</div>' +
+        '<div class="nav-row"><button class="nav-btn" id="tidyNo">取消</button>' +
+        '<button class="nav-btn primary" id="tidyYes">整理</button></div>');
+      ov.querySelector("#tidyNo").onclick = function () { ov.remove(); };
+      ov.querySelector("#tidyYes").onclick = function () {
+        ov.remove();
+        store.decoPos = {};
+        saveStore();
+        openCampScene();
+        toast("营地已整理 ✓");
+      };
+    };
+    wireCampDrag(document.getElementById("campStage"));
     Array.prototype.forEach.call(document.getElementById("campBoard").querySelectorAll(".cb[data-mode]"), function (btn) {
       btn.onclick = function () { launchMode(btn.getAttribute("data-mode")); };
+    });
+  }
+
+  /* ---------- 自由摆放 drag (§4) ----------
+     Pointer events, so mouse / touch / stylus all work from one code path.
+     No press-and-hold gate: this is a cosmetic action, not a quiz answer, so
+     the dwellGate rules elsewhere in the app deliberately do not apply.
+     touch-action:none on .camp-move (app.css) stops a drag from scrolling the
+     page instead of moving the item. */
+  function wireCampDrag(stage) {
+    if (!stage) return;
+    Array.prototype.forEach.call(stage.querySelectorAll(".camp-move"), function (img) {
+      var drag = null;
+      img.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        drag = { moved: false };
+        img.classList.add("camp-dragging");
+        try { img.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+      img.addEventListener("pointermove", function (e) {
+        if (!drag) return;
+        var r = stage.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        var p = clampPos({ x: (e.clientX - r.left) / r.width * 100,
+                           y: (e.clientY - r.top) / r.height * 100 });
+        img.style.left = p.x + "%";
+        img.style.bottom = (100 - p.y) + "%";
+        img.style.zIndex = zFor(p.y);
+        drag.pos = p; drag.moved = true;
+      });
+      var end = function () {
+        if (!drag) return;
+        img.classList.remove("camp-dragging");
+        if (drag.moved && drag.pos) {
+          store.decoPos[img.getAttribute("data-key")] = {
+            x: Math.round(drag.pos.x * 10) / 10, y: Math.round(drag.pos.y * 10) / 10
+          };
+          saveStore();
+        }
+        drag = null;
+      };
+      img.addEventListener("pointerup", end);
+      img.addEventListener("pointercancel", end);
     });
   }
   function petKeyOf(level) {
@@ -3130,62 +3471,74 @@
       '<div class="shop-info"><b>' + esc(it.name) + '</b><span>' + esc(it.desc) + '</span></div>' +
       '<div class="shop-price">' + campLingluIcon() + ' ' + it.price + '</div>' + btn + '</div>';
   }
+  /* one row per gear item. Three states, because owning and equipping are now
+     separate: 未拥有 -> 兑换 · 已拥有但没装上 -> 装备 · 装备中 -> 已装备 ✓ */
+  function gearRow(it, slot) {
+    var owned = !!store.deco[it.key] || (slot === "dwelling" && it.tier === 1);
+    var equipped = equippedIn(slot) === it.key;
+    var afford = store.lingLu >= it.price;
+    var right;
+    if (equipped) right = '<span class="shop-owned">已装备 ✓</span>';
+    else if (owned) right = '<button class="shop-equip" data-eq="' + esc(it.key) + '" data-slot="' + esc(slot) + '">装备</button>';
+    else if (slot === "dwelling" && it.tier > dwellingTier() + 1) right = '<span class="shop-locked">先升级前一级</span>';
+    else right = '<button class="shop-buy" data-key="' + esc(it.key) + '"' + (afford ? "" : " disabled") + '>' +
+      (afford ? "兑换" : "灵露不足") + '</button>';
+    return '<div class="shop-row"><img class="shop-thumb" src="' + it.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+      '<div class="shop-info"><b>' + esc(it.name) + '</b><span>' + esc(it.desc) + '</span></div>' +
+      (it.price ? '<div class="shop-price">' + campLingluIcon() + ' ' + it.price + '</div>' : '<div class="shop-price">—</div>') +
+      right + '</div>';
+  }
   function openShopScene() {
     setTopbar("home", "");
-    var rowsA = SHOP_A.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
-    var rowsB = SHOP_B.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
-    var rowsC = SHOP_C.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
-    var tier = dwellingTier();
-    var rowsD = DWELLING_SHOP.map(function (d) {
-      var owned = tier >= d.tier;
-      var locked = d.requires && tier < d.requires;
-      var afford = store.lingLu >= d.price;
-      var btn = owned ? '<span class="shop-owned">已拥有 ✓</span>'
-        : locked ? '<span class="shop-locked">先升级前一级</span>'
-        : '<button class="shop-buy" data-dwell="' + d.tier + '"' + (afford ? "" : " disabled") + '>' + (afford ? "兑换" : "灵露不足") + '</button>';
-      return '<div class="shop-row"><img class="shop-thumb" src="' + d.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-        '<div class="shop-info"><b>' + esc(d.name) + '</b><span>' + esc(d.desc) + '</span></div>' +
-        '<div class="shop-price">' + campLingluIcon() + ' ' + d.price + '</div>' + btn + '</div>';
+    var gearHtml = GEAR_SLOTS.map(function (s) {
+      var items = ownedGearIn(s.slot);
+      if (!items.length) return "";
+      var note = s.slot === "dwelling" ? "逐级升级" : (items.length > 1 ? "同一格只能装一件" : "");
+      return '<div class="shop-tier-label">' + esc(s.name) + (note ? ' <span class="shop-slot-note">· ' + note + '</span>' : '') + '</div>' +
+        '<div class="shop-grid">' + items.map(function (it) { return gearRow(it, s.slot); }).join("") + '</div>';
     }).join("");
-    var rowsPrestige = PRESTIGE_UNLOCK.map(function (p) {
-      var unlocked = prestigeUnlocked(p);
-      var need = Math.round((WORDS.length || 0) * p.pct);
-      var right = unlocked ? '<span class="shop-owned">已解锁 ✓</span>' : '<span class="shop-locked">海拔 ' + need + ' 米解锁</span>';
-      return '<div class="shop-row"><img class="shop-thumb" src="' + p.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-        '<div class="shop-info"><b>' + esc(p.name) + '</b><span>' + esc(p.desc) + ' · 灵露买不到，靠掌握词语解锁</span></div>' + right + '</div>';
+    var trinketHtml = TRINKETS.map(function (it) {
+      return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key);
+    }).join("");
+    var sceneryHtml = SCENERY.map(function (s) {
+      var need = Math.round((WORDS.length || 0) * s.pct);
+      var right = sceneryUnlocked(s) ? '<span class="shop-owned">已出现 ✓</span>'
+        : '<span class="shop-locked">海拔 ' + need + ' 米出现</span>';
+      return '<div class="shop-row"><img class="shop-thumb" src="' + s.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+        '<div class="shop-info"><b>' + esc(s.name) + '</b><span>' + esc(s.desc) + ' · 属于这座山，灵露买不到</span></div>' + right + '</div>';
     }).join("");
 
     var html = '<div class="camp2-wrap"><div class="shop2-card">' +
       '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
       '<div class="camp-wallet">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b> · 在词雨灵露中接住词语获得</div>' +
-      '<div class="shop-tier-label">A 档 · 小件</div><div class="shop-grid">' + rowsA + '</div>' +
-      '<div class="shop-tier-label">B 档 · 中件</div><div class="shop-grid">' + rowsB + '</div>' +
-      '<div class="shop-tier-label">C 档 · 大件</div><div class="shop-grid">' + rowsC + '</div>' +
-      '<div class="shop-tier-label">住所升级</div><div class="shop-grid">' + rowsD + '</div>' +
-      '<div class="shop-tier-label">威望物件</div><div class="shop-grid">' + rowsPrestige + '</div>' +
+      '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
+      gearHtml +
+      '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
+      '<div class="shop-tier-label">地貌景观 <span class="shop-slot-note">· 随海拔自动出现</span></div><div class="shop-grid">' + sceneryHtml + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button></div>' +
       '</div></div>';
     view().innerHTML = html;
     document.getElementById("shopBack").onclick = openCampScene;
     Array.prototype.forEach.call(view().querySelectorAll(".shop-buy[data-key]"), function (btn) {
       btn.onclick = function () {
-        var key = btn.getAttribute("data-key");
-        var it = SHOP_A.concat(SHOP_B, SHOP_C).filter(function (x) { return x.key === key; })[0];
+        var key = btn.getAttribute("data-key"), it = gearByKey(key);
         if (!it || store.deco[key] || store.lingLu < it.price) return;
-        store.lingLu -= it.price; store.deco[key] = 1; saveStore();
+        if (it.slot === "dwelling" && it.tier > dwellingTier() + 1) return;   // chain order
+        store.lingLu -= it.price;
+        store.deco[key] = 1;
+        if (it.slot && it.slot !== "dwelling") store.equip[it.slot] = key;    // a new buy goes on right away
+        saveStore();
         toast("已兑换：" + it.name + " ✨");
         openShopScene();   // re-render with updated wallet + ownership
       };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".shop-buy[data-dwell]"), function (btn) {
+    Array.prototype.forEach.call(view().querySelectorAll(".shop-equip[data-eq]"), function (btn) {
       btn.onclick = function () {
-        var t = parseInt(btn.getAttribute("data-dwell"), 10);
-        var d = DWELLING_SHOP.filter(function (x) { return x.tier === t; })[0];
-        if (!d || dwellingTier() >= t || (d.requires && dwellingTier() < d.requires) || store.lingLu < d.price) return;
-        store.lingLu -= d.price;
-        if (t === 2) store.deco.cabin = 1; else if (t === 3) store.deco.tower = 1;
+        var key = btn.getAttribute("data-eq"), slot = btn.getAttribute("data-slot");
+        if (slot === "dwelling" || !store.deco[key]) return;
+        store.equip[slot] = key;
         saveStore();
-        toast("已兑换：" + d.name + " ✨");
+        toast("已装备：" + (gearByKey(key) || {}).name);
         openShopScene();
       };
     });
@@ -3642,6 +3995,7 @@
         });
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));
         applyAmbience();
+        applyEnAid();      // 英文提示: CSS-gated on body.en-aid, so this is the only switch
         updateStreak();
 
         /* hand the 我的档案 panel (profile.js) this stream's 进度码 hooks */

@@ -589,7 +589,13 @@ PENDING (owner-gated content audits, each its own pass — need Excel masters + 
   human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
   student Chromebook).
 
-## 营地场景 (campsite) — BUILT AND VERIFIED 2026-08-13
+## 营地场景 (campsite) — v1 BUILT 2026-08-13, **SUPERSEDED 2026-08-14 by 便携化改版 below**
+
+⚠️ READ THE 便携化改版 SECTION FIRST (「营地 v2 · 便携化」, further down). The catalogue, the
+dwelling chain, the placement model and the shop in THIS section were all replaced on 2026-08-14.
+What still holds from here: `camp_bg.png` + the `.camp2-*` scene pattern, the graceful-degrade
+`onerror` habit, the pet cluster, and the render-then-tune-by-eye method. Everything about WHICH
+items exist and HOW they are positioned is now wrong — do not build from it.
 
 Per DESIGN_营地场景_商店_v2.md + 附录三 (layout constraints). Owner decisions:
 - **STATIC scene for v1** (owner 2026-08-12, for speed): fixed decoration slots + pets FIXED in a
@@ -1151,3 +1157,264 @@ art — every image already ships in the repo. All three changes are inside teac
   `getBoundingClientRect`); dashboard stubbed signed-in shows the harbour + badges + crest with
   the study_bg gutters and fully readable tables. Zero console errors, JS parses (JavaScriptCore),
   CSS braces balance 67/67.
+
+## 英文提示淡出 + 动线编号 · 2026-08-13
+（DESIGN_english-toggle-fading-and-flow-numbering_2026-08-13.md，四个决定全部实作）
+
+Grade 2 trial surfaced two DIFFERENT problems that need different mechanisms: students who
+cannot decode the Chinese button labels (needs a scaffold that FADES), and students who don't
+know what order to press things in (interface literacy, needs no fading). Both are built.
+
+### 决定一 · G1/G2 英文提示 toggle (app.js + app.css)
+- **Scope is navigation/button SHELL TEXT ONLY.** `EN_LAB` (app.js, ~34 entries) is the whole
+  surface: 修行/闯关/学习挑战/词语闪卡/出发/题型/题数/难度/开始… Quiz CONTENT — 题干、释义、
+  句子、选项 — stays pure Chinese whether the toggle is on or off. This is the same immersion
+  logic as the Chinese-only TTS rule, and it is exactly why the toggle can't really weaken
+  中文沉浸. **Do not extend `enl()` to word data.**
+- **Mechanism: the gloss spans are ALWAYS in the DOM, CSS-gated on `body.en-aid`.** So toggling
+  is one class flip — no re-render at all. That matters beyond performance: unlike 拼音辅助,
+  flipping it mid-question cannot redraw anything (see the 选项重洗=泄题 bug from the earlier
+  batch — this design is immune to that class of bug by construction).
+  `enl(key)` = block gloss under a label · `enli(key)` = inline gloss for one-line buttons.
+- `store.enAid`, **default OFF, persisted per device**, exactly the `store.pyAid` contract
+  (a different rule would make the two aids feel inconsistent, and the content is unaffected
+  anyway so the permanent-crutch risk is low). G1/G2 only (`enAidAvailable()`); on G3/HCL
+  `enl()` returns "" so not one byte of English markup is emitted.
+- **Control is the icon pill 中/EN in the topbar** (`.tb-en`, `enToggleHtml`/`wireEnToggle`),
+  never a Chinese word — a student who can't read the interface must still be able to find the
+  thing that fixes that. It sits in `.tb-right` (now `display:flex`) next to the 我的档案 pill and
+  shrinks under 520px. 隐私: device-local, never on any leaderboard or badge wall.
+- NOT on the landing page (index.html doesn't load app.js and the store is per-stream), and NOT
+  inside the 结伴登峰 overlay (arena.js has its own labels). Extend later if asked.
+
+### 决定二 · 淡出 soft-prompt
+- 有效 session = this page-load with **≥1 question answered**; counted in `bump()` (every mode's
+  answers route through it), once per load, guarded by `_enSessionCounted`.
+- Fires when the toggle has been ON for the last 5 effective sessions; shown from `renderHome()`
+  so it lands between rounds, **never on the boot render** (a student who just opened the app
+  has not "seen enough"). Cooldown 10 sessions, cap 2 per term (`currentTermId()`), once per load.
+  Accepting turns it off; re-enabling costs nothing and can't re-trigger a prompt inside the
+  cooldown, because the cooldown is stamped when a prompt is SHOWN, not by its outcome.
+- ⚠️ **The four numbers (5 / 10 / 2 / 5) and the copy are launch DEFAULTS** —
+  `EN_FADE_SESSIONS`, `EN_PROMPT_COOLDOWN`, `EN_PROMPT_TERM_CAP`, `EN_REGRESSION_RUN` sit
+  together at the top of the EN block. Design-doc open items 1 and 3 (exact wording/tone and
+  whether these are final) are still the owner's to settle.
+
+### 决定三 · Fading 遥测 (app.js `store.enTel` + teacher.html)
+- Shape is the doc's, plus `promptTerm`/`promptTermCount` (the doc's single `promptCount` can't
+  express a per-TERM cap) and `regressionAt`. localStorage is the source of truth; merged into
+  Firestore inside the ordinary progress doc, so the teacher side needed no new collection.
+- `mergeCloudProgress`: counters by max; the rolling window is taken WHOLE from whichever record
+  has more sessions (it's a sequence, not a counter — interleaving two devices would be
+  meaningless). **`store.enAid` itself is deliberately NOT merged** — a student may reasonably
+  want English on the classroom Chromebook and off at home. **Not in 进度码** (telemetry, not
+  transferable progress), asserted by a test.
+- 回退旗标: set when the toggle goes back ON after 5+ consecutive OFF sessions, shown to the
+  teacher separately (a rolling average would quietly absorb it) and expiring after 10 sessions.
+  Framed as "worth a look", not as backsliding — it usually means a harder unit.
+- teacher.html 班级视图 shows this as **two columns** (SPLIT 2026-08-13 by the per-header filter
+  work below, which needs one filterable value per column): **英文提示** = the 开/关 pill, and
+  **提示趋势** = 已关闭 / 下降 / 持平 / 上升 / 观察中 / 数据不足, with the 回退 flag folded into
+  the 趋势 value (`enTrendVal`) so it stays findable in that column's filter list. `enCell` is gone;
+  it is now `enStatus` + `enTrendVal` + the two columns' own `cell` functions in `classCols()`.
+  `enTelOf()` still reads only g1/g2 and takes the busier of the two. ⚠️ `EN_TREND_DELTA = 0.4`
+  (a 2-in-5 swing) is a launch default — the doc requires recalibration after one real term, same
+  as the 段位 ladder.
+
+### 决定四 · 动线编号
+- `stepNo(n)` gold numerals, permanent and small, on genuinely multi-step decision flows only:
+  home ①复习范围 ②选择方式 ③今日路线/词语游乐场; 学习挑战 config ①题型 ②题数 ③挑战难度;
+  攀山竞速 ①题目类型 ②冲刺时长; 词雨灵露 ①速度模式 ②下落速度.
+- **Numbering restarts per SCREEN** (each screen is a self-contained set of choices), and
+  **optional aids are never numbered** (学习支援/拼音辅助 are not steps). Excluded entirely, per
+  the doc: 排行榜 · 成就墙 · 我的词山 — destinations with no correct order; numbering them would
+  teach students the numerals mean nothing.
+- `diffSelector(stepN)` takes the numeral as an ARGUMENT because the same function also draws the
+  mid-round rail, where a step number would be meaningless. Same trap in 词雨: `syncSpeedEnabled`
+  rewrote `#speedLbl` with `textContent`, which would have wiped both the numeral and the gloss —
+  now `innerHTML` with both re-emitted.
+
+### Verification
+No live browser this time: the Browser pane refused BOTH `127.0.0.1` and `localhost` by policy
+(unlike the previous batch — it varies by session, so try it first). Instead app.js was loaded
+FOR REAL inside JavaScriptCore with a stubbed DOM/localStorage and `boot()` replaced by an export
+hook (`src.replace("  boot();\n})();", …)` — this pattern works well, keep it), giving:
+- 34 assertions on the data layer: defaults, session counting (one per load, only after an
+  answer), 10-item window cap, eligibility (5-run / broken run / toggle-off / cooldown / term
+  cap / not-before-a-round / not-twice-per-load), prompt bookkeeping, cloud merge in both
+  directions, and 进度码 exclusion.
+- 21 assertions on real rendered markup: every step numeral and gloss on all three config
+  screens, 学习支援 unnumbered, the 递增-mode label rewrite keeping its numeral, and **G3 proven
+  inert** (no `enlab` anywhere, no 中/EN control, but the numbering still present).
+- 14 assertions on teacher.html's real `enTelOf`/`enTrend`/`enCell`, including the full 趋势 table
+  and that a 1-session wobble does NOT flip the label.
+- All JS parses (JavaScriptCore), CSS braces balance 611/611 + teacher 69/69.
+⚠️ **Still wants a device pass before class** — the 中/EN pill in a crowded topbar on a phone, and
+the two-line button labels on the home cards, are layout claims no headless check can settle.
+
+## teacher.html 表格可用性 · 2026-08-13 (空间利用 + UID 栏 + Excel 式表头筛选)
+
+Owner request, three parts. All inside teacher.html's own `<style>`/script (still standalone —
+it never loads app.css/app.js/profile.js).
+
+### 1. 空间利用
+- `.wrap` was `max-width:1180px`, which left half a 1920px screen empty on the very tabs that
+  exist for wide tables. Now `min(1720px,97vw)`. `.signin` keeps its own narrow max-width, so the
+  login hero is untouched.
+- `.harbour` switched from `justify-content:center` to `space-evenly` (centred cells pooled in the
+  middle of a now-wider bar).
+- 概览 was ONE 2-column table stretched across the full width. Now a `.grid2`
+  (`auto-fit,minmax(380px,1fr)`) holding **按学校** and a NEW **按班级 Class（学生）** count,
+  each row carrying a `.bar` share bar. 按班级 counts `category==="student"` only — the field is
+  cleared for everyone else, so counting all profiles would invent a 未填写 bucket.
+- 班级视图's table moved into `.tbl` (its own scroll box, `max-height:calc(100vh - 330px)`) with
+  `position:sticky` headers. ⚠️ Sticky headers need an OPAQUE background; `.card` is translucent
+  (`rgba(255,255,255,.94)`), so `.tbl thead th` sets a solid `#F3F8FC`. Don't "simplify" that back
+  to transparent or rows will show through the header.
+
+### 2. 识别码 (UID) column
+First column of 班级视图: first 8 chars in a `<code>` (full value in `title`) plus a 复制 button
+that copies the WHOLE uid (`copyUid()`, `navigator.clipboard` with an `execCommand` fallback for
+non-secure origins). 8 chars because the student's own 我的档案 shows 6 — enough to eyeball a
+match — while 处理/Firestore console need the full string.
+
+### 3. Excel 式表头筛选 (the substantive change)
+- 班级视图 is now driven by a **declarative column model**, `classCols()`: each column declares
+  `raw(u)` (used for BOTH sorting and filtering) and `cell(u)` (HTML). Adding a column = adding one
+  entry; the filter UI is generic and needs no per-column work.
+- Four filter types: `list` (distinct values + search + checkboxes, Excel's default) · `text`
+  (contains — used for 识别码, where a 160-item checklist would be useless) · `num` (min/max) ·
+  `date` (min/max; `lastActive()` returns ISO `YYYY-MM-DD`, so plain string compare is
+  chronological and no Date parsing is needed).
+- State is `_colF` (key → filter). It REPLACED `_classFilter` and the two 学校/班级 `<select>`s.
+  `filteredUsers()` walks every column, so **词语难点 automatically aggregates over the same
+  filtered cohort** — both tabs can never disagree about who is in scope.
+- Header = a clickable `.th-lab` (sort) plus a SEPARATE `.fbtn` ▼ (filter). Deliberately two
+  targets: the whole `<th>` used to be the sort handler, and hanging a filter control inside a
+  click-to-sort element is the same near-miss trap the 可及性 pass fixed for the MCQ 🔊 buttons.
+- The dropdown is appended to `<body>`, never inside `.tbl` (whose `overflow` would clip it), and
+  positioned off `getBoundingClientRect` + `scrollY`, clamped to the viewport's right edge.
+- Edits are held in the dropdown until **应用**, because applying calls `renderPanel()` and would
+  otherwise tear the dropdown down under the teacher's finger on every checkbox tick.
+- Distinct values come from ALL loaded profiles, NOT the currently-filtered set: values vanishing
+  from the list as you filter another column is the most confusing part of cascading filter UIs.
+- 全选/清空 inside a list act on **what the search currently shows** (Excel does the same), so
+  "search 3HC → 全选" selects a whole class group in one step.
+- Every active filter renders as a `.fchip` above the table (on 词语难点 too) with its own ✕ plus
+  清除所有筛选 — a filter can never be silently in effect.
+- Ticking every value = no filter (the key is deleted), so an all-ticked column never shows a chip.
+- 学校 now displays the CANONICAL school name (the same `canonSchool()` folding 概览 uses) so the
+  filter list has one entry per school instead of one per typo; what the student actually typed
+  stays in the cell's `title` for the HOD to correct.
+
+### 验证
+**No browser run was possible: the Browser pane blocked BOTH `127.0.0.1` and `localhost` this
+session** (it worked in the previous one — it varies, so try it first before falling back). Also
+no Node, no Chrome (only Safari) on this machine.
+What WAS done instead: the page's REAL script was loaded into JavaScriptCore against a purpose-built
+tree-aware DOM stub (`innerHTML` parsing + class/id/attribute/descendant `querySelectorAll`), with a
+`window.__T` export hook appended to the IIFE — the same trick the EN-fade batch used on app.js.
+**53 assertions, all passing**, against genuinely generated markup: column model; UID truncation +
+full-uid copy button + the 已复制 confirmation; 12 sort labels and 12 filter buttons; sticky `.tbl`
+box; canonicalised 学校 cell; numeric sort order; list filter end-to-end through the real dropdown
+(distinct values, counts, apply, narrowed row count, chip, highlighted ▼); two filters stacking;
+per-chip and clear-all removal; num/text/date filters; in-dropdown search + search-scoped 清空;
+the two 英文提示 columns and their filter values; 词语难点 sharing the filter state; 概览 grid +
+按班级 counts. JS parses; CSS braces balance 102/102.
+⚠️ **This proves behaviour, not layout.** Still wants a real device pass for: the 12-column table
+on a 1024×600 Chromebook (horizontal scroll inside `.tbl`), sticky-header rendering, the dropdown's
+right-edge clamping near the last column, and `max-height:calc(100vh - 330px)` on a short screen.
+
+## 营地 v2 · 便携化改版 · 2026-08-14 (随身装备 / 地貌景观 / 自由摆放)
+
+Built from `DESIGN_营地_随身装备与自由摆放.md` (owner-approved). **Supersedes the 2026-08-13
+营地场景 section** for the catalogue, the dwelling chain, placement, and the shop. app.js +
+app.css only; no JSON, no rules, no Firestore change.
+
+**The reframe.** The camp is now two systems that behave differently on purpose:
+- **随身装备 GEAR** — player-owned, bought with 灵露, **one equipped per slot**, freely draggable.
+- **地貌景观 SCENERY** — belongs to the LOCATION. Appears by 海拔, never bought, never dragged.
+  Clutter is structurally impossible here because the system controls it, not accumulation.
+
+The rule behind every catalogue decision: **if a hiker would not carry it up the mountain, it is
+scenery or it is cut.** That is what makes the old garden shop wrong — a backpacker does not dig a
+koi pond at 800m.
+
+### Owner decisions taken this session
+- **营旗 CUT ENTIRELY** (doc §2e was an open question). The sprite never matched the pixel-art gear
+  style. Removed from the catalogue; `deco_flag.png` archived, not deleted.
+- **The tent drags too** (doc §4 open question — fixed anchor vs consistency). Consistency won, so
+  `placedItems()` includes the dwelling and there is no special-cased anchor anywhere.
+
+### Assets
+- **13 files moved to `archived_art/`, NOT deleted**: deco_well / garden / bamboofence / pavilion /
+  bridge / koipond / stonelantern / waterjar / bookchest / teatable / flag, tent_cabin, tent_tower.
+  This is the ONE exception to the flat-file-root rule (nothing references them any more). They
+  were still untracked locally, so nothing needs deleting on GitHub.
+- **11 new `gear_*.png`** from the delivery zip. They arrived alpha-cut but with **magenta edge
+  fringing** (93% of contaminated pixels sat on the alpha boundary) at ~1000px / ~1MB each. Ran the
+  repo's documented pipeline — min(R,B)−G signature + despill ramp, re-trim, LANCZOS to max 400px —
+  giving 84–191KB each, in line with the existing deco art. **Verified by compositing the real PNGs
+  onto camp_bg.png and looking at it** (full loadout, mid-game, and sparse), not by trusting the
+  numbers. Re-run that render if the art is ever regenerated.
+- ⚠️ The folder the owner first attached (`campsite_assets/`) contained **no campsite art at all** —
+  all 7 files were byte-identical to files already in the repo (the four sprite_*_raw, tileset_raw,
+  study_bg, hero_bg). The real assets came in `营地重制_交付包/campsite_gear_assets.zip`.
+
+### Data model (app.js loadStore)
+- `store.deco` — items OWNED. **Never pruned**: an archived key stays in the store so a
+  pre-便携化 purchase can still be refunded if it ever comes to that.
+- `store.equip` — slot → key, one equipped item per slot. NEW.
+- `store.decoPos` — key → {x,y} percent. NEW. `整理营地` just clears it.
+- All three are localStorage-only in the same sense the rest of the camp fields are: they ride to
+  Firestore inside the whole-store `saveProgress` write, and are NOT in mergeCloudProgress or 进度码.
+- **Legacy `cabin`/`tower` keys are still honoured by `dwellingTier()`** so anyone who bought a 木屋
+  under the old shop keeps an equivalent tier instead of silently losing 800 灵露.
+
+### Slots (§3) and what fills them
+住所 (tent → gear_tent_windproof → gear_tent_alpine, still a TIER CHAIN, not a free swap) ·
+照明 (灯笼串 / 提灯 — the first slot with a real either-or) · 探勘 (望远镜 / 罗盘架) · 饮水 (水壶架) ·
+收纳 (行军木箱) · 起居 (折叠椅) · 茶点 (野餐垫茶具) · 炊事 (野炊炉) · 干粮 (干粮袋).
+Single-item slots exist NOW so the wider portable range the owner wants later drops in with no
+refactor. 篝火/风铃/猫/木牌路标 stay **unslotted** (§2c) — small, cheap, iconic, always out.
+
+⚠️ **PRICES for the nine new gear items are MINE, not the doc's** (it specifies none). They follow
+the existing 20–1000 scale and inherit from the archived equivalent where one exists (行军木箱←书箱
+120, 野餐垫←木桌椅茶具 150, 水壶架←水缸 35→60). Single numbers in `GEAR`, trivial to retune —
+flagged exactly like the old C-tier pricing was.
+
+### 自由摆放 (§4)
+- Pointer events (one code path for mouse/touch/stylus). **`touch-action:none` on `.camp-move` is
+  required** — without it a touch drag scrolls the page instead of moving the item.
+- No press-and-hold gate: cosmetic action, not a quiz answer, so the `dwellGate` rules deliberately
+  do not apply here.
+- Drops are clamped to a ground band (`POS_BOUNDS` x 3–97, y 60–99) so nothing can be parked in the
+  sky or on the painted peaks. Z-order is derived from y live during the drag (`zFor`), so an item
+  dragged forward really does draw in front.
+- A tap that never moves does NOT rewrite the position (guarded by `drag.moved`).
+- `整理营地` resets positions to the §6 starter layout after a confirm dialog that says plainly that
+  nothing owned is lost.
+
+### Scenery thresholds (§5)
+青松 15% · 樱花树 35% · 望山台 50% · 红枫 60% · 悬泉飞瀑 80% of the stream's word count, via the
+same `sceneryUnlocked()` math the old `prestigeUnlocked()` used. ⚠️ The three tree percentages are
+the doc's PROPOSED values, flagged there for the owner to adjust.
+
+### 验证
+**No browser again** — the Browser pane blocked 127.0.0.1 and localhost this session too, and there
+is no Node/Chrome on this machine (only Safari). Instead: the REAL app.js was loaded into
+JavaScriptCore against the DOM stub, using the documented `boot()` export-hook trick, and driven
+through **57 assertions, all passing** — catalogue shape (no 营旗, no archived garden item, trees
+moved to scenery), equip exclusivity and slot swapping, the dwelling chain INCLUDING the legacy
+cabin/tower keys, position defaults and out-of-bounds clamping, scenery unlocking at 0/40/100%
+mastery, camp markup (tent draggable, scenery NOT draggable and carrying no data-key), a simulated
+pointer drag persisting to localStorage and surviving a re-render, tap-without-move not moving
+anything, 整理营地 clearing positions while keeping ownership, and the whole shop flow
+(grouping, 兑换 → auto-equip, 装备 swap, affordability, tier gating). Plus: every referenced PNG
+exists, app.js parses, CSS braces balance 620/620.
+⚠️ **Layout and touch feel are NOT proven.** Wants a device pass: dragging with a finger on an iPad,
+whether 400px sprites look right on a 1024×600 Chromebook, and whether the ground band feels correct
+at the stage's real aspect ratio.
+
+### Not done (correctly, per §7)
+New 营旗 art · whether 照明 needs more than two options · pet-follow / walking avatar (still deferred).
