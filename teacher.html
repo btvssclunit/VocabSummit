@@ -25,7 +25,7 @@
 }
 *{box-sizing:border-box}
 /* 仪表板环境背景: the same one-line ambience app.css gives every student page
-   ("study ambience: campsite backdrop under all app pages"). Fixed study_bg.png —
+   ("study ambience: campsite backdrop under all app pages"). Fixed art/bg/study_bg.png —
    teacher.html deliberately does NOT import applyAmbience() / bg-01..05, the
    teacher backdrop never changes with mastery. The old sky→sea gradient stays as
    the BOTTOM layer, so a missing PNG degrades to the previous look, not a flat
@@ -33,7 +33,7 @@
 body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.6;min-height:100vh;
   background:#EAF2F8 no-repeat fixed center/cover;
   background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),
-    url("study_bg.png"),
+    url("art/bg/study_bg.png"),
     linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 30%,var(--sky2) 56%,var(--sea1) 88%,var(--sea3) 100%)}
 h1,h2{font-family:var(--serif)}
 /* 1180px left half a 1920px screen empty on the data-dense tabs. The tables are
@@ -69,12 +69,12 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
 label{font-size:12px;font-weight:700;color:#3A5A70;display:block;margin:10px 0 5px;letter-spacing:.14em}
 .signin{max-width:400px;margin:7vh auto}
 /* ---------- 登录页 = 全屏 hero，与 index.html 的 .lp-hero 同源写法 ----------
-   Not a banner strip: landing_hero_bg.png IS the viewport background and the
+   Not a banner strip: art/bg/landing_hero_bg.png IS the viewport background and the
    sign-in card floats on it (translucent + blur), exactly like the student
    landing .lp-gate. body.gate is toggled in hideAll()/showSignedIn(), so ONLY
    the sign-in + 待审批/注册 screens get it; the dashboard keeps the study_bg
    ambience above. This is the one screen light enough to carry a full image. */
-body.gate{background:#12213F url("landing_hero_bg.png") center center/cover no-repeat fixed;
+body.gate{background:#12213F url("art/bg/landing_hero_bg.png") center center/cover no-repeat fixed;
   image-rendering:pixelated}
 body.gate .wrap{min-height:100vh;padding:24px 18px;display:flex;flex-direction:column;
   align-items:center}
@@ -206,14 +206,14 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <div class="wrap">
   <!-- 校徽 + 标题, shown only on the full-bleed 登录/审批 hero (body.gate) -->
   <div class="gate-crest">
-    <div class="ring"><img src="badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
+    <div class="ring"><img src="art/badge/badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
     <h1>教师后台</h1>
     <div class="sub">词山学海 VOCAB SUMMIT · 百德中学</div>
     <div class="sub" id="gateWho"></div>
   </div>
 
   <div class="top">
-    <div class="crest"><img src="badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
+    <div class="crest"><img src="art/badge/badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
     <h1>教师后台</h1>
     <span class="sub">词山学海 Vocab Summit · 百德中学</span>
     <span class="spacer"></span>
@@ -312,8 +312,8 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   /* 概览 icons: the five existing component badges, reused purely as category
      art (no new assets). They carry no achievement meaning here. 未填写 gets
      none — harbourCell hides its slot so the row stays aligned. */
-  var CAT_BADGE = { student: "badge_shkj.png", teacher: "badge_jj.png",
-                    parent: "badge_gg.png", public: "badge_whz.png", "": "" };
+  var CAT_BADGE = { student: "art/badge/badge_shkj.png", teacher: "art/badge/badge_jj.png",
+                    parent: "art/badge/badge_gg.png", public: "art/badge/badge_whz.png", "": "" };
   function harbourCell(n, label, img) {
     return '<div><div class="hb-icon' + (img ? '' : ' none') + '">' +
       (img ? '<img src="' + img + '" alt="" onerror="this.parentNode.style.visibility=\'hidden\'">' : '') +
@@ -585,7 +585,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   function loadWordMap() {
     _wordMap = {};
     return Promise.all(STREAMS.map(function (s) {
-      return fetch(s + ".json").then(function (r) { return r.json(); }).then(function (j) {
+      return fetch("data/" + s + ".json").then(function (r) { return r.json(); }).then(function (j) {
         j.levels.forEach(function (lv) {
           lv.units.forEach(function (u) {
             u.components.forEach(function (c) {
@@ -1023,7 +1023,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     }
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">概览</h2>' +
-      '<div class="harbour">' + harbourCell(_users.length, "总档案数", "badge_hx.png") + catHtml + '</div></div>' +
+      '<div class="harbour">' + harbourCell(_users.length, "总档案数", "art/badge/badge_hx.png") + catHtml + '</div></div>' +
       '<div class="grid2">' +
       countCard("按学校 School", bySchool, "学校") +
       countCard("按班级 Class（学生）", byClass, "班级") +
@@ -1240,12 +1240,12 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
   var _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: {} };
   var _setup = { stream: "g3", scope: {}, mode: "cloze", tier: "3", qCount: 20, durationS: 300,
-                 rainSpeed: 2, rainRamp: false, rainPy: true, rainLives: 5 };
+                 rainPy: true, rainLives: 5 };
 
   function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
   function fetchStreamJson(stream) {
     if (_arena.json[stream]) return Promise.resolve(_arena.json[stream]);
-    return fetch(stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
+    return fetch("data/" + stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
       var units = [], byKey = {};
       j.levels.forEach(function (lv) {
         lv.units.forEach(function (u) {
@@ -1272,8 +1272,10 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       '<div class="cfg-sub" id="arTierRow"><div class="cfg-sub-t">填空挑战设置</div>' +
         '<label>难度</label><div class="row" id="arTier"></div></div>' +
       '<div class="cfg-sub" id="arRainRow" style="display:none"><div class="cfg-sub-t">词雨灵露设置</div>' +
-        '<label>下落速度（1 最慢 – 8 最快）</label><div class="row" id="arRs"></div>' +
-        '<label>速度模式</label><div class="row" id="arRr"></div>' +
+        /* 2026-08-14: 下落速度 / 速度模式 removed. 词雨 is progressive-only now —
+           one course for everyone, ramping with time and restarting each round —
+           so there is nothing left to choose. */
+        '<div class="hint">下落速度由系统统一控制：每局都从最慢开始，随时间逐渐加快，全班同一套节奏。</div>' +
         '<label>拼音辅助</label><div class="row" id="arRp"></div>' +
         '<label>生命（时间制 = 只按时长结束）</label><div class="row" id="arRl"></div></div>' +
       '<div class="row"><div><label>题数</label><select id="arQ"><option>10</option><option>15</option><option selected>20</option><option>30</option></select></div>' +
@@ -1289,14 +1291,6 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("arTierRow").style.display = _setup.mode === "cloze" ? "" : "none";
     el("arRainRow").style.display = _setup.mode === "rain" ? "" : "none";
     if (_setup.mode === "rain") {
-      el("arRs").innerHTML = [0,1,2,3,4,5,6,7].map(function (i) { return '<button class="btn arRs' + (i === _setup.rainSpeed ? " primary" : "") + '" data-i="' + i + '">' + (i + 1) + '</button>'; }).join(" ");
-      Array.prototype.forEach.call(el("arRs").querySelectorAll(".arRs"), function (b) { b.onclick = function () { _setup.rainSpeed = parseInt(b.getAttribute("data-i"), 10); renderArenaSetup(panel); }; });
-      el("arRs").style.opacity = _setup.rainRamp ? ".4" : "1";
-      el("arRs").style.pointerEvents = _setup.rainRamp ? "none" : "auto";
-      el("arRr").innerHTML = '<button class="btn' + (!_setup.rainRamp ? " primary" : "") + '" id="arRrF">固定速度</button> ' +
-        '<button class="btn' + (_setup.rainRamp ? " primary" : "") + '" id="arRrR">递增（从最慢起逐波加速）</button>';
-      el("arRrF").onclick = function () { _setup.rainRamp = false; renderArenaSetup(panel); };
-      el("arRrR").onclick = function () { _setup.rainRamp = true; renderArenaSetup(panel); };
       el("arRp").innerHTML = '<button class="btn' + (_setup.rainPy ? " primary" : "") + '" id="arRpY">显示拼音</button> ' +
         '<button class="btn' + (!_setup.rainPy ? " primary" : "") + '" id="arRpN">隐藏拼音</button>';
       el("arRpY").onclick = function () { _setup.rainPy = true; renderArenaSetup(panel); };
@@ -1351,7 +1345,9 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         expiresAt: firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 6 * 3600 * 1000)), playerCount: 0
       };
       if (_setup.mode === "rain") {
-        roomDoc.gameCfg = { speed: _setup.rainSpeed, ramp: _setup.rainRamp, py: _setup.rainPy, lives: _setup.rainLives };
+        /* no speed/ramp keys any more: arena.js uses its own progressive ramp,
+           the same one the solo game uses. Old rooms carrying them are ignored. */
+        roomDoc.gameCfg = { py: _setup.rainPy, lives: _setup.rainLives };
       }
       return doc.set(roomDoc).then(function () { _arena.code = code; _arena.players = []; _arena.room = null; subscribeArena(); renderArena(panel); });
     }).catch(function (e) { m.className = "msg bad"; m.textContent = "创建失败：" + (e.code || e.message) + "（请确认 rooms 规则已发布）。"; });

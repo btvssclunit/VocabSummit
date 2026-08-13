@@ -317,7 +317,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .rain-area{position:relative;flex:1;overflow:hidden;border-radius:16px;
   background:linear-gradient(180deg,rgba(234,244,250,.55) 0%,rgba(186,214,232,.5) 70%,rgba(46,99,145,.55) 100%);
   border:1px solid rgba(255,255,255,.5)}
-.rain-area{background-image:url("rain_bg.png"),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));
+.rain-area{background-image:url("art/bg/rain_bg.png"),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));
   background-size:cover;background-position:center bottom;image-rendering:pixelated}
 .rain-sea{opacity:.35}
 .rainfx{position:absolute;background-repeat:no-repeat;image-rendering:pixelated;pointer-events:none;z-index:3;
@@ -339,6 +339,46 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
   .rain-word .rp{font-size:13px}
 }
 .rain-input-row{display:flex;gap:10px}
+/* ---------- 同伴挑战 PK ---------- */
+.mtn-pk{background:rgba(180,74,60,.9)}
+.pk-scope{background:#F1F6FB;border:1px solid #DBE7F1;border-radius:12px;padding:10px 14px;
+  margin:10px 0 4px;font-size:14px;color:var(--ink)}
+.pk-scope b{font-family:var(--serif);color:var(--gold-deep);font-size:17px}
+.pk-scope-note{display:block;font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.6}
+/* ---- 词雨 landscape split (DESIGN_peer_pk_duel §3, 2026-08-14) ----
+   Falling words left, HUD + room code + typing input right. The input used to
+   run full width UNDER the falling area and take vertical space from it; giving
+   it its own column hands that height back to the words, and gives the PK room
+   code a permanent home that is not a banner over the gameplay.
+   Applies to SOLO 词雨 too — one visual language across modes. */
+.rain-right{display:flex;flex-direction:column;gap:10px}
+.rain-code{background:rgba(18,42,66,.85);color:#EAF4FA;border-radius:12px;
+  padding:7px 14px;font-size:13px;letter-spacing:.06em;text-align:center;flex:none}
+.rain-code b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:19px;
+  color:var(--sun);letter-spacing:.14em;margin-left:6px}
+@media (min-width:900px) and (orientation:landscape){
+  .rain-shell{flex-direction:row;align-items:stretch;gap:14px}
+  /* min-width:0 for the same reason the sprint split needs it: a flex item
+     defaults to min-width:auto and refuses to shrink below its content, which
+     pushed .sprint-right off-screen when that layout shipped untested. */
+  /* NOT a 50/50 split (owner 2026-08-14): the falling area still owns most of
+     the screen — the point of the split is only to get the typing field OUT from
+     underneath it, so the words get that vertical space back. The right column
+     is sized to what the input actually needs, not to a share of the width. */
+  .rain-area{flex:1 1 auto;min-width:0}
+  .rain-right{flex:0 0 clamp(190px,23%,290px);min-width:0;justify-content:flex-start}
+  .rain-hud{flex-wrap:wrap;gap:8px 14px;padding:9px 12px;font-size:13px}
+  .rain-right .rain-input-row{flex-direction:column}
+  .rain-right .rain-input-row .check-btn{width:100%}
+  .rain-input-row{margin-top:auto}   /* input sits at thumb height, not mid-column */
+  .rain-code{order:-1}
+}
+/* portrait / phones: stacked, and the code is pinned at the TOP of the stack
+   (it is first in the DOM), never trailing after the canvas where it would sit
+   below the fold on exactly the screens with the least room. */
+@media not all and (min-width:900px) and (orientation:landscape){
+  .rain-code{margin-bottom:0}
+}
 
 /* ---------- 词语汉兜 ---------- */
 .handle-hintrow{display:flex;gap:9px;justify-content:center;margin-bottom:10px}
@@ -642,7 +682,7 @@ button.mtn-pill:active{transform:scale(.96)}
 /* ===== Landing v2 · 8-bit hero (landscape-first) ===== */
 .lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow-y:auto;overflow-x:hidden}
 .lp-hero{position:relative;width:100vw;height:100vh;
-  background:url("landing_hero_bg.png") center center/cover no-repeat;
+  background:url("art/bg/landing_hero_bg.png") center center/cover no-repeat;
   image-rendering:pixelated}
 .lp-logo{position:absolute;left:50%;top:18vh;transform:translateX(-50%);width:min(44vw,560px);
   image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55));
@@ -762,7 +802,7 @@ button.mtn-pill:active{transform:scale(.96)}
   .lp-body{overflow:auto}
   .lp-hero{position:relative;width:100%;height:auto;min-height:100vh;padding:0 0 26px;
     display:flex;flex-direction:column;align-items:center;
-    background:url("landing_hero_bg.png") center top/cover no-repeat;background-color:#12213F}
+    background:url("art/bg/landing_hero_bg.png") center top/cover no-repeat;background-color:#12213F}
   .lp-logo{position:relative;left:auto;top:auto;transform:none;display:block;
     margin:5vh auto 0;width:min(72vw,400px);animation:none}
   .lp-school{position:relative;left:auto;top:auto;transform:none;display:block;
@@ -781,7 +821,7 @@ button.mtn-pill:active{transform:scale(.96)}
 
 /* ===== study ambience: campsite backdrop under all app pages ===== */
 body{background:#EAF2F8 no-repeat fixed center/cover;
-  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("study_bg.png")}
+  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("art/bg/study_bg.png")}
 .mh-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 18%;
   image-rendering:pixelated}
 .mini-horizon .app-zh,.mini-horizon .mtn-enter{z-index:2}
@@ -901,7 +941,7 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
 /* ===== 我的词山 · static illustrated mountain (v0.4 redesign 2026-08-10) ===== */
 .mtn2-wrap{position:relative;padding:4px 0 14px}
 .mtn2-stage{position:relative;aspect-ratio:1672/941;width:min(96vw,124vh);max-width:1180px;
-  margin:2px auto;background:url("mountain_bg.png") center/cover no-repeat;image-rendering:pixelated;
+  margin:2px auto;background:url("art/bg/mountain_bg.png") center/cover no-repeat;image-rendering:pixelated;
   border-radius:14px;overflow:hidden;box-shadow:0 12px 34px rgba(12,30,48,.42)}
 .mtn2-pin{position:absolute;transform:translate(-50%,-50%);border:0;cursor:pointer;padding:0;
   display:grid;place-items:center;border-radius:50%;line-height:1;font-size:13px;
@@ -930,7 +970,7 @@ button.m2pill{cursor:pointer}
 .camp2-wrap{position:relative;padding:4px 0 14px}
 .camp2-stage{position:relative;aspect-ratio:1672/941;width:min(96vw,124vh);max-width:1180px;
   margin:2px auto;border-radius:14px;overflow:hidden;box-shadow:0 12px 34px rgba(12,30,48,.42);
-  background:#3F704F}   /* fallback tone if camp_bg.png fails to load */
+  background:#3F704F}   /* fallback tone if art/camp/camp_bg.png fails to load */
 .camp2-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
 .camp2-bg-fallback{background:linear-gradient(180deg,#DFEDF7,#5B8A66)}
 .camp2-bg-fallback .camp2-bg{display:none}

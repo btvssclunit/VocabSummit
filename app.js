@@ -47,11 +47,11 @@
     "文化器物": ["玉盘","算盘","香囊","罗盘","折扇","灯笼","竹简","印玺","锦囊","铜镜"]
   };
   var BADGE_IMG = {
-    "生活空间": "badge_shkj.png",
-    "核心": "badge_hx.png",
-    "巩固": "badge_gg.png",
-    "进阶": "badge_jj.png",
-    "文化站": "badge_whz.png"
+    "生活空间": "art/badge/badge_shkj.png",
+    "核心": "art/badge/badge_hx.png",
+    "巩固": "art/badge/badge_gg.png",
+    "进阶": "art/badge/badge_jj.png",
+    "文化站": "art/badge/badge_whz.png"
   };
 
   var DATA = null;
@@ -197,8 +197,8 @@
     s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
     s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
     s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
-    s.rainSpeed = (s.rainSpeed != null) ? s.rainSpeed : 3; // 词雨 speed level index (0-7), default mid
-    s.rainRamp = s.rainRamp || false;  // 词雨 递增速度 mode (false = 固定速度)
+    /* rainSpeed / rainRamp retired 2026-08-14: 词雨 is progressive-only now.
+       Old values may linger in a student's store; nothing reads them. */
     s.diff = s.diff || ((STREAM === "g1" || STREAM === "g2") ? "2" : "3");  // cloze difficulty: 2|3|4|type
     s.pyAid = s.pyAid || false;        // 拼音辅助: 学生自选，默认关闭
     /* 英文提示 (G1/G2): 导航/按钮外壳文字下方的极小字号英文注释。学生自选，默认关闭。
@@ -217,11 +217,17 @@
     s.enTel.promptTerm = s.enTel.promptTerm || "";           // 学期上限用
     s.enTel.promptTermCount = s.enTel.promptTermCount || 0;
     s.enTel.regressionAt = s.enTel.regressionAt || 0;        // 回退旗标: 记录当时的 sessionsTotal
+    s.pkMode = s.pkMode || "cloze";    // 同伴挑战 题型
+    s.pkDur = s.pkDur || 300;          // 同伴挑战 时长(秒)
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
     s.quizMode = s.quizMode || "cloze"; // 学习挑战 题型: cloze|zhmcq|enmcq (§2.1 merged entry)
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
-    s.lingLu = s.lingLu || 0;          // 灵露 currency (number), earned in 词雨灵露
+    s.lingLu = s.lingLu || 0;          // 灵露 currency (number)
+    /* per-WORD-TEXT lifetime correct count, drives the 灵露 decay curve.
+       Separate from mastered/gymTodo on purpose: those are learning STATE,
+       this is an earnings ledger. Not in 进度码 (it is economy, not progress). */
+    s.wins = s.wins || {};
     s.deco = s.deco || {};             // 营地商店 items OWNED: key -> 1 (never pruned:
                                        // an archived key stays put so a pre-便携化
                                        // purchase can still be refunded if it comes to that)
@@ -485,6 +491,65 @@
     bankPts(earned);
     return earned;
   }
+  /* ================= 灵露 award engine (DESIGN_economy_pricing_2026-08-14) =====
+     灵露 = base × tier × pinyin × decay, on correct answers only. It sits BESIDE
+     历练值 and must never be confused with it: 历练值 rewards effort and streaks
+     (depth), 灵露 is spending money. Both are computed at the same call sites.
+
+     ⚠️ LINGLU_BASE is MINE — the design doc gives the formula but no base_rate.
+     Derived from its own anchor «1 session ≈ 30 灵露 at steady state»: a 修行
+     session is 20 questions at tier 1x, and by then most words sit in the
+     25%/10% decay bands (~0.15 average), so 30 / (20 × 0.15) ≈ 10. The doc
+     itself asks for a re-calibration from real Firestore data after 3–4 weeks —
+     that is the moment to revisit this single number.
+     ⚠️ 词雨 generates far more than 30/session because a round has far more
+     correct answers than 20. That is intended: the decay curve is what reins it
+     in once a student has been through the word pool.                        */
+  var LINGLU_BASE = 10;
+  var LINGLU_TIER = {          // §1.1 效果分级: harder recall earns more
+    flash: 0.5,                // 词语闪卡 — passive self-rating
+    cloze: 1, zhmcq: 1, enmcq: 1,   // standard MCQ (baseline)
+    sprint: 1.25,              // 攀山竞速 — timed MCQ
+    assemble: 1.5,             // 组词挑战 — assembly, no free typing
+    handle: 2, rain: 2, pinyin: 2   // free typing, nothing to recognise from
+  };
+  var LINGLU_TYPED = { handle: 1, rain: 1, pinyin: 1 };   // where §1.2 applies
+  var LINGLU_PY_MOD = 0.65;    // 拼音辅助 on, typing modes only
+  var LINGLU_DECAY = [1.0, 0.5, 0.25, 0.10];              // §1.3, 4th+ floors at 10%
+  /* lifetime correct count per WORD TEXT, shared across every mode (§1.3).
+     Text, not id, is the natural key — the same word in two streams is the same
+     word to a student. NOTE: this counts within THIS stream's store; a真 cross-
+     stream union would need the same load-time pass mastery carryover uses. */
+  function winsOf(w) { return store.wins[w.w] || 0; }
+  function inGymTodo(w) {
+    var lv, t = store.gymTodo;
+    for (lv in t) if (t.hasOwnProperty(lv) && t[lv] && t[lv][w.id]) return true;
+    return false;
+  }
+  function lingLuFor(w, mode) {
+    var tier = LINGLU_TIER[mode];
+    if (!tier || !w) return 0;
+    var idx = Math.min(winsOf(w), LINGLU_DECAY.length - 1);
+    /* 待巩固 复习补偿: a word that fell back into the 待巩固 list climbs one decay
+       band when it is recovered. 历练值 already rewards spaced review; 灵露 must
+       not quietly punish it. */
+    if (inGymTodo(w)) idx = Math.max(0, idx - 1);
+    var py = (LINGLU_TYPED[mode] && store.pyAid) ? LINGLU_PY_MOD : 1;
+    return Math.max(1, Math.round(LINGLU_BASE * tier * py * LINGLU_DECAY[idx]));
+  }
+  /* call on a CORRECT answer, at the same point scoreCorrect is called and
+     BEFORE gymNote clears the word from 待巩固 (or the compensation is lost).
+     Returns the amount so callers can show it. */
+  function awardLingLu(w, mode, defer) {
+    var n = lingLuFor(w, mode);
+    store.wins[w.w] = winsOf(w) + 1;
+    /* defer = 词雨 only: the run collects into the barrel and banks at game over,
+       so the wallet must not tick up mid-round. The wins counter still advances
+       immediately, or a word caught twice in one round would not decay. */
+    if (n && !defer) store.lingLu += n;
+    return n;
+  }
+
   /* +10 once per word ever, the moment 海拔 increases. Guarded so a 进度码 restore
      or device change cannot fire it twice. */
   function awardMasteryBonus(w) {
@@ -592,13 +657,13 @@
      The whole-app body backdrop evolves with overall mastery, shared across all
      four courses. bg-01..04 rotate by progression tier; bg-05 is the reward scene
      shown only once the course is complete (顶级词王). */
-  var AMBIENCE = ["bg-01-staircase-sunrise.png", "bg-02-bamboo-forest.png",
-                  "bg-03-ridge-clouds.png", "bg-04-snowpass-dusk.png"];
+  var AMBIENCE = ["art/bg/bg-01-staircase-sunrise.png", "art/bg/bg-02-bamboo-forest.png",
+                  "art/bg/bg-03-ridge-clouds.png", "art/bg/bg-04-snowpass-dusk.png"];
   function applyAmbience() {
     if (!WORDS.length) return;
     var img;
     if (store.badges && store.badges["t4"]) {
-      img = "bg-05-summit-pavilion.png";                 // course complete: reward scene
+      img = "art/bg/bg-05-summit-pavilion.png";                 // course complete: reward scene
     } else {
       var frac = Object.keys(store.mastered).length / WORDS.length;
       var i = Math.min(AMBIENCE.length - 1, Math.floor(frac * AMBIENCE.length));
@@ -691,7 +756,7 @@
     if (it.tier === 1) {
       cls = "t1"; title = "板块章解锁！";
       sub = it.level + " · " + it.unit + " · " + it.component;
-      badgeHtml = '<img class="cel-img" src="' + (BADGE_IMG[it.component] || "badge_hx.png") + '" alt="">';
+      badgeHtml = '<img class="cel-img" src="' + (BADGE_IMG[it.component] || "art/badge/badge_hx.png") + '" alt="">';
       q = CEL_T1[_t1i++ % CEL_T1.length];
     } else if (it.tier === 2) {
       cls = "t2"; title = "单元章达成！";
@@ -808,26 +873,119 @@
     var rk = currentRank();
     var togo = rk.next ? '<span class="mtn-rank-next">再 ' + fmtNum(rk.next.at - rk.total) + ' 历练值 → ' + esc(rk.next.name) + '</span>' : '<span class="mtn-rank-next">已达最高段位</span>';
     return '<div class="mini-horizon horizon">' +
-      '<img class="mh-img" src="landing_hero_bg.png" alt="">' +
+      '<img class="mh-img" src="art/bg/landing_hero_bg.png" alt="">' +
       '<div class="app-zh">' + META.zh + '</div>' +
       '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
       '<span class="mtn-arena" id="arenaPill">🏔️ 加入结伴登峰</span>' +
+      '<span class="mtn-arena mtn-pk" id="pkPill">⚔️ 同伴挑战</span>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
+  }
+  /* Shared by 结伴登峰 and 同伴挑战: a correct answer in a room marks the word
+     mastered (海拔) and NOTHING else — never scoreCorrect, never 灵露.
+     ids are validated against OUR word list before use, because 海拔 is
+     Object.keys(store.mastered).length and a foreign id from a cross-stream host
+     would silently inflate this student's altitude with a word that does not
+     exist in their stream. texts are the cross-stream join key (ids are
+     stream-scoped by design, same rule the mastery-carryover design uses). */
+  function conferMasteryFromRoom(ids, texts) {
+    var changed = false, mine = {}, valid = {}, want = {};
+    WORDS.forEach(function (w) { valid[w.id] = 1; });
+    (ids || []).forEach(function (id) { if (valid[id]) mine[id] = 1; });
+    if (texts && texts.length) {
+      texts.forEach(function (t) { want[t] = 1; });
+      WORDS.forEach(function (w) { if (want[w.w]) mine[w.id] = 1; });
+    }
+    Object.keys(mine).forEach(function (id) {
+      if (!store.mastered[id]) { store.mastered[id] = 1; changed = true; }
+    });
+    if (changed) { saveStore(); checkBadges(true); applyAmbience(); }
   }
   /* open the 结伴登峰 live room (arena.js). Awards 海拔 (mastery) but NO 历练值/灵露. */
   function openArena() {
     if (!window.WSArena || !window.WSArena.open) { alert("结伴登峰暂不可用，请刷新页面后再试。"); return; }
-    window.WSArena.open({
+    window.WSArena.open(arenaCtx());
+  }
+
+  /* ================= 同伴挑战 · PK对决 (DESIGN_peer_pk_duel.md) =================
+     Student-hosted sibling of 结伴登峰. The host PLAYS like everyone else (§2),
+     so app.js only owns the setup screen — arena.js owns the room itself.
+     Owner decisions 2026-08-14:
+       · win condition = fixed time, most correct (ties broken by time answering)
+       · word pool     = the host picks it for everyone, using the SAME 复习范围
+                         they use for their own revision
+       · late joiners  = no. Reconnection of an existing player only.
+       · who can play  = anyone with the code — any 身份 (学生/老师/家长/公众) and
+                         ANY stream. A form class holds mixed subject levels and
+                         the owner wants them playing together; it may also become
+                         a family game.
+     Reward is cosmetic only: a PK round awards NO 历练值 / 灵露, and mastery is
+     conferred exactly as 结伴登峰 does. Without that rule PK becomes a shortcut
+     around the mastery gate that rewards fast typing over knowing the word. */
+  var PK_MODES = [
+    { k: "cloze", label: "✍️ 填空挑战" },
+    { k: "zhmcq", label: "🔎 华文解释" },
+    { k: "enmcq", label: "🌐 英文翻译" }
+  ];
+  var PK_DURATIONS = [[180, "3 分钟"], [300, "5 分钟"], [480, "8 分钟"]];
+  function arenaCtx() {
+    return {
       stream: STREAM,
       words: WORDS,
       profile: loadProfile() || {},
       getUid: function (cb) { if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null); },
-      conferMastery: function (ids) {
-        var changed = false;
-        (ids || []).forEach(function (id) { if (!store.mastered[id]) { store.mastered[id] = 1; changed = true; } });
-        if (changed) { saveStore(); checkBadges(true); applyAmbience(); }   // 海拔 only, never scoreCorrect
-      }
+      conferMastery: conferMasteryFromRoom
+    };
+  }
+  function renderPkConfig() {
+    if (!window.WSArena || !window.WSArena.host) { alert("同伴挑战暂不可用，请刷新页面后再试。"); return; }
+    setTopbar("home", "");
+    var pool = scopedWords();
+    var mode = store.pkMode || "cloze", dur = store.pkDur || 300;
+    view().innerHTML = '<div class="game-config card">' +
+      '<div class="mode-name">⚔️ 同伴挑战 · PK对决</div>' +
+      '<div class="mode-desc">和朋友比一比：同一套题，限时内谁答对得多谁赢。' +
+      '答对的词照样计入「已掌握」，但对决<b>不计历练值、不计灵露</b>，纯粹为了好玩。<br>' +
+      '2 至 ' + 8 + ' 人。开局后不能中途加入，掉线的人可以用房间号回来。</div>' +
+      '<div class="pk-scope">出题范围：<b>' + pool.length + '</b> 词' +
+      '<span class="pk-scope-note">用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。</span></div>' +
+      '<div class="diff-label">' + stepNo(1) + '题型</div><div class="diff" id="pkMode">' +
+      PK_MODES.map(function (m) {
+        return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
+      }).join("") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '时长</div><div class="diff" id="pkDur">' +
+      PK_DURATIONS.map(function (d) {
+        return '<button class="dopt' + (d[0] === dur ? " on" : "") + '" data-d="' + d[0] + '">' + d[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="nav-row" style="flex-wrap:wrap">' +
+      '<button class="nav-btn" id="pkBack">‹ 返回</button>' +
+      '<button class="nav-btn" id="pkJoin">加入朋友的房间</button>' +
+      '<button class="nav-btn primary" id="pkHost">开一个房间 ›</button></div></div>';
+    Array.prototype.forEach.call(view().querySelectorAll("#pkMode .dopt"), function (b) {
+      b.onclick = function () { store.pkMode = b.getAttribute("data-m"); saveStore(); renderPkConfig(); };
     });
+    Array.prototype.forEach.call(view().querySelectorAll("#pkDur .dopt"), function (b) {
+      b.onclick = function () { store.pkDur = parseInt(b.getAttribute("data-d"), 10); saveStore(); renderPkConfig(); };
+    });
+    document.getElementById("pkBack").onclick = renderHome;
+    document.getElementById("pkJoin").onclick = function () { window.WSArena.open(arenaCtx()); };
+    document.getElementById("pkHost").onclick = function () {
+      var words = scopedWords();
+      /* cloze rooms must only serve words that actually have a blank — the same
+         filter the teacher console applies, for the same reason: 填空挑战 never
+         shows a question without a valid __ . */
+      if (store.pkMode === "cloze") {
+        words = words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
+      }
+      if (words.length < 4) {
+        alert("所选范围可用的词太少（这个题型至少需要 4 个）。请回「修行」页多选几个单元。");
+        return;
+      }
+      var ids = shuffle(words.slice()).slice(0, 40).map(function (w) { return w.id; });
+      window.WSArena.host(arenaCtx(), {
+        mode: store.pkMode || "cloze", tier: store.diff === "type" ? "3" : (store.diff || "3"),
+        wordIds: ids, durationS: store.pkDur || 300
+      });
+    };
   }
 
   /* ---------- home ---------- */
@@ -930,7 +1088,7 @@
     var compPresent = {};
     COMP_LIST.forEach(function (c) { compPresent[c.component] = 1; });
     badgeOrder.filter(function (comp) { return compPresent[comp]; }).forEach(function (comp) {
-      html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "badge_hx.png") + '" alt=""></span>';
+      html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "art/badge/badge_hx.png") + '" alt=""></span>';
     });
     html += '<span class="badge-note">成就徽章' + enli("成就徽章") + ' · ' + badgeCount + '/' + badgeTotal +
       '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
@@ -989,6 +1147,8 @@
     if (mh) mh.onclick = startMountain;
     var arenaPill = document.getElementById("arenaPill");
     if (arenaPill) arenaPill.onclick = function (e) { e.stopPropagation(); openArena(); };
+    var pkPill = document.getElementById("pkPill");
+    if (pkPill) pkPill.onclick = function (e) { e.stopPropagation(); renderPkConfig(); };
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
@@ -1040,7 +1200,7 @@
           var got = store.badges[badgeKeyC(c)];
           var done = c.ids.filter(function (id) { return store.mastered[id]; }).length;
           html += '<div class="ach-badge' + (got ? "" : " locked") + '">' +
-            '<img src="' + (BADGE_IMG[c.component] || "badge_hx.png") + '" alt="">' +
+            '<img src="' + (BADGE_IMG[c.component] || "art/badge/badge_hx.png") + '" alt="">' +
             '<span class="ach-badge-name">' + esc(c.component) + '</span>' +
             (c.textTitle ? '<span class="ach-badge-title">' + esc(c.textTitle) + '</span>' : '') +
             '<span class="ach-badge-count">' + done + '/' + c.ids.length + '</span></div>';
@@ -1184,7 +1344,7 @@
     var scope = store.lbScope || "school", board = store.lbBoard || "alt";
     var headline =
       board === "sprint90" ? "只统计 90 秒的攀山竞速 · 比的是答对题数，答错要倒扣 3 秒。"
-      : board === "rainRamp" ? "只统计「递增速度」的词雨灵露 · 比的是同一套加速节奏下的得分。"
+      : board === "rainRamp" ? "词雨灵露 · 每局都从最慢开始、随时间加速，所有人跑的是同一套节奏。"
       : board === "pts" ? (store.lbTerm === "week" ? "本周历练值 · 每周日重新开始。"
           : store.lbTerm === "total" ? "累计历练值 · 永不清零。"
           : "本学期历练值 · 每学期重新开始，累计历练值永不清零。")
@@ -1772,9 +1932,15 @@
         state.correct++;
         if (!pyMode) {
           var gained = scoreCorrect(w, CLOZE_BASE[store.diff] || 2, attempt || 1, entering, wasMastered);
+          awardLingLu(w, "cloze");   // before gymNote, or the 待巩固 补偿 is lost
           markMastered(w);        // fires the +10 first-mastery bonus inside
           gymNote(w.id);
           showGain(gained);
+        } else {
+          /* 打拼音 still earns 灵露 (2026-08-14 economy doc lists it at tier 2x
+             with the 拼音 modifier). It remains 练习不计分 for 历练值/海拔 —
+             effort currency and learning credit are deliberately different things. */
+          awardLingLu(w, "pinyin");
         }
         sfxOk();
       }
@@ -1900,6 +2066,7 @@
             state.correct++; sfxOk(); gymNote(w.id);
             /* 华文解释/英文翻译 do not confer mastery, so no +10 here — depth only */
             gained = scoreCorrect(w, PTS_BASE[state.mode] || 2, 1, entering, wasMastered);
+            awardLingLu(w, state.mode);
           }
           else if (state.gym) state.wrong[w.id] = 1;
           bump(state.mode, right);
@@ -2027,18 +2194,21 @@
      (clear it high = more points). 3 lives; a word reaching the sea
      costs one. Waves speed up gently. Personal best only, this device.
      ================================================================== */
-  /* G-2: 8-step speed table with a much slower floor. 递增模式 walks UP this
-     table one step per wave (no extra multiplier); 固定模式 stays put. */
-  var RAIN_SPEEDS = [
-    { k: "s1", label: "1 · 微风细雨", fall: 10, spawn: 6000 },
-    { k: "s2", label: "2 · 春雨绵绵", fall: 14, spawn: 5200 },
-    { k: "s3", label: "3 · 悠然登山", fall: 19, spawn: 4600 },
-    { k: "s4", label: "4 · 稳步向前", fall: 25, spawn: 4000 },
-    { k: "s5", label: "5 · 渐入佳境", fall: 32, spawn: 3400 },
-    { k: "s6", label: "6 · 疾风骤雨", fall: 40, spawn: 2900 },
-    { k: "s7", label: "7 · 狂风暴雨", fall: 50, spawn: 2400 },
-    { k: "s8", label: "8 · 雷霆万钧", fall: 62, spawn: 2000 }
-  ];
+  /* 2026-08-14 (economy doc §2): the 8-step speed table and the 固定/递增 toggle
+     are GONE. One mode only — speed ramps with TIME inside a round and restarts
+     from base every round, so a student playing five rounds is never quietly
+     handed a harder course than someone playing one.
+     ⚠️ These five numbers are the tuning surface the doc asked for (it left the
+     curve to feel-testing). RAMP_SECS is how long to reach full speed. */
+  var RAIN_BASE_FALL = 12, RAIN_MAX_FALL = 62;      // px/s
+  var RAIN_BASE_SPAWN = 5600, RAIN_MIN_SPAWN = 2000; // ms between drops
+  var RAIN_RAMP_SECS = 90;
+  function rainCfgAt(elapsedS) {
+    var p = Math.min(1, Math.max(0, elapsedS) / RAIN_RAMP_SECS);
+    return { fall: RAIN_BASE_FALL + (RAIN_MAX_FALL - RAIN_BASE_FALL) * p,
+             spawn: RAIN_BASE_SPAWN - (RAIN_BASE_SPAWN - RAIN_MIN_SPAWN) * p,
+             pct: Math.round(p * 100) };
+  }
   /* 排行榜扩展 (DESIGN_排行榜扩展_周榜与游戏数据):
      - Only a 90-second 攀山竞速 run and a 递增速度 词雨 run count toward the two
        speed boards, so everyone is ranked on the same course. Other configs stay
@@ -2103,56 +2273,24 @@
     setTopbar("home", "");
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">🌧️ 词雨灵露' + enli("词雨灵露") + '</div>' +
-      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
-      '<div class="diff-label">' + stepNo(1) + '速度模式' + enl("速度模式") + '</div><div class="diff" id="rampSel">' +
-      '<button class="dopt' + (!store.rainRamp ? " on" : "") + '" data-r="0">🔒 固定速度</button>' +
-      '<button class="dopt' + (store.rainRamp ? " on" : "") + '" data-r="1">📈 递增速度（从最慢开始，逐波加速）</button></div>' +
-      '<div class="diff-label" id="speedLbl">' + stepNo(2) + '下落速度' + enl("下落速度") + '</div><div class="diff" id="speedSel">' +
-      RAIN_SPEEDS.map(function (s, i) {
-        return '<button class="dopt' + (i === store.rainSpeed ? " on" : "") + '" data-i="' + i + '">' + s.label + '</button>';
-      }).join("") + '</div>' +
+      '<div class="mode-name">\ud83c\udf27\ufe0f 词雨灵露' + enli("词雨灵露") + '</div>' +
+      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。<br>雨势会越下越急 —— 每一局都从最慢开始。</div>' +
       '<div class="diff-label">拼音辅助' + enl("拼音辅助") + '</div><div class="diff">' +
       '<button class="dopt on" id="pySel">在词语下方显示拼音</button></div>' +
-      '<div class="rain-best">本机最高分：<b>' + best + '</b> · ❤️ 生命 ' + RAIN_LIVES + '</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
-      '<button class="nav-btn primary" id="go">开始游戏 ›' + enli("开始游戏") + '</button></div></div>';
-    var speedIdx = store.rainSpeed, showPy = true, ramp = !!store.rainRamp;
-    function syncSpeedEnabled() {
-      // in 递增 mode the speed picker is ignored (always starts slowest)
-      var sel = document.getElementById("speedSel"), lbl = document.getElementById("speedLbl");
-      sel.style.opacity = ramp ? ".4" : "1";
-      sel.style.pointerEvents = ramp ? "none" : "auto";
-      /* innerHTML, not textContent: this label carries the step numeral and the
-         英文提示 gloss, and textContent would wipe both */
-      lbl.innerHTML = stepNo(2) + (ramp ? "下落速度（递增模式由最慢自动加速）" : "下落速度") + enl("下落速度");
-    }
-    syncSpeedEnabled();
-    Array.prototype.forEach.call(view().querySelectorAll("#rampSel .dopt"), function (b) {
-      b.onclick = function () {
-        Array.prototype.forEach.call(view().querySelectorAll("#rampSel .dopt"), function (x) { x.classList.remove("on"); });
-        b.classList.add("on");
-        ramp = b.getAttribute("data-r") === "1";
-        store.rainRamp = ramp; saveStore();
-        syncSpeedEnabled();
-      };
-    });
-    Array.prototype.forEach.call(view().querySelectorAll("#speedSel .dopt"), function (b) {
-      b.onclick = function () {
-        Array.prototype.forEach.call(view().querySelectorAll("#speedSel .dopt"), function (x) { x.classList.remove("on"); });
-        b.classList.add("on");
-        speedIdx = parseInt(b.getAttribute("data-i"), 10);
-        store.rainSpeed = speedIdx; saveStore();
-      };
-    });
+      '<div class="rain-best">本机最高分：<b>' + best + '</b> · \u2764\ufe0f 生命 ' + RAIN_LIVES + '</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 回营地' + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始游戏 \u203a' + enli("开始游戏") + '</button></div></div>';
+    var showPy = true;
     document.getElementById("pySel").onclick = function () {
       showPy = !showPy; this.classList.toggle("on", showPy);
     };
     document.getElementById("back").onclick = renderHome;
-    document.getElementById("go").onclick = function () { startRain(speedIdx, showPy, ramp); };
+    document.getElementById("go").onclick = function () { startRain(showPy); };
   }
-  function startRain(speedIdx, showPy, rainRamp) {
-    var cfg = RAIN_SPEEDS[speedIdx];
+  /* roomCode: 同伴挑战 PK rooms pass it so it stays visible for the WHOLE session
+     (not just the lobby) — a friend who drops can glance at any player's screen and
+     rejoin. Solo play passes nothing and the element is not rendered at all. */
+  function startRain(showPy, roomCode) {
     var pool = scopedWords().filter(function (w) { return w.w.length <= 4; });
     if (pool.length < 8) {
       alert("所选范围内适合词雨灵露的词语不足（需要至少 8 个 1–4 字的词语）。请扩大复习范围。");
@@ -2161,26 +2299,45 @@
     setTopbar("home", "");
     view().innerHTML =
       '<div class="rain-shell">' +
+      /* room code lives FIRST in the DOM so the portrait stack pins it at the very
+         top (DESIGN_peer_pk_duel §3): the whole point is glanceability on a
+         reconnect, and below the fold on a phone defeats that. In landscape CSS
+         moves it into the right column. Absent entirely in solo play. */
+      (roomCode ? '<div class="rain-code" id="rCode">房间号 <b>' + esc(roomCode) + '</b></div>' : "") +
+      '<div class="rain-area" id="rArea"><div class="rain-fx"></div><div class="rain-sea"></div>' +
+      '<div class="rain-barrel" id="rBarrel"><div class="rain-water" id="rWater"></div>' +
+      '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
+      '<div class="rain-right">' +
       '<div class="rain-hud">' +
       '<span>得分 <b id="rScore">0</b></span>' +
       '<span>连击 <b id="rCombo">×1</b></span>' +
       '<span>波次 <b id="rWave">1</b></span>' +
       '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span>' +
       '<button class="nav-btn" id="rPause" style="margin-left:auto;padding:6px 14px">⏸ 暂停</button></div>' +
-      '<div class="rain-area" id="rArea"><div class="rain-fx"></div><div class="rain-sea"></div>' +
-      '<div class="rain-barrel" id="rBarrel"><div class="rain-water" id="rWater"></div>' +
-      '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
       '<div class="rain-input-row">' +
       '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
-      '<button class="check-btn" id="rFire">收集</button></div></div>';
+      '<button class="check-btn" id="rFire">收集</button></div></div></div>';
 
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
     var live = [];          // {el, w, x, y, sway, phase}
     var score = 0, combo = 1, cleared = 0, lives = RAIN_LIVES, wave = 1, dew = 0;
-    var maxLive = (window.innerWidth <= 480) ? 4 : 7;   // U-4: fewer words on-screen on phones
+    /* §3 flags that the pacing was tuned for a full-width area and needs a retune
+       after the split. Rather than guess new numbers blind, both knobs are now
+       DERIVED from the area's real size, so the feel is layout-independent:
+       - crowding scales with WIDTH (a 62% column has fewer lanes than full width)
+       - fall speed scales with HEIGHT, so a word always takes the same TIME to
+         reach the sea whether the area is short (portrait) or tall (landscape).
+       Without the height term the split would have made the game quietly easier,
+       which is exactly the kind of drift a "just resize it" change causes. */
+    var RAIN_REF_H = 520;      // the height the 12–62 px/s numbers were tuned at
+    function maxLiveNow() {
+      var wpx = area.clientWidth || window.innerWidth;
+      return Math.max(3, Math.min(7, Math.round(wpx / 155)));
+    }
+    function fallScale() { return Math.max(0.6, Math.min(1.6, (area.clientHeight || RAIN_REF_H) / RAIN_REF_H)); }
     var running = true, over = false, composing = false;
-    var lastT = null, spawnTimer = 0, raf = null;
+    var lastT = null, spawnTimer = 0, raf = null, playedS = 0;   // playedS drives the ramp (pauses don't)
     var bag = shuffle(pool);
 
     function nextWord() {
@@ -2244,12 +2401,14 @@
       if (lastT == null) lastT = t;
       var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
       spawnTimer += dt * 1000;
-      /* G-2: 固定 = the chosen level all game; 递增 = climb the table one step per
-         wave from the slowest, capped at the top. No extra multiplier either way. */
-      var cfgNow = rainRamp ? RAIN_SPEEDS[Math.min(RAIN_SPEEDS.length - 1, wave - 1)] : cfg;
+      playedS += dt;
+      /* one progressive course for everyone (2026-08-14): speed ramps with time
+         PLAYED, so pausing to think never makes the next drop faster, and every
+         round restarts from RAIN_BASE_FALL. */
+      var cfgNow = rainCfgAt(playedS);
       var spawnEvery = cfgNow.spawn;
-      if (spawnTimer >= spawnEvery && live.length < maxLive) { spawnTimer = 0; spawn(); }
-      var fall = cfgNow.fall;
+      if (spawnTimer >= spawnEvery && live.length < maxLiveNow()) { spawnTimer = 0; spawn(); }
+      var fall = cfgNow.fall * fallScale();
       var seaY = area.clientHeight - 46;
       for (var i = live.length - 1; i >= 0; i--) {
         var o = live[i];
@@ -2289,14 +2448,11 @@
       var o = live[hit];
       var altBonus = Math.max(0, Math.round((1 - o.y / area.clientHeight) * 20)); // clear it high
       score += o.w.w.length * 10 * combo + altBonus;
-      dew += o.w.w.length; // 灵露 = 字数，落袋为安
+      dew += awardLingLu(o.w, "rain", true);   // banked at game over, not mid-round
       cleared++; combo = Math.min(5, combo + (cleared % 3 === 0 ? 1 : 0));
       if (cleared % 10 === 0) {
         wave++; document.getElementById("rWave").textContent = wave;
-        if (rainRamp) {
-          var lvl = Math.min(RAIN_SPEEDS.length, wave);   // 1-based speed level this wave
-          toast("🌊 第 " + wave + " 波 · 速度 " + lvl + (lvl >= RAIN_SPEEDS.length ? "（已封顶）" : ""));
-        } else { toast("🌊 第 " + wave + " 波来了！"); }
+        toast("\ud83c\udf0a 第 " + wave + " 波来了！");
       }
       sfxOk();
       collectToBarrel(o);
@@ -2313,9 +2469,9 @@
       var best = store.best.rain || 0;
       var isBest = score > best;
       if (isBest) store.best.rain = score;
-      /* leaderboard board is 递增速度-only (D-2): a fixed slow speed would let a
-         student farm a high score on an easier course */
-      if (rainRamp && score > (store.best.rainRamp || 0)) store.best.rainRamp = score;
+      /* every run is the same progressive course now (2026-08-14), so every run
+         is rankable — the old 固定速度 farming loophole no longer exists. */
+      if (score > (store.best.rainRamp || 0)) store.best.rainRamp = score;
       store.lingLu += dew;          // bank the run's 灵露 into the wallet
       saveStore();
       view().innerHTML = '<div class="result">' +
@@ -2326,7 +2482,7 @@
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局</button>' +
         '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
-      document.getElementById("again").onclick = function () { startRain(speedIdx, showPy); };
+      document.getElementById("again").onclick = function () { startRain(showPy, roomCode); };
       document.getElementById("home").onclick = renderHome;
     }
     document.getElementById("rPause").onclick = function () {
@@ -2481,6 +2637,7 @@
         store.best.handle = (store.best.handle || 0) + 1; saveStore();
         /* 汉兜 solved: base 6 + 1 per unused guess (LEADERBOARD_DESIGN §2) */
         scoreCorrect(state.answer, 6 + Math.max(0, 6 - state.rows.length), 1, 0, !!store.mastered[state.answer.id]);
+        awardLingLu(state.answer, "handle");
         sfxBadge();
       } else if (state.rows.length >= 6) {
         state.done = true; state.won = false;
@@ -2605,7 +2762,8 @@
               state.perfect++;
               /* 组词 一次拼对: base 3, no 连对 concept here (×1.0). Does not master.
                  拼音出题方式为练习模式，不计历练值。 */
-              if (!noScore) scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
+              if (!noScore) { scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
+                              awardLingLu(w, "assemble"); }
             }
             bump("assemble", !wrongThis);
             sfxOk();
@@ -2674,10 +2832,10 @@
   var SPRITE_IMG = new Image();
   SPRITE_IMG.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAYAAAAFACAMAAACC8Vs5AAABg1BMVEUAAAAcISUxMEIAAAA1ACVQOiwzTl9XQFANACHypoz5wmcfIQA6BgBGZ3ZtTh9KLgAuKn+PQ0UxQxmkQCiCMimRaS7+5YnEjWYQImR3XVD/0LHVsWP0+vXbl0L1ri7DfSjqlABdGCqoYU/Yz4D4mFu7WyEeAEDVv6qRh31AS526m5lGG2CDNgD7zwy1lEMBFDxGZUNwWHyTi00dSaKuvK9peZMmJqje2cXAcAAVR3rocVv/39ZbTQDbaBezvXZnhGiUbAC7RgGlpV9hAAC81slUNn7DoQreSyr//8N6Ikz+cDDqz0CMobTi6abXvhmXVnbOUlLIuTo+QsgIQhqIcqD5cAgrAGPqy/SaDgDtusv861WXjxLqRgC8IwDLnsfGX3QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAj24GXAAAAYXRSTlMA//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8AyO6IgAAAbHhJREFUeNrtvQd727jyN2o0sQAmJUoUTdK0rC7LimwrTtzt9F52Tz//+v2/xZ0BKdvJOhGgPM99n/fe5dlNfLIBCUwfYDC/jY0/nz+fP58/nz+fP5//Dz6uS/j//atgzP0/SUPG2JpDqeNQ9otr57/GQO6yX10/dYQg6/PuVwkgHWfNrxNBScTw4dxdhw6uAwz8JQ0aCUcsx68nxFzAKgioAA63XYMrHSp/ifyOcCglDJSAoyjY0R9G4j/RIZAxImssnVIaSeZac4DK8ms8gjcwPXvuOiX1JLGfBDwgCs6hM7KT3UMkngu8YyCAzlrsj4D7hJTfd6iFDBHpliPhX5wGsRYe7iL/qHAcQR2+MTJmQzdr+4nAn6LodvYwA/0fEz/LjGWS4+jlK1AQ7YiH0kcq5jmE2lOfAQ2F/jzFF1hYc/x2OZBqFSIE5MfGBIyo0G8gS+lzHNOv837W9pIBl5L9tXoH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";
   var SPRINT_BG = new Image();
-  SPRINT_BG.src = "sprint_bg.png";   // vertical panorama backdrop (separate repo file)
+  SPRINT_BG.src = "art/bg/sprint_bg.png";   // vertical panorama backdrop (separate repo file)
   var WALL_IMG = new Image();
-  WALL_IMG.src = "climb-wall-tile.png";   // 攀山竞速 vertically-tiling rock wall
-  /* Ledges (protruding shelves) traced on climb-wall-tile.png, ordered bottom→top
+  WALL_IMG.src = "art/bg/climb-wall-tile.png";   // 攀山竞速 vertically-tiling rock wall
+  /* Ledges (protruding shelves) traced on art/bg/climb-wall-tile.png, ordered bottom→top
      within one tile: {x, y} as image fractions of each shelf's top surface. The
      climber lands on one of these every jump; the list repeats each tile. Re-trace
      if the wall image changes. */
@@ -2839,6 +2997,7 @@
             targetAlt = Math.min(totalAlt, targetAlt + 1);
             gymNote(cur.id);
             scoreCorrect(cur, PTS_BASE.sprint, 1, entering, wasMastered);
+            awardLingLu(cur, "sprint");
             if (!store.mastered[cur.id]) { newMastered++; markMastered(cur); }
             document.getElementById("spOk").textContent = ok;
             document.getElementById("spCombo").textContent = "🔥" + combo;
@@ -3013,7 +3172,7 @@
      ================================================================== */
   var _badgeImgCache = {};
   function badgeImgFor(component) {
-    var src = BADGE_IMG[component] || "badge_hx.png";
+    var src = BADGE_IMG[component] || "art/badge/badge_hx.png";
     if (!_badgeImgCache[src]) { var im = new Image(); im.src = src; _badgeImgCache[src] = im; }
     return _badgeImgCache[src];
   }
@@ -3129,7 +3288,7 @@
     if (m.t === "comp") {
       ids = m.comp.ids;
       got = ids.filter(function (id) { return store.mastered[id]; }).length;
-      html = '<div class="pop-title"><img class="pop-badge" src="' + (BADGE_IMG[m.comp.component] || "badge_hx.png") + '" alt="">' +
+      html = '<div class="pop-title"><img class="pop-badge" src="' + (BADGE_IMG[m.comp.component] || "art/badge/badge_hx.png") + '" alt="">' +
         esc(m.comp.level + " · " + m.comp.unit + " · " + m.comp.component) + '</div>' +
         '<div class="pop-body">板块驿站 · 海拔 ' + m.alt + ' 米<br>已掌握 <b>' + got + '</b> / ' + ids.length + ' 词' +
         (markDone(m) ? " · 徽章已获得 🏅" : "") + '</div>' + chipListHtml(ids);
@@ -3183,10 +3342,10 @@
      (owner 2026-08-14: the sprite never matched the pixel-art gear style). */
   var PET_LAYOUT = {
     /* fixed cluster by the fire — NOT a following pet (still deferred, §7) */
-    gui:   { file: "pet_gui.png",   cx: 30, by: 93, w: 5 },
-    qilin: { file: "pet_qilin.png", cx: 36, by: 96, w: 6 },
-    feng:  { file: "pet_feng.png",  cx: 42, by: 91, w: 6 },
-    long:  { file: "pet_long.png",  cx: 46, by: 97, w: 7 }
+    gui:   { file: "art/camp/pet_gui.png",   cx: 30, by: 93, w: 5 },
+    qilin: { file: "art/camp/pet_qilin.png", cx: 36, by: 96, w: 6 },
+    feng:  { file: "art/camp/pet_feng.png",  cx: 42, by: 91, w: 6 },
+    long:  { file: "art/camp/pet_long.png",  cx: 46, by: 97, w: 7 }
   };
 
   /* Slots exist even where only one item fills them today, so the wider
@@ -3205,36 +3364,36 @@
      retune — flagged for the owner like the old C-tier pricing was. */
   var GEAR = [
     // 住所 is a TIER CHAIN (existing dwellingTier mechanic reused, §3), not a free swap
-    { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "tent.png",                w: 20, desc: "起点的家 · 免费" },
-    { key: "windproof", slot: "dwelling", tier: 2, name: "防风帐篷", price: 800,  file: "gear_tent_windproof.png", w: 20, desc: "住所二级 · 挡得住山风" },
-    { key: "alpine",    slot: "dwelling", tier: 3, name: "高山帐篷", price: 1000, file: "gear_tent_alpine.png",    w: 20, desc: "住所三级 · 雪线之上也扎得稳" },
-    { key: "lanterns",  slot: "light",   name: "灯笼串",     price: 160, file: "deco_lanterns.png",  w: 11, desc: "夜里最温暖的一排光" },
-    { key: "lantern",   slot: "light",   name: "提灯",       price: 90,  file: "gear_lantern.png",   w:  7, desc: "挂上木杆，照亮一小圈" },
-    { key: "telescope", slot: "scout",   name: "望远镜",     price: 220, file: "gear_telescope.png", w:  7, desc: "望向下一座山峰" },
-    { key: "compass",   slot: "scout",   name: "罗盘架",     price: 180, file: "gear_compass.png",   w:  7, desc: "辨明方向再出发" },
-    { key: "canteen",   slot: "water",   name: "水壶架",     price: 60,  file: "gear_canteen.png",   w:  8, desc: "随身的水，随时补给" },
-    { key: "chest",     slot: "storage", name: "行军木箱",   price: 120, file: "gear_chest.png",     w:  9, desc: "装书、装干粮、装路上的收获" },
-    { key: "chair",     slot: "living",  name: "折叠椅",     price: 80,  file: "gear_chair.png",     w:  9, desc: "坐下来，歇一歇" },
-    { key: "picnicmat", slot: "tea",     name: "野餐垫茶具", price: 150, file: "gear_picnicmat.png", w: 15, desc: "铺开垫子，泡一壶茶" },
-    { key: "stove",     slot: "cook",    name: "野炊炉",     price: 140, file: "gear_stove.png",     w:  8, desc: "一口小锅，热汤暖身" },
-    { key: "rations",   slot: "food",    name: "干粮袋",     price: 70,  file: "gear_rations.png",   w:  9, desc: "馒头，和路上的力气" }
+    { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "art/camp/tent.png",                w: 20, desc: "起点的家 · 免费" },
+    { key: "windproof", slot: "dwelling", tier: 2, name: "防风帐篷", price: 135,  file: "art/camp/gear_tent_windproof.png", w: 20, desc: "住所二级 · 挡得住山风" },
+    { key: "alpine",    slot: "dwelling", tier: 3, name: "高山帐篷", price: 450, file: "art/camp/gear_tent_alpine.png",    w: 20, desc: "住所三级 · 雪线之上也扎得稳" },
+    { key: "lanterns",  slot: "light",   name: "灯笼串",     price: 180, file: "art/camp/deco_lanterns.png",  w: 11, desc: "夜里最温暖的一排光" },
+    { key: "lantern",   slot: "light",   name: "提灯",       price: 120,  file: "art/camp/gear_lantern.png",   w:  7, desc: "挂上木杆，照亮一小圈" },
+    { key: "telescope", slot: "scout",   name: "望远镜",     price: 240, file: "art/camp/gear_telescope.png", w:  7, desc: "望向下一座山峰" },
+    { key: "compass",   slot: "scout",   name: "罗盘架",     price: 200, file: "art/camp/gear_compass.png",   w:  7, desc: "辨明方向再出发" },
+    { key: "canteen",   slot: "water",   name: "水壶架",     price: 90,  file: "art/camp/gear_canteen.png",   w:  8, desc: "随身的水，随时补给" },
+    { key: "chest",     slot: "storage", name: "行军木箱",   price: 150, file: "art/camp/gear_chest.png",     w:  9, desc: "装书、装干粮、装路上的收获" },
+    { key: "chair",     slot: "living",  name: "折叠椅",     price: 110,  file: "art/camp/gear_chair.png",     w:  9, desc: "坐下来，歇一歇" },
+    { key: "picnicmat", slot: "tea",     name: "野餐垫茶具", price: 190, file: "art/camp/gear_picnicmat.png", w: 15, desc: "铺开垫子，泡一壶茶" },
+    { key: "stove",     slot: "cook",    name: "野炊炉",     price: 170, file: "art/camp/gear_stove.png",     w:  8, desc: "一口小锅，热汤暖身" },
+    { key: "rations",   slot: "food",    name: "干粮袋",     price: 95,  file: "art/camp/gear_rations.png",   w:  9, desc: "馒头，和路上的力气" }
   ];
   /* small/cheap/iconic — owned = always out, no slot, no exclusivity (§2c) */
   var TRINKETS = [
-    { key: "fire",      name: "篝火",     price: 30, file: "deco_fire.png",      w: 11, desc: "夜里暖手，词语更暖心" },
-    { key: "windchime", name: "风铃",     price: 25, file: "deco_windchime.png", w:  4, desc: "风一吹就响" },
-    { key: "cat",       name: "打盹的猫", price: 50, file: "deco_cat.png",       w:  7, desc: "营地里的常住客" },
-    { key: "signpost",  name: "木牌路标", price: 20, file: "deco_signpost.png",  w:  7, desc: "指向远方的路" }
+    { key: "fire",      name: "篝火",     price: 75, file: "art/camp/deco_fire.png",      w: 11, desc: "夜里暖手，词语更暖心" },
+    { key: "windchime", name: "风铃",     price: 45, file: "art/camp/deco_windchime.png", w:  4, desc: "风一吹就响" },
+    { key: "cat",       name: "打盹的猫", price: 60, file: "art/camp/deco_cat.png",       w:  7, desc: "营地里的常住客" },
+    { key: "signpost",  name: "木牌路标", price: 45, file: "art/camp/deco_signpost.png",  w:  7, desc: "指向远方的路" }
   ];
   /* 地貌景观: system-placed, 海拔-gated, never purchasable, never draggable.
      ⚠️ The three tree thresholds are the doc's PROPOSED %, flagged there for
      the owner to adjust exactly like the old C-tier pricing. */
   var SCENERY = [
-    { key: "pine",      name: "青松",     file: "deco_pine.png",      pct: 0.15, cx: 90, by: 68, w: 12, desc: "山脚的松林" },
-    { key: "sakura",    name: "樱花树",   file: "deco_sakura.png",    pct: 0.35, cx:  9, by: 73, w: 14, desc: "一季花开，满树粉白" },
-    { key: "viewdeck",  name: "望山台",   file: "deco_viewdeck.png",  pct: 0.50, cx:  3, by: 54, w: 12, desc: "一览群峰的高台" },
-    { key: "maple",     name: "红枫",     file: "deco_maple.png",     pct: 0.60, cx: 89, by: 71, w: 13, desc: "秋来满树红" },
-    { key: "waterfall", name: "悬泉飞瀑", file: "deco_waterfall.png", pct: 0.80, cx: 99, by: 51, w: 12, desc: "飞泉直落，云雾缭绕" }
+    { key: "pine",      name: "青松",     file: "art/camp/deco_pine.png",      pct: 0.15, cx: 90, by: 68, w: 12, desc: "山脚的松林" },
+    { key: "sakura",    name: "樱花树",   file: "art/camp/deco_sakura.png",    pct: 0.35, cx:  9, by: 73, w: 14, desc: "一季花开，满树粉白" },
+    { key: "viewdeck",  name: "望山台",   file: "art/camp/deco_viewdeck.png",  pct: 0.50, cx:  3, by: 54, w: 12, desc: "一览群峰的高台" },
+    { key: "maple",     name: "红枫",     file: "art/camp/deco_maple.png",     pct: 0.60, cx: 89, by: 71, w: 13, desc: "秋来满树红" },
+    { key: "waterfall", name: "悬泉飞瀑", file: "art/camp/deco_waterfall.png", pct: 0.80, cx: 99, by: 51, w: 12, desc: "飞泉直落，云雾缭绕" }
   ];
   /* §6 starter layout = what a new player sees, and the 整理营地 reset target.
      Not a constraint: every one of these can be dragged anywhere in BOUNDS. */
@@ -3353,7 +3512,7 @@
     }).join("");
 
     var html = '<div class="camp2-wrap"><div class="camp2-stage" id="campStage">' +
-      '<img class="camp2-bg" src="camp_bg.png" alt="" onerror="this.parentNode.classList.add(\'camp2-bg-fallback\')">' +
+      '<img class="camp2-bg" src="art/camp/camp_bg.png" alt="" onerror="this.parentNode.classList.add(\'camp2-bg-fallback\')">' +
       sprites + '</div>' +
       '<div class="camp2-hud"><span class="m2pill">' + campLingluIcon() + ' <b>' + fmtNum(store.lingLu) + '</b></span>' +
       '<button class="m2pill" id="campShopBtn">🛒 营地商店</button>' +
@@ -3439,7 +3598,7 @@
     return ["gui", "qilin", "feng", "long"][i] || null;
   }
   function campLingluIcon() {
-    return '<img class="ling-icon" src="linglu.png" alt="灵露" onerror="this.outerHTML=\'✨\'">';
+    return '<img class="ling-icon" src="art/camp/linglu.png" alt="灵露" onerror="this.outerHTML=\'✨\'">';
   }
   function showCampUid() {
     var ov = popOverlay(
@@ -3583,7 +3742,7 @@
   }
   /* ==================================================================
      我的词山 · static illustrated mountain (redesigned 2026-08-10)
-     One fixed landscape image (mountain_bg.png) shared by all four streams;
+     One fixed landscape image (art/bg/mountain_bg.png) shared by all four streams;
      unit / 年级峰 / 你的营地 / 顶峰 pins placed along the painted path by
      altitude fraction; a "you are here" marker at current progress. No
      scroll / camera / joystick / render loop. Tapping a pin reuses openMark
@@ -3593,7 +3752,7 @@
      Pin positions come from MTN_PATH (hand-traced on this exact image); nudge
      those waypoints if a future image changes the path.
      ================================================================== */
-  /* Hand-traced by pixel-sampling the painted tan staircase on mountain_bg.png
+  /* Hand-traced by pixel-sampling the painted tan staircase on art/bg/mountain_bg.png
      (bottom -> summit). Follows the zigzag: bottom bulge, the mid S-curve, then
      the ridge to the pavilion. Re-trace if the image changes. */
   var MTN_PATH = [
@@ -3966,7 +4125,7 @@
       '<div class="loading">正在装载词库…</div></div>';
     setTopbar("landing", "");
 
-    fetch(STREAM + ".json")
+    fetch("data/" + STREAM + ".json")
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (json) {
         DATA = json;

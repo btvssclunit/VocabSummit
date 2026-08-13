@@ -22,6 +22,11 @@
 
   function db() { return (window.firebase && firebase.apps && firebase.apps.length) ? firebase.firestore() : null; }
   function ts() { return firebase.firestore.FieldValue.serverTimestamp(); }
+  /* rooms.expiresAt drives the Firestore TTL policy the owner set up for 结伴登峰;
+     a student-hosted PK room gets the same 6-hour sweep so abandoned rooms die. */
+  function expiryTs() {
+    return firebase.firestore.Timestamp.fromDate(new Date(Date.now() + 6 * 3600 * 1000));
+  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -49,6 +54,8 @@
       "background:var(--gold,#E3A63C);color:#3A2A08;margin-top:8px}" +
       ".arena-btn.ghost{background:rgba(20,40,70,.7);color:#8FD3FF;border:1px solid #8FD3FF}" +
       ".arena-msg{font-size:13.5px;margin-top:10px;min-height:18px;color:#FFCF8F}" +
+      ".arena-code-chip{background:rgba(255,233,176,.16);border:1px solid rgba(255,233,176,.5);border-radius:999px;padding:2px 10px}" +
+      ".arena-code-chip b{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:#FFE9B0}" +
       ".arena-hud{display:flex;gap:14px;align-items:center;width:100%;max-width:620px;margin-bottom:14px;font-size:14px}" +
       ".arena-hud b{color:#FFE9B0;font-size:18px}" +
       ".arena-timer{margin-left:auto;background:rgba(12,24,48,.7);border:1px solid #8FD3FF;border-radius:999px;padding:6px 16px;font-weight:800;color:#8FD3FF}" +
@@ -70,7 +77,7 @@
       ".arena-rk{width:26px;color:#FFE9B0;font-weight:800}.arena-sc{margin-left:auto;font-weight:800;color:#FFE9B0}" +
       ".arena-rain{position:relative;width:100%;max-width:620px;height:52vh;min-height:280px;overflow:hidden;" +
       "border:1px solid rgba(143,211,255,.3);border-radius:14px;margin-bottom:10px;" +
-      "background-image:url('rain_bg.png'),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));" +
+      "background-image:url('art/bg/rain_bg.png'),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));" +
       "background-size:cover;background-position:center;image-rendering:pixelated}" +
       ".arena-rword{position:absolute;left:0;top:0;background:rgba(255,255,255,.95);color:#243B4A;border-radius:10px;" +
       "padding:6px 12px;text-align:center;font-weight:700;font-size:21px;will-change:transform}" +
@@ -94,8 +101,31 @@
     injectStyle();
     if (!db()) { alert("结伴登峰需要联网。请检查网络后再试。"); return; }
     ctx = ctx || {};
-    var wordIndex = {};
-    (ctx.words || []).forEach(function (w) { wordIndex[w.id] = w; });
+    /* wordIndex normally comes from the joiner's own stream. 同伴挑战 rooms can be
+       CROSS-STREAM (owner 2026-08-14: a form class holds mixed subject levels and
+       they want to play together), so when the room's stream is not ours we fetch
+       the host's word list instead — otherwise every room.wordIds lookup is
+       undefined and the round renders blank. */
+    var wordIndex = {}, wordPool = ctx.words || [];
+    function indexWords(list) {
+      wordIndex = {}; wordPool = list || [];
+      wordPool.forEach(function (w) { wordIndex[w.id] = w; });
+    }
+    indexWords(ctx.words || []);
+    var streamCache = {};
+    function ensureStream(stream, cb) {
+      if (!stream || stream === ctx.stream) { indexWords(ctx.words || []); return cb(); }
+      if (streamCache[stream]) { indexWords(streamCache[stream]); return cb(); }
+      fetch("data/" + stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
+        var list = [];
+        j.levels.forEach(function (lv) {
+          lv.units.forEach(function (u) {
+            u.components.forEach(function (c) { c.words.forEach(function (w) { list.push(w); }); });
+          });
+        });
+        streamCache[stream] = list; indexWords(list); cb();
+      }).catch(function () { cb("词库载入失败，请检查网络。"); });
+    }
 
     var ov = document.createElement("div");
     ov.className = "arena-ov";
@@ -115,8 +145,8 @@
     })();
     function setBackdrop(mode) {
       var art = ambienceUrl;
-      if (mode === "sprint") art = "sprint_bg.png";
-      else if (mode === "rain") art = "rain_bg.png";
+      if (mode === "sprint") art = "art/bg/sprint_bg.png";
+      else if (mode === "rain") art = "art/bg/rain_bg.png";
       if (!art) return;                       // keep the CSS gradient fallback
       var scrim = (mode === "rain" || mode === "sprint")
         ? "linear-gradient(rgba(10,20,40,.72),rgba(10,20,40,.80))"   // gameplay: heavier, keeps HUD legible
@@ -125,12 +155,17 @@
     }
     setBackdrop(null);
 
-    var myUid = null, code = null, roomUnsub = null, room = null;
+    /* 同伴挑战 caps (doc §2): a duel is the floor; past 6–8 a host who is also
+       playing loses track of who joined, the single-line scoreboard stops fitting
+       a landscape iPad, and a no-repeat pool pinches the smaller streams. */
+    var PK_MIN = 2, PK_MAX = 8;
+    var myUid = null, code = null, roomUnsub = null, room = null, isPk = false;
     ctx.getUid ? ctx.getUid(function (u) { myUid = u; }) : null;
 
     var lobbyPollTimer = null;
     function detach() {
       if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+      if (playersUnsub) { playersUnsub(); playersUnsub = null; }
       if (lobbyPollTimer) { clearInterval(lobbyPollTimer); lobbyPollTimer = null; }
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
@@ -161,8 +196,8 @@
       if (msg) msg.textContent = "加入中…";
       db().collection("rooms").doc(c).get().then(function (snap) {
         if (!snap.exists) { renderJoin("找不到这个擂台码，请再确认一次。"); return; }
-        room = snap.data(); code = c;
-        if (room.status === "ended") { renderJoin("这个擂台已经结束了。"); return; }
+        room = snap.data(); code = c; isPk = !!room.pk;
+        if (room.status === "ended") { renderJoin(isPk ? "这个房间已经结束了。" : "这个擂台已经结束了。"); return; }
         var p = ctx.profile || {};
         var pdoc = db().collection("rooms").doc(c).collection("players").doc(myUid);
         /* RE-JOIN SAFE: a student who left (or was disconnected) already has a row.
@@ -170,6 +205,19 @@
            original joinedAt/late flags survive. */
         return pdoc.get().then(function (ps) {
           var prev = ps.exists ? (ps.data() || {}) : null;
+          /* 同伴挑战 is RECONNECTION-ONLY (owner sign-off 2026-08-14, doc §5.6):
+             someone already in the room may come back and keep their score, but a
+             brand-new player cannot join a round in progress — a latecomer answers
+             fewer questions, and then "most correct" stops being a fair comparison.
+             The teacher arena keeps its own ⏱ late-join behaviour, untouched. */
+          if (isPk && !prev && room.status === "running") {
+            renderJoin("这一局已经开始了，等下一局再加入吧。");
+            return null;
+          }
+          if (isPk && !prev && (room.playerCount || 0) >= PK_MAX) {
+            renderJoin("房间满了（最多 " + PK_MAX + " 人）。");
+            return null;
+          }
           if (prev) {
             myScore = prev.score || 0; myCorrect = prev.correct || 0; myAnswered = prev.answered || 0;
           }
@@ -180,7 +228,7 @@
             late: prev ? !!prev.late : room.status === "running",
             lastSeen: ts()
           }, { merge: true });
-        }).then(function () { subscribeRoom(); });
+        }).then(function (r) { if (r !== null) subscribeRoom(); });
       }).catch(function (e) { renderJoin("加入失败：" + (e.code || e.message) + "（老师需先发布 rooms 规则）。"); });
     }
 
@@ -192,11 +240,22 @@
        of the live listener: re-fetch on tab-visible/focus, and a slow poll
        while still in the lobby. Both stop once play actually starts. */
     function applyRoomSnapshot(data) {
-      if (!data) { detach(); renderJoin("擂台已被关闭。"); return; }
+      if (!data) { detach(); renderJoin(isPk ? "房间已被关闭。" : "擂台已被关闭。"); return; }
       room = data;
+      isPk = !!room.pk;
       if (room.status === "lobby") { if (!started) renderLobby(); }
-      else if (room.status === "running") { if (!started) startPlay(); }
-      else if (room.status === "ended") { finishNow(true); }
+      else if (room.status === "running") {
+        if (started) return;
+        /* the host's stream may not be ours (cross-stream PK), so the word list has
+           to be in hand BEFORE the first question renders */
+        ensureStream(room.stream, function (err) {
+          if (err) { ov.innerHTML = '<div class="arena-card"><div class="arena-t">载入失败</div>' +
+            '<div class="arena-sub">' + esc(err) + '</div>' +
+            '<button class="arena-btn" id="arOk">返回</button></div>';
+            ov.querySelector("#arOk").onclick = close; started = true; return; }
+          startPlay();
+        });
+      } else if (room.status === "ended") { finishNow(true); }
     }
     function pollRoomOnce() {
       if (started || !code) return;
@@ -204,11 +263,26 @@
         .then(function (snap) { applyRoomSnapshot(snap.exists ? snap.data() : null); })
         .catch(function () { /* transient network error: next poll/listener retries */ });
     }
+    var playersUnsub = null;
     function subscribeRoom() {
       detach();
       roomUnsub = db().collection("rooms").doc(code).onSnapshot(function (snap) {
         applyRoomSnapshot(snap.exists ? snap.data() : null);
       }, function () { /* snapshot error: keep last state, the poll/focus backstop covers it */ });
+      /* PK host mirrors what teacher.html does for 结伴登峰: only the host may write
+         the room doc, so the host's client is what keeps playerCount current for
+         everyone else's lobby. */
+      if (!playersUnsub) {
+        playersUnsub = db().collection("rooms").doc(code).collection("players")
+          .onSnapshot(function (qs) {
+            if (!room || !myUid || room.hostUid !== myUid) return;
+            var n = qs.size;
+            if ((room.playerCount || 0) !== n && room.status !== "ended") {
+              db().collection("rooms").doc(code).set({ playerCount: n }, { merge: true }).catch(function () {});
+            }
+            if (!started && room.status === "lobby") renderLobby();
+          }, function () {});
+      }
       lobbyPollTimer = setInterval(pollRoomOnce, 4000);
       document.addEventListener("visibilitychange", onVisible);
       window.addEventListener("focus", onVisible);
@@ -220,19 +294,37 @@
       return (m[room.mode] || room.mode) + " · " + (room.qCount || (room.wordIds || []).length) + " 题 · " +
         Math.round((room.durationS || 0) / 60) + " 分钟";
     }
+    function amHost() { return !!(room && myUid && room.hostUid === myUid); }
     function renderLobby() {
+      var n = room.playerCount || 0;
+      var host = amHost();
       ov.innerHTML =
-        '<div class="arena-card"><div class="arena-t">⛺ 已加入：' + esc(code) + '</div>' +
-        '<div class="arena-sub">主持：' + esc(room.hostName || "老师") + '<br>' + esc(scopeLine()) + '<br><br>' +
-        '⏳ 等待老师开始…</div>' +
-        '<div class="arena-sub" style="margin-top:12px">当前 <b id="arPc">' + (room.playerCount || 0) + '</b> 人已加入</div>' +
-        '<button class="arena-btn ghost" id="arLeave" style="margin-top:16px">离开</button></div>';
-      ov.querySelector("#arLeave").onclick = close;
+        '<div class="arena-card"><div class="arena-t">' + (isPk ? "⚔️ 房间号：" : "⛺ 已加入：") + esc(code) + '</div>' +
+        '<div class="arena-sub">主持：' + esc(room.hostName || (isPk ? "同学" : "老师")) + '<br>' + esc(scopeLine()) + '<br><br>' +
+        (host ? '把房间号告诉朋友，等大家都到齐就开始。' : (isPk ? "⏳ 等待房主开始…" : "⏳ 等待老师开始…")) + '</div>' +
+        '<div class="arena-sub" style="margin-top:12px">当前 <b id="arPc">' + n + '</b> 人已加入' +
+        (isPk ? '（至少 2 人，最多 ' + PK_MAX + ' 人）' : '') + '</div>' +
+        (host ? '<button class="arena-btn" id="arStart"' + (n < PK_MIN ? " disabled" : "") + '>' +
+          (n < PK_MIN ? "还需要一位朋友…" : "开始 (" + n + " 人)") + '</button>' : "") +
+        '<button class="arena-btn ghost" id="arLeave" style="margin-top:16px">' + (host ? "解散房间" : "离开") + '</button></div>';
+      ov.querySelector("#arLeave").onclick = host ? closeRoomAsHost : close;
+      var sb = ov.querySelector("#arStart");
+      if (sb) sb.onclick = function () {
+        sb.disabled = true;
+        db().collection("rooms").doc(code).set({ status: "running", startedAt: ts() }, { merge: true })
+          .catch(function (e) { sb.disabled = false; alert("开始失败：" + (e.code || e.message)); });
+      };
+    }
+    function closeRoomAsHost() {
+      var c = code;
+      detach();
+      if (c) db().collection("rooms").doc(c).set({ status: "ended" }, { merge: true }).catch(function () {});
+      close();
     }
 
     /* ---------- play ---------- */
     var started = false, seq = [], qi = 0, myScore = 0, myCorrect = 0, myAnswered = 0, streak = 0;
-    var correctIds = [], endMs = 0, tickTimer = null, writeTimer = null, lastWrite = 0, qStart = 0, done = false;
+    var correctIds = [], correctTexts = [], msUsed = 0, endMs = 0, tickTimer = null, writeTimer = null, lastWrite = 0, qStart = 0, done = false;
     var stopGame = null;   // set by real-time modes (rain) so finishNow can halt their loop
 
     function startPlay() {
@@ -258,13 +350,18 @@
       if (rem <= 0 && !done) finishNow(false);
     }
     function hud() {
-      return '<div class="arena-hud"><span>得分 <b id="arScore">' + myScore + '</b></span>' +
+      /* §2: the code stays on screen through `running`, not only the lobby — a
+         friend who drops can glance at any player's screen and rejoin without
+         having to ask anyone. */
+      return '<div class="arena-hud">' +
+        (isPk ? '<span class="arena-code-chip">房间 <b>' + esc(code || "") + '</b></span>' : '') +
+        '<span>得分 <b id="arScore">' + myScore + '</b></span>' +
         (room.mode === "sprint" ? '<span>⛰️ 高度 <b>' + myCorrect + '</b> 米</span>' : '') +
         '<span>答对 <b>' + myCorrect + '</b>/' + myAnswered + '</span>' +
         '<span class="arena-timer" id="arTimer">⏱ …</span></div>';
     }
     function distractors(correct, n) {
-      var pool = (ctx.words || []).filter(function (w) { return w.id !== correct.id && w.w !== correct.w; });
+      var pool = wordPool.filter(function (w) { return w.id !== correct.id && w.w !== correct.w; });
       // prefer same part of speech first
       var same = pool.filter(function (w) { return w.pos && correct.pos && w.pos === correct.pos; });
       return shuffle(same.length >= n ? same : pool).slice(0, n);
@@ -312,13 +409,14 @@
       if (done) return;
       myAnswered++;
       var secs = (Date.now() - qStart) / 1000;
+      msUsed += Math.round(secs * 1000);   // PK tie-break: same 答对数, faster wins
       var gained = 0;
       if (correct) {
         var speed = Math.round(50 * Math.max(0, 1 - secs / 15));
         streak = streak + 1; var sb = Math.min(50, streak * 10);
         gained = 100 + speed + sb;
         myScore += gained; myCorrect++;
-        if (correctIds.indexOf(w.id) === -1) correctIds.push(w.id);
+        if (correctIds.indexOf(w.id) === -1) { correctIds.push(w.id); correctTexts.push(w.w); }
       } else { streak = 0; }
       // reveal
       var fb = ov.querySelector("#arFb");
@@ -340,17 +438,23 @@
        per-device random (it recycles the pool), fairness = pool + config.
        Score = 字数×10×combo, the game's own formula. NO 灵露 is banked (D-2);
        correctly typed words DO confer mastery via correctIds. */
-    var ARENA_RAIN_SPEEDS = [
-      [10, 6000], [14, 5200], [19, 4600], [25, 4000],
-      [32, 3400], [40, 2900], [50, 2400], [62, 2000]
-    ];
+    /* 2026-08-14: progressive-only, mirroring app.js's rainCfgAt. Kept as its own
+       copy because arena.js is deliberately isolated from app.js (§7) — if the
+       solo curve is retuned, retune these five numbers to match. */
+    var AR_BASE_FALL = 12, AR_MAX_FALL = 62, AR_BASE_SPAWN = 5600, AR_MIN_SPAWN = 2000, AR_RAMP_SECS = 90;
+    function arRainCfg(playedS) {
+      var p = Math.min(1, Math.max(0, playedS) / AR_RAMP_SECS);
+      return [AR_BASE_FALL + (AR_MAX_FALL - AR_BASE_FALL) * p,
+              AR_BASE_SPAWN - (AR_BASE_SPAWN - AR_MIN_SPAWN) * p];
+    }
     /* same sprite-sheet crop coordinates as app.js's RAINFX_MAP */
     var ARENA_RAINFX_MAP = {"sp1": [0, 57, 37, 44], "sp2": [39, 56, 56, 45], "sp3": [97, 62, 52, 39], "bolt1": [151, 8, 26, 93], "bolt2": [179, 0, 40, 101], "rip1": [221, 83, 44, 18], "rip2": [267, 79, 60, 22]};
     function startRainPlay() {
       var cfg = room.gameCfg || {};
-      var showPy = cfg.py !== false, ramp = !!cfg.ramp;
+      var showPy = cfg.py !== false;
       var livesMax = cfg.lives || 0;                     // 0 = time-only
-      var speedIdx = Math.min(7, Math.max(0, cfg.speed != null ? cfg.speed : 2));
+      /* cfg.speed / cfg.ramp are ignored: rooms created before 2026-08-14 may
+         still carry them, but every room now runs the one progressive course. */
       var pool = (room.wordIds || []).map(function (id) { return wordIndex[id]; })
         .filter(Boolean).filter(function (w) { return w.w && w.w.length <= 4; });
       if (pool.length < 4) {
@@ -362,7 +466,7 @@
       var startedAt = room.startedAt && room.startedAt.toMillis ? room.startedAt.toMillis() : Date.now();
       endMs = startedAt + (room.durationS || 300) * 1000;
       var lives = livesMax, combo = 1, cleared = 0, wave = 1;
-      var liveW = [], bag = shuffle(pool), composing = false, lastT = null, spawnTimer = 0, raf = null;
+      var liveW = [], bag = shuffle(pool), composing = false, lastT = null, spawnTimer = 0, raf = null, playedS = 0;
 
       ov.innerHTML =
         '<div class="arena-hud"><span>得分 <b id="arScore">' + myScore + '</b></span>' +   // carries a rejoin's score
@@ -431,7 +535,7 @@
         water.style.height = Math.min(100, cleared * 3) + "%";
       }
 
-      function speedNow() { return ARENA_RAIN_SPEEDS[ramp ? Math.min(ARENA_RAIN_SPEEDS.length - 1, wave - 1) : speedIdx]; }
+      function speedNow() { return arRainCfg(playedS); }
       function nextWord() { if (!bag.length) bag = shuffle(pool); return bag.pop(); }
       function spawn() {
         var w = nextWord();
@@ -447,6 +551,7 @@
         if (lastT == null) lastT = t;
         var dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
         spawnTimer += dt * 1000;
+        playedS += dt;
         var sp = speedNow();
         if (spawnTimer >= sp[1] && liveW.length < 6) { spawnTimer = 0; spawn(); }
         var floorY = area.clientHeight - 8;
@@ -481,7 +586,7 @@
         liveW.splice(hit, 1);
         cleared++; myCorrect++;
         myScore += o.w.w.length * 10 * combo;
-        if (correctIds.indexOf(o.w.id) === -1) correctIds.push(o.w.id);
+        if (correctIds.indexOf(o.w.id) === -1) { correctIds.push(o.w.id); correctTexts.push(o.w.w); }
         if (cleared % 3 === 0) combo = Math.min(5, combo + 1);
         setCombo();
         collectToBarrel(o);
@@ -506,7 +611,7 @@
     function playerDoc() { return db().collection("rooms").doc(code).collection("players").doc(myUid); }
     function writeNow(final) {
       lastWrite = Date.now();
-      playerDoc().set({ answered: myAnswered, correct: myCorrect, score: myScore, finished: !!final, lastSeen: ts() }, { merge: true })
+      playerDoc().set({ answered: myAnswered, correct: myCorrect, score: myScore, msUsed: msUsed, finished: !!final, lastSeen: ts() }, { merge: true })
         .catch(function () {});
     }
     function scheduleWrite() {
@@ -519,16 +624,23 @@
       if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
       if (stopGame) { try { stopGame(); } catch (e) {} stopGame = null; }
       writeNow(true);
-      // confer mastery for every word answered correctly (海拔 only, no 历练值)
-      if (ctx.conferMastery && correctIds.length) { try { ctx.conferMastery(correctIds); } catch (e) {} }
+      /* confer mastery for every word answered correctly (海拔 only, no 历练值).
+         TEXTS are passed alongside ids because a cross-stream room serves the
+         HOST's word ids, which mean nothing in the joiner's own store — ids are
+         stream-scoped by design, word text is the cross-stream join key. */
+      if (ctx.conferMastery && correctIds.length) {
+        try { ctx.conferMastery(correctIds, correctTexts); } catch (e) {}
+      }
       renderResult(roomEnded);
     }
 
     /* ---------- result ---------- */
     function renderResult(roomEnded) {
       detach();
-      ov.innerHTML = '<div class="arena-card"><div class="arena-t">🎉 本场结束</div>' +
-        '<div class="arena-sub">你的得分 <b style="color:#FFE9B0;font-size:20px">' + myScore + '</b>　答对 ' + myCorrect + '/' + myAnswered + '<br>' +
+      ov.innerHTML = '<div class="arena-card"><div class="arena-t">' + (isPk ? "⚔️ 对决结束" : "🎉 本场结束") + '</div>' +
+        '<div class="arena-sub">' +
+        (isPk ? '你答对 <b style="color:#FFE9B0;font-size:20px">' + myCorrect + '</b> 题（共答 ' + myAnswered + ' 题）<br>'
+              : '你的得分 <b style="color:#FFE9B0;font-size:20px">' + myScore + '</b>　答对 ' + myCorrect + '/' + myAnswered + '<br>') +
         (correctIds.length ? '答对的词已计入「已掌握」（海拔 +' + correctIds.length + '，本场不计历练值）。' : '再接再厉！') + '</div>' +
         '<div class="arena-board" id="arBoard"><div class="arena-sub">读取排名…</div></div>' +
         '<button class="arena-btn" id="arDone" style="margin-top:14px">完成</button></div>';
@@ -536,22 +648,70 @@
       // one-time read of the players board for the final ranking
       db().collection("rooms").doc(code).collection("players").get().then(function (qs) {
         var rows = []; qs.forEach(function (d) { rows.push(Object.assign({ uid: d.id }, d.data())); });
-        rows.sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+        /* 结伴登峰 ranks on score. 同伴挑战 ranks on 答对数, ties broken by the
+           time spent answering — the owner picked fixed-time/most-correct
+           precisely so speed alone cannot win, so score must NOT be the key. */
+        rows.sort(isPk
+          ? function (a, b) {
+              return ((b.correct || 0) - (a.correct || 0)) || ((a.msUsed || 0) - (b.msUsed || 0));
+            }
+          : function (a, b) { return (b.score || 0) - (a.score || 0); });
         var html = rows.slice(0, 20).map(function (r, i) {
           var me = r.uid === myUid;
           return '<div class="arena-row' + (me ? " me" : "") + '"><span class="arena-rk">' + (i + 1) + '</span>' +
             '<span>' + esc(r.nickname || "") + (r.late ? " ⏱" : "") + (me ? " · 你" : "") + '</span>' +
-            '<span class="arena-sc">' + (r.score || 0) + '</span></div>';
+            '<span class="arena-sc">' + (isPk ? (r.correct || 0) + " 对" : (r.score || 0)) + '</span></div>';
         }).join("");
         var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = html || '<div class="arena-sub">暂无排名。</div>';
       }).catch(function () { var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = '<div class="arena-sub">排名读取失败。</div>'; });
     }
 
-    renderJoin("");
+    /* ---------- 同伴挑战 host path ----------
+       The host is a PLAYER, not an observer (doc §2), so this creates the room and
+       then falls straight into the ordinary join flow — no host-only state. */
+    var PK_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no O/0/I/1/L
+    function pkCode() {
+      var out = "";
+      for (var i = 0; i < 6; i++) out += PK_ALPHABET[Math.floor(Math.random() * PK_ALPHABET.length)];
+      return out;
+    }
+    function hostRoom(cfg, attempt) {
+      attempt = attempt || 0;
+      if (attempt >= 3) { renderJoin("生成房间号失败，请再试一次。"); return; }
+      if (!myUid) {
+        if (ctx.getUid) ctx.getUid(function (u) { myUid = u; hostRoom(cfg, attempt); });
+        return;
+      }
+      var c = pkCode(), doc = db().collection("rooms").doc(c);
+      doc.get().then(function (snap) {
+        if (snap.exists) return hostRoom(cfg, attempt + 1);
+        var p = ctx.profile || {};
+        return doc.set({
+          pk: true,                                  // what the Firestore rule keys on
+          hostUid: myUid, hostName: p.nickname || "同学", school: p.school || "",
+          stream: ctx.stream, mode: cfg.mode, tier: cfg.tier || "3",
+          wordIds: cfg.wordIds, qCount: cfg.wordIds.length, durationS: cfg.durationS,
+          status: "lobby", createdAt: ts(), startedAt: null, playerCount: 0,
+          expiresAt: expiryTs()
+        }).then(function () { doJoin(c); });
+      }).catch(function (e) {
+        renderJoin("创建失败：" + (e.code || e.message) + "（需要先发布 rooms 规则）。");
+      });
+    }
+
+    if (ctx.hostCfg) { renderJoin("正在开房…"); hostRoom(ctx.hostCfg); }
+    else renderJoin("");
   }
 
   window.WSArena = {
     open: open,
+    /* host(ctx) = same overlay, but it opens a room first. cfg: {mode, tier,
+       wordIds, durationS}. The caller (app.js) owns scope selection. */
+    host: function (ctx, cfg) {
+      ctx = ctx || {};
+      ctx.hostCfg = cfg;
+      return open(ctx);
+    },
     isAvailable: function () { return !!db(); }
   };
 })();

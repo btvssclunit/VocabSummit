@@ -23,10 +23,40 @@ Firestore, hardcoded vocab arrays, a teacher dashboard, unit-level challenge scr
 service worker. Its files can surface in project searches and look similar. Its conventions do
 NOT apply here; never copy code or design assumptions between the two without checking.
 
-## File structure (FLAT — deliberately)
+## File structure (FOLDERED since 2026-08-14 — the old FLAT rule is retired)
 
-All files sit at repo root because content is updated via GitHub web upload, which cannot create folders.
-Do NOT introduce subfolders unless the owner has moved to a git client.
+⚠️ **This reverses the previous "FLAT — deliberately / do NOT introduce subfolders" rule.** The owner
+asked for it on 2026-08-14: 83 files at repo root (61 of them PNGs) made the GitHub file list
+unreadable. Code and entry points stay at root; assets and data moved down:
+
+    /                 index.html · G1/G2/G3/HCL_index.html · teacher.html · voices.html
+                      app.js · app.css · arena.js · profile.js · nickname.js · firebase-init.js
+                      CLAUDE.md · README.md · firestore.rules · .gitignore
+    data/             g1/g2/g3/hcl.json · id_registry.json
+    art/bg/           landing_hero_bg · hero_bg · study_bg · rain_bg · sprint_bg · mountain_bg
+                      · climb-wall-tile · bg-01..05
+    art/badge/        badge_shkj/hx/gg/jj/whz
+    art/avatar/       avatar_pet_* (4) · avatar_zodiac_* (12)
+    art/camp/         camp_bg · tent · gear_* (11) · deco_* (10) · pet_* (4) · linglu
+    art/item/         consumable_* (7) · powerup_* (3)   ← 2026-08-14, system NOT built
+    art/sprite/       sprite_g1/g2/g3/hcl_raw · tileset_raw   (8-bit art awaiting processing)
+    archived_art/     the 13 garden-era PNGs cut by the 便携化 pass
+    docs/             HANDOFF_*.md
+
+Every reference was rewritten mechanically and verified: **61 distinct asset paths, zero missing.**
+The four DYNAMIC stream-JSON fetches needed hand-editing and are the ones to remember if a new one
+is ever added — `app.js fetch("data/"+STREAM+".json")`, `arena.js fetch("data/"+stream+".json")`,
+and TWO in `teacher.html`. A bare `"foo.png"` anywhere in code is now a bug.
+
+⚠️ **Deploying this is not a normal upload.** The GitHub web UI cannot move or bulk-delete, so
+re-uploading alone would leave all 66 old files sitting at root as duplicates while the new folders
+appear beside them — the site would still work (paths resolve) but the clutter would double. The
+practical routes are (a) push from the local clone with git, or (b) delete the 66 root files by hand
+in the web UI first, then drag the new folders in. See the session note at the end of this file.
+
+**Also corrected 2026-08-14:** the five raw sprite/tileset PNGs this file has always listed as repo
+files were **never actually in the repo**. Nothing references them so nothing was broken, but they
+existed only in the owner's Downloads. They are now committed under `art/sprite/`.
 
 - index.html — landing (horizon hero, couplet, four stream cards, footer with creation/update dates)
 - G1/G2/G3/HCL_index.html — thin per-stream entries; each sets `window.STREAM` then loads app.js
@@ -1418,3 +1448,234 @@ at the stage's real aspect ratio.
 
 ### Not done (correctly, per §7)
 New 营旗 art · whether 照明 needs more than two options · pet-follow / walking avatar (still deferred).
+
+## 灵露经济 + 词雨 progressive · 2026-08-14 (DESIGN_economy_pricing_2026-08-14.md)
+
+⚠️ **The doc's §4 was already done.** It asks Claude Code to clean 水井/菜园/竹篱笆/小亭/小石桥/
+锦鲤池 out of `SHOP_A/B/C` + `CAMP_LAYOUT` and move 青松/樱花树/红枫 to altitude unlocks — all of
+that was completed EARLIER THE SAME DAY by the 便携化改版 (section above). §4 describes a code state
+that no longer exists. Nothing was re-done.
+⚠️ **§4.3 CONTRADICTS the 便携化 doc and was NOT followed.** It lists 营旗/石灯笼/水缸/木桌椅茶具/
+书箱 as "保留不变", but the owner cut 营旗 outright on 2026-08-14 and 便携化 §2a archived the other
+four. They stay archived. If they are ever wanted back, that is a new decision, not a revert.
+
+### 灵露 award engine (§1) — the real new work
+`灵露 = LINGLU_BASE × tier × pinyin × decay`, on correct answers only, computed at the same call
+sites as 历练值 and living right beside it in app.js. Keep the two straight: **历练值 rewards effort
+and streaks (depth); 灵露 is spending money.**
+- **Tier (§1.1):** 闪卡 0.5 · MCQ 1 (填空/华文解释/英文翻译) · 攀山竞速 1.25 · 组词 1.5 ·
+  汉兜/词雨/打拼音 2. An unknown mode earns nothing rather than defaulting to 1.
+- **拼音 modifier (§1.2):** ×0.65, **typing modes only** (`LINGLU_TYPED`). MCQ is untouched —
+  seeing pinyin barely changes a recognition task.
+- **Decay (§1.3):** 100 / 50 / 25 / 10%, floored at 10% so it never reaches zero. Counted in
+  `store.wins`, keyed by **word TEXT**, so it is shared across every mode. NOTE: that gives
+  cross-stream sharing only if the stores are unioned — this counts within the current stream's
+  store. A true cross-stream union would need the same load-time pass mastery carryover uses.
+- **待巩固 复习补偿:** a word sitting in any `gymTodo` climbs one decay band when recovered.
+  ⚠️ This is why `awardLingLu` MUST be called **before `gymNote()`** — gymNote clears the word from
+  待巩固, and calling it first silently loses the compensation. All six call sites are ordered
+  correctly; keep it that way if you add a seventh.
+- **打拼音 now earns 灵露** (tier 2 + the modifier) while still being 练习不计分 for 历练值 and
+  海拔. Effort currency and learning credit are deliberately different things. This is a change from
+  the 2026-08-13 note that pinyin mode awards nothing at all.
+- `awardLingLu(w, mode, defer)` — `defer` is 词雨-only: the run collects into the barrel and banks at
+  game over, so the wallet must not tick mid-round. The wins counter still advances immediately, or
+  a word caught twice in one round would not decay.
+
+⚠️ **`LINGLU_BASE = 10` is MINE — the doc gives the formula but no base_rate.** Derived from its own
+anchor «1 session ≈ 30 灵露 at steady state»: a 修行 session is 20 questions at tier 1x, and by then
+most words sit in the 25%/10% bands (~0.15 avg), so 30 / (20 × 0.15) ≈ 10. 词雨 generates far more
+than 30/session because a round has far more correct answers than 20 — intended; the decay curve is
+what reins it in. **The doc asks for re-calibration from real Firestore data after 3–4 weeks; this
+single number is the dial.**
+
+### 词雨 progressive-only (§2)
+The 8-step `RAIN_SPEEDS` table and the 固定/递增 toggle are GONE, student side AND teacher side.
+- One course: `rainCfgAt(playedS)` lerps fall 12→62 px/s and spawn 5600→2000 ms over
+  `RAIN_RAMP_SECS = 90`. Those five constants are the tuning surface the doc asked for.
+- Ramp is driven by time **PLAYED** (`playedS`), not wall clock, so pausing to think never makes the
+  next drop faster. Every round restarts from base — no cross-round persistence, exactly as §2 asks.
+- `store.rainSpeed` / `store.rainRamp` retired; old values may linger in a student's store, nothing
+  reads them. The 拼音辅助 control is now the only one left and is deliberately **NOT numbered** —
+  CLAUDE.md's own rule says optional aids are never steps.
+- **Leaderboard semantics changed:** `store.best.rainRamp` used to be written only for 递增 runs (to
+  stop farming on an easy fixed speed). Every run is the same progressive course now, so every run is
+  rankable and the board's blurb was rewritten to say so.
+- arena.js carries its OWN copy of the ramp constants (`AR_*`), because arena is deliberately isolated
+  from app.js — **retune both together**. It ignores `cfg.speed`/`cfg.ramp` on rooms created before
+  today. teacher.html's 词雨 panel now shows a one-line explanation instead of the two pickers.
+- ⚠️ **生命 stays at 5, not 3.** §2 says "生命固定 3 条（维持原决定）", but 3 is the pre-2026-08-12
+  value: `RAIN_LIVES` was raised to 5 in response to student trial feedback (G-2, "too punishing").
+  The doc reads as restating an old state rather than re-deciding, so lowering it would silently undo
+  a change made from real student feedback. **Left at 5 — owner to confirm.**
+
+### 定价 v2 (§3.3 / §3.4)
+Doc anchors applied exactly: 防风帐篷 **135**, 高山帐篷 **450**, 帆布帐篷 free, 小摆件 in the
+**45–75** band (木牌路标 45 · 风铃 45 · 打盹的猫 60 · 篝火 75).
+⚠️ **Mid gear is priced by ME** — §3.4 explicitly defers it to "最终装备槽分组" and gives no numbers.
+They sit on a ladder between the 小摆件 band and the top tent, so nothing costs more than 高山帐篷:
+干粮袋 95 · 水壶架 90 · 折叠椅 110 · 提灯 120 · 行军木箱 150 · 野炊炉 170 · 灯笼串 180 ·
+野餐垫茶具 190 · 罗盘架 200 · 望远镜 240. Retune freely — single numbers in `GEAR`.
+
+### NOT built: §3.2 词雨 consumables
+The eight single-round items (提灯/羽扇/锦囊/定风珠/护身符/灵露瓶/玉葫芦/双倍灵露符) are **priced but
+do not exist** — there is no consumable mechanic, no inventory, no in-round use UI, and no art for any
+of them. §3.2 gives prices for a feature that has never been designed or built, so pricing was all
+that could be applied, and applying prices alone would have been meaningless. Also flagged:
+**「提灯」 collides with the 随身装备 提灯 (`gear_lantern.png`) shipped today** — one of the two needs
+renaming before the consumable is built.
+
+### 验证
+Browser pane blocked localhost again; ran the real app.js in JavaScriptCore against the DOM stub.
+**34 new economy assertions + the 57 camp assertions, all passing**: the full tier ladder, the
+100/50/25/10 decay sequence with its floor, cross-mode sharing of the per-word counter, 待巩固
+compensation lifting exactly one band (and never above 100%), the 拼音 modifier applying to typing
+modes ONLY, deferred 词雨 banking, the ramp at 0/45/90/999s incl. negative input, and every price
+anchor plus the ladder invariants. app.js / arena.js / teacher.html all parse.
+⚠️ Unproven without a device: how the ramp actually FEELS. `RAIN_RAMP_SECS = 90` is a guess at the
+curve the doc left to feel-testing — play a full round before class and adjust the five constants.
+
+## 同伴挑战 · PK对决 — §3 layout BUILT 2026-08-14, room system BLOCKED on §5
+
+Source: `DESIGN_peer_pk_duel.md`. The doc's §5 lists **7 open decisions marked "needed before
+implementation"**, none of which are resolved, so the PK room itself is NOT built. What WAS built is
+§3, which is fully specified, benefits solo play immediately, and is needed whichever way §5 lands.
+
+### §3 词雨灵露 landscape split (DONE, applies to SOLO play too)
+- `.rain-shell` becomes a row at `≥900px + landscape`: falling area left (62%), a new `.rain-right`
+  column (38%, max 420px) holding HUD + room code + typing input. Below that it stacks as before.
+- The input used to run full width UNDER the falling area and take vertical space from it; its own
+  column hands that height back to the words and gives the PK room code a permanent home that is
+  **not** a banner over the gameplay.
+- `min-width:0` on both flex children — the same load-bearing line the 攀山竞速 split was missing
+  when it shipped untested and pushed the question off-screen. Do not remove it.
+- **Room code is FIRST in the DOM**, then moved into the right column by `order:-1` in landscape.
+  That ordering is deliberate (§3): in portrait the stack pins it at the very top, where it is
+  glanceable on a reconnect, instead of trailing after the canvas below the fold.
+- `startRain(showPy, roomCode)` — solo passes nothing and the element is not rendered at all.
+  This is the only PK-facing hook that exists so far.
+
+**Pacing retune (§3 flags it):** rather than guess new constants blind, both knobs are now DERIVED
+from the area's measured box — crowding (`maxLiveNow()`) scales with WIDTH, fall speed
+(`fallScale()`) with HEIGHT against a `RAIN_REF_H = 520` reference. So a word takes the same TIME to
+reach the sea in any layout. **Without the height term the split would have quietly made the game
+easier**, since the landscape area is taller — exactly the drift a "just resize it" change causes.
+
+### Locked decisions recorded (not yet code)
+Host plays as a normal player (no observer row) · min 2, recommended 6, hard cap 8 · room code
+visible through `running`, not just `lobby` · **reward is a cosmetic 对战徽章 only** — a PK win
+must never touch 历练值/海拔/灵露, or PK becomes a shortcut around the mastery gate that rewards fast
+typing over knowing the word. The battle badge needs its OWN art track and must never mix with the
+five locked progression badges (shkj/hx/gg/jj/whz).
+
+### ⚠️ BLOCKED — do not build the room until these are answered
+§5.1 word pool source · §5.2 win condition · §5.6 late-join vs reconnection-only (the doc itself
+demands explicit sign-off) · §5.7 cross-class visibility. §5.4 badge tiering needs an art brief.
+Safe defaults assumed and NOT asked: §5.3 join by typed room code only, §5.5 no loss consequence
+anywhere outside the room.
+
+### 验证
+12 assertions against the real `startRain` — solo renders no code element, HUD and input both move
+into the right column, area precedes it in the DOM, a PK code renders and is escaped and sits first
+in the shell, and both pacing knobs scale/clamp correctly. app.js parses, CSS braces 632/632.
+⚠️ **The split itself is a layout claim and is unverified in a browser** — the last two splits in this
+repo (攀山竞速, and the 词雨 keyboard fix) both had real bugs that only a real viewport exposed. Open
+词雨 on a landscape iPad before class.
+
+## 同伴挑战 · PK对决 — BUILT 2026-08-14 (student-hosted duel)
+
+Owner resolved four of the seven §5 opens on 2026-08-14; the room is built on those answers.
+Files: arena.js (room + host path), app.js (setup screen + entry pill), app.css, firestore.rules.
+
+### Owner decisions
+| § | Decision |
+|---|---|
+| 5.2 win condition | **Fixed time, most correct.** Ties broken by time spent answering. |
+| 5.1 word pool | **Host picks it for everyone**, using the same 复习范围 they use for their own revision. |
+| 5.6 late join | **Reconnection only.** An existing player may come back; a new player is told to wait. |
+| 5.7 who can play | **Anyone with the code** — any 身份 (学生/老师/家长/公众) and **ANY stream**. A form class holds mixed subject levels and they want to play together; may also become a family game. |
+Defaults assumed, not asked: §5.3 join by typed code only · §5.5 no loss consequence anywhere.
+
+### Two blockers the design doc did not anticipate (both from 5.7)
+1. **Students could not create rooms at all.** `firestore.rules` had
+   `allow create: if isTeacher()`. Now create/update/delete pass if you host the room AND
+   (`isTeacher()` OR `pk == true`). A student can only ever set `pk:true`, so they cannot forge a
+   teacher-style room; a teacher room still requires the allowlist. ⚠️ **MUST BE RE-PUBLISHED** or
+   开一个房间 fails with permission-denied. The owner's copy at `Documents/VocabSummit/firestore/`
+   is re-synced.
+2. **Cross-stream play broke mastery.** arena.js built `wordIndex` from the JOINER's `ctx.words`, so
+   every `room.wordIds` lookup was undefined in a cross-stream room and the round rendered blank —
+   it now fetches the host's stream JSON (`ensureStream`, cached). Worse, `conferMastery(ids)`
+   wrote the HOST's ids into the joiner's store, and since **海拔 is
+   `Object.keys(store.mastered).length`**, foreign ids would silently inflate a student's altitude
+   with words that do not exist in their stream. `conferMasteryFromRoom(ids, texts)` now validates
+   ids against our own WORDS and matches the rest by **word TEXT** — the documented cross-stream
+   join key. Distractors also come from the room's stream pool, not the joiner's.
+
+### How it works
+- `WSArena.host(ctx, cfg)` creates `rooms/{code}` with `pk:true` + a 6h `expiresAt` (same TTL sweep
+  as 结伴登峰) and then **falls into the ordinary join flow — the host is a normal player row**, per
+  §2. Code alphabet excludes O/0/I/1/L. Retries 3× on collision.
+- Lobby: host sees the code and a 开始 button that stays **disabled below 2 players**; cap 8
+  (`PK_MIN`/`PK_MAX`). The host's client mirrors what teacher.html does for 结伴登峰 — it is the only
+  one allowed to write the room doc, so it keeps `playerCount` live for everyone else's lobby.
+- **The room code stays on screen through `running`**, not just the lobby (§2): an `.arena-code-chip`
+  in the HUD, so a friend who drops can glance at any player's screen and rejoin without asking.
+- Ranking: `correct` desc, then `msUsed` asc. **Deliberately NOT `score`** — the owner picked
+  fixed-time/most-correct precisely so raw speed cannot win, so the board must not rank on the
+  speed-weighted arena score. 结伴登峰 still ranks on score, unchanged.
+- Modes are the three quiz types only. 攀山竞速/词雨 have their own scoring and do not express
+  "most correct in a fixed time"; adding them would need a separate win condition.
+- Setup screen (`renderPkConfig`) shows the scope word count, 题型, 时长, and both
+  开一个房间 / 加入朋友的房间. Entry is a ⚔️ pill beside 结伴登峰 on the home mini-horizon.
+
+### Reward
+**Nothing but mastery.** A PK win awards NO 历练值, NO 灵露 — same locked principle as 结伴登峰, and
+it matters more here: without it, PK is a shortcut around the mastery gate that rewards fast typing
+over knowing the word. ⚠️ The cosmetic **对战徽章 (§5.4) is NOT built** — it needs its own art brief
+and must never reuse or mix with the five locked progression badges (shkj/hx/gg/jj/whz). Wins are
+not yet recorded anywhere; add a counter when the badge art exists.
+
+### 验证
+22 assertions driving the real arena.js against a mock Firestore (the method the arena was
+originally verified with, since real rooms need published rules): room created once with `pk:true`
+and a valid code, host written as a PLAYER, start gated below 2 players, status flip to running,
+**code visible during play**, a new player refused mid-round with no row written, an existing player
+reconnecting with score carried forward, cross-stream id rejection + text matching, and the ranking
+order (most-correct beats a much higher speed score). The other suites still pass: camp 57, economy
+34, rain layout 12. app.js / arena.js parse; CSS braces 636/636.
+⚠️ **Never run against real Firestore.** Needs the re-published rules, then a genuine two-device
+round — especially the reconnect path and cross-stream play (a G1 and a G3 student in one room).
+
+## Session batch, 2026-08-14 (late) — 仓库分目录 · 词雨分栏比例 · 消耗品素材入库
+
+### 1. 仓库分目录 (owner request)
+See the rewritten **File structure** section above — the flat-root rule is retired, 66 files moved
+into `data/` + `art/{bg,badge,avatar,camp,item,sprite}` + `docs/`, every reference rewritten and
+verified (61 asset paths, 0 missing), all 183 test assertions still passing afterwards.
+⚠️ The local clone is **36 commits behind origin** — it is the owner's UPLOAD SOURCE, not a synced
+working copy. That is why deploying the reorg needs either a git push from here or a manual purge of
+the 66 old root files first; a plain re-upload would duplicate rather than move them.
+
+### 2. 词雨 landscape split reweighted (owner)
+The §3 split shipped at 62/38, which the owner judged too even: *"the screen still can take up most
+of the screen, we just want the typing field to be on the side instead of underneath."*
+`.rain-area` is now `flex:1 1 auto` and `.rain-right` is `flex:0 0 clamp(190px,23%,290px)` — the
+column is sized to what the input needs, not to a share of the width. In that narrower column the
+HUD wraps and the 收集 button goes full-width under the input.
+
+### 3. 消耗品 / 竞速道具 art (DESIGN_consumables_and_powerups_2026-08-14.md)
+10 sprites processed and filed under `art/item/`: 7 词雨 consumables (糖葫芦 +1命 · 定风珠 冻结5秒 ·
+油纸伞 连击护盾 · 羽扇 减速 · 算盘 灵露+10% · 玉葫芦 自动收集 · 锦囊 随机) and 3 攀山竞速 powerups
+(铜壶滴漏 加时 · 护膝 免一次时间惩罚 · 司南 剔除一个错误选项). The doc's own §4 flags magenta edge
+residue — confirmed (700–2300 contaminated px each) and cleaned with the repo's despill pipeline,
+then capped at 320px (they render as ~64px icons).
+⚠️ **ART ONLY — the system is NOT built**, exactly as the doc's §5 says. No inventory, no pre-round
+slot picker, no effect logic, no pricing. Naming is already de-religionised per the doc (灵露瓶→糖葫芦,
+护身符→油纸伞, 双倍灵露符→算盘, 提灯 removed entirely). Open before building: whether 闯关 waypoints
+are all MCQ (decides where 司南 can apply), and pricing against the A/B/C ladder.
+Note the doc's §3 worry about 结伴登峰 reusing app.js state is already settled: arena.js has its own
+renderers and never touches the 灵露/inventory path, so rooms are consumable-free with no extra code.
+
+### 4. 对战徽章
+Owner will design it separately. Nothing recorded, nothing stubbed — unchanged from the PK section.

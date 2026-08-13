@@ -233,22 +233,22 @@
      rendered in 营地 via PET_LAYOUT at their own aspect ratios, and square-padding
      / mirroring them would silently change the camp art. */
   var AVATAR_CATALOG = [
-    { id: "pet_gui", file: "avatar_pet_gui.png", category: "pet", label: "瑞兽·龟" },
-    { id: "pet_qilin", file: "avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
-    { id: "pet_feng", file: "avatar_pet_feng.png", category: "pet", label: "瑞兽·凤" },
-    { id: "pet_long", file: "avatar_pet_long.png", category: "pet", label: "瑞兽·龙" },
-    { id: "zodiac_rat", file: "avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
-    { id: "zodiac_ox", file: "avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
-    { id: "zodiac_tiger", file: "avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },
-    { id: "zodiac_rabbit", file: "avatar_zodiac_rabbit.png", category: "zodiac", label: "生肖·兔" },
-    { id: "zodiac_dragon", file: "avatar_zodiac_dragon.png", category: "zodiac", label: "生肖·龙" },
-    { id: "zodiac_snake", file: "avatar_zodiac_snake.png", category: "zodiac", label: "生肖·蛇" },
-    { id: "zodiac_horse", file: "avatar_zodiac_horse.png", category: "zodiac", label: "生肖·马" },
-    { id: "zodiac_goat", file: "avatar_zodiac_goat.png", category: "zodiac", label: "生肖·羊" },
-    { id: "zodiac_monkey", file: "avatar_zodiac_monkey.png", category: "zodiac", label: "生肖·猴" },
-    { id: "zodiac_rooster", file: "avatar_zodiac_rooster.png", category: "zodiac", label: "生肖·鸡" },
-    { id: "zodiac_dog", file: "avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗" },
-    { id: "zodiac_pig", file: "avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪" }
+    { id: "pet_gui", file: "art/avatar/avatar_pet_gui.png", category: "pet", label: "瑞兽·龟" },
+    { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
+    { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤" },
+    { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙" },
+    { id: "zodiac_rat", file: "art/avatar/avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
+    { id: "zodiac_ox", file: "art/avatar/avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
+    { id: "zodiac_tiger", file: "art/avatar/avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },
+    { id: "zodiac_rabbit", file: "art/avatar/avatar_zodiac_rabbit.png", category: "zodiac", label: "生肖·兔" },
+    { id: "zodiac_dragon", file: "art/avatar/avatar_zodiac_dragon.png", category: "zodiac", label: "生肖·龙" },
+    { id: "zodiac_snake", file: "art/avatar/avatar_zodiac_snake.png", category: "zodiac", label: "生肖·蛇" },
+    { id: "zodiac_horse", file: "art/avatar/avatar_zodiac_horse.png", category: "zodiac", label: "生肖·马" },
+    { id: "zodiac_goat", file: "art/avatar/avatar_zodiac_goat.png", category: "zodiac", label: "生肖·羊" },
+    { id: "zodiac_monkey", file: "art/avatar/avatar_zodiac_monkey.png", category: "zodiac", label: "生肖·猴" },
+    { id: "zodiac_rooster", file: "art/avatar/avatar_zodiac_rooster.png", category: "zodiac", label: "生肖·鸡" },
+    { id: "zodiac_dog", file: "art/avatar/avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗" },
+    { id: "zodiac_pig", file: "art/avatar/avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪" }
   ];
   var AVATAR_CAT_LABEL = { char: "角色", pet: "神兽", zodiac: "生肖" };
   window.WSAvatars = AVATAR_CATALOG;
