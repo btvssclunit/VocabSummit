@@ -54,6 +54,10 @@ th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.
 .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#EAF1F8;color:#3A5A70}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+.tov{position:fixed;inset:0;background:rgba(20,40,70,.45);display:flex;align-items:center;
+  justify-content:center;z-index:50;padding:20px}
+.tov .card{max-width:420px;width:100%;margin-bottom:0}
+.btn.small{padding:6px 12px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -546,27 +550,36 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         va = masteredCount(a, _sort.key); vb = masteredCount(b, _sort.key); return (va - vb) * _sort.dir;
       });
     }
-    var head = '<tr><th data-s="nick">昵称</th><th>身份</th><th>班级</th>' +
+    var canEdit = _me && _me.role === "hod";
+    var head = '<tr><th data-s="nick">昵称</th><th>身份</th><th>学校</th><th>班级</th>' +
       STREAMS.map(function (s) { return '<th data-s="' + s + '">' + STREAM_LABEL[s] + ' 掌握</th>'; }).join("") +
-      '<th data-s="active">最近活跃</th></tr>';
+      '<th data-s="active">最近活跃</th>' + (canEdit ? '<th>操作</th>' : '') + '</tr>';
     var body = rows.map(function (u) {
       var p = profOf(u);
       return '<tr><td>' + esc(p.nickname || "（未命名）") + '</td>' +
         '<td><span class="pill">' + CAT_LABEL[p.category || ""] + '</span></td>' +
+        '<td>' + esc(p.school || "—") + '</td>' +
         '<td>' + esc(p.mtlClass || "—") + '</td>' +
         STREAMS.map(function (s) { return '<td>' + masteredCount(u, s) + '</td>'; }).join("") +
-        '<td>' + lastActive(u) + '</td></tr>';
+        '<td>' + lastActive(u) + '</td>' +
+        (canEdit ? '<td><button class="btn small edit-prof" data-uid="' + esc(u.uid) + '">编辑</button></td>' : '') +
+        '</tr>';
     }).join("");
 
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">班级视图</h2>' +
       '<div class="row"><div><label>学校</label><select id="fSchool">' + schoolOpts + '</select></div>' +
       '<div><label>班级</label><select id="fClass">' + classOpts + '</select></div>' +
-      '<span class="hint">共 ' + rows.length + ' 人。点表头可按掌握词数排序。</span></div>' +
+      '<span class="hint">共 ' + rows.length + ' 人。点表头可按掌握词数排序。' + (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</span></div>' +
       '<div class="scroll" style="margin-top:12px"><table><thead>' + head + '</thead><tbody>' +
-      (body || '<tr><td colspan="7" class="hint">没有符合条件的档案。</td></tr>') + '</tbody></table></div></div>';
+      (body || '<tr><td colspan="' + (canEdit ? 9 : 8) + '" class="hint">没有符合条件的档案。</td></tr>') + '</tbody></table></div></div>';
 
     el("fSchool").onchange = function () { _classFilter.school = this.value; renderPanel(); };
+    if (canEdit) {
+      Array.prototype.forEach.call(panel.querySelectorAll(".edit-prof"), function (b) {
+        b.onclick = function () { openEditProfile(b.getAttribute("data-uid")); };
+      });
+    }
     el("fClass").onchange = function () { _classFilter.cls = this.value; renderPanel(); };
     Array.prototype.forEach.call(panel.querySelectorAll("th[data-s]"), function (th) {
       th.onclick = function () {
@@ -575,6 +588,53 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         renderPanel();
       };
     });
+  }
+
+  /* HOD-only fix for wrongly-entered student profiles (school/class/nickname/身份).
+     Writes ONLY the top-level "profile" field via a scoped Firestore rule — never
+     touches progress/pts/badges, so a correction here can't affect mastery data. */
+  function userByUid(uid) { for (var i = 0; i < _users.length; i++) if (_users[i].uid === uid) return _users[i]; return null; }
+  function openEditProfile(uid) {
+    var u = userByUid(uid);
+    if (!u) return;
+    var p = profOf(u);
+    var ov = document.createElement("div");
+    ov.className = "tov";
+    ov.innerHTML = '<div class="card">' +
+      '<h2 style="margin-top:0">编辑学生资料</h2>' +
+      '<div class="hint" style="margin-bottom:8px">识别码 ' + esc(uid) + '</div>' +
+      '<label>昵称</label><input type="text" id="epNick" style="width:100%" value="' + esc(p.nickname || "") + '">' +
+      '<label>身份</label><select id="epCat" style="width:100%">' +
+      ["student", "teacher", "parent", "public", ""].map(function (k) {
+        return '<option value="' + k + '"' + (p.category === k ? " selected" : "") + '>' + CAT_LABEL[k] + '</option>';
+      }).join("") + '</select>' +
+      '<label>学校</label><input type="text" id="epSchool" style="width:100%" value="' + esc(p.school || "") + '">' +
+      '<label>班级（如 2026 3HC3）</label><input type="text" id="epClass" style="width:100%" value="' + esc(p.mtlClass || "") + '">' +
+      '<div style="margin-top:14px;display:flex;gap:10px">' +
+      '<button class="btn primary" id="epSave">保存</button>' +
+      '<button class="btn" id="epCancel">取消</button></div>' +
+      '<div class="msg" id="epMsg"></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    document.getElementById("epCancel").onclick = function () { ov.remove(); };
+    document.getElementById("epSave").onclick = function () {
+      var msg = document.getElementById("epMsg");
+      var next = {
+        nickname: document.getElementById("epNick").value.trim(),
+        category: document.getElementById("epCat").value,
+        school: document.getElementById("epSchool").value.trim(),
+        mtlClass: document.getElementById("epClass").value.trim()
+      };
+      if (next.category !== "student") next.mtlClass = "";   // matches WSProfile.save()'s own rule
+      msg.className = "msg"; msg.textContent = "保存中…";
+      db.collection("users").doc(uid).set({
+        profile: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).then(function () {
+        u.data.profile = Object.assign({}, p, next);   // keep the local cache in sync
+        ov.remove();
+        renderPanel();
+      }).catch(function (e) { msg.className = "msg bad"; msg.textContent = "保存失败：" + (e.code || e.message); });
+    };
   }
 
   function renderHard(panel) {

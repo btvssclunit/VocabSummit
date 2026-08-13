@@ -208,7 +208,7 @@
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
-    s.asmPrompt = s.asmPrompt || "def"; // 组词挑战 prompt: def|en|cloze|py (py = practice, no pts)
+    s.asmPrompt = s.asmPrompt || (STREAM === "g1" ? "py" : "def"); // 组词挑战 prompt: def|en|cloze|py (py = practice, no pts); G1 defaults to the easier 拼音 tier
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
@@ -800,8 +800,8 @@
       html += '<div class="section-label">词语游乐场</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
-        (STREAM === "g2" ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
-        (STREAM !== "g1" ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
+        ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
+        ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
     } else {
       html += '<div class="section-label">每次题数 · 填空 / 华文 / 英文</div><div class="diff" id="qlenSel">' +
         [10, 20, 30, 40, 50].map(function (n) {
@@ -2764,8 +2764,8 @@
     { mode: "enmcq", label: "🌐 英文翻译" },
     { mode: "rain", label: "🌧️ 词雨灵露" },
     { mode: "sprint", label: "⛰️ 攀山竞速" },
-    { mode: "assemble", label: "🧩 组词挑战", only: "g2" },
-    { mode: "handle", label: "🀄 词语汉兜", not: "g1" }
+    { mode: "assemble", label: "🧩 组词挑战", only: ["g1", "g2"] },
+    { mode: "handle", label: "🀄 词语汉兜", only: ["g3", "hcl"] }
   ];
   function launchMode(mode) {
     if (!scopedWords().length) { alert("请先在「修行」页选择至少一个单元。"); return; }
@@ -2805,8 +2805,7 @@
 
     var n = scopedWords().length;
     var board = CAMP_MODES.filter(function (b) {
-      if (b.only && STREAM !== b.only) return false;
-      if (b.not && STREAM === b.not) return false;
+      if (b.only && b.only.indexOf(STREAM) === -1) return false;
       return true;
     }).map(function (b) {
       return '<button class="cb" data-mode="' + b.mode + '">' + b.label + '</button>';
@@ -2983,8 +2982,8 @@
      the ridge to the pavilion. Re-trace if the image changes. */
   var MTN_PATH = [
     [0.593, 0.955], [0.625, 0.891], [0.574, 0.828], [0.513, 0.764], [0.521, 0.700],
-    [0.582, 0.637], [0.529, 0.573], [0.537, 0.509], [0.518, 0.446], [0.517, 0.382],
-    [0.519, 0.319], [0.521, 0.255], [0.523, 0.191], [0.525, 0.128], [0.527, 0.064]
+    [0.582, 0.637], [0.529, 0.573], [0.537, 0.509], [0.518, 0.446], [0.546, 0.382],
+    [0.489, 0.319], [0.541, 0.255], [0.516, 0.191], [0.519, 0.128], [0.555, 0.064]
   ];
   function mtnPathAt(frac) {
     var n = MTN_PATH.length - 1;

@@ -550,16 +550,35 @@
         function () { commitRestore(plan, true, plan.codeNick || ""); });
     }
 
+    function undoDiffLine(snap) {
+      var cur = currentMasteredSet();
+      var curCount = Object.keys(cur).length;
+      var snapCount = Object.keys((snap && snap.mastered) || {}).length;
+      var lost = Math.max(0, curCount - snapCount);
+      return '<div class="pop-body" style="background:#FBEFEF;border:1px solid #E9C7C7;border-radius:10px;padding:10px 12px;margin-top:8px">' +
+        '撤销后会把进度<b>整体还原</b>到恢复前：<b>' + snapCount + '</b> 个已掌握词语。<br>' +
+        (lost > 0
+          ? '你现在有 <b>' + curCount + '</b> 个，撤销会<b>丢失这之后新掌握的 ' + lost + ' 个词语</b>（包括恢复之后新答对的）。'
+          : '你现在有 <b>' + curCount + '</b> 个，撤销不会丢失任何词语。') +
+        '</div>';
+    }
+
     function onUndo() {
       var undoKey = "ws2_" + _provider.stream + "_prerestore";
       var snap;
       try { snap = JSON.parse(sessionStorage.getItem(undoKey)); } catch (e) { snap = null; }
       if (!snap) { flashCode("没有可撤销的恢复。", false); return; }
-      _provider.restoreSnapshot(snap);
-      try { sessionStorage.removeItem(undoKey); } catch (e) {}
-      if (opts.onChanged) opts.onChanged();
-      render();
-      flashCode("已撤销这次恢复。", true);
+      confirmDialog(
+        '<div class="pop-title">撤销这次恢复？</div>' +
+        '<div class="pop-body">这会把进度<b>整体还原</b>到恢复前的状态，不是只减掉恢复码带来的部分，请确认。</div>' + undoDiffLine(snap),
+        "确定撤销",
+        function () {
+          _provider.restoreSnapshot(snap);
+          try { sessionStorage.removeItem(undoKey); } catch (e) {}
+          if (opts.onChanged) opts.onChanged();
+          render();
+          flashCode("已撤销这次恢复。", true);
+        });
     }
 
     function wireUid() {

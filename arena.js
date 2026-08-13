@@ -77,7 +77,16 @@
       ".arena-rword .py{display:block;font-size:11px;color:#5A7080;font-weight:400}" +
       ".arena-rin{display:flex;gap:8px;width:100%;max-width:620px}" +
       ".arena-rin input{flex:1;font-size:20px;padding:12px;border-radius:12px;border:2px solid #B9CEDD;text-align:center}" +
-      ".arena-rin button{border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;background:var(--gold,#E3A63C);color:#3A2A08;cursor:pointer}";
+      ".arena-rin button{border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;background:var(--gold,#E3A63C);color:#3A2A08;cursor:pointer}" +
+      /* catch/miss feedback, ported from app.js's own 词雨灵露 (collectToBarrel/splashAt) so
+         room-mode rain has the same satisfying feedback as solo practice — see 1.3. */
+      ".arena-rword.collect{transition:transform .45s cubic-bezier(.4,.1,.7,1),opacity .45s;opacity:.15;z-index:3}" +
+      ".arena-rainfx{position:absolute;background-repeat:no-repeat;image-rendering:pixelated;pointer-events:none;z-index:3;" +
+      "background-image:url(data:image/png;base64,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)}" +
+      ".arena-barrel{position:absolute;right:10px;bottom:8px;width:46px;height:52px;z-index:4;" +
+      "border:3px solid #6B4F3A;border-top-width:4px;border-radius:6px 6px 10px 10px;" +
+      "background:rgba(255,255,255,.25);overflow:hidden;box-shadow:0 3px 10px rgba(23,58,90,.25)}" +
+      ".arena-water{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#7FB3D9,#2E6391);transition:height .4s ease}";
     document.head.appendChild(s);
   }
 
@@ -335,6 +344,8 @@
       [10, 6000], [14, 5200], [19, 4600], [25, 4000],
       [32, 3400], [40, 2900], [50, 2400], [62, 2000]
     ];
+    /* same sprite-sheet crop coordinates as app.js's RAINFX_MAP */
+    var ARENA_RAINFX_MAP = {"sp1": [0, 57, 37, 44], "sp2": [39, 56, 56, 45], "sp3": [97, 62, 52, 39], "bolt1": [151, 8, 26, 93], "bolt2": [179, 0, 40, 101], "rip1": [221, 83, 44, 18], "rip2": [267, 79, 60, 22]};
     function startRainPlay() {
       var cfg = room.gameCfg || {};
       var showPy = cfg.py !== false, ramp = !!cfg.ramp;
@@ -358,7 +369,7 @@
         '<span>连击 <b id="arCombo">×1</b></span>' +
         (livesMax ? '<span id="arLives">' + "❤️".repeat(livesMax) + '</span>' : '') +
         '<span class="arena-timer" id="arTimer">⏱ …</span></div>' +
-        '<div class="arena-rain" id="arRain"></div>' +
+        '<div class="arena-rain" id="arRain"><div class="arena-barrel" id="arBarrel"><div class="arena-water" id="arWater"></div></div></div>' +
         '<div class="arena-rin"><input id="arRIn" autocomplete="off" placeholder="打出词语…">' +
         '<button id="arRFire">收集</button></div>';
       var area = ov.querySelector("#arRain"), input = ov.querySelector("#arRIn");
@@ -367,6 +378,58 @@
       input.addEventListener("compositionend", function () { composing = false; });
       input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !composing) fire(); });
       ov.querySelector("#arRFire").onclick = fire;
+
+      /* Same fix as app.js's own 词雨灵露 (.rain-shell fitViewport): iOS keeps
+         the layout viewport (and 52vh) fixed when the 拼音 keyboard opens —
+         only the visual viewport shrinks — so the fixed-height rain area kept
+         its full size while the visible area shrank underneath it, pushing
+         the HUD off the top. Drive the actual pixel height off visualViewport
+         so the whole overlay stays visible above the keyboard. */
+      function fitRainArea() {
+        if (!window.visualViewport) return;
+        var top = area.getBoundingClientRect().top;
+        area.style.height = Math.max(180, window.visualViewport.height - top - 8) + "px";
+        area.style.minHeight = "0";
+      }
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", fitRainArea);
+        window.visualViewport.addEventListener("scroll", fitRainArea);
+      }
+      fitRainArea();
+
+      /* catch/miss feedback ported from app.js's fxShow/fxSeq/collectToBarrel/splashAt (1.3) */
+      var barrel = ov.querySelector("#arBarrel"), water = ov.querySelector("#arWater");
+      function fxShow(name, x, y, ms) {
+        var m = ARENA_RAINFX_MAP[name]; if (!m) return;
+        var el = document.createElement("div");
+        el.className = "arena-rainfx";
+        el.style.width = m[2] + "px"; el.style.height = m[3] + "px";
+        el.style.backgroundPosition = (-m[0]) + "px " + (-m[1]) + "px";
+        el.style.left = Math.round(x - m[2] / 2) + "px";
+        el.style.top = Math.round(y - m[3]) + "px";
+        area.appendChild(el);
+        setTimeout(function () { el.remove(); }, ms);
+      }
+      function fxSeq(names, x, y, stepMs) {
+        names.forEach(function (n, i) {
+          setTimeout(function () { if (area.isConnected) fxShow(n, x, y, stepMs + 40); }, i * stepMs);
+        });
+      }
+      function splashAt(x) {
+        fxSeq(["sp1", "rip1", "rip2"], x, area.clientHeight - 30, 120);
+      }
+      function collectToBarrel(o) {
+        var bx = barrel.offsetLeft + barrel.offsetWidth / 2 - o.el.offsetWidth / 2;
+        var by = barrel.offsetTop - 8;
+        o.el.classList.add("collect");
+        o.el.style.transform = "translate(" + bx + "px," + by + "px) scale(.25)";
+        (function (el) { setTimeout(function () { el.remove(); }, 480); })(o.el);
+        setTimeout(function () {
+          if (!area.isConnected) return;
+          fxSeq(["sp1", "sp2", "sp3"], barrel.offsetLeft + barrel.offsetWidth / 2, barrel.offsetTop + 10, 90);
+        }, 430);
+        water.style.height = Math.min(100, cleared * 3) + "%";
+      }
 
       function speedNow() { return ARENA_RAIN_SPEEDS[ramp ? Math.min(ARENA_RAIN_SPEEDS.length - 1, wave - 1) : speedIdx]; }
       function nextWord() { if (!bag.length) bag = shuffle(pool); return bag.pop(); }
@@ -392,6 +455,7 @@
           o.y += sp[0] * dt; o.phase += dt * 1.4;
           o.el.style.transform = "translate(" + (o.x + Math.sin(o.phase) * o.sway) + "px," + o.y + "px)";
           if (o.y > floorY) {
+            splashAt(o.x + o.el.offsetWidth / 2);
             o.el.remove(); liveW.splice(i, 1);
             combo = 1; setCombo();
             if (livesMax) {
@@ -414,17 +478,24 @@
         for (var i = 0; i < liveW.length; i++) if (liveW[i].w.w === val) { hit = i; break; }
         if (hit === -1) { scheduleWrite(); return; }
         var o = liveW[hit];
-        o.el.remove(); liveW.splice(hit, 1);
+        liveW.splice(hit, 1);
         cleared++; myCorrect++;
         myScore += o.w.w.length * 10 * combo;
         if (correctIds.indexOf(o.w.id) === -1) correctIds.push(o.w.id);
         if (cleared % 3 === 0) combo = Math.min(5, combo + 1);
         setCombo();
+        collectToBarrel(o);
         if (cleared % 10 === 0) wave++;
         var sc = ov.querySelector("#arScore"); if (sc) sc.textContent = myScore;
         scheduleWrite();
       }
-      stopGame = function () { if (raf) cancelAnimationFrame(raf); };
+      stopGame = function () {
+        if (raf) cancelAnimationFrame(raf);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener("resize", fitRainArea);
+          window.visualViewport.removeEventListener("scroll", fitRainArea);
+        }
+      };
       spawn();
       raf = requestAnimationFrame(step);
       tickTimer = setInterval(tick, 500);
