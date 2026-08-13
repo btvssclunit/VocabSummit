@@ -1315,8 +1315,47 @@
   }
   /* 拼音辅助 (D1): student-toggled, default off. Shown wherever options are
      answered (cloze MCQ rail + 攀山竞速 pre-start). Reveals pronunciation only,
-     not meaning — full 历练值 either way (D-5). */
+     not meaning — full 历练值 either way (D-5).
+     NOT offered in HCL (owner 2026-08-13): 高级华文 students are expected to read
+     without support. This governs SENTENCE + OPTION pinyin only — the per-word
+     `py` on flashcards and 词语表 stays for every stream, HCL included. */
+  function pyAidAvailable() { return STREAM !== "hcl"; }
+  /* option-pinyin gate: the toggle AND the stream must both allow it */
+  function optPy() { return store.pyAid && pyAidAvailable(); }
+
+  /* D2b 句子/释义注音 (2026-08-13). zhPy/clozePy carry ONE syllable per CJK
+     character: punctuation, Latin letters and the __ blank produce no token.
+     So we walk the text and consume a syllable only on a CJK char.
+     If the counts disagree, the pinyin field is out of step with the text
+     (older JSON, hand-edited sentence) — return null and let the caller fall
+     back to plain text, because a one-off misalignment would put the wrong
+     reading over every remaining character. HCL has no zhPy/clozePy by design,
+     so it falls back automatically. */
+  var CJK_RE = /[一-鿿]/;
+  function rubyText(text, py) {
+    var t = String(text == null ? "" : text), i, need = 0;
+    var syl = String(py || "").split(/\s+/).filter(Boolean);
+    if (!syl.length) return null;
+    for (i = 0; i < t.length; i++) if (CJK_RE.test(t.charAt(i))) need++;
+    if (syl.length !== need) return null;
+    var out = "", k = 0;
+    for (i = 0; i < t.length; i++) {
+      var ch = t.charAt(i);
+      out += CJK_RE.test(ch)
+        ? "<ruby>" + esc(ch) + "<rt>" + esc(syl[k++]) + "</rt></ruby>"
+        : esc(ch);
+    }
+    return out;
+  }
+  /* Question text, with 拼音 over the hanzi when 拼音辅助 is on. */
+  function qHtml(text, py) {
+    return (optPy() && rubyText(text, py)) || esc(text);
+  }
+  /* extra class for the annotated line-height — keyed on whether ruby is
+     actually present, so a fallback to plain text keeps the normal spacing */
+  function qCls(html) { return html.indexOf("<ruby") >= 0 ? " has-py" : ""; }
   function pyAidToggleHtml() {
+    if (!pyAidAvailable()) return "";
     return '<div class="diff-label">学习支援</div><div class="diff">' +
       '<button class="dopt' + (store.pyAid ? " on" : "") + '" data-pyaid="1">' +
       '<span class="stars">拼</span>拼音辅助</button></div>';
@@ -1349,16 +1388,42 @@
       btn.focus();
     }, ms);
   }
+  /* 填空挑战 options are drawn ONCE per question and cached on state.
+     A re-render (拼音辅助 toggle, mid-round difficulty switch) must never redraw
+     them: a fresh draw keeps the answer and swaps the distractors, so the one
+     option that survives the reshuffle IS the answer — a student could score
+     without reading anything. The distractor pool is drawn at FULL width once
+     and then sliced, so switching difficulty widens or narrows the same set
+     instead of dealing a new hand (which would leak the answer the same way).
+     Cache key is question index + word id, so a replayed round never inherits
+     a previous round's options. */
+  var MAX_CLOZE_OPTS = 4;
+  function clozeOpts(state, w, n) {
+    var key = state.i + "|" + w.id;
+    if (state._optsFor !== key) {
+      state._optsFor = key;
+      state._pool = distractorsFor(w, scopedWords(), MAX_CLOZE_OPTS - 1);
+      state._optsN = 0;
+      state._opts = null;
+    }
+    if (state._optsN !== n || !state._opts) {
+      state._optsN = n;
+      state._opts = shuffle([w].concat(state._pool.slice(0, n - 1)));
+    }
+    return state._opts;
+  }
   function renderCloze(state) {
     var w = state.seq[state.i];
-    var qtext = esc(w.cloze).replace(/_{2,}/g, "<u></u>");
+    /* the blank is non-CJK, so it survives rubyText untouched and the
+       existing __ -> <u></u> swap still lands on it */
+    var qtext = qHtml(w.cloze, w.clozePy).replace(/_{2,}/g, "<u></u>");
     var pyMode = store.diff === "pinyin";
     var typing = store.diff === "type" || pyMode;
     var html = '<div class="study">' +
       railHtml(state, "填空挑战", "读句子，填出空格里的词语", diffSelector()) +
       '<div class="stage"><div class="q-card">' +
       '<span class="q-tag">' + (pyMode ? "读句子，打出空格里词语的拼音（不用声调，练习不计分）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
-      '<div class="q-text">' + qtext + '</div>' +
+      '<div class="q-text' + qCls(qtext) + '">' + qtext + '</div>' +
       '<div class="q-foot"><button class="tts" id="ttsS">🔊 朗读句子</button></div></div>';
 
     if (typing) {
@@ -1368,13 +1433,12 @@
         '<button class="hint-btn" id="hint">' + (pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
     } else {
       var n = parseInt(store.diff, 10);
-      var opts = shuffle([w].concat(distractorsFor(w, scopedWords(), n - 1)));
-      state._opts = opts;
+      var opts = clozeOpts(state, w, n);
       html += '<div class="opts n' + n + '" id="opts">' +
         opts.map(function (o, idx) {
           return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
             String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-            (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+            (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
             '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
         }).join("") + '</div>';
     }
@@ -1482,19 +1546,21 @@
     var w = state.seq[state.i];
     var isZh = state.mode === "zhmcq";
     var prompt = isZh ? w.zh : w.en;
+    var qprompt = isZh ? qHtml(prompt, w.zhPy) : esc(prompt);
     var opts = shuffle([w].concat(distractorsFor(w, state.pool || scopedWords(), 3)));
     view().innerHTML = '<div class="study">' +
       railHtml(state, isZh ? "华文解释" : "英文翻译", isZh ? "看释义，选出词语" : "看英译，选出词语") +
       '<div class="stage"><div class="q-card">' +
       '<span class="q-tag">' + (isZh ? "看释义，选出词语" : "看英文，选出词语") + '</span>' +
-      '<div class="q-text mcq">' + esc(prompt) + '</div>' +
+      /* 英文翻译 prompts are English — nothing to annotate */
+      '<div class="q-text mcq' + qCls(qprompt) + '">' + qprompt + '</div>' +
       (isZh ? '<div class="q-foot"><button class="tts" id="ttsP">🔊 朗读释义</button></div>' : "") +
       '</div>' +
       '<div class="opts n4" id="opts">' +
       opts.map(function (o, idx) {
         return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
           String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-          (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
           '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
@@ -2397,22 +2463,25 @@
       locked = false;
       cur = nextWordS();
       var say = document.getElementById("spSay");
+      var pr = document.getElementById("spPrompt");
       if (smode === "en") {
-        document.getElementById("spPrompt").textContent = cur.en;
+        pr.textContent = cur.en;
         say.style.display = "none";   // English is never read aloud (TTS rule)
-      } else if (smode === "cloze") {
-        document.getElementById("spPrompt").textContent = cur.cloze;
-        say.style.display = ""; say.onclick = function () { speakCloze(cur.cloze); };
       } else {
-        document.getElementById("spPrompt").textContent = cur.zh;
-        say.style.display = ""; say.onclick = function () { speak(cur.zh); };
+        var isCl = smode === "cloze";
+        // blank stays a literal __ here, as it always has in 攀山竞速
+        pr.innerHTML = isCl ? qHtml(cur.cloze, cur.clozePy) : qHtml(cur.zh, cur.zhPy);
+        say.style.display = "";
+        say.onclick = isCl ? function () { speakCloze(cur.cloze); }
+                           : function () { speak(cur.zh); };
       }
+      pr.className = "sq-prompt" + qCls(pr.innerHTML);
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
       box.innerHTML = opts.map(function (o, i) {
         return '<div class="opt-row"><button class="sopt" data-i="' + i + '"><span class="letter">' +
           String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
-          (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
           '<button class="opt-tts" data-i="' + i + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("");
       Array.prototype.forEach.call(box.querySelectorAll(".opt-tts"), function (b) {
@@ -3445,6 +3514,9 @@
                 WORDS.push({
                   id: w.id, w: w.w, py: w.py, pos: w.pos, zh: w.zh, en: w.en,
                   cloze: w.cloze,
+                  /* schemaVersion 2 (拼音辅助): absent in HCL and in any older
+                     cached JSON — qHtml falls back to plain text when missing */
+                  zhPy: w.zhPy, clozePy: w.clozePy,
                   level: lv.level, unit: u.unit, component: c.component
                 });
                 ids.push(w.id);

@@ -964,3 +964,98 @@ The owner's blunt verdict was "still awfully ugly" — teacher.html looked like 
 - VERIFIED in-browser: sign-in screen and a stubbed 出题设置 panel both render correctly with the new
   identity; teacher.html's JS still parses (JavaScriptCore) and CSS braces balance. The live
   dashboard behind login still needs a real teacher account to eyeball.
+
+## Session batch, 2026-08-13 (night) — 档案按钮移位 · 选项重洗泄题 · D2 句子注音上线
+
+Owner asked for three things mid-session; all three are done and **verified in a real browser**
+(the sandbox allowed `python3 -m http.server` this time, and the Browser pane accepted
+127.0.0.1 — unlike the previous two sessions. Try it before assuming code-reading is the only
+option available).
+
+### 1. 我的档案 moved to the top-right (landing)
+`.lp-greeting` was a big centred plaque at `bottom:24vh` sitting squarely on top of the pixel
+climbers painted on the path. It is now a compact rounded pill in the top-right corner
+(`right:1.6vw; top:14px; border-radius:999px`, avatar 30px, nickname clamped with ellipsis,
+`flex-wrap:nowrap` so a long nickname can never grow it to two lines).
+- ⚠️ **`.lp-couplet` now uses `top:max(12vh,78px)`.** At 12vh flat, the right couplet
+  (书山有路勤为径) starts level with the pill on a short landscape screen — measured 5px clearance
+  at 1024×600, i.e. a collision on anything shorter. The floor applies to BOTH couplets so they
+  stay symmetric. Don't revert it to plain 12vh.
+- Portrait override extended (`right:auto;top:auto` + slightly larger avatar/type) since the
+  portrait block turns the pill back into a normal in-flow element.
+
+### 2. 填空挑战 选项重洗 = 泄题 (real bug, fixed)
+Toggling 拼音辅助 mid-question called `renderCloze`, which **redrew the distractors**. The correct
+answer is the only option that survives a fresh draw, so a student could find it by toggling twice
+and watching which word stayed. Switching difficulty had the identical flaw.
+- New `clozeOpts(state, w, n)` draws the distractor pool ONCE per question at full width
+  (`MAX_CLOZE_OPTS - 1`) and slices it, so widening ⭐⭐→⭐⭐⭐→⭐⭐⭐⭐ ADDS options to the same
+  set rather than dealing a new hand. Cache key is `state.i + "|" + w.id` so a replayed round
+  never inherits stale options.
+- VERIFIED in-browser: four consecutive toggles gave an identical option list; d2 ⊂ d3 ⊂ d4;
+  returning to ⭐⭐ restored the same pair; advancing to the next question drew fresh options.
+- renderMcq was NOT affected (its rail carries no 拼音辅助 toggle — the toggle lives on the
+  quiz config screen), but if a toggle is ever added to an MCQ rail, give it the same treatment.
+
+### 3. D2a written + D2b built — 句子/释义注音 for G1/G2/G3
+**The four JSONs now carry zhPy/clozePy for g1/g2/g3 (schemaVersion 2). HCL is untouched and
+byte-identical to before (schemaVersion 1), by design.** Sizes: g1 156KB · g2 303KB · g3 415KB ·
+hcl 326KB. `id_registry.json` is byte-identical to origin (no IDs minted).
+- **Polyphone correction layer added to `generate_vocab_json.py`** (`fix_polyphones`), because the
+  raw pypinyin output was wrong often enough to fail the doc's own gate:
+  - **和**: 6 of 266 read huó/huò/huo. All were the conjunction. The cause is pypinyin reaching
+    ACROSS a word boundary to form 暖和 / 和药 / 和面 out of 温暖+和+舒适 etc. A fixed-word table
+    falls into the identical trap (米饭**和面**食), so the rule is now simply **和 → hé, always**.
+    A future 暖和 must be fixed with a master-column override, not by relaxing this.
+  - **得**: 233 occurrences split dé 172 / de 61, i.e. the structural-particle 得 (跑得快、变得更好)
+    was being read dé most of the time. Now the default is 轻声 **de**, with whitelists for the
+    fixed words that really are dé (`DE_HEAD` 得到/得以…, `DE_TAIL` 取得/获得/值得…), a 轻声
+    3-gram list (`DE_TRI_LIGHT` 怪不得/舍不得…), and `DEI_HEAD` for the 必须 sense. Result:
+    de 148 / dé 81 / děi 3.
+  - `DE_TAIL_FINAL` (心得) only counts when 得 is followed by punctuation or ends the string —
+    without that, 「担心得说不出话」 matches the false word 心得. Same class of bug as 和.
+- ⚠️ **Two residual cases the owner should settle** (listed with full context in
+  `local-admin/D2_多音字核对_和得.csv`, 和+得 every occurrence):
+  1. 「他赢得如此漂亮」 → 赢得 is whitelisted dé, but here it is a complement and should be de.
+  2. 「他脚受伤了，得__着绷带」 → should be děi, but the blank hides the verb so no rule can see it.
+  Fix either with the master's optional 「释义拼音 / 例句拼音」 columns (whole-string override,
+  beats every rule above and survives regeneration).
+- **DATA FIX (的/得 typo):** G2-0599 探险 cloze was 「他**得**梦想是去南极__。」 → 「他**的**梦想」.
+  Applied to the G2 Excel master AND regenerated, so master↔JSON stay synced. Found by the
+  polyphone audit, not by reading.
+- **Renderer (D2b):** `rubyText(text, py)` + `qHtml()` in app.js emit `<ruby>字<rt>音</rt></ruby>`
+  per CJK char. It consumes one syllable per CJK character only — punctuation, Latin and the `__`
+  blank pass through — and **returns null on any count mismatch** so a stale/edited sentence falls
+  back to plain text instead of shifting every reading after the mismatch. Wired into
+  renderCloze (填空句), renderMcq (释义 only — 英文翻译 stays plain), and 攀山竞速 `spPrompt`.
+  `qCls()` adds `.has-py` only when ruby is actually present, so un-annotated layout is unchanged.
+- ⚠️ **The JSON loader drops unknown fields.** `WORDS.push({...})` near the fetch copies an
+  EXPLICIT field list; zhPy/clozePy had to be added there or they never reach the renderer. This
+  cost a debugging round — remember it when adding any new word field.
+- CSS: `.q-text.has-py/.sq-prompt.has-py{line-height:2.5}` for `<rt>` headroom, plus
+  `ruby{margin:0 .07em}` / `rt{padding:0 .18em}` — without the side room adjacent readings run
+  together (…为提供 → weitígōng).
+
+### 4. 攀山竞速 landscape split was BROKEN (found while testing the above, fixed)
+The `@media (min-width:820px) and (orientation:landscape)` row layout shipped last session had
+never been run in a browser. `.sprint-canvas` had `flex:1 1 50%` but not `min-width:0`, and a
+`<canvas>` carries its width ATTRIBUTE as an intrinsic minimum, so the canvas refused to shrink,
+overflowed the row and pushed `.sprint-right` — **the question and the answer buttons** —
+completely off-screen (measured: 1464px canvas inside a 1156px shell, `.sprint-right` at x=1533,
+width 0). Worse, `resize()` then measured the overflowed box and wrote back an even larger width.
+One line fixes it: `min-width:0`. Verified: canvas left, question + options right.
+
+### Verification actually performed this batch
+Real browser, `python3 -m http.server`, 1280×800 / 1024×600 / 375×812: landing pill position +
+couplet clearance measured by `getBoundingClientRect`; G1 填空挑战 ruby + option stability +
+difficulty nesting; G1 华文解释 ruby; G1 英文翻译 correctly plain; G1 攀山竞速 ruby + the layout
+fix; G2 填空挑战 ruby; **HCL confirmed inert** (no toggle, no ruby, no option pinyin even with
+`pyAid` forced true in localStorage). Zero console errors. JS parsed via JavaScriptCore, CSS
+braces balanced, `generate_vocab_json.py --verify` still byte-identical for all four streams.
+
+### Still outstanding after this batch
+- 10 stale files on GitHub (ADMIN.md, check_consistency.py, 4× avatar_char_*.png, world.html,
+  world_previous_unedited.html, three.min.js, three_min.js) — owner deletes via the web UI;
+  confirmed no shipped file references any of them.
+- The two 得 cases above, plus the older open items (成就墙 drill-in, per-game leaderboards,
+  营地重制, cross-device recovery, 灵露 trickle decision).
