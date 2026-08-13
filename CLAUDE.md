@@ -1059,3 +1059,52 @@ braces balanced, `generate_vocab_json.py --verify` still byte-identical for all 
   confirmed no shipped file references any of them.
 - The two 得 cases above, plus the older open items (成就墙 drill-in, per-game leaderboards,
   营地重制, cross-device recovery, 灵露 trickle decision).
+
+## Session batch, 2026-08-13 (late night) — 顶栏昵称 + 排行榜扩展 v1
+
+### 顶栏 我的档案 pill
+The stream-page topbar avatar now carries the nickname beside it (`.tb-profile` is a pill:
+`.tb-av` circle + `.tb-nick`, `max-width:min(42vw,240px)` with ellipsis so a long nickname can
+never push the topbar wide). The duplicate 我的档案 chip under the stats bar (`profileHubBtn`,
+was in `.home-foot`) is REMOVED along with its wiring — the topbar pill is now the only
+我的档案 entry on a stream page. Under 520px the pill collapses back to the bare 36px circle so
+the stream name keeps its room. Verified at 1280/375 incl. a deliberately over-long nickname.
+
+### 排行榜扩展 v1 (DESIGN_排行榜扩展_周榜与游戏数据)
+Owner resolved the doc's last open item (§5.3) on 2026-08-13: **词雨 gets NO extra wrong-answer
+penalty — option (b), status quo.** Rationale recorded because it is better than the doc's own:
+mashing in 词雨 is not risk-free, since every second spent spamming is a second words fall
+unattended, and missed words already cost a life. The deterrent is indirect but real and stays in
+the currency already on screen. 攀山竞速 keeps the locked 3s time penalty (D-1).
+
+Built (app.js + firebase-init.js):
+- **本周历练值**: `store.pts.week = {id, n}`, a single lazy-reset bucket (NOT a per-week map —
+  a year of keys would bloat `scores/{uid}` for no ranking value). `currentWeekId()` returns
+  **that week's SUNDAY as a date string** ("2026-08-16"), computed in UTC off `todaySG()`.
+  ⚠️ Deliberately not an ISO week number: ISO weeks are Mon–Sun and would sit one day off the
+  locked Sunday–Saturday boundary, invisibly. Reset happens at write time in `bankPts()`, same
+  pattern as the per-day repeat cap — no cron, no Cloud Function. Read it through `weekPts()`,
+  never `store.pts.week.n` directly, or a stale bucket from last week reads as current.
+- **Two speed boards**, canonical-config only (D-2): `store.best.sprint90` written only when
+  `sprintSecs === 90`, `store.best.rainRamp` only when `rainRamp` is on. The existing
+  `store.best.sprint` / `.rain` stay as all-config personal bests. Both new keys ride the existing
+  `store.best` max-merge in mergeCloudProgress for free. NOT added to the 进度码 meta (that is a
+  fixed 5-field join — changing it would break every existing code).
+- 词山风云榜 now has FOUR tabs (掌握词数 / 历练值 / ⛰️攀山竞速 / 🌧️词雨手速) and the 历练值
+  sub-toggle gained 本周. Still sorted independently, still never summed.
+- **词雨 accuracy instrumentation**: rain had NO `bump()` calls at all, so zero attempt data
+  existed. `fire()` now calls `bump("rain", false)` on a non-matching submit and
+  `bump("rain", true)` on a catch. Blank submits are still skipped (stray keystroke, not a guess).
+  This is instrumentation only — the 打字准确率 board is deferred (§6) and will need a minimum
+  sample size before anyone can rank on it.
+- Firestore: `scores/{uid}.{stream}` gains `bestSprint90` / `bestRainRamp`; the week rides inside
+  the existing `pts` map as a `week` key (term ids look like "2026T3", so no collision).
+  ⚠️ **New composite indexes are required** for `orderBy` on `{stream}.bestSprint90`,
+  `{stream}.bestRainRamp` and `{stream}.pts.week`. Firestore throws "requires an index" with a
+  direct console link on the first query — create from that link. No rules change needed
+  (same doc, same owner-uid-only write).
+
+VERIFIED in-browser: four tabs render; 本周/本学期/累计 sub-toggle correct with headlines;
+`currentWeekId()` anchors to Sunday across a year boundary (2026-01-01 → 2025-12-28) and splits
+Sat 08-15 from Sun 08-16; 词雨 wrong submit recorded `{a:1,c:0}` and cost NO life, a correct catch
+recorded `{a:2,c:1}`. Zero console errors. Both JS files parse (JavaScriptCore).

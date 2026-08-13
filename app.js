@@ -224,6 +224,9 @@
     s.pts.terms = s.pts.terms || {};                        // termId -> banked pts
     s.pts.masteryAwarded = s.pts.masteryAwarded || {};      // wordId -> 1, guards +10
     s.pts.repeats = s.pts.repeats || { day: "", counts: {} }; // wordId -> repeats today
+    /* 本周历练值: a single lazy-reset bucket, NOT an accumulating map like terms —
+       a year of weekly keys would bloat scores/{uid} for no ranking value. */
+    s.pts.week = s.pts.week || { id: "", n: 0 };
     return s;
   }
   function saveStore() {
@@ -252,12 +255,21 @@
     if (!window.WSCloud || !window.WSCloud.saveScore) return;
     var p = loadProfile();
     if (!p || p.category !== "student") return;
+    /* the published pts map = the per-term banks PLUS a "week" key. Term ids look
+       like "2026T3", so "week" can never collide with one. */
+    var ptsMap = {};
+    Object.keys(store.pts.terms || {}).forEach(function (k) { ptsMap[k] = store.pts.terms[k]; });
+    ptsMap.week = weekPts();
     window.WSCloud.saveScore(STREAM, {
       nickname: p.nickname || "", school: p.school || "",
       alt: Object.keys(store.mastered).length,
       totalPts: store.pts.total || 0,
       bestStreak: store.bestStreak || 0,
-      pts: store.pts.terms || {}
+      pts: ptsMap,
+      /* speed boards publish CANONICAL-CONFIG runs only (90s sprint / 递增 rain);
+         store.best.sprint / .rain stay private personal bests across all configs */
+      bestSprint90: store.best.sprint90 || 0,
+      bestRainRamp: store.best.rainRamp || 0
     });
   }
   window.addEventListener("pagehide", flushCloudSyncNow);
@@ -291,6 +303,19 @@
       Object.keys(cloud.pts.masteryAwarded || {}).forEach(function (id) {
         if (!store.pts.masteryAwarded[id]) { store.pts.masteryAwarded[id] = 1; changed = true; }
       });
+      /* 本周 bucket: only comparable within the SAME week. A cloud bucket from a
+         newer week wins outright (this device has been idle); one from an older
+         week is ignored rather than merged, or last week's points would leak
+         into this week's board. */
+      var cw = cloud.pts.week;
+      if (cw && cw.id) {
+        if (cw.id === store.pts.week.id) {
+          var wv = Math.max(store.pts.week.n || 0, cw.n || 0);
+          if (wv !== (store.pts.week.n || 0)) { store.pts.week.n = wv; changed = true; }
+        } else if (cw.id > (store.pts.week.id || "")) {
+          store.pts.week = { id: cw.id, n: cw.n || 0 }; changed = true;
+        }
+      }
     }
     Object.keys(cloud.stats || {}).forEach(function (mode) {
       if (!store.stats[mode]) store.stats[mode] = { a: 0, c: 0 };
@@ -333,6 +358,22 @@
     }
     return latest.id;                                   // never null
   }
+  /* Week id = the DATE OF THAT WEEK'S SUNDAY in Asia/Singapore, e.g. "2026-08-16".
+     The boundary is Sunday–Saturday (owner 2026-08-13). Deliberately NOT an ISO
+     week number: ISO weeks run Mon–Sun, which would sit one day off the locked
+     boundary and be invisible until someone audited a Monday's points.
+     Arithmetic is done in UTC on a date-only value so no timezone can shift it. */
+  function currentWeekId() {
+    var p = todaySG().split("-");
+    var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+    d.setUTCDate(d.getUTCDate() - d.getUTCDay());        // 0 = Sunday
+    return d.toISOString().slice(0, 10);
+  }
+  /* 本周历练值, or 0 once the stored bucket belongs to a past week. Read through
+     this everywhere — store.pts.week.n alone is stale until the next bankPts. */
+  function weekPts() {
+    return store.pts.week.id === currentWeekId() ? (store.pts.week.n || 0) : 0;
+  }
 
   /* 段位 ladder — per stream, at the same fractions of each stream's projected
      4-year total (LEADERBOARD_DESIGN §5.3). Distinct from badges/achievement tiers. */
@@ -371,6 +412,11 @@
     store.pts.total += n;
     var tid = currentTermId();
     store.pts.terms[tid] = (store.pts.terms[tid] || 0) + n;
+    /* lazy weekly reset at write time — same pattern as the per-day repeat cap,
+       so there is no cron and no scheduled Cloud Function to keep alive */
+    var wid = currentWeekId();
+    if (store.pts.week.id !== wid) store.pts.week = { id: wid, n: 0 };
+    store.pts.week.n += n;
     saveStore();
   }
   function ensureRepeatDay() {
@@ -695,7 +741,13 @@
       '<div><div class="tb-name">' + META.zh + '</div>' +
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
       '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
-        '<button class="tb-profile" id="tbProfile" title="我的档案" aria-label="我的档案">' + tbAvatarHtml() + '</button></div>';
+        /* avatar + nickname in one pill: this is now the ONLY 我的档案 entry on a
+           stream page (the duplicate chip under the stats bar was removed
+           2026-08-13). Nickname hides under 520px so the topbar still fits. */
+        '<button class="tb-profile" id="tbProfile" title="我的档案" aria-label="我的档案">' +
+          '<span class="tb-av">' + tbAvatarHtml() + '</span>' +
+          '<span class="tb-nick">' + esc((loadProfile() || {}).nickname || "我的档案") + '</span>' +
+        '</button></div>';
     document.getElementById("tbBack").onclick = function () {
       if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
     };
@@ -843,9 +895,9 @@
       '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
       '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值</span></div>' +
       '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div>' +
-      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div>' +
-      '<div class="home-foot">' +
-      '<button class="code-link" id="profileHubBtn">👤 ' + esc((loadProfile() || {}).nickname || "我的档案") + ' · 我的档案（昵称 / 进度码 / 备份）</button></div></div></div>';
+      /* the 我的档案 chip that used to sit here was a duplicate of the topbar
+         avatar pill (which now carries the nickname too) — removed 2026-08-13 */
+      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div></div></div>';
 
     view().innerHTML = html;
 
@@ -886,7 +938,6 @@
     if (mh) mh.onclick = startMountain;
     var arenaPill = document.getElementById("arenaPill");
     if (arenaPill) arenaPill.onclick = function (e) { e.stopPropagation(); openArena(); };
-    document.getElementById("profileHubBtn").onclick = openProfilePanel;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
@@ -1033,36 +1084,66 @@
   var LB_BVSS = "百德中学 Bukit View Secondary School";
   function lbMedal(rank) { return rank <= 10 ? "🥇" : rank <= 20 ? "🥈" : rank <= 30 ? "🥉" : ""; }
   function lbTier(rank) { return rank <= 10 ? "gold" : rank <= 20 ? "silver" : rank <= 30 ? "bronze" : ""; }
+  /* Four boards, sorted independently and NEVER summed (LEADERBOARD_DESIGN §7):
+     掌握词数 breadth · 历练值 depth · and the two speed boards added by
+     DESIGN_排行榜扩展. The speed boards rank canonical-config runs only, so a
+     student cannot top them by picking a 120s timer or a slow fixed speed. */
   function lbFieldPath() {
-    if (store.lbBoard === "pts")
-      return store.lbTerm === "total" ? STREAM + ".totalPts" : STREAM + ".pts." + currentTermId();
+    if (store.lbBoard === "sprint90") return STREAM + ".bestSprint90";
+    if (store.lbBoard === "rainRamp") return STREAM + ".bestRainRamp";
+    if (store.lbBoard === "pts") {
+      if (store.lbTerm === "total") return STREAM + ".totalPts";
+      if (store.lbTerm === "week") return STREAM + ".pts.week";
+      return STREAM + ".pts." + currentTermId();
+    }
     return STREAM + ".alt";
   }
   function lbValueOf(data) {
     var sd = (data || {})[STREAM] || {};
-    if (store.lbBoard === "pts")
-      return store.lbTerm === "total" ? (sd.totalPts || 0) : ((sd.pts || {})[currentTermId()] || 0);
+    if (store.lbBoard === "sprint90") return sd.bestSprint90 || 0;
+    if (store.lbBoard === "rainRamp") return sd.bestRainRamp || 0;
+    if (store.lbBoard === "pts") {
+      if (store.lbTerm === "total") return sd.totalPts || 0;
+      if (store.lbTerm === "week") return (sd.pts || {}).week || 0;
+      return (sd.pts || {})[currentTermId()] || 0;
+    }
     return sd.alt || 0;
   }
   function lbMyValue() {
-    if (store.lbBoard === "pts")
-      return store.lbTerm === "total" ? (store.pts.total || 0) : (store.pts.terms[currentTermId()] || 0);
+    if (store.lbBoard === "sprint90") return store.best.sprint90 || 0;
+    if (store.lbBoard === "rainRamp") return store.best.rainRamp || 0;
+    if (store.lbBoard === "pts") {
+      if (store.lbTerm === "total") return store.pts.total || 0;
+      if (store.lbTerm === "week") return weekPts();
+      return store.pts.terms[currentTermId()] || 0;
+    }
     return Object.keys(store.mastered).length;
   }
-  function lbUnit() { return store.lbBoard === "pts" ? " 历练值" : " 米"; }
+  function lbUnit() {
+    if (store.lbBoard === "sprint90") return " 题";
+    if (store.lbBoard === "rainRamp") return " 分";
+    return store.lbBoard === "pts" ? " 历练值" : " 米";
+  }
   function renderLeaderboard() {
     setTopbar("home", "");
     var scope = store.lbScope || "school", board = store.lbBoard || "alt";
-    var headline = board === "pts"
-      ? "本学期历练值 · 每学期重新开始，累计历练值永不清零。"
+    var headline =
+      board === "sprint90" ? "只统计 90 秒的攀山竞速 · 比的是答对题数，答错要倒扣 3 秒。"
+      : board === "rainRamp" ? "只统计「递增速度」的词雨灵露 · 比的是同一套加速节奏下的得分。"
+      : board === "pts" ? (store.lbTerm === "week" ? "本周历练值 · 每周日重新开始。"
+          : store.lbTerm === "total" ? "累计历练值 · 永不清零。"
+          : "本学期历练值 · 每学期重新开始，累计历练值永不清零。")
       : "掌握词数就是你的海拔，1 词 = 1 米，只增不减。";
     var html = '<div class="lb-wrap"><div class="wl-title">🏆 词山风云榜 · ' + esc(META.zh) + '</div>' +
       '<div class="lb-tabs2">' +
       '<button class="lb-tab2' + (board === "alt" ? " on" : "") + '" data-b="alt">掌握词数</button>' +
-      '<button class="lb-tab2' + (board === "pts" ? " on" : "") + '" data-b="pts">历练值</button></div>';
+      '<button class="lb-tab2' + (board === "pts" ? " on" : "") + '" data-b="pts">历练值</button>' +
+      '<button class="lb-tab2' + (board === "sprint90" ? " on" : "") + '" data-b="sprint90">⛰️ 攀山竞速</button>' +
+      '<button class="lb-tab2' + (board === "rainRamp" ? " on" : "") + '" data-b="rainRamp">🌧️ 词雨手速</button></div>';
     if (board === "pts") {
       html += '<div class="lb-subtoggle">' +
-        '<button class="lb-sub' + (store.lbTerm !== "total" ? " on" : "") + '" data-t="term">本学期</button>' +
+        '<button class="lb-sub' + (store.lbTerm === "week" ? " on" : "") + '" data-t="week">本周</button>' +
+        '<button class="lb-sub' + (store.lbTerm !== "total" && store.lbTerm !== "week" ? " on" : "") + '" data-t="term">本学期</button>' +
         '<button class="lb-sub' + (store.lbTerm === "total" ? " on" : "") + '" data-t="total">累计</button></div>';
     }
     html += '<div class="wl-sub">' + esc(headline) + '</div>' +
@@ -1726,6 +1807,16 @@
     { k: "s7", label: "7 · 狂风暴雨", fall: 50, spawn: 2400 },
     { k: "s8", label: "8 · 雷霆万钧", fall: 62, spawn: 2000 }
   ];
+  /* 排行榜扩展 (DESIGN_排行榜扩展_周榜与游戏数据):
+     - Only a 90-second 攀山竞速 run and a 递增速度 词雨 run count toward the two
+       speed boards, so everyone is ranked on the same course. Other configs stay
+       personal-best-only.
+     - A wrong sprint answer costs 3s of the run (anti-mashing, D-1 locked).
+       词雨 gets NO extra penalty (owner 2026-08-13): every second spent spamming
+       guesses is a second words are falling unattended, and those already cost a
+       life — the deterrent is indirect but real, in the currency already on screen. */
+  var SPRINT_RANKED_SECS = 90;
+  var SPRINT_WRONG_PENALTY_MS = 3000;
   var RAIN_LIVES = 5;   // G-2: was 3 (students asked for more)
   /* ---------- 学习挑战 config (§2.1) ----------
      One entry for the three question-answering modes. Everything that used to be
@@ -1950,7 +2041,16 @@
       for (var i = 0; i < live.length; i++) {
         if (live[i].w.w === val) { hit = i; break; }
       }
-      if (hit === -1) { input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake"); combo = 1; document.getElementById("rCombo").textContent = "×1"; return; }
+      /* accuracy instrumentation: 词雨 had NO attempt tracking at all, so there
+         was no data behind a future 打字准确率 board. A blank submit is skipped
+         above — that's a stray keystroke, not a guess. */
+      if (hit === -1) {
+        bump("rain", false);
+        input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake");
+        combo = 1; document.getElementById("rCombo").textContent = "×1";
+        return;
+      }
+      bump("rain", true);
       var o = live[hit];
       var altBonus = Math.max(0, Math.round((1 - o.y / area.clientHeight) * 20)); // clear it high
       score += o.w.w.length * 10 * combo + altBonus;
@@ -1978,6 +2078,9 @@
       var best = store.best.rain || 0;
       var isBest = score > best;
       if (isBest) store.best.rain = score;
+      /* leaderboard board is 递增速度-only (D-2): a fixed slow speed would let a
+         student farm a high score on an easier course */
+      if (rainRamp && score > (store.best.rainRamp || 0)) store.best.rainRamp = score;
       store.lingLu += dew;          // bank the run's 灵露 into the wallet
       saveStore();
       view().innerHTML = '<div class="result">' +
@@ -2454,7 +2557,8 @@
       return queue[qi++];
     }
     var ok = 0, combo = 0, newMastered = 0, over = false, locked = false;
-    var sprintMs = (store.sprintSecs || 90) * 1000;
+    var sprintSecs = store.sprintSecs || 90;
+    var sprintMs = sprintSecs * 1000;
     var endAt = performance.now() + sprintMs;
     var cur = null;
 
@@ -2509,6 +2613,10 @@
             setTimeout(askNext, 260);
           } else {
             combo = 0; slipT = 0.5;
+            /* anti-mashing (D-1): a wrong answer costs 3 seconds of the run. The
+               board ranks how many questions you got right, so docking time hits
+               random-guessing exactly where it pays. ~3.3% of a 90s run. */
+            endAt -= SPRINT_WRONG_PENALTY_MS;
             document.getElementById("spCombo").textContent = "🔥0";
             sfxBad();
             b.classList.add("wrong");
@@ -2637,7 +2745,12 @@
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       var isBest = ok > best;
-      if (isBest) { store.best.sprint = ok; saveStore(); }
+      if (isBest) { store.best.sprint = ok; }
+      /* leaderboard board is 90s-only (D-2): other timers stay a private best */
+      if (sprintSecs === SPRINT_RANKED_SECS && ok > (store.best.sprint90 || 0)) {
+        store.best.sprint90 = ok;
+      }
+      saveStore();
       sfxBadge();
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + ok + ' 题</div>' +

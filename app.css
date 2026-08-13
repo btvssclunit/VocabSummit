@@ -468,10 +468,22 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .prof-prog span{font-size:11.5px;color:var(--ink-soft)}
 .prof-uid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all;
   background:#F1F6FB;border:1px solid #DBE7F1;border-radius:10px;padding:10px 12px;color:var(--ink)}
-.tb-profile{background:rgba(255,255,255,.82);border:1px solid #B9CEDD;border-radius:50%;
-  width:36px;height:36px;font-size:17px;cursor:pointer;color:#3A5A70;flex:none;margin-left:6px;
-  padding:0;overflow:hidden}
+/* avatar + nickname pill — the single 我的档案 entry on a stream page */
+.tb-profile{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.82);border:1px solid #B9CEDD;border-radius:999px;
+  height:36px;max-width:min(42vw,240px);font-size:17px;cursor:pointer;color:#3A5A70;flex:none;
+  margin-left:6px;padding:2px 13px 2px 2px;overflow:hidden;touch-action:manipulation}
+.tb-profile:active{transform:translateY(1px)}
+.tb-av{width:30px;height:30px;border-radius:50%;flex:none;overflow:hidden;
+  display:grid;place-items:center;background:#F1F6FB;font-size:16px}
 .tb-profile img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
+.tb-nick{font-family:var(--serif);font-weight:700;font-size:13.5px;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* phones: drop back to the bare circle so the stream name keeps its room */
+@media (max-width:520px){
+  .tb-nick{display:none}
+  .tb-profile{padding:2px;width:36px;justify-content:center}
+}
 /* ---------- 头像选择器 ---------- */
 .prof-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);
   background:#F1F6FB;cursor:pointer;flex:none;padding:0;overflow:hidden}

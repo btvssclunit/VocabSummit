@@ -136,7 +136,11 @@
           alt: entry.alt || 0,
           totalPts: entry.totalPts || 0,
           bestStreak: entry.bestStreak || 0,
-          pts: entry.pts || {}
+          pts: entry.pts || {},
+          /* speed boards (DESIGN_排行榜扩展): canonical-config runs only —
+             90s 攀山竞速 and 递增速度 词雨. pts.week rides inside pts. */
+          bestSprint90: entry.bestSprint90 || 0,
+          bestRainRamp: entry.bestRainRamp || 0
         };
         db.collection("scores").doc(_uid).set(s, { merge: true })
           .catch(function (e) { console.error("saveScore failed:", e); });
