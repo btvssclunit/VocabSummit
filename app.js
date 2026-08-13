@@ -1636,7 +1636,7 @@
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">🌧️ 词雨灵露</div>' +
-      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。✨ 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
+      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 每接住一词得等同字数的灵露，可在「我的词山 · 你的营地」兑换营地装备。</div>' +
       '<div class="diff-label">速度模式</div><div class="diff" id="rampSel">' +
       '<button class="dopt' + (!store.rainRamp ? " on" : "") + '" data-r="0">🔒 固定速度</button>' +
       '<button class="dopt' + (store.rainRamp ? " on" : "") + '" data-r="1">📈 递增速度（从最慢开始，逐波加速）</button></div>' +
@@ -1839,7 +1839,7 @@
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + score + '</div>' +
         '<div class="sub">词雨灵露 · 接住 ' + cleared + ' 词 · 第 ' + wave + ' 波</div>' +
-        '<div class="msg">✨ 收获灵露 ' + dew + ' · 现有 ' + store.lingLu + '（在词山营地兑换装备）</div>' +
+        '<div class="msg">' + campLingluIcon() + ' 收获灵露 ' + dew + ' · 现有 ' + fmtNum(store.lingLu) + '（在词山营地兑换装备）</div>' +
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局</button>' +
@@ -2626,7 +2626,7 @@
   function openMark(m) {
     ensureIdIndex();
     var html, ids, got, ov;
-    if (m.t === "base") { return openCamp(); }
+    if (m.t === "base") { return openCampScene(); }
     if (m.t === "comp") {
       ids = m.comp.ids;
       got = ids.filter(function (id) { return store.mastered[id]; }).length;
@@ -2660,7 +2660,104 @@
     wireChips(ov);
   }
 
-  /* ---------- 你的营地 base camp popover (自由试炼 hub + shop entry) ---------- */
+  /* ==================================================================
+     你的营地 · 场景化界面 (DESIGN_营地场景_商店_v2 + 附录三 layout constraints)
+     Static scene for v1 (owner 2026-08-13, for speed): fixed slots, pets fixed
+     in a loose cluster by the fire. No walking avatar / pet-follow yet — see
+     CLAUDE.md "营地场景 (campsite)" for the deferred-not-rejected note. Layout
+     was tuned by compositing the real PNGs and rendering (same method as the
+     mountain path): sparse AND full-22 states both checked, centre vista
+     (cx 35–65, by<72) kept clear, framing items sit at the edges overlapping
+     the painted treeline, front-band cx 30–70 kept near-empty (future-proofs
+     a walking corridor even though nothing walks yet).
+     ================================================================== */
+  var CAMP_LAYOUT = {
+    // key            file                        cx   by   w
+    pavilion:     { file: "deco_pavilion.png",     cx: 14, by: 66, w: 13 },
+    pine:         { file: "deco_pine.png",         cx: 90, by: 68, w: 12 },
+    sakura:       { file: "deco_sakura.png",       cx:  9, by: 73, w: 14 },
+    maple:        { file: "deco_maple.png",        cx: 89, by: 71, w: 13 },
+    viewdeck:     { file: "deco_viewdeck.png",     cx:  3, by: 54, w: 12 },
+    waterfall:    { file: "deco_waterfall.png",    cx: 99, by: 51, w: 12 },
+    fire:         { file: "deco_fire.png",         cx: 33, by: 87, w: 11 },
+    flag:         { file: "deco_flag.png",         cx: 65, by: 80, w:  6 },
+    lanterns:     { file: "deco_lanterns.png",     cx: 72, by: 76, w: 11 },
+    bamboofence:  { file: "deco_bamboofence.png",  cx: 59, by: 78, w: 10 },
+    windchime:    { file: "deco_windchime.png",    cx: 75, by: 80, w:  4 },
+    cat:          { file: "deco_cat.png",          cx: 60, by: 97, w:  7 },
+    stonelantern: { file: "deco_stonelantern.png", cx: 24, by: 86, w:  6 },
+    waterjar:     { file: "deco_waterjar.png",     cx: 20, by: 90, w:  7 },
+    signpost:     { file: "deco_signpost.png",     cx:  4, by: 97, w:  7 },
+    teatable:     { file: "deco_teatable.png",     cx: 78, by: 95, w: 11 },
+    well:         { file: "deco_well.png",         cx:  8, by: 93, w:  9 },
+    bridge:       { file: "deco_bridge.png",       cx: 16, by: 97, w: 13 },
+    bookchest:    { file: "deco_bookchest.png",    cx: 82, by: 88, w:  8 },
+    garden:       { file: "deco_garden.png",       cx: 88, by: 93, w: 12 },
+    koipond:      { file: "deco_koipond.png",      cx: 76, by: 98, w: 16 }
+  };
+  var DWELLING_SLOT = { cx: 50, by: 85, w: 19 };
+  var DWELLING_FILES = { 1: "tent.png", 2: "tent_cabin.png", 3: "tent_tower.png" };
+  /* fixed cluster by the fire — NOT a following pet (deferred, see note above) */
+  var PET_LAYOUT = {
+    gui:   { file: "pet_gui.png",   cx: 30, by: 93, w: 5 },
+    qilin: { file: "pet_qilin.png", cx: 36, by: 96, w: 6 },
+    feng:  { file: "pet_feng.png",  cx: 42, by: 91, w: 6 },
+    long:  { file: "pet_long.png",  cx: 46, by: 97, w: 7 }
+  };
+
+  /* ---------- shop catalogue ---------- */
+  var SHOP_A = [   // 小件 20–60 灵露
+    { key: "fire", name: "篝火", price: 30, file: "deco_fire.png", desc: "夜里暖手，词语更暖心" },
+    { key: "flag", name: "营旗", price: 60, file: "deco_flag.png", desc: "让全山都看见你的营地" },
+    { key: "stonelantern", name: "石灯笼", price: 40, file: "deco_stonelantern.png", desc: "照亮营地一角" },
+    { key: "bamboofence", name: "竹篱笆", price: 30, file: "deco_bamboofence.png", desc: "圈出你的小天地" },
+    { key: "windchime", name: "风铃", price: 25, file: "deco_windchime.png", desc: "风一吹就响" },
+    { key: "cat", name: "打盹的猫", price: 50, file: "deco_cat.png", desc: "营地里的常住客" },
+    { key: "waterjar", name: "水缸", price: 35, file: "deco_waterjar.png", desc: "储水防旱" },
+    { key: "signpost", name: "木牌路标", price: 20, file: "deco_signpost.png", desc: "指向远方的路" }
+  ];
+  var SHOP_B = [   // 中件 100–300 灵露
+    { key: "pine", name: "青松", price: 100, file: "deco_pine.png", desc: "亲手栽下一片绿荫" },
+    { key: "pavilion", name: "小亭", price: 200, file: "deco_pavilion.png", desc: "营地的雅致一景" },
+    { key: "teatable", name: "木桌椅茶具", price: 150, file: "deco_teatable.png", desc: "泡一壶茶，歇一歇" },
+    { key: "well", name: "水井", price: 180, file: "deco_well.png", desc: "清凉井水，四季不干" },
+    { key: "bridge", name: "小石桥", price: 220, file: "deco_bridge.png", desc: "跨过溪水的小桥" },
+    { key: "bookchest", name: "书箱", price: 120, file: "deco_bookchest.png", desc: "藏书好去处" },
+    { key: "garden", name: "菜园", price: 140, file: "deco_garden.png", desc: "自己种的最香" },
+    { key: "lanterns", name: "灯笼串", price: 160, file: "deco_lanterns.png", desc: "夜里最温暖的一排光" }
+  ];
+  /* C-tier pricing: v2's 800–1500 assumed 闪卡/打拼音 also earn 灵露 — VERIFIED
+     2026-08-13 that they do not (灵露 is 词雨-only), so per the design doc's own
+     fallback rule these are reduced (~half), preserving relative order. Flagged
+     for the owner to adjust the four numbers directly if they feel differently. */
+  var SHOP_C = [
+    { key: "koipond", name: "锦鲤池", price: 500, file: "deco_koipond.png", desc: "锦鲤悠游，年年有余" },
+    { key: "sakura", name: "樱花树", price: 650, file: "deco_sakura.png", desc: "一季花开，满树粉白" },
+    { key: "maple", name: "红枫", price: 650, file: "deco_maple.png", desc: "秋来满树红" }
+  ];
+  var DWELLING_SHOP = [
+    { tier: 2, name: "木屋", price: 800, file: "tent_cabin.png", desc: "住所二级 · 替换帐篷", requires: null },
+    { tier: 3, name: "楼阁", price: 1000, file: "tent_tower.png", desc: "住所三级 · 替换木屋", requires: 2 }
+  ];
+  /* 望山台 / 悬泉飞瀑: 海拔-unlock only, never purchasable (owner 2026-08-13:
+     50% / 80% of this stream's total word count). */
+  var PRESTIGE_UNLOCK = [
+    { key: "viewdeck", name: "望山台", file: "deco_viewdeck.png", pct: 0.5, desc: "一览群峰的高台" },
+    { key: "waterfall", name: "悬泉飞瀑", file: "deco_waterfall.png", pct: 0.8, desc: "飞泉直落，云雾缭绕" }
+  ];
+  function dwellingTier() { return store.deco.tower ? 3 : store.deco.cabin ? 2 : 1; }
+  function prestigeUnlocked(p) { return altitudeNow() >= Math.round((WORDS.length || 0) * p.pct); }
+
+  /* shared sprite element with a graceful no-white-screen fallback: if the
+     bundled PNG somehow 404s, hide the broken image rather than show a
+     browser placeholder icon. */
+  function campSprite(cls, file, cx, by, w, title) {
+    return '<img class="' + cls + '" src="' + file + '" alt="" title="' + esc(title || "") + '" ' +
+      'style="left:' + cx + '%;bottom:' + (100 - by) + '%;width:' + w + '%" ' +
+      'onerror="this.style.display=\'none\'">';
+  }
+
+  /* ---------- 你的营地 base camp scene (自由试炼 hub + shop entry) ---------- */
   var CAMP_MODES = [
     { mode: "cloze", label: "✍️ 填空挑战" },
     { mode: "zhmcq", label: "🔎 华文解释" },
@@ -2678,9 +2775,34 @@
     if (mode === "handle") return startHandle();
     startMode(mode);
   }
-  function openCamp() {
-    var petLine = LEVELS.filter(function (lv) { return store.gym[lv]; })
-      .map(function (lv) { var p = petFor(lv); return p.emoji + " " + esc(p.name); }).join(" · ");
+  function openCampScene() {
+    setTopbar("home", "");
+    var sprites = "";
+    // decorations owned, drawn back-to-front (by ascending) so nearer items overlap farther ones
+    Object.keys(CAMP_LAYOUT).filter(function (k) { return store.deco[k]; })
+      .sort(function (a, b) { return CAMP_LAYOUT[a].by - CAMP_LAYOUT[b].by; })
+      .forEach(function (k) {
+        var it = CAMP_LAYOUT[k]; var shopIt = SHOP_A.concat(SHOP_B, SHOP_C).filter(function (x) { return x.key === k; })[0];
+        sprites += campSprite("camp-deco", it.file, it.cx, it.by, it.w, shopIt ? shopIt.name : "");
+      });
+    // 望山台 / 悬泉飞瀑: appear automatically once the 海拔 threshold is reached
+    PRESTIGE_UNLOCK.forEach(function (p) {
+      if (prestigeUnlocked(p)) {
+        var it = CAMP_LAYOUT[p.key];
+        sprites += campSprite("camp-deco", it.file, it.cx, it.by, it.w, p.name);
+      }
+    });
+    // dwelling: tent -> cabin -> tower, mutually exclusive, drawn last (front-most, it's the hero)
+    var dwFile = DWELLING_FILES[dwellingTier()];
+    sprites += campSprite("camp-dwelling", dwFile, DWELLING_SLOT.cx, DWELLING_SLOT.by, DWELLING_SLOT.w, "你的住所");
+    // pets: fixed cluster near the fire (静态位置, 跟随留待日后)
+    LEVELS.forEach(function (lv) {
+      if (!store.gym[lv]) return;
+      var p = petFor(lv), key = petKeyOf(lv), pl = PET_LAYOUT[key];
+      if (!pl) return;
+      sprites += campSprite("camp-pet", pl.file, pl.cx, pl.by, pl.w, p.name);
+    });
+
     var n = scopedWords().length;
     var board = CAMP_MODES.filter(function (b) {
       if (b.only && STREAM !== b.only) return false;
@@ -2689,22 +2811,41 @@
     }).map(function (b) {
       return '<button class="cb" data-mode="' + b.mode + '">' + b.label + '</button>';
     }).join("");
-    var html = '<div class="pop-title">⛺ 你的营地</div>' +
-      '<div class="camp-wallet">✨ 灵露 <b>' + store.lingLu + '</b> · 在词雨灵露中接住词语获得</div>' +
-      (petLine ? '<div class="camp-pets">登山伙伴：' + petLine + '</div>' : "") +
-      '<div class="pop-label">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
-      '<div class="camp-board">' + board + '</div>' +
-      '<div class="camp-uid">识别码 <code id="campUid">载入中…</code>' +
-      '<button class="uid-copy" id="uidCopy">复制</button>' +
-      '<div class="pop-hint">如需向老师反映问题或核对排行榜身份，请提供此识别码。</div></div>' +
-      '<div class="nav-row"><button class="nav-btn" id="campShop">🛒 营地商店</button>' +
-      '<button class="nav-btn primary" id="campOk">知道了</button></div>';
-    var ov = popOverlay(html);
-    ov.querySelector("#campOk").onclick = function () { ov.remove(); };
-    ov.querySelector("#campShop").onclick = function () { ov.remove(); openShop(); };
-    Array.prototype.forEach.call(ov.querySelectorAll(".cb[data-mode]"), function (btn) {
-      btn.onclick = function () { ov.remove(); launchMode(btn.getAttribute("data-mode")); };
+
+    var html = '<div class="camp2-wrap"><div class="camp2-stage" id="campStage">' +
+      '<img class="camp2-bg" src="camp_bg.png" alt="" onerror="this.parentNode.classList.add(\'camp2-bg-fallback\')">' +
+      sprites + '</div>' +
+      '<div class="camp2-hud"><span class="m2pill">' + campLingluIcon() + ' <b>' + fmtNum(store.lingLu) + '</b></span>' +
+      '<button class="m2pill" id="campShopBtn">🛒 营地商店</button>' +
+      '<button class="m2pill" id="campUidBtn">🪪 识别码</button></div>' +
+      '<div class="pop-label" style="text-align:center;margin-top:14px">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
+      '<div class="camp-board" id="campBoard">' + board + '</div>' +
+      '<div class="nav-row" style="max-width:520px;margin:14px auto 0"><button class="nav-btn" id="campBack">‹ 返回</button></div>' +
+      '</div>';
+    view().innerHTML = html;
+
+    document.getElementById("campBack").onclick = renderHome;
+    document.getElementById("campShopBtn").onclick = openShopScene;
+    document.getElementById("campUidBtn").onclick = showCampUid;
+    Array.prototype.forEach.call(document.getElementById("campBoard").querySelectorAll(".cb[data-mode]"), function (btn) {
+      btn.onclick = function () { launchMode(btn.getAttribute("data-mode")); };
     });
+  }
+  function petKeyOf(level) {
+    var i = LEVELS.indexOf(level);
+    return ["gui", "qilin", "feng", "long"][i] || null;
+  }
+  function campLingluIcon() {
+    return '<img class="ling-icon" src="linglu.png" alt="灵露" onerror="this.outerHTML=\'✨\'">';
+  }
+  function showCampUid() {
+    var ov = popOverlay(
+      '<div class="pop-title">🪪 识别码</div>' +
+      '<div class="pop-body">如需向老师反映问题或核对排行榜身份，请提供此识别码。</div>' +
+      '<div class="camp-uid"><code id="campUid">载入中…</code>' +
+      '<button class="uid-copy" id="uidCopy">复制</button></div>' +
+      '<div class="nav-row"><button class="nav-btn primary" id="popOk">知道了</button></div>');
+    ov.querySelector("#popOk").onclick = function () { ov.remove(); };
     var uidEl = ov.querySelector("#campUid");
     if (window.WSCloud && window.WSCloud.isAvailable() && window.WSCloud.getUid) {
       window.WSCloud.getUid(function (u) { if (uidEl) uidEl.textContent = u || "（离线）"; });
@@ -2718,40 +2859,72 @@
   }
 
   /* ---------- 营地商店 camp shop (灵露兑换) ---------- */
-  var SHOP = [
-    { key: "fire", name: "篝火", price: 30, desc: "夜里暖手，词语更暖心" },
-    { key: "flag", name: "营旗", price: 60, desc: "让全山都看见你的营地" },
-    { key: "pine", name: "青松", price: 100, desc: "亲手栽下一片绿荫" },
-    { key: "pavilion", name: "小亭", price: 200, desc: "营地的终极荣耀" }
-  ];
-  function openShop() {
-    var rows = SHOP.map(function (it) {
-      var owned = !!store.deco[it.key];
-      var afford = store.lingLu >= it.price;
-      var btn = owned
-        ? '<span class="shop-owned">已拥有 ✓</span>'
-        : '<button class="shop-buy" data-key="' + it.key + '"' + (afford ? "" : " disabled") + '>' +
-          (afford ? "兑换" : "灵露不足") + '</button>';
-      return '<div class="shop-row"><div class="shop-info"><b>' + esc(it.name) + '</b>' +
-        '<span>' + esc(it.desc) + '</span></div>' +
-        '<div class="shop-price">✨ ' + it.price + '</div>' + btn + '</div>';
+  function shopRow(it, owned, afford, buyKey) {
+    var btn = owned
+      ? '<span class="shop-owned">已拥有 ✓</span>'
+      : '<button class="shop-buy" data-key="' + buyKey + '"' + (afford ? "" : " disabled") + '>' +
+        (afford ? "兑换" : "灵露不足") + '</button>';
+    return '<div class="shop-row"><img class="shop-thumb" src="' + it.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+      '<div class="shop-info"><b>' + esc(it.name) + '</b><span>' + esc(it.desc) + '</span></div>' +
+      '<div class="shop-price">' + campLingluIcon() + ' ' + it.price + '</div>' + btn + '</div>';
+  }
+  function openShopScene() {
+    setTopbar("home", "");
+    var rowsA = SHOP_A.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
+    var rowsB = SHOP_B.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
+    var rowsC = SHOP_C.map(function (it) { return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key); }).join("");
+    var tier = dwellingTier();
+    var rowsD = DWELLING_SHOP.map(function (d) {
+      var owned = tier >= d.tier;
+      var locked = d.requires && tier < d.requires;
+      var afford = store.lingLu >= d.price;
+      var btn = owned ? '<span class="shop-owned">已拥有 ✓</span>'
+        : locked ? '<span class="shop-locked">先升级前一级</span>'
+        : '<button class="shop-buy" data-dwell="' + d.tier + '"' + (afford ? "" : " disabled") + '>' + (afford ? "兑换" : "灵露不足") + '</button>';
+      return '<div class="shop-row"><img class="shop-thumb" src="' + d.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+        '<div class="shop-info"><b>' + esc(d.name) + '</b><span>' + esc(d.desc) + '</span></div>' +
+        '<div class="shop-price">' + campLingluIcon() + ' ' + d.price + '</div>' + btn + '</div>';
     }).join("");
-    var html = '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
-      '<div class="camp-wallet">✨ 灵露 <b>' + store.lingLu + '</b></div>' +
-      '<div class="shop-grid">' + rows + '</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button>' +
-      '<button class="nav-btn primary" id="shopOk">知道了</button></div>';
-    var ov = popOverlay(html);
-    ov.querySelector("#shopOk").onclick = function () { ov.remove(); };
-    ov.querySelector("#shopBack").onclick = function () { ov.remove(); openCamp(); };
-    Array.prototype.forEach.call(ov.querySelectorAll(".shop-buy[data-key]"), function (btn) {
+    var rowsPrestige = PRESTIGE_UNLOCK.map(function (p) {
+      var unlocked = prestigeUnlocked(p);
+      var need = Math.round((WORDS.length || 0) * p.pct);
+      var right = unlocked ? '<span class="shop-owned">已解锁 ✓</span>' : '<span class="shop-locked">海拔 ' + need + ' 米解锁</span>';
+      return '<div class="shop-row"><img class="shop-thumb" src="' + p.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+        '<div class="shop-info"><b>' + esc(p.name) + '</b><span>' + esc(p.desc) + ' · 灵露买不到，靠掌握词语解锁</span></div>' + right + '</div>';
+    }).join("");
+
+    var html = '<div class="camp2-wrap"><div class="shop2-card">' +
+      '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
+      '<div class="camp-wallet">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b> · 在词雨灵露中接住词语获得</div>' +
+      '<div class="shop-tier-label">A 档 · 小件</div><div class="shop-grid">' + rowsA + '</div>' +
+      '<div class="shop-tier-label">B 档 · 中件</div><div class="shop-grid">' + rowsB + '</div>' +
+      '<div class="shop-tier-label">C 档 · 大件</div><div class="shop-grid">' + rowsC + '</div>' +
+      '<div class="shop-tier-label">住所升级</div><div class="shop-grid">' + rowsD + '</div>' +
+      '<div class="shop-tier-label">威望物件</div><div class="shop-grid">' + rowsPrestige + '</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button></div>' +
+      '</div></div>';
+    view().innerHTML = html;
+    document.getElementById("shopBack").onclick = openCampScene;
+    Array.prototype.forEach.call(view().querySelectorAll(".shop-buy[data-key]"), function (btn) {
       btn.onclick = function () {
         var key = btn.getAttribute("data-key");
-        var it = SHOP.filter(function (x) { return x.key === key; })[0];
+        var it = SHOP_A.concat(SHOP_B, SHOP_C).filter(function (x) { return x.key === key; })[0];
         if (!it || store.deco[key] || store.lingLu < it.price) return;
         store.lingLu -= it.price; store.deco[key] = 1; saveStore();
         toast("已兑换：" + it.name + " ✨");
-        ov.remove(); openShop();   // re-render with updated wallet + ownership
+        openShopScene();   // re-render with updated wallet + ownership
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".shop-buy[data-dwell]"), function (btn) {
+      btn.onclick = function () {
+        var t = parseInt(btn.getAttribute("data-dwell"), 10);
+        var d = DWELLING_SHOP.filter(function (x) { return x.tier === t; })[0];
+        if (!d || dwellingTier() >= t || (d.requires && dwellingTier() < d.requires) || store.lingLu < d.price) return;
+        store.lingLu -= d.price;
+        if (t === 2) store.deco.cabin = 1; else if (t === 3) store.deco.tower = 1;
+        saveStore();
+        toast("已兑换：" + d.name + " ✨");
+        openShopScene();
       };
     });
   }

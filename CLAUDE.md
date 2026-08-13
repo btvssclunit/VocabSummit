@@ -589,7 +589,7 @@ PENDING (owner-gated content audits, each its own pass — need Excel masters + 
   human-vet — never auto-rewrite语料. Also G-3b needs a device measurement (run voices.html on a
   student Chromebook).
 
-## 营地场景 (campsite) — DECISIONS 2026-08-12, BUILD QUEUED AFTER ARENA
+## 营地场景 (campsite) — BUILT AND VERIFIED 2026-08-13
 
 Per DESIGN_营地场景_商店_v2.md + 附录三 (layout constraints). Owner decisions:
 - **STATIC scene for v1** (owner 2026-08-12, for speed): fixed decoration slots + pets FIXED in a
@@ -608,6 +608,40 @@ Per DESIGN_营地场景_商店_v2.md + 附录三 (layout constraints). Owner dec
   (no dragging); no shop_stall.png; proximity prompts deferred; keep the 4 permanent camp buttons.
 - Method: composite the real PNGs into a rendered scene and tune CAMP_LAYOUT by eye (sparse AND
   full-22 states) BEFORE wiring openCampScene() — same render-then-tune loop as the mountain path.
+
+BUILD (2026-08-13): 30 assets copied from the design drop into repo root (camp_bg, tent + tent_cabin +
+tent_tower, 21 deco_*, 4 pet_*, linglu). `openCamp()`/`openShop()` (old popup versions) fully replaced
+by `openCampScene()` / `openShopScene()` — full-screen scenes in the `.mtn2-*` pattern (view().innerHTML,
+not popOverlay), reached the same way (`m.t === "base"` on the mountain → openCampScene). `CAMP_LAYOUT`
++ `PET_LAYOUT` hold the final tuned cx/by/w coordinates (percent-based, by = bottom edge, draw order by
+ascending `by`). Old SHOP's 4 prices (fire 30/flag 60/pine 100/pavilion 200) preserved exactly in the
+new catalogue — no migration needed for anyone who already bought under the old system.
+- Dwelling is an exclusive upgrade chain stored as store.deco.cabin / store.deco.tower (tent is the
+  free default, never itself stored). Buying 楼阁 requires 木屋 already owned (gated in both the shop
+  UI and the click handler); dwellingTier() picks tent/cabin/tower for rendering. No refund/rollback,
+  matching the design doc.
+- 望山台/悬泉飞瀑 are computed, not purchasable: prestigeUnlocked() checks altitudeNow() against
+  round(WORDS.length × 0.5 / 0.8) and they just appear in the scene once crossed — verified the
+  shop row shows "海拔 N 米解锁" with the right N per stream (e.g. 535/855 on G3's 1069 words).
+- ⚠️ C-tier pricing is MY interpretation, flagged for the owner to adjust: 附录三 §7 item 2 says "改为
+  600/700/700/800" (4 numbers) but the C-tier priced item list has 5 entries (koipond/sakura/maple/
+  cabin/tower) — the doc's own count doesn't line up. Shipped as koipond 500 · sakura 700 · maple 700 ·
+  cabin 800 · tower 1000 (roughly halved from the original 800/1000/1000/1200/1500, order preserved).
+  Trivial to retune — single numbers in the SHOP_C / DWELLING_SHOP arrays in app.js.
+- linglu.png replaces ✨ in the wallet, shop prices/rows, and the 词雨 result line (campLingluIcon()
+  helper, falls back to ✨ via onerror if the image ever 404s). Left as literal ✨ in the LIVE in-round
+  词雨 dew counter (updates via textContent many times/sec — swapping to innerHTML+img there is
+  needless overhead) and in toast() calls (toast is textContent-only, can't render an <img> at all).
+- Graceful degrade verified: every sprite (deco/pet/dwelling/bg/shop-thumb) has onerror that hides
+  itself (or falls back to a colour wash for the bg) rather than showing a broken-image icon or
+  crashing — confirmed by forcing a fake 404 on both a shop thumbnail and the scene background.
+- VERIFIED in-browser end-to-end (desktop + mobile): sparse state (tent+fire only) reads as a cozy
+  start, not empty; full-22 + all 4 pets renders with zero overlap/clipping and the dwelling still
+  reads as the clear focal point; a real purchase deducts the correct 灵露 and the item appears in the
+  scene immediately; the full tent→cabin→tower chain (buy cabin → tent swaps to cabin; tower button is
+  absent until cabin owned → buy tower → cabin swaps to tower, cabin flag stays true).
+- NOT done (correctly deferred, not started): walking avatar, pet-follow, shop_stall.png, draggable
+  placement, proximity prompts — all per the owner's static-for-speed call, see above.
 
 ## 结伴登峰 (arena) — DECISIONS LOCKED 2026-08-12; STUDENT SIDE + RULES BUILT, TEACHER SIDE + GAME MODES PENDING
 
@@ -663,6 +697,27 @@ BUILD PROGRESS (2026-08-12):
 - STILL NEEDED: RE-PUBLISH firestore.rules (fix #1 above — the old ruleset still blocks rejoin), set the
   Firestore TTL policy on rooms.expiresAt if not yet done, and redeploy arena.js. The owner's rules copy
   at Documents/VocabSummit/firestore/ has been re-synced with a note about the required re-publish.
+
+- LIVE-TEST REPORT 2026-08-13 (owner): 攀山竞速/词雨灵露 rooms "did not respond" on the student screen
+  when the teacher pressed 开始, while the three quiz modes worked. Re-tested BOTH game modes against
+  the current source with a mock Firestore reproducing the REAL two-phase timing (join while lobby,
+  status flips to running via a SEPARATE later snapshot, matching how serverTimestamp()/onSnapshot
+  actually deliver) — both transitioned and rendered correctly; could not reproduce a code-level bug in
+  either startPlay()'s dispatch or startRainPlay(). ⚠️ Could not rule out a stale deploy (arena.js/
+  teacher.html not yet redeployed after the backdrop/rejoin fixes above) — check that first if it
+  recurs after redeploying the current repo.
+  Shipped anyway, because it's a real class of bug worth defending against regardless of root cause:
+  **mobile browsers throttle/suspend background WebSocket activity when a tab is backgrounded or the
+  screen locks** — very plausible for a student idling in the lobby while the teacher sets up, and it
+  would silently stall onSnapshot with no visible symptom (exactly "no response"). arena.js's room
+  watcher now has two backstops on top of the live listener, both only while still in the lobby (never
+  after play starts): (a) a `visibilitychange`/`focus` listener that re-fetches the room via .get() the
+  instant the tab regains focus, (b) a 4s poll as a belt-and-braces fallback if focus events don't fire
+  reliably either. Both listeners are torn down in detach()/close() so they don't leak across
+  join→leave→rejoin cycles. VERIFIED: simulated a fully-dead onSnapshot listener (fires once at
+  subscribe, never again) and confirmed a dispatched visibilitychange event alone recovers the game
+  (a 词雨 room transitioned from stuck-lobby to rendering correctly). Re-ran the normal live-listener
+  path afterward to confirm no regression.
 
 
 

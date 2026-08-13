@@ -119,7 +119,13 @@
     var myUid = null, code = null, roomUnsub = null, room = null;
     ctx.getUid ? ctx.getUid(function (u) { myUid = u; }) : null;
 
-    function detach() { if (roomUnsub) { roomUnsub(); roomUnsub = null; } }
+    var lobbyPollTimer = null;
+    function detach() {
+      if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+      if (lobbyPollTimer) { clearInterval(lobbyPollTimer); lobbyPollTimer = null; }
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    }
 
     /* ---------- join ---------- */
     function renderJoin(msg) {
@@ -169,17 +175,36 @@
       }).catch(function (e) { renderJoin("加入失败：" + (e.code || e.message) + "（老师需先发布 rooms 规则）。"); });
     }
 
-    /* ---------- lobby / status watch ---------- */
+    /* ---------- lobby / status watch ----------
+       Mobile browsers throttle or fully suspend background WebSocket/network
+       activity when a tab is backgrounded or the screen locks (very plausible
+       for a student sitting in the lobby while the teacher sets up), which can
+       leave onSnapshot silently stalled. Two belt-and-braces backstops on top
+       of the live listener: re-fetch on tab-visible/focus, and a slow poll
+       while still in the lobby. Both stop once play actually starts. */
+    function applyRoomSnapshot(data) {
+      if (!data) { detach(); renderJoin("擂台已被关闭。"); return; }
+      room = data;
+      if (room.status === "lobby") { if (!started) renderLobby(); }
+      else if (room.status === "running") { if (!started) startPlay(); }
+      else if (room.status === "ended") { finishNow(true); }
+    }
+    function pollRoomOnce() {
+      if (started || !code) return;
+      db().collection("rooms").doc(code).get()
+        .then(function (snap) { applyRoomSnapshot(snap.exists ? snap.data() : null); })
+        .catch(function () { /* transient network error: next poll/listener retries */ });
+    }
     function subscribeRoom() {
       detach();
       roomUnsub = db().collection("rooms").doc(code).onSnapshot(function (snap) {
-        if (!snap.exists) { detach(); renderJoin("擂台已被关闭。"); return; }
-        var prev = room; room = snap.data();
-        if (room.status === "lobby") renderLobby();
-        else if (room.status === "running") { if (!started) startPlay(); }
-        else if (room.status === "ended") { finishNow(true); }
-      }, function () { /* snapshot error: keep last state */ });
+        applyRoomSnapshot(snap.exists ? snap.data() : null);
+      }, function () { /* snapshot error: keep last state, the poll/focus backstop covers it */ });
+      lobbyPollTimer = setInterval(pollRoomOnce, 4000);
+      document.addEventListener("visibilitychange", onVisible);
+      window.addEventListener("focus", onVisible);
     }
+    function onVisible() { if (document.visibilityState === "visible") pollRoomOnce(); }
 
     function scopeLine() {
       var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
