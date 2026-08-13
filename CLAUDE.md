@@ -740,3 +740,136 @@ Teacher-hosted live in-class competition (spec: DESIGN_ARENA_课堂擂台.md). O
 Owner console steps required before it works: publish the rooms Firestore rules block, and set the
 Firestore TTL policy on rooms.expiresAt. Build order per spec §11 (rules → arena.js → html includes →
 app.js pill → teacher.html tab → CLAUDE.md full section).
+
+## Session batch, 2026-08-13 (evening) — 学生反馈修复 · 教师端编辑 · 头像系统 · 可及性 A–E
+
+Four input docs this session: DESIGN_迭代规划_学生反馈与UI修复_2026-08-13.md, DESIGN_可及性_语音按钮_
+拼音辅助.md, DESIGN_头像与档案页.md, plus an owner request mid-session (teacher dashboard). All code
+is in app.js / app.css / profile.js / nickname.js / teacher.html / arena.js / firestore.rules.
+
+**添加到主屏幕 (Add to Home Screen) — DECLINED, do not revisit.** A homescreen_pack (icons + manifest +
+title.png) was prepared, but the owner confirmed MOE-managed school PLDs do not allow home-screen web
+apps. The app stays browser-based. Nothing was added to the repo; do not add apple-touch-icon /
+manifest / standalone meta tags. (Also removes the "separate storage container + separate anon UID"
+migration problem that pack would have introduced.)
+
+**Inactive-account cleanup:** no policy is enforced in code (no cleanup job on scores/{uid} or
+users/{uid}; the only TTL is rooms.expiresAt). Advice given: prefer a ~12-month sweep run once a year
+in the Dec/Jan break over a rolling 6-month window — a term-long quiet stretch is normal for a
+voluntary practice app, and an annual sweep timed to the year-end break is far less likely to delete
+a still-enrolled student. Owner has not decided; do not implement cleanup without sign-off.
+
+### 学生反馈修复 (from 迭代规划 doc)
+- **1.1 进度恢复 — the doc's diagnosis was WRONG, verified against the code.** The restore path is
+  already merge/union-only (commitProgress only ADDS ids + Math.max on numerics; mergeCloudProgress is
+  union-only). The ONLY wholesale `store = snap` in the entire codebase is restoreSnapshot, which backs
+  the **撤销恢复 (undo)** button — correct by design. So the real hazard was the undo button having NO
+  confirmation at all. FIXED: onUndo now opens a confirmDialog with a loss-preview (「撤销会丢失这之后
+  新掌握的 N 个词语」). Do NOT "fix" the restore path; it is not broken.
+- **1.2 iPad 键盘遮挡 (词雨/结伴登峰):** ported app.js's own proven `fitViewport` visualViewport pattern
+  (already used by the solo .rain-shell) into arena.js startRainPlay — drives #arRain's pixel height off
+  visualViewport instead of a bare 52vh, listeners torn down in stopGame. Deliberately NOT the doc's
+  suggested `--vh` variable + `interactive-widget` meta: reusing the mechanism already shipped in this
+  repo beats introducing a second parallel one.
+- **1.3 房间模式词雨缺少动画:** ported fxShow/fxSeq/collectToBarrel/splashAt + the barrel/water HUD from
+  app.js into arena.js (ARENA_RAINFX_MAP reuses the same sprite-sheet crop coords). Catch = fly-to-barrel
+  + rising water; miss = splash.
+- **1.4 MTN_PATH 上半段:** re-traced by pixel-sampling mountain_bg.png (a min-warmth/brightness scan per
+  row), not by eye. Indices 9–14 were nearly flat (x 0.517–0.527) and sat off the painted stairway;
+  now [0.546,0.382] [0.489,0.319] [0.541,0.255] [0.516,0.191] [0.519,0.128] [0.555,0.064]. Verified by
+  rendering the full polyline over the image.
+- **1.5 营地图标:** .mtn2-pin.t-base 33px → 46px + an invisible ::before inset:-5px hit ring (~56px).
+- **3.1 模式配置:** 词语汉兜 is now G3/HCL only, 组词挑战 is now G1/G2 (G1 has 370 eligible 2–4 char
+  words, well over the 10 minimum). CAMP_MODES `only`/`not` replaced with a single `only: [...]`
+  whitelist and the filter updated to match. G1 defaults asmPrompt to "py" (拼音) rather than 释义.
+- 1.6/1.7 (sprint 音效按钮误触 / 意外缩放) were NOT fixed as described — they are the same root cause the
+  可及性 doc diagnoses properly, and are folded into Workstreams A + B below.
+
+### 教师后台 (owner request, mid-session)
+- 班级视图 gained a **学校 column** (the school filter existed but no per-row display).
+- **HOD-only 编辑 button** per row → a form correcting nickname / 身份 / 学校 / 班级. Writes ONLY the
+  top-level `profile` field; mirrors WSProfile.save()'s own rule that leaving 学生 clears mtlClass.
+- ⚠️ **NEW FIRESTORE RULE, must be published before it works:** users/{uid} gained
+  `allow update: if isHod() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["profile","updatedAt"])`
+  — scoped so an HOD can never reach progress/pts/badges through this path. Until published the save
+  shows 「保存失败：permission-denied」. The owner's copy at Documents/VocabSummit/firestore/ is re-synced
+  with a note.
+- ⚠️ **KNOWN LIMITATION, flagged to the owner, not fixed:** this edits the CLOUD copy only. There is no
+  cloud→device sync for profile fields (only progress/mastery merges down), so if that student later
+  opens 我的档案 and saves, their device pushes the old value back over the teacher's correction. Fine
+  for students who don't revisit the panel; a real fix needs a pull-down sync.
+
+### 头像系统 (DESIGN_头像与档案页.md) — BUILT, all 20 avatars shipped
+- `AVATAR_CATALOG` in profile.js: 4 角色 (avatar_char_g1/g2/g3/hcl.png) + 4 神兽 (pet_*.png, reused) +
+  12 生肖 (avatar_zodiac_{rat,ox,tiger,rabbit,dragon,snake,horse,goat,monkey,rooster,dog,pig}.png).
+  Not stream-limited — any student may pick any avatar (owner decision).
+- New profile field `avatarId`; it is a PLAIN field (no year/history bookkeeping like mtlClass) so
+  save()'s existing merge-onto-prev loop persists it with zero extra code. Unset → 👤 fallback, so old
+  profiles need no migration.
+- Picker: `openAvatarPicker` overlay (pop-overlay/pop-card pattern), category chips (全部/角色/神兽/生肖
+  rendered from whatever categories exist in the catalog), tap = instant select + close (no confirm
+  step, matching the nickname picker). Entries: the avatar itself in 我的档案, and a 换头像 link.
+- Topbar `.tb-profile` renders the chosen avatar instead of the literal 👤; the landing greeting
+  (nickname.js) shows it too. setTopbar's `right` param call from renderHome was emptied — the
+  「XX 词在范围内」 text is GONE per the doc (updateScopeSum no longer writes it either).
+- **Asset processing (repeatable):** source art has a magenta #FF00FF background. Plain
+  Euclidean-distance keying left a visible magenta haze on edges; what works is a **min(R,B) − G
+  "magenta signature"** test with a despill ramp, then a tight square crop, then downsize to 320px max.
+  The zodiac originals were 1254px / 1–1.5MB each — far oversized for a 64px thumbnail — now ~70–95KB
+  (1.05MB total for all 12). Two of the four character sprites (g2, hcl) also had leftover opaque
+  magenta specks on the backpack that needed a hue-based pass. Always verify on a contrasting
+  background, never against white.
+- 档案面板 §5 compaction done: 身份+基本资料 merged into one header block (large avatar + nickname +
+  身份·班级·学校 subline + 换头像/换昵称 links), 技术编号 and 隐私说明 collapsed into a single
+  `<details class="prof-more">` one-liner, .prof-sec margin 16px → 12px. Still one scrolling page, no
+  tabs/accordion (owner decision).
+
+### 可及性 (DESIGN_可及性_语音按钮_拼音辅助.md) — Workstreams A, B, C, D1, E ALL DONE. D2 GATED.
+- **A — speaker restructure (the real cause of "button-mashing").** The 🔊 was a `<span>` NESTED INSIDE
+  the answer `<button>`, discriminated by `e.target` sniffing, so a finger landing 2px off the 27–31px
+  circle SUBMITTED THAT OPTION AS THE ANSWER. Now `.opt-row` holds two sibling buttons; the e.target
+  sniffing is deleted from all three surfaces (renderCloze MCQ branch, renderMcq, startSprint askNext)
+  and the speakers are wired separately by data-i. `.opt-tts` unified at 31px (sprint was 27px) with
+  `::after{inset:-8px}` giving ~47px effective, plus a 10px gap so a near-miss now does nothing.
+  Same ::after treatment added to `.tts` generally. reveal()'s `.py` append is now guarded with
+  `if (!b.querySelector(".py"))` so it can't double up.
+- **B — touch-action:** `touch-action:manipulation` on .opt/.sopt/.opt-tts/.tts/.nav-btn/.dopt/
+  .check-btn/.hint-btn/.lp-enter-btn/.lp-card. NOT on body/#app (would kill pinch-zoom page-wide).
+  Note: `user-scalable=no`/`maximum-scale=1` are deliberately NOT used — iOS has ignored them since
+  iOS 10 and they'd break pinch-zoom elsewhere.
+- **C — 攀山竞速 landscape split:** `@media (min-width:820px) and (orientation:landscape)` turns
+  .sprint-shell into a row (canvas left, new `.sprint-right` wrapper holding HUD+question right) and
+  .sopts to a single column — the single-column switch IS the tap-target win, not the split itself.
+  Portrait/phones unchanged (the wrapper is a no-op there). `.sprint-shell` also gets a second
+  `height:calc(100dvh - 68px)` declaration after the 100vh one (cascade fallback, no @supports).
+  C2 checked: the draw loop is fully proportional (W/H derived from getBoundingClientRect, ledges in
+  fractions) — no hardcoded wide-viewport assumption, nothing to fix.
+- **D1 — 拼音辅助:** `store.pyAid`, DEFAULT OFF for every stream, student opt-in only. Toggle rendered by
+  `pyAidToggleHtml()` + `wirePyAidToggle()` in both the 填空挑战 rail (via diffSelector) and the
+  攀山竞速 pre-start screen. When on, every option shows its 拼音 immediately (`.sopt .py` styling added).
+  Scoring is UNCHANGED — pinyin reveals pronunciation, not meaning, so full 历练值 either way (D-5).
+  NOTE: wireDiff's difficulty handler is now scoped to `.dopt[data-d]` so it doesn't swallow the
+  pyAid button.
+- **E — anti-mashing:** (E1) fresh G1/G2 profiles default `s.diff` to "2" (两个选项), others "3";
+  existing stored choices are untouched. (E2) new `dwellGate(btn, 800)` disables 下一题 +
+  aria-disabled for 800ms after an MCQ answer, then enables and focuses. Applied in renderCloze's MCQ
+  branch and renderMcq only — the typing branch keeps its plain focus() (typing already cost effort)
+  and **攀山竞速 is deliberately untouched** (timed mode; a forced pause would penalise the app's own
+  pacing). `.nav-btn:disabled{opacity:.5}` added.
+- ⚠️ **D2 (释义/句子 ruby 拼音) NOT STARTED — GATED BY THE DOC ITSELF.** It requires building a
+  pypinyin-based generator, emitting zhPy/clozePy aligned 1:1 with CJK chars only, polyphone override
+  columns in the Excel masters, schemaVersion 1→2, and a file-size check (each stream JSON would roughly
+  double). The doc mandates: build the generator, inspect ~60 entries across all four streams, and
+  REPORT BACK before writing any renderer code. Do not start without fresh owner sign-off.
+
+### Verification note for this batch
+No live device/browser run was possible (the sandbox blocked the local HTTP server, and the Browser
+pane refuses localhost by policy). What WAS done: every edited JS file syntax-checked by parsing it in
+JavaScriptCore via `osascript -l JavaScript` (a usable JS engine on this machine even with no Node —
+worth remembering), a 16-assertion profile.js data-layer suite run in a stubbed DOM/localStorage
+environment (catalog integrity, avatarId round-trip, field-preservation across saves, img/fallback
+HTML, off-student class clearing — all pass), an every-referenced-PNG-exists check across
+app.js/arena.js/profile.js/app.css/index.html, CSS brace balance, and pixel-level image analysis for
+the mountain path + chroma-key work. **Still needs a real run-through on a device before class** —
+especially the sprint landscape split, the rain viewport fix, and the MCQ speaker restructure, since
+those touch every quiz screen.

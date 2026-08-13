@@ -212,6 +212,44 @@
     }
   };
 
+  /* ---------- 头像目录 (DESIGN_头像与档案页.md) ----------
+     Not stream-limited: any student may pick any avatar (角色/神兽/生肖), no
+     "your own stream's character only" restriction. `avatarId` is a plain
+     profile field (no year/history bookkeeping like mtlClass) — save()'s
+     generic merge-onto-prev loop already persists it with no extra code.
+     All 20 (4 char + 4 pet + 12 zodiac) shipped 2026-08-13. Zodiac source art
+     was chroma-keyed off magenta + tight-cropped + downsized to 320px max
+     (originals were 1200px+ / 1-1.5MB each — way oversized for a 64px thumb)
+     before landing here; see avatar_zodiac_*.png at repo root. */
+  var AVATAR_CATALOG = [
+    { id: "char_g1", file: "avatar_char_g1.png", category: "char", label: "G1 · 黄衫男孩" },
+    { id: "char_g2", file: "avatar_char_g2.png", category: "char", label: "G2 · 棕围裙男孩" },
+    { id: "char_g3", file: "avatar_char_g3.png", category: "char", label: "G3 · 蓝背心男孩" },
+    { id: "char_hcl", file: "avatar_char_hcl.png", category: "char", label: "HCL · 灰长衫男孩" },
+    { id: "pet_gui", file: "pet_gui.png", category: "pet", label: "瑞兽·龟" },
+    { id: "pet_qilin", file: "pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
+    { id: "pet_feng", file: "pet_feng.png", category: "pet", label: "瑞兽·凤" },
+    { id: "pet_long", file: "pet_long.png", category: "pet", label: "瑞兽·龙" },
+    { id: "zodiac_rat", file: "avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
+    { id: "zodiac_ox", file: "avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
+    { id: "zodiac_tiger", file: "avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },
+    { id: "zodiac_rabbit", file: "avatar_zodiac_rabbit.png", category: "zodiac", label: "生肖·兔" },
+    { id: "zodiac_dragon", file: "avatar_zodiac_dragon.png", category: "zodiac", label: "生肖·龙" },
+    { id: "zodiac_snake", file: "avatar_zodiac_snake.png", category: "zodiac", label: "生肖·蛇" },
+    { id: "zodiac_horse", file: "avatar_zodiac_horse.png", category: "zodiac", label: "生肖·马" },
+    { id: "zodiac_goat", file: "avatar_zodiac_goat.png", category: "zodiac", label: "生肖·羊" },
+    { id: "zodiac_monkey", file: "avatar_zodiac_monkey.png", category: "zodiac", label: "生肖·猴" },
+    { id: "zodiac_rooster", file: "avatar_zodiac_rooster.png", category: "zodiac", label: "生肖·鸡" },
+    { id: "zodiac_dog", file: "avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗" },
+    { id: "zodiac_pig", file: "avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪" }
+  ];
+  var AVATAR_CAT_LABEL = { char: "角色", pet: "神兽", zodiac: "生肖" };
+  window.WSAvatars = AVATAR_CATALOG;
+  function avatarById(id) {
+    for (var i = 0; i < AVATAR_CATALOG.length; i++) if (AVATAR_CATALOG[i].id === id) return AVATAR_CATALOG[i];
+    return null;
+  }
+
   /* ---------- load / save ---------- */
   function load() {
     var p;
@@ -284,6 +322,13 @@
   var CAT_LABEL = { student: "学生", teacher: "老师", parent: "家长", public: "公众" };
   var STREAM_LABEL = { g1: "词星大冒险 G1", g2: "词将竞技场 G2", g3: "词王淬炼坊 G3", hcl: "词圣鸿文苑 HCL" };
   var STREAM_HREF = { g1: "G1_index.html", g2: "G2_index.html", g3: "G3_index.html", hcl: "HCL_index.html" };
+
+  /* School names are stored as "中文 English" (see SCHOOL_LIST). The compact
+     header shows only the Chinese half so it doesn't wrap to three lines. */
+  function shortSchool(s) {
+    var m = String(s || "").match(/^([^\sA-Za-z]+)\s/);
+    return m ? m[1] : String(s || "");
+  }
 
   function masteredCount(streamKey) {
     try {
@@ -361,14 +406,21 @@
         '<div class="pop-title">👤 我的档案</div>' +
         '<div class="prof-grid">' +
 
-        // ---- 身份 ----
-        '<div class="prof-sec"><div class="pop-label">身份</div>' +
-          '<div class="prof-row"><span class="prof-nick">' + esc(prof.nickname || "（未命名）") + '</span>' +
-          '<button class="code-link" id="profChangeNick">换昵称</button></div></div>' +
-
-        // ---- 基本资料 ----
-        '<div class="prof-sec"><div class="pop-label">基本资料</div>' +
-          '<div class="pop-label" style="font-weight:500">学校</div>' +
+        // ---- 身份 + 基本资料 (§5: merged into one header block, no gap between) ----
+        '<div class="prof-sec">' +
+          '<div class="prof-head">' +
+            '<button class="prof-avatar lg" id="profAvatarBtn" title="换头像">' + avatarImgHtml(prof.avatarId) + '</button>' +
+            '<div class="prof-head-txt">' +
+              '<div class="prof-nick">' + esc(prof.nickname || "（未命名）") + '</div>' +
+              '<div class="prof-head-sub">' + esc(catShown) +
+                (draft.mtlClass ? ' · ' + esc(draft.mtlClass) : '') +
+                (draft.school ? ' · ' + esc(shortSchool(draft.school)) : '') + '</div>' +
+              '<div class="prof-head-links">' +
+                '<button class="code-link" id="profChangeAvatar">换头像</button>' +
+                '<button class="code-link" id="profChangeNick">换昵称</button></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="pop-label" style="font-weight:500;margin-top:10px">学校</div>' +
           '<select class="np-select" id="profSchool">' +
             (draft.schoolPick === "" ? '<option value="" selected>请选择学校 Select school…</option>' : "") +
             (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick)
@@ -391,18 +443,17 @@
         // ---- 进度码 ----
         '<div class="prof-sec"><div class="pop-label">进度码 · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
 
-        // ---- 技术信息 ----
-        '<div class="prof-sec"><div class="pop-label">技术编号（老师排查问题时使用）</div>' +
-          '<div class="pop-note" style="margin-bottom:6px">这串编号只用于技术支援，不代表你的身份。</div>' +
+        // ---- 技术信息 (§5: collapsed to one line; expands on demand) ----
+        '<div class="prof-sec"><details class="prof-more">' +
+          '<summary>技术编号与隐私说明</summary>' +
+          '<div class="pop-note" style="margin:8px 0 6px">这串编号只用于技术支援，不代表你的身份。</div>' +
           '<div class="prof-uid" id="profUid">载入中…</div>' +
           '<div class="prof-row" style="margin-top:6px"><span class="pop-note">简短编号：<b id="profUidShort">…</b></span>' +
           '<button class="code-link" id="profUidCopy">复制完整编号</button></div>' +
-          '<div class="pop-note" style="margin-top:6px" id="profSync">…</div></div>' +
-
-        // ---- 隐私说明 ----
-        '<div class="prof-sec"><div class="pop-label">隐私说明</div>' +
-          '<div class="pop-body">本站只保存你选择的昵称、学校、班级、身份类别与学习进度，用来记录学习情况。' +
-          '我们不收集真实姓名，班级是选填。</div></div>' +
+          '<div class="pop-note" style="margin-top:6px" id="profSync">…</div>' +
+          '<div class="pop-body" style="margin-top:10px">本站只保存你选择的昵称、学校、班级、身份类别与学习进度，' +
+          '用来记录学习情况。我们不收集真实姓名，班级是选填。</div>' +
+          '</details></div>' +
 
         '</div>' + // .prof-grid
         '<div class="nav-row"><button class="nav-btn" id="profClose">关闭</button></div>';
@@ -423,6 +474,18 @@
           render();
         });
       };
+
+      var openPicker = function () {
+        openAvatarPicker(prof.avatarId, function (id) {
+          prof = save({ avatarId: id });
+          render();
+          if (opts.onChanged) opts.onChanged();
+        });
+      };
+      var avBtn = ov.querySelector("#profAvatarBtn");
+      if (avBtn) avBtn.onclick = openPicker;
+      var avBtn2 = ov.querySelector("#profChangeAvatar");
+      if (avBtn2) avBtn2.onclick = openPicker;
 
       var schoolEl = ov.querySelector("#profSchool");
       if (schoolEl) schoolEl.onchange = function () {
@@ -606,6 +669,53 @@
     render();
   }
 
+  function avatarImgHtml(id) {
+    var a = id && avatarById(id);
+    return a ? '<img src="' + esc(a.file) + '" alt="">' : '👤';
+  }
+
+  /* 头像选择弹层: tap = instant select + close, no separate confirm step
+     (matches the nickname picker's own immediate-save convention). */
+  function openAvatarPicker(currentId, onPick) {
+    var cats = [];
+    AVATAR_CATALOG.forEach(function (a) { if (cats.indexOf(a.category) === -1) cats.push(a.category); });
+    var activeCat = "all";
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay";
+    ov.style.zIndex = "65";
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+
+    function render() {
+      var chipsHtml = '<button class="prof-chip' + (activeCat === "all" ? " on" : "") + '" data-cat="all">全部</button>' +
+        cats.map(function (c) {
+          return '<button class="prof-chip' + (activeCat === c ? " on" : "") + '" data-cat="' + c + '">' + (AVATAR_CAT_LABEL[c] || c) + '</button>';
+        }).join("");
+      var shown = AVATAR_CATALOG.filter(function (a) { return activeCat === "all" || a.category === activeCat; });
+      var gridHtml = shown.map(function (a) {
+        return '<div class="avatar-cell"><button class="avatar-thumb' + (a.id === currentId ? " on" : "") + '" data-id="' + a.id + '">' +
+          '<img src="' + esc(a.file) + '" alt=""></button><span class="avatar-cell-label">' + esc(a.label) + '</span></div>';
+      }).join("");
+      ov.innerHTML = '<div class="pop-card">' +
+        '<div class="pop-title">换头像</div>' +
+        '<div class="prof-chips">' + chipsHtml + '</div>' +
+        '<div class="avatar-grid">' + (gridHtml || '<div class="pop-note">这个分类还没有头像。</div>') + '</div>' +
+        '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">取消</button></div></div>';
+      ov.querySelector("#apClose").onclick = function () { ov.remove(); };
+      Array.prototype.forEach.call(ov.querySelectorAll(".prof-chip[data-cat]"), function (b) {
+        b.onclick = function () { activeCat = b.getAttribute("data-cat"); render(); };
+      });
+      Array.prototype.forEach.call(ov.querySelectorAll(".avatar-thumb"), function (b) {
+        b.onclick = function () {
+          var id = b.getAttribute("data-id");
+          ov.remove();
+          if (onPick) onPick(id);
+        };
+      });
+    }
+    render();
+  }
+
   /* small yes/cancel dialog stacked above the panel */
   function confirmDialog(bodyHtml, okLabel, onOk) {
     var ov = document.createElement("div");
@@ -656,6 +766,8 @@
     uid: uid,
     open: open,
     registerCodeProvider: registerCodeProvider,
-    maybePromptClassUpdate: maybePromptClassUpdate
+    maybePromptClassUpdate: maybePromptClassUpdate,
+    openAvatarPicker: openAvatarPicker,
+    avatarImgHtml: avatarImgHtml
   };
 })();

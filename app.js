@@ -199,7 +199,8 @@
     s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
     s.rainSpeed = (s.rainSpeed != null) ? s.rainSpeed : 3; // 词雨 speed level index (0-7), default mid
     s.rainRamp = s.rainRamp || false;  // 词雨 递增速度 mode (false = 固定速度)
-    s.diff = s.diff || "3";            // cloze difficulty: 2|3|4|type
+    s.diff = s.diff || ((STREAM === "g1" || STREAM === "g2") ? "2" : "3");  // cloze difficulty: 2|3|4|type
+    s.pyAid = s.pyAid || false;        // 拼音辅助: 学生自选，默认关闭
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
@@ -682,6 +683,10 @@
   }
 
   /* ---------- shell ---------- */
+  function tbAvatarHtml() {
+    var p = loadProfile();
+    return (window.WSProfile && window.WSProfile.avatarImgHtml) ? window.WSProfile.avatarImgHtml(p && p.avatarId) : "👤";
+  }
   function setTopbar(backTo, right) {
     var tb = document.querySelector(".topbar");
     tb.innerHTML =
@@ -689,7 +694,7 @@
       '<div><div class="tb-name">' + META.zh + '</div>' +
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
       '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
-        '<button class="tb-profile" id="tbProfile" title="我的档案" aria-label="我的档案">👤</button></div>';
+        '<button class="tb-profile" id="tbProfile" title="我的档案" aria-label="我的档案">' + tbAvatarHtml() + '</button></div>';
     document.getElementById("tbBack").onclick = function () {
       if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
     };
@@ -758,7 +763,7 @@
   }
 
   function renderHome() {
-    setTopbar("landing", scopedWords().length + " 词在范围内");
+    setTopbar("landing", "");
     var t = totals();
     var mastered = Object.keys(store.mastered).length;
     var badgeCount = Object.keys(store.badges).length;
@@ -911,8 +916,6 @@
     function updateScopeSum() {
       var n = scopedWords().length;
       document.getElementById("scopeSum").textContent = "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
-      var trt = document.getElementById("tbRightText");
-      if (trt) trt.textContent = n + " 词在范围内";
       Object.keys(byLevel).forEach(function (lv) {
         var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
         if (!el) return;
@@ -1314,16 +1317,44 @@
       html += '<button class="dopt' + (store.diff === "pinyin" ? " on" : "") + '" data-d="pinyin">' +
         '<span class="stars">⌨️</span>打拼音 · 练习不计分</button>';
     }
-    return html + '</div>';
+    html += '</div>' + pyAidToggleHtml();
+    return html;
+  }
+  /* 拼音辅助 (D1): student-toggled, default off. Shown wherever options are
+     answered (cloze MCQ rail + 攀山竞速 pre-start). Reveals pronunciation only,
+     not meaning — full 历练值 either way (D-5). */
+  function pyAidToggleHtml() {
+    return '<div class="diff-label">学习支援</div><div class="diff">' +
+      '<button class="dopt' + (store.pyAid ? " on" : "") + '" data-pyaid="1">' +
+      '<span class="stars">拼</span>拼音辅助</button></div>';
+  }
+  function wirePyAidToggle(onToggle) {
+    var b = view().querySelector(".dopt[data-pyaid]");
+    if (b) b.onclick = function () { store.pyAid = !store.pyAid; saveStore(); onToggle(); };
   }
   function wireDiff(state) {
-    Array.prototype.forEach.call(view().querySelectorAll(".dopt"), function (b) {
+    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-d]"), function (b) {
       b.onclick = function () {
         store.diff = b.getAttribute("data-d");
         saveStore();
         renderCloze(state); // takes effect on the current question, mid-round switching allowed
       };
     });
+    wirePyAidToggle(function () { renderCloze(state); });
+  }
+  /* E2: anti-mashing — briefly disable 下一题 after an MCQ answer so a mashed
+     tap can't skip past the right-answer feedback. Sprint keeps its own 260ms
+     auto-advance untouched (timed mode; a forced pause would penalise the
+     game's own pacing) — this only ever wraps a manual 下一题 button. */
+  function dwellGate(btn, ms) {
+    btn.disabled = true;
+    btn.setAttribute("aria-disabled", "true");
+    setTimeout(function () {
+      if (!btn.isConnected) return;
+      btn.disabled = false;
+      btn.removeAttribute("aria-disabled");
+      btn.focus();
+    }, ms);
   }
   function renderCloze(state) {
     var w = state.seq[state.i];
@@ -1348,9 +1379,10 @@
       state._opts = opts;
       html += '<div class="opts n' + n + '" id="opts">' +
         opts.map(function (o, idx) {
-          return '<button class="opt" data-i="' + idx + '"><span class="letter">' +
+          return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
             String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-            '<span class="opt-tts" title="朗读">🔊</span></button>';
+            (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+            '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
         }).join("") + '</div>';
     }
     html += '<div class="feedback" id="fb"></div>' +
@@ -1379,7 +1411,11 @@
       document.getElementById("nextRow").style.display = "flex";
       var nx = document.getElementById("next");
       nx.onclick = function () { state.i++; renderStep(state); };
-      nx.focus();
+      if (typing) {
+        nx.focus();               // typing already required real effort — no extra gate
+      } else {
+        dwellGate(nx, 800);       // E2: brief disable so a mashed tap can't skip past feedback
+      }
     }
     if (typing) {
       var ans = document.getElementById("ans");
@@ -1416,12 +1452,11 @@
       ans.addEventListener("keydown", function (e) { if (e.key === "Enter") submit(); });
     } else {
       var locked = false;
+      Array.prototype.forEach.call(view().querySelectorAll(".opt-tts"), function (b) {
+        b.onclick = function () { speak(state._opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+      });
       Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
-        btn.onclick = function (e) {
-          if (e.target.classList && e.target.classList.contains("opt-tts")) {
-            speak(state._opts[parseInt(btn.getAttribute("data-i"), 10)].w);
-            return;
-          }
+        btn.onclick = function () {
           if (locked) return; locked = true;
           var chosen = state._opts[parseInt(btn.getAttribute("data-i"), 10)];
           var right = chosen.id === w.id;
@@ -1431,7 +1466,7 @@
               var o = state._opts[bi];
               if (o.id === w.id) {
                 b.classList.add("right");
-                b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+                if (!b.querySelector(".py")) b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
               } else if (o === chosen) b.classList.add("wrong");
             });
             fb.className = "feedback show " + (right ? "ok" : "bad");
@@ -1464,9 +1499,10 @@
       '</div>' +
       '<div class="opts n4" id="opts">' +
       opts.map(function (o, idx) {
-        return '<button class="opt" data-i="' + idx + '"><span class="letter">' +
+        return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
           String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-          '<span class="opt-tts" title="朗读">🔊</span></button>';
+          (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
@@ -1476,12 +1512,11 @@
     var tp = document.getElementById("ttsP");
     if (tp) tp.onclick = function () { speak(w.zh); };
     var locked = false;
+    Array.prototype.forEach.call(view().querySelectorAll(".opt-tts"), function (b) {
+      b.onclick = function () { speak(opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+    });
     Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
-      btn.onclick = function (e) {
-        if (e.target.classList && e.target.classList.contains("opt-tts")) {
-          speak(opts[parseInt(btn.getAttribute("data-i"), 10)].w);
-          return;
-        }
+      btn.onclick = function () {
         if (locked) return; locked = true;
         var chosen = opts[parseInt(btn.getAttribute("data-i"), 10)];
         var right = chosen.id === w.id;
@@ -1500,14 +1535,16 @@
             var o = opts[bi];
             if (o.id === w.id) {
               b.classList.add("right");
-              b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+              if (!b.querySelector(".py")) b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
             } else if (o === chosen) b.classList.add("wrong");
           });
           fb.className = "feedback show " + (right ? "ok" : "bad");
           fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
           showGain(gained);
           document.getElementById("nextRow").style.display = "flex";
-          document.getElementById("next").onclick = function () { state.i++; renderStep(state); };
+          var nx = document.getElementById("next");
+          nx.onclick = function () { state.i++; renderStep(state); };
+          dwellGate(nx, 800);
         }
         if (right) { reveal(); }
         else {
@@ -2230,6 +2267,7 @@
       SPRINT_OPTS.map(function (s) {
         return '<button class="dopt' + (s === store.sprintSecs ? " on" : "") + '" data-s="' + s + '">' + s + ' 秒</button>';
       }).join("") + '</div>' +
+      pyAidToggleHtml() +
       '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›</button></div></div>';
     Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (b) {
@@ -2248,6 +2286,7 @@
         saveStore();
       };
     });
+    wirePyAidToggle(renderSprintConfig);
     document.getElementById("back").onclick = renderHome;
     document.getElementById("go").onclick = startSprint;
   }
@@ -2265,6 +2304,7 @@
     setTopbar("home", "");
     view().innerHTML = '<div class="sprint-shell">' +
       '<canvas class="sprint-canvas" id="spCv"></canvas>' +
+      '<div class="sprint-right">' +
       '<div class="sprint-hud">' +
       '<div class="sprint-timer"><div class="sprint-timer-fill" id="spTime"></div></div>' +
       '<span>答对 <b id="spOk">0</b></span>' +
@@ -2273,7 +2313,7 @@
       '<div class="sprint-q card"><div class="sq-row">' +
       '<div class="sq-prompt" id="spPrompt"></div>' +
       '<button class="tts sm" id="spSay">🔊</button></div>' +
-      '<div class="sopts" id="spOpts"></div></div></div>';
+      '<div class="sopts" id="spOpts"></div></div></div></div>';
 
     var cv = document.getElementById("spCv");
     var ctx = cv.getContext("2d");
@@ -2329,16 +2369,16 @@
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
       box.innerHTML = opts.map(function (o, i) {
-        return '<button class="sopt" data-i="' + i + '"><span class="letter">' +
+        return '<div class="opt-row"><button class="sopt" data-i="' + i + '"><span class="letter">' +
           String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
-          '<span class="opt-tts" title="朗读">🔊</span></button>';
+          (store.pyAid ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          '<button class="opt-tts" data-i="' + i + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".opt-tts"), function (b) {
+        b.onclick = function () { speak(opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+      });
       Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (b) {
-        b.onclick = function (e) {
-          if (e.target.classList && e.target.classList.contains("opt-tts")) {
-            speak(opts[parseInt(b.getAttribute("data-i"), 10)].w);
-            return;
-          }
+        b.onclick = function () {
           if (locked || over) return; locked = true;
           var chosen = opts[parseInt(b.getAttribute("data-i"), 10)];
           var right = chosen.id === cur.id;

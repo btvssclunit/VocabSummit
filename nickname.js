@@ -225,7 +225,9 @@
       gate.style.display = "none";
       if (greet && profile && profile.nickname) {
         greet.style.display = "";
-        greet.innerHTML = '<span class="lp-nick">👤 ' + esc(profile.nickname) + '</span>' +
+        var av = (window.WSProfile && window.WSProfile.avatarImgHtml)
+          ? window.WSProfile.avatarImgHtml(profile.avatarId) : "👤";
+        greet.innerHTML = '<span class="lp-nick"><span class="lp-av">' + av + '</span>' + esc(profile.nickname) + '</span>' +
           '<button class="code-link" id="lpProfileBtn">👤 我的档案</button>';
         var profBtn = document.getElementById("lpProfileBtn");
         if (profBtn) {
