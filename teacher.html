@@ -9,44 +9,72 @@
 /* teacher.html is a STANDALONE page: it never loads app.js / profile.js.
    Real Firebase Email/Password accounts + the teachers/{uid} allowlist are the
    only boundary (the repo is public, so a client-side password is not one). */
-:root{--sky:#DFEDF7;--ink:#243B4A;--ink-soft:#5A7080;--sea:#2E6391;--deep:#1F4A70;
-  --gold:#E3A63C;--green:#3F704F;--line:#C9DCEA}
+/* §2.2: the teacher side now carries the SAME identity as the student side —
+   same palette tokens, same 山水 backdrop, Noto Serif SC headings over Noto Sans
+   SC body, gold primaries on deep-sea navy. Tokens below are copied from
+   app.css :root deliberately; if the school palette ever changes, change both. */
+:root{
+  --sky1:#DFEDF7; --sky2:#BAD6E8;
+  --sea1:#2E6391; --sea2:#1F4A70; --sea3:#173A5A;
+  --ink:#243B4A; --ink-soft:#5A7080;
+  --gold:#E3A63C; --gold-deep:#B7791F; --sun:#F5C443;
+  --card:rgba(255,255,255,.94); --line:#C9DCE9;
+  --ok:#3E7D57; --bad:#B44A3C;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:"Noto Sans SC",system-ui,sans-serif;color:var(--ink);
-  background:linear-gradient(160deg,#EAF3FA,#D3E4F1);min-height:100vh}
-h1,h2{font-family:"Noto Serif SC",serif}
+body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.6;min-height:100vh;
+  background:linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 30%,var(--sky2) 56%,var(--sea1) 88%,var(--sea3) 100%);
+  background-attachment:fixed}
+h1,h2{font-family:var(--serif)}
 .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
-.top{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-.top h1{font-size:22px;margin:0;letter-spacing:.05em}
-.top .sub{font-size:12.5px;color:var(--ink-soft)}
+/* topbar echoes the student 顶栏: frosted plate, serif name, small caps sub */
+.top{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;
+  background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:16px;
+  padding:12px 18px;backdrop-filter:blur(6px);box-shadow:0 6px 20px rgba(23,58,90,.12)}
+.top h1{font-size:22px;margin:0;letter-spacing:.06em}
+.top .sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
 .spacer{margin-left:auto}
-.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;
-  box-shadow:0 6px 20px rgba(20,50,80,.06);margin-bottom:16px}
-.btn{border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:14px;
-  background:#fff;color:var(--sea);cursor:pointer;font-weight:600}
-.btn.primary{background:var(--gold);border-color:var(--gold);color:#3A2A08}
-.btn:disabled{opacity:.5;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;
+  box-shadow:0 6px 20px rgba(23,58,90,.12);margin-bottom:16px}
+.card>h2{margin-top:0;font-size:19px;letter-spacing:.06em}
+.btn{border:1.5px solid var(--line);border-radius:12px;padding:10px 16px;font-size:14px;
+  background:#fff;color:var(--sea1);cursor:pointer;font-weight:600;
+  transition:transform .1s,border-color .12s;touch-action:manipulation}
+.btn:hover{border-color:var(--sea1)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700;
+  box-shadow:0 4px 12px rgba(227,166,60,.35)}
+.btn:disabled{opacity:.5;cursor:default;box-shadow:none}
+.btn.small{padding:6px 12px;font-size:12.5px}
 input,select{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font-size:14px;
   font-family:inherit;color:var(--ink);background:#F7FAFC}
-label{font-size:12.5px;font-weight:700;color:#3A5A70;display:block;margin:8px 0 4px;letter-spacing:.05em}
-.signin{max-width:380px;margin:8vh auto}
+input:focus,select:focus{outline:none;border-color:var(--gold)}
+label{font-size:12px;font-weight:700;color:#3A5A70;display:block;margin:10px 0 5px;letter-spacing:.14em}
+.signin{max-width:400px;margin:7vh auto}
 .msg{font-size:13px;margin-top:10px;min-height:18px}
-.msg.bad{color:#9B3B2E}.msg.ok{color:#256242}
+.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.tab{border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13.5px;
-  background:#fff;color:var(--ink-soft);cursor:pointer}
-.tab.on{background:var(--sea);border-color:var(--sea);color:#fff;font-weight:700}
+.tab{border:1.5px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13.5px;
+  background:rgba(255,255,255,.85);color:var(--ink-soft);cursor:pointer;touch-action:manipulation}
+.tab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700;
+  box-shadow:0 4px 14px rgba(227,166,60,.35)}
 .stats{display:flex;flex-wrap:wrap;gap:10px}
 .stat{flex:1;min-width:150px;background:#F1F6FB;border:1px solid #DBE7F1;border-radius:12px;padding:12px 14px}
-.stat b{display:block;font-size:24px}.stat span{font-size:12px;color:var(--ink-soft)}
+.stat b{display:block;font-size:26px;font-family:var(--serif);font-weight:900;color:var(--gold-deep)}
+.stat span{font-size:12px;color:var(--ink-soft)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #E7EFF6;white-space:nowrap}
-th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.04em}
+th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.06em}
+tbody tr:hover{background:#F7FBFE}
 .scroll{overflow-x:auto}
 .flag-bad{background:#FBEDE9}
 .arena-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:900;font-size:min(18vw,120px);
-  letter-spacing:.1em;text-align:center;color:#243B4A;margin:12px 0;background:#F1F6FB;
-  border:3px solid #D9A72B;border-radius:16px;padding:10px}
+  letter-spacing:.1em;text-align:center;color:var(--ink);margin:12px 0;
+  background:linear-gradient(180deg,#FFF8E6,#FDF0D2);
+  border:3px solid var(--gold);border-radius:16px;padding:10px;
+  box-shadow:0 6px 20px rgba(227,166,60,.3)}
 .arena-live table td{font-size:15px;padding:9px 10px}
 .arena-live:fullscreen{background:#fff;padding:28px;overflow:auto}
 .arena-live:fullscreen .arena-code{font-size:min(22vw,180px)}
@@ -54,10 +82,19 @@ th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.
 .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#EAF1F8;color:#3A5A70}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
-.tov{position:fixed;inset:0;background:rgba(20,40,70,.45);display:flex;align-items:center;
+.tov{position:fixed;inset:0;background:rgba(20,40,70,.5);display:flex;align-items:center;
   justify-content:center;z-index:50;padding:20px}
 .tov .card{max-width:420px;width:100%;margin-bottom:0}
-.btn.small{padding:6px 12px;font-size:12.5px}
+/* §2.2 出题设置: mode-specific settings sit in their own inset panel so it reads
+   as "these belong to the mode you picked", not as more page-level controls. */
+.cfg-sub{background:#F4F9FD;border:1px solid #DBE7F1;border-radius:13px;
+  padding:4px 14px 14px;margin-top:10px}
+.cfg-sub .cfg-sub-t{font-family:var(--serif);font-weight:700;font-size:13.5px;
+  color:var(--gold-deep);letter-spacing:.08em;margin-top:12px}
+.scope-box{max-height:210px;overflow-y:auto;background:#F7FAFC;border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px}
+.scope-box label{display:inline-block;margin:3px 12px 3px 0;font-weight:400;
+  font-size:13px;letter-spacing:0;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -721,12 +758,15 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       '<label>科目</label><div class="row" id="arStream"></div>' +
       '<label>单元范围</label><div id="arScope" class="hint">选择科目后显示单元…</div>' +
       '<label>模式</label><div class="row" id="arMode"></div>' +
-      '<div id="arTierRow"><label>填空难度</label><div class="row" id="arTier"></div></div>' +
-      '<div id="arRainRow" style="display:none">' +
-        '<label>词雨 · 下落速度（1 最慢 – 8 最快）</label><div class="row" id="arRs"></div>' +
-        '<label>词雨 · 速度模式</label><div class="row" id="arRr"></div>' +
-        '<label>词雨 · 拼音辅助</label><div class="row" id="arRp"></div>' +
-        '<label>词雨 · 生命（时间制 = 只按时长结束）</label><div class="row" id="arRl"></div></div>' +
+      /* §2.2: each mode's own settings live in an inset panel that appears only
+         when that mode is picked — never all five modes' controls at once. */
+      '<div class="cfg-sub" id="arTierRow"><div class="cfg-sub-t">填空挑战设置</div>' +
+        '<label>难度</label><div class="row" id="arTier"></div></div>' +
+      '<div class="cfg-sub" id="arRainRow" style="display:none"><div class="cfg-sub-t">词雨灵露设置</div>' +
+        '<label>下落速度（1 最慢 – 8 最快）</label><div class="row" id="arRs"></div>' +
+        '<label>速度模式</label><div class="row" id="arRr"></div>' +
+        '<label>拼音辅助</label><div class="row" id="arRp"></div>' +
+        '<label>生命（时间制 = 只按时长结束）</label><div class="row" id="arRl"></div></div>' +
       '<div class="row"><div><label>题数</label><select id="arQ"><option>10</option><option>15</option><option selected>20</option><option>30</option></select></div>' +
       '<div><label>时长（分钟）</label><select id="arDur"><option value="180">3</option><option value="300" selected>5</option><option value="480">8</option><option value="600">10</option></select></div></div>' +
       '<div style="margin-top:14px"><button class="btn primary" id="arGen">生成擂台码</button></div>' +
@@ -761,8 +801,11 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("arDur").value = String(_setup.durationS); el("arDur").onchange = function () { _setup.durationS = parseInt(this.value, 10); };
     fetchStreamJson(_setup.stream).then(function (data) {
       var sc = el("arScope");
-      sc.innerHTML = '<div style="margin-bottom:6px"><button class="btn" id="arAll">全选</button> <button class="btn" id="arNone">清空</button></div>' +
-        data.units.map(function (u) { return '<label style="display:inline-block;margin:3px 10px 3px 0;font-weight:400"><input type="checkbox" class="arU" value="' + esc(u.key) + '"' + (_setup.scope[u.key] ? " checked" : "") + '> ' + esc(u.key) + ' (' + u.count + ')</label>'; }).join("");
+      sc.className = "";
+      sc.innerHTML = '<div style="margin-bottom:8px"><button class="btn small" id="arAll">全选</button> <button class="btn small" id="arNone">清空</button></div>' +
+        '<div class="scope-box">' +
+        data.units.map(function (u) { return '<label><input type="checkbox" class="arU" value="' + esc(u.key) + '"' + (_setup.scope[u.key] ? " checked" : "") + '> ' + esc(u.key) + ' (' + u.count + ')</label>'; }).join("") +
+        '</div>';
       Array.prototype.forEach.call(sc.querySelectorAll(".arU"), function (c) { c.onchange = function () { if (c.checked) _setup.scope[c.value] = 1; else delete _setup.scope[c.value]; }; });
       el("arAll").onclick = function () { data.units.forEach(function (u) { _setup.scope[u.key] = 1; }); renderArenaSetup(panel); };
       el("arNone").onclick = function () { _setup.scope = {}; renderArenaSetup(panel); };

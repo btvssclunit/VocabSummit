@@ -941,3 +941,26 @@ Generation is DONE and clean; the gate decision is the owner's.
   the picker; pet_*.png (original sizes) stay untouched for 营地 PET_LAYOUT rendering. Pointing the
   catalogue back at pet_*.png would silently change the camp art — this was caught and reverted
   mid-session, don't reintroduce it.
+
+## 教师后台视觉统一 · 2026-08-13 (迭代规划 §2.2)
+
+The owner's blunt verdict was "still awfully ugly" — teacher.html looked like a generic admin panel
+(light-blue background, white cards, blue-grey buttons) while the student side is gold-on-deep-sea
+山水. Fixed:
+- **Identity now matches the student side.** teacher.html's `:root` carries the SAME tokens as
+  app.css (sky1/sky2/sea1-3/ink/gold/gold-deep/serif/sans), the body uses the same
+  sky→sea vertical gradient, headings are Noto Serif SC, and primaries are gold with the student
+  side's shadow treatment. ⚠️ The tokens are DUPLICATED, not shared — teacher.html is deliberately
+  standalone and never loads app.css. If the school palette changes, change both files.
+- Topbar became a frosted plate (matching the student 顶栏), tabs became gold-when-active pills,
+  stat numbers became serif gold-deep, tables got hover rows.
+- **出题设置 restructure:** mode-specific controls now sit inside a titled inset panel
+  (`.cfg-sub`, e.g. 「词雨灵露设置」) that only renders for the selected mode, so they read as
+  belonging to that mode rather than as more page-level controls. The show/hide logic itself already
+  existed and was correct — the §2.2 complaint was really about visual grouping, so labels dropped
+  their redundant 「词雨 ·」 prefixes now the panel is titled.
+- Unit checkboxes moved into a scrollable `.scope-box` (they were a sprawling flat run of ~25
+  inline labels).
+- VERIFIED in-browser: sign-in screen and a stubbed 出题设置 panel both render correctly with the new
+  identity; teacher.html's JS still parses (JavaScriptCore) and CSS braces balance. The live
+  dashboard behind login still needs a real teacher account to eyeball.
