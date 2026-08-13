@@ -213,23 +213,30 @@
   };
 
   /* ---------- 头像目录 (DESIGN_头像与档案页.md) ----------
-     Not stream-limited: any student may pick any avatar (角色/神兽/生肖), no
-     "your own stream's character only" restriction. `avatarId` is a plain
-     profile field (no year/history bookkeeping like mtlClass) — save()'s
-     generic merge-onto-prev loop already persists it with no extra code.
-     All 20 (4 char + 4 pet + 12 zodiac) shipped 2026-08-13. Zodiac source art
-     was chroma-keyed off magenta + tight-cropped + downsized to 320px max
-     (originals were 1200px+ / 1-1.5MB each — way oversized for a 64px thumb)
-     before landing here; see avatar_zodiac_*.png at repo root. */
+     16 avatars: 4 神兽 + 12 生肖. `avatarId` is a plain profile field (no
+     year/history bookkeeping like mtlClass) — save()'s generic merge-onto-prev
+     loop persists it with no extra code.
+
+     Owner revisions 2026-08-13 (all applied here):
+     - The 4 人物/角色 avatars were REMOVED ("they look odd"). Category "char" no
+       longer exists; the picker's chips render from whatever categories are
+       present, so nothing else needed changing.
+     - Every avatar faces LEFT for consistency. rat / ox / 龟 were mirrored;
+       the rest already faced left or are front-on.
+     - Art is SQUARE-PADDED (crop to content, then centre on a square canvas)
+       so a round 64px thumbnail can never clip a tail or a beak — the 龟 and
+       凤 were being cut before. Thumbnails also use object-fit:contain.
+     - 生肖·蛇 was regenerated: the first pass grabbed a legged lizard-ish
+       image by mistake; the correct legless coiled snake is now in place.
+     ⚠️ The 神兽 avatars are SEPARATE FILES (avatar_pet_*.png) from the camp-scene
+     sprites (pet_*.png). Do NOT point the catalogue back at pet_*.png: those are
+     rendered in 营地 via PET_LAYOUT at their own aspect ratios, and square-padding
+     / mirroring them would silently change the camp art. */
   var AVATAR_CATALOG = [
-    { id: "char_g1", file: "avatar_char_g1.png", category: "char", label: "G1 · 黄衫男孩" },
-    { id: "char_g2", file: "avatar_char_g2.png", category: "char", label: "G2 · 棕围裙男孩" },
-    { id: "char_g3", file: "avatar_char_g3.png", category: "char", label: "G3 · 蓝背心男孩" },
-    { id: "char_hcl", file: "avatar_char_hcl.png", category: "char", label: "HCL · 灰长衫男孩" },
-    { id: "pet_gui", file: "pet_gui.png", category: "pet", label: "瑞兽·龟" },
-    { id: "pet_qilin", file: "pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
-    { id: "pet_feng", file: "pet_feng.png", category: "pet", label: "瑞兽·凤" },
-    { id: "pet_long", file: "pet_long.png", category: "pet", label: "瑞兽·龙" },
+    { id: "pet_gui", file: "avatar_pet_gui.png", category: "pet", label: "瑞兽·龟" },
+    { id: "pet_qilin", file: "avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
+    { id: "pet_feng", file: "avatar_pet_feng.png", category: "pet", label: "瑞兽·凤" },
+    { id: "pet_long", file: "avatar_pet_long.png", category: "pet", label: "瑞兽·龙" },
     { id: "zodiac_rat", file: "avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
     { id: "zodiac_ox", file: "avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
     { id: "zodiac_tiger", file: "avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },

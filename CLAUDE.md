@@ -873,3 +873,71 @@ app.js/arena.js/profile.js/app.css/index.html, CSS brace balance, and pixel-leve
 the mountain path + chroma-key work. **Still needs a real run-through on a device before class** —
 especially the sprint landscape split, the rain viewport fix, and the MCQ speaker restructure, since
 those touch every quiz screen.
+
+## generate_vocab_json.py 重建 · 2026-08-13
+
+The pipeline script referenced throughout this file **did not exist on the owner's machine** — not in
+local-admin/, not with the Excel masters, nowhere. Since the Excel masters are the source of truth and
+JSON edits are only ever allowed as a synced pair, having no generator was a real hole: nobody could
+regenerate after a master edit.
+
+REBUILT 2026-08-13 at `local-admin/generate_vocab_json.py`, reverse-engineered from three sources —
+the masters' column layout, the four published JSONs (the only truth about output format), and
+id_registry.json. **Proof it is correct: `--verify` regenerates all four streams and compares
+byte-for-byte against the published JSONs — all four are identical.** Re-run `--verify` after ever
+touching the script.
+
+- Output format is exactly `json.dumps(doc, ensure_ascii=False, separators=(",",":"))` — compact, no
+  newline, unescaped Chinese. Word order follows master row order (进度码 depends on it).
+- Column map (by header name, with positional fallback): 年级/单元/单元板块/单元主题/课文标题/词语/
+  拼音/词性/中文释义/英文释义/课文例句/例句来源/填空句. **课文例句 is deliberately never read** — it must
+  not reach a published file (CPDD).
+- IDs: key = `stream|年级|单元|板块|词语`; existing keys always reuse their id, only unseen keys mint
+  `max+1` for that stream. Verified: 设施 keeps G2-0001 and a brand-new word mints G2-0815, with every
+  pre-existing registry entry untouched. (hcl's max id is 1436 for 1432 rows — 4 ids retired by words
+  that moved unit/component, which is the documented by-design behaviour.)
+- `meta.generated` defaults to the value already in the existing JSON so a no-op regen stays
+  byte-identical; `--generated` overrides.
+- `--pinyin` folds in the D2a work (zhPy/clozePy, schemaVersion 2) so a future regeneration can never
+  silently wipe those fields — which is exactly what would have happened had they stayed in a separate
+  script. add_pinyin_fields.py is kept only for reference.
+- Flags: `--verify` (byte-compare, no write) · `--write` · `--pinyin` · `--masters` · `--repo`.
+  Standard flow is documented in local-admin/README.txt.
+
+## D2a 拼音生成 · 结果与待决 (2026-08-13)
+
+Generation is DONE and clean; the gate decision is the owner's.
+- **Alignment: 3741/3741 entries, zero failures.** Every zhPy/clozePy has exactly one syllable per CJK
+  character (punctuation / Latin / the `__` blank produce no token, as specced).
+- **⚠️ SIZE: hcl.json crosses the doc's own limit.** g1 98→156KB, g2 189→303KB, g3 257→415KB,
+  hcl 326→**522KB** (+60% across the board). DESIGN §D2a says raise it if any stream exceeds ~500KB —
+  these load on managed Chromebooks over school wifi. Options: ship anyway, ship zhPy only (释义 is
+  where the real accessibility gain is; cloze pinyin is roughly half the added bytes), or gzip/split.
+  NOT decided.
+- **Polyphone accuracy: good, with known soft spots.** pypinyin's phrase-level segmentation handles
+  context well (行 xíng 206 / háng 20; 长 zhǎng 120 / cháng 77; 重 zhòng 137 / chóng 25; 乐 lè 43 /
+  yuè 29 — all plausible distributions). Two things to human-vet before shipping: 和 produced 3 huò +
+  3 huo + 2 huó readings (almost certainly wrong — should be hé in nearly all school contexts), and
+  得 de/dé split 97/272 needs spot-checking since 得 is systematically hard. The override mechanism
+  (母表 optional columns 释义拼音/例句拼音) is built and wired for exactly these fixes.
+- **D2b (the <ruby> renderer) is NOT started** and should not start until the size call is made and a
+  human has vetted a sample — shipping half-correct pinyin to weak readers is worse than none, since
+  they cannot detect the errors.
+
+## Session addendum, 2026-08-13 (late) — §2.1 修行 页 + 头像修订
+
+- **§2.1 was missed in the first pass and is now done.** The 修行 tab had the 题数 picker as five
+  full-width buttons plus four flat mode cards. Now: TWO cards — 学习挑战 (merges 填空挑战 / 华文解释 /
+  英文翻译) and 词语闪卡 (kept separate: 看词认义/点读 is a different interaction, not question-answering).
+  New `renderQuizConfig()` + `store.quizMode` holds 题型 / 题数 / 难度, following the same
+  config-screen pattern as 攀山竞速 and 词雨. Difficulty tiles render only when 填空 is selected.
+- **Avatar revisions (owner review):** 人物/角色 avatars REMOVED entirely (16 left: 4 神兽 + 12 生肖).
+  All art is now square-padded (crop to content → centre on square canvas) and thumbnails use
+  `object-fit:contain` — the previous `cover` was clipping the 龟 (a wide 439×334 image) and 凤.
+  生肖·蛇 was WRONG: 13 candidate source files existed, 12 were mapped, and the snake slot got a legged
+  lizard-ish image; corrected to the legless coiled snake. All avatars now face LEFT (rat / ox / 龟
+  mirrored; the rest already did or are front-on).
+- ⚠️ **神兽 avatars are SEPARATE FILES from the camp sprites.** avatar_pet_*.png (square, 320px) feed
+  the picker; pet_*.png (original sizes) stay untouched for 营地 PET_LAYOUT rendering. Pointing the
+  catalogue back at pet_*.png would silently change the camp art — this was caught and reverted
+  mid-session, don't reintroduce it.

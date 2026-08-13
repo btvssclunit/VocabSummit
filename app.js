@@ -202,6 +202,7 @@
     s.diff = s.diff || ((STREAM === "g1" || STREAM === "g2") ? "2" : "3");  // cloze difficulty: 2|3|4|type
     s.pyAid = s.pyAid || false;        // 拼音辅助: 学生自选，默认关闭
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
+    s.quizMode = s.quizMode || "cloze"; // 学习挑战 题型: cloze|zhmcq|enmcq (§2.1 merged entry)
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
     s.lingLu = s.lingLu || 0;          // 灵露 currency (number), earned in 词雨灵露
@@ -808,15 +809,13 @@
         ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
         ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
     } else {
-      html += '<div class="section-label">每次题数 · 填空 / 华文 / 英文</div><div class="diff" id="qlenSel">' +
-        [10, 20, 30, 40, 50].map(function (n) {
-          return '<button class="dopt' + (store.quizLen === n ? " on" : "") + '" data-q="' + n + '">' + n + ' 题</button>';
-        }).join("") + '</div>';
+      /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
+         「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
+         being spread across the home page. 词语闪卡 keeps its own card — different
+         interaction (看词认义/点读), not a question-answering mode. */
       html += '<div class="section-label">今日路线 · 选择你的营地</div><div class="camps">' +
-        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
-        camp("cloze", "✍️", "填空挑战", "读句子，填出词语 · 可选难度") +
-        camp("zhmcq", "🔎", "华文解释", "看释义，选出词语") +
-        camp("enmcq", "🌐", "英文翻译", "看英译，选出词语") + '</div>';
+        camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") +
+        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
 
     html += '<button class="badge-strip" id="badgeStrip">';
@@ -887,18 +886,12 @@
     if (mh) mh.onclick = startMountain;
     var arenaPill = document.getElementById("arenaPill");
     if (arenaPill) arenaPill.onclick = function (e) { e.stopPropagation(); openArena(); };
-    Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (b) {
-      b.onclick = function () {
-        Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (x) { x.classList.remove("on"); });
-        b.classList.add("on");
-        store.quizLen = parseInt(b.getAttribute("data-q"), 10); saveStore();
-      };
-    });
     document.getElementById("profileHubBtn").onclick = openProfilePanel;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
         var mode = btn.getAttribute("data-mode");
+        if (mode === "quiz") return renderQuizConfig();       // §2.1: 题型/题数/难度 live in here
         if (mode === "flash") return renderWordList("all");   // flashcards open the list-menu first
         if (mode === "rain") return renderRainConfig();
         if (mode === "sprint") return renderSprintConfig();
@@ -1668,6 +1661,54 @@
     { k: "s8", label: "8 · 雷霆万钧", fall: 62, spawn: 2000 }
   ];
   var RAIN_LIVES = 5;   // G-2: was 3 (students asked for more)
+  /* ---------- 学习挑战 config (§2.1) ----------
+     One entry for the three question-answering modes. Everything that used to be
+     laid flat on the home page (题数) plus what used to be buried in the study
+     rail (题型, 填空 difficulty) is chosen HERE, then the round starts. Difficulty
+     is shown only when 填空 is the selected 题型 — the other two have no tiers. */
+  var QUIZ_MODES = [
+    { k: "cloze", label: "✍️ 填空挑战", desc: "读句子，填出空格里的词语" },
+    { k: "zhmcq", label: "🔎 华文解释", desc: "看释义，选出词语" },
+    { k: "enmcq", label: "🌐 英文翻译", desc: "看英译，选出词语" }
+  ];
+  function renderQuizConfig() {
+    setTopbar("home", "");
+    var m = store.quizMode || "cloze";
+    var cur = QUIZ_MODES.filter(function (x) { return x.k === m; })[0] || QUIZ_MODES[0];
+    view().innerHTML = '<div class="game-config card">' +
+      '<div class="mode-name">✍️ 学习挑战</div>' +
+      '<div class="mode-desc">' + esc(cur.desc) + '<br>答对可累积历练值；填空挑战答对还会提升海拔。</div>' +
+      '<div class="diff-label">题型</div><div class="diff" id="qmodeSel">' +
+      QUIZ_MODES.map(function (x) {
+        return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' + x.label + '</button>';
+      }).join("") + '</div>' +
+      '<div class="diff-label">每次题数</div><div class="diff" id="qlenSel">' +
+      [10, 20, 30, 40, 50].map(function (n) {
+        return '<button class="dopt' + (store.quizLen === n ? " on" : "") + '" data-q="' + n + '">' + n + ' 题</button>';
+      }).join("") + '</div>' +
+      (m === "cloze" ? diffSelector() : pyAidToggleHtml()) +
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地</button>' +
+      '<button class="nav-btn primary" id="go">开始挑战 ›</button></div></div>';
+
+    Array.prototype.forEach.call(view().querySelectorAll("#qmodeSel .dopt"), function (b) {
+      b.onclick = function () { store.quizMode = b.getAttribute("data-m"); saveStore(); renderQuizConfig(); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (b) {
+      b.onclick = function () {
+        Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        store.quizLen = parseInt(b.getAttribute("data-q"), 10); saveStore();
+      };
+    });
+    /* difficulty tiles are only rendered for 填空; re-render so the panel reflects the pick */
+    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-d]"), function (b) {
+      b.onclick = function () { store.diff = b.getAttribute("data-d"); saveStore(); renderQuizConfig(); };
+    });
+    wirePyAidToggle(renderQuizConfig);
+    document.getElementById("back").onclick = renderHome;
+    document.getElementById("go").onclick = function () { startMode(store.quizMode || "cloze"); };
+  }
+
   function renderRainConfig() {
     setTopbar("home", "");
     var best = store.best.rain || 0;
