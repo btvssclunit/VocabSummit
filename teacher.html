@@ -24,16 +24,28 @@
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
 }
 *{box-sizing:border-box}
+/* 仪表板环境背景: the same one-line ambience app.css gives every student page
+   ("study ambience: campsite backdrop under all app pages"). Fixed study_bg.png —
+   teacher.html deliberately does NOT import applyAmbience() / bg-01..05, the
+   teacher backdrop never changes with mastery. The old sky→sea gradient stays as
+   the BOTTOM layer, so a missing PNG degrades to the previous look, not a flat
+   colour. Cards stay opaque, so the image only shows in the gaps between them. */
 body{margin:0;font-family:var(--sans);color:var(--ink);line-height:1.6;min-height:100vh;
-  background:linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 30%,var(--sky2) 56%,var(--sea1) 88%,var(--sea3) 100%);
-  background-attachment:fixed}
+  background:#EAF2F8 no-repeat fixed center/cover;
+  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),
+    url("study_bg.png"),
+    linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 30%,var(--sky2) 56%,var(--sea1) 88%,var(--sea3) 100%)}
 h1,h2{font-family:var(--serif)}
 .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
-/* topbar echoes the student 顶栏: frosted plate, serif name, small caps sub */
+/* topbar echoes the student 顶栏: frosted plate, serif name, small caps sub,
+   plus a small 校徽 chip (the cheapest brand anchor on a data-dense page). */
 .top{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;
   background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:16px;
   padding:12px 18px;backdrop-filter:blur(6px);box-shadow:0 6px 20px rgba(23,58,90,.12)}
 .top h1{font-size:22px;margin:0;letter-spacing:.06em}
+.crest{width:36px;height:36px;border-radius:50%;overflow:hidden;flex:none;background:#fff;
+  border:2px solid var(--gold);box-shadow:0 3px 10px rgba(23,58,90,.2)}
+.crest img{width:100%;height:100%;object-fit:cover;display:block}
 .top .sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
 .spacer{margin-left:auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;
@@ -53,6 +65,35 @@ input,select{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;
 input:focus,select:focus{outline:none;border-color:var(--gold)}
 label{font-size:12px;font-weight:700;color:#3A5A70;display:block;margin:10px 0 5px;letter-spacing:.14em}
 .signin{max-width:400px;margin:7vh auto}
+/* ---------- 登录页 = 全屏 hero，与 index.html 的 .lp-hero 同源写法 ----------
+   Not a banner strip: landing_hero_bg.png IS the viewport background and the
+   sign-in card floats on it (translucent + blur), exactly like the student
+   landing .lp-gate. body.gate is toggled in hideAll()/showSignedIn(), so ONLY
+   the sign-in + 待审批/注册 screens get it; the dashboard keeps the study_bg
+   ambience above. This is the one screen light enough to carry a full image. */
+body.gate{background:#12213F url("landing_hero_bg.png") center center/cover no-repeat fixed;
+  image-rendering:pixelated}
+body.gate .wrap{min-height:100vh;padding:24px 18px;display:flex;flex-direction:column;
+  align-items:center}
+body.gate .top{display:none}
+/* Crest sits at the TOP of the hero (deep sky = contrast for light text; the
+   sunrise band mid-image would wash it out), card centres in what is left.
+   auto margins, not justify-content:center, so a tall 注册 pane on a short
+   1024x600 Chromebook scrolls instead of being clipped at the top. */
+body.gate .gate-crest{display:flex;margin:0 auto 18px}
+body.gate .signin{margin:auto;width:100%;
+  background:rgba(255,255,255,.93);backdrop-filter:blur(6px);
+  border-color:rgba(255,255,255,.55);box-shadow:0 16px 40px rgba(8,16,34,.42)}
+.gate-crest{display:none;flex-direction:column;align-items:center;text-align:center}
+.gate-crest .ring{width:64px;height:64px;border-radius:50%;overflow:hidden;background:#fff;
+  border:3px solid var(--gold);box-shadow:0 6px 18px rgba(8,16,34,.5)}
+.gate-crest .ring img{width:100%;height:100%;object-fit:cover;display:block}
+.gate-crest h1{font-size:20px;margin:10px 0 0;letter-spacing:.1em;color:#fff;
+  text-shadow:0 2px 8px rgba(8,16,34,.6)}
+/* double shadow (same trick as .lp-couplet): the sunrise band behind this text
+   is near-white in places, so one soft shadow is not enough to hold it. */
+.gate-crest .sub{font-size:11.5px;color:#FFE9B0;margin-top:4px;letter-spacing:.06em;
+  text-shadow:0 0 3px rgba(8,16,34,.95),0 1px 7px rgba(8,16,34,.85)}
 .msg{font-size:13px;margin-top:10px;min-height:18px}
 .msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -60,10 +101,18 @@ label{font-size:12px;font-weight:700;color:#3A5A70;display:block;margin:10px 0 5
   background:rgba(255,255,255,.85);color:var(--ink-soft);cursor:pointer;touch-action:manipulation}
 .tab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700;
   box-shadow:0 4px 14px rgba(227,166,60,.35)}
-.stats{display:flex;flex-wrap:wrap;gap:10px}
-.stat{flex:1;min-width:150px;background:#F1F6FB;border:1px solid #DBE7F1;border-radius:12px;padding:12px 14px}
-.stat b{display:block;font-size:26px;font-family:var(--serif);font-weight:900;color:var(--gold-deep)}
-.stat span{font-size:12px;color:var(--ink-soft)}
+/* 概览统计条 = app.css 的 .harbour 深海军玻璃条（金色衬线数字），取代原来的
+   平面浅蓝方块；每个分类配一枚现成徽章当图标，零新增美术。 */
+.harbour{background:rgba(18,42,66,.82);border:1px solid rgba(255,255,255,.2);border-radius:16px;
+  padding:16px 22px;display:flex;gap:28px;color:#EAF4FA;justify-content:center;flex-wrap:wrap}
+.harbour>div{text-align:center;min-width:76px}
+.harbour>div>b{display:block;font-family:var(--serif);font-size:26px;font-weight:900;color:var(--sun)}
+.harbour>div>span{font-size:11.5px;opacity:.85;letter-spacing:.06em}
+.hb-icon{width:40px;height:40px;border-radius:50%;overflow:hidden;background:#fff;margin:0 auto 7px;
+  border:2px solid var(--gold);box-shadow:0 3px 10px rgba(8,16,34,.4)}
+.hb-icon img{width:100%;height:100%;object-fit:cover;display:block}
+/* keeps the row's baselines aligned for a category with no badge (未填写) */
+.hb-icon.none{visibility:hidden}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #E7EFF6;white-space:nowrap}
 th{color:#3A5A70;cursor:pointer;user-select:none;font-size:12px;letter-spacing:.06em}
@@ -97,9 +146,18 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   font-size:13px;letter-spacing:0;color:var(--ink)}
 </style>
 </head>
-<body>
+<body class="gate">
 <div class="wrap">
+  <!-- 校徽 + 标题, shown only on the full-bleed 登录/审批 hero (body.gate) -->
+  <div class="gate-crest">
+    <div class="ring"><img src="badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
+    <h1>教师后台</h1>
+    <div class="sub">词山学海 VOCAB SUMMIT · 百德中学</div>
+    <div class="sub" id="gateWho"></div>
+  </div>
+
   <div class="top">
+    <div class="crest"><img src="badge_hx.png" alt="" onerror="this.parentNode.style.display='none'"></div>
     <h1>教师后台</h1>
     <span class="sub">词山学海 Vocab Summit · 百德中学</span>
     <span class="spacer"></span>
@@ -195,6 +253,16 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var STREAMS = ["g1", "g2", "g3", "hcl"];
   var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL" };
   var CAT_LABEL = { student: "学生", teacher: "教师", parent: "家长", public: "公众", "": "未填写" };
+  /* 概览 icons: the five existing component badges, reused purely as category
+     art (no new assets). They carry no achievement meaning here. 未填写 gets
+     none — harbourCell hides its slot so the row stays aligned. */
+  var CAT_BADGE = { student: "badge_shkj.png", teacher: "badge_jj.png",
+                    parent: "badge_gg.png", public: "badge_whz.png", "": "" };
+  function harbourCell(n, label, img) {
+    return '<div><div class="hb-icon' + (img ? '' : ' none') + '">' +
+      (img ? '<img src="' + img + '" alt="" onerror="this.parentNode.style.visibility=\'hidden\'">' : '') +
+      '</div><b>' + n + '</b><span>' + esc(label) + '</span></div>';
+  }
 
   /* ---------- school-name canonicalisation (dashboard grouping) ----------
      Fold free-text + legacy variants ("HIHS", "holy innocents high school",
@@ -364,16 +432,20 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("signinCard").style.display = "none";
     el("statusCard").style.display = "none";
     el("dash").style.display = "none";
+    // default to the full-bleed hero; only showSignedIn takes it off again
+    document.body.classList.add("gate");
   }
   function showSignedOut(msg) {
     hideAll();
     el("signinCard").style.display = "";
     el("signOutBtn").style.display = "none";
     el("whoami").textContent = "";
+    el("gateWho").textContent = "";
     if (msg) { var m = el("signinMsg"); m.className = "msg bad"; m.textContent = msg; }
   }
   function showSignedIn(user, d) {
     hideAll();
+    document.body.classList.remove("gate");   // dashboard = study_bg ambience, not the hero
     el("dash").style.display = "";
     el("signOutBtn").style.display = "";
     el("whoami").textContent = (d.name || user.email) + " · " + (d.role === "hod" ? "HOD" : "教师");
@@ -385,6 +457,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("statusCard").style.display = "";
     el("signOutBtn").style.display = "none";
     el("whoami").textContent = user.email;
+    el("gateWho").textContent = user.email;   // .top is hidden on the hero
     el("registerHere").style.display = "none";
     el("statusMsg").textContent = "";
     if (kind === "pending") {
@@ -559,12 +632,12 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       bySchool[s] = (bySchool[s] || 0) + 1;
     });
     var catHtml = ["student", "teacher", "parent", "public", ""].filter(function (k) { return byCat[k]; })
-      .map(function (k) { return '<div class="stat"><b>' + byCat[k] + '</b><span>' + CAT_LABEL[k] + '</span></div>'; }).join("");
+      .map(function (k) { return harbourCell(byCat[k], CAT_LABEL[k], CAT_BADGE[k]); }).join("");
     var schoolRows = Object.keys(bySchool).sort(function (a, b) { return bySchool[b] - bySchool[a]; })
       .map(function (s) { return '<tr><td>' + esc(s) + '</td><td>' + bySchool[s] + '</td></tr>'; }).join("");
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">概览</h2>' +
-      '<div class="stats"><div class="stat"><b>' + _users.length + '</b><span>总档案数</span></div>' + catHtml + '</div></div>' +
+      '<div class="harbour">' + harbourCell(_users.length, "总档案数", "badge_hx.png") + catHtml + '</div></div>' +
       '<div class="card"><h2 style="margin-top:0">按学校 School</h2>' +
       '<div class="scroll"><table><thead><tr><th>学校</th><th>档案数</th></tr></thead><tbody>' +
       schoolRows + '</tbody></table></div></div>';

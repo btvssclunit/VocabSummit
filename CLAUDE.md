@@ -1108,3 +1108,46 @@ VERIFIED in-browser: four tabs render; 本周/本学期/累计 sub-toggle correc
 `currentWeekId()` anchors to Sunday across a year boundary (2026-01-01 → 2025-12-28) and splits
 Sat 08-15 from Sun 08-16; 词雨 wrong submit recorded `{a:1,c:0}` and cost NO life, a correct catch
 recorded `{a:2,c:1}`. Zero console errors. Both JS files parse (JavaScriptCore).
+
+## 教师后台视觉对齐 · 2026-08-13 (TEACHER_HTML_VISUAL_BRIEF)
+
+Follow-up to §2.2 (which fixed the palette but used **no image assets**, which is why the page
+still read as a generic admin panel). Per `~/Downloads/teacher_html_visual_handoff/`. Zero new
+art — every image already ships in the repo. All three changes are inside teacher.html's own
+`<style>`/markup; it still never `<link>`s app.css (standalone by design).
+
+- **登录/审批屏 = full-bleed hero**, the same recipe as `index.html`'s `.lp-hero`: the body IS
+  `landing_hero_bg.png` at `center/cover` (+ `image-rendering:pixelated`) and the sign-in card
+  floats on it (`rgba(255,255,255,.93)` + `backdrop-filter:blur(6px)`). Not a banner strip.
+  Driven by a `body.gate` class: `hideAll()` ADDS it, `showSignedIn()` removes it, and the
+  markup ships with `<body class="gate">` so the pre-auth frame is already correct. So the
+  sign-in, 待审批 and 注册 screens get the hero; the dashboard never does.
+  - `.top` is hidden under `.gate`, so a new `.gate-crest` block (badge_hx.png ring +「教师后台」
+    + subline) replaces the plain `<h1>`, and `#gateWho` mirrors `#whoami` — otherwise the
+    待审批/停用 screens would lose the signed-in email that lives in the topbar.
+  - Crest sits at the TOP of the hero, not centred with the card: the sunrise band mid-image is
+    near-white and washed the light text out (measured by eye at 800×450 and 1280×800). The sub
+    also carries a double shadow, same trick as `.lp-couplet`.
+  - Layout uses **auto margins, never `justify-content:center`** — a centred flex child clips at
+    the top edge when it overflows, and the 注册 pane is 691px tall on a 1024×600 Chromebook.
+    Verified: crest top stays at +24px and the page scrolls instead of cutting off.
+- **仪表板 = the study ambience app.css already gives every student page**: the
+  `linear-gradient(rgba(246,250,253,.5) …), url("study_bg.png")` one-liner copied verbatim, so
+  all seven tabs inherit it with no per-tab work. Deliberately NO `applyAmbience()` / `bg-01..05`
+  rotation — the teacher backdrop never changes with mastery. The old sky→sea gradient is kept
+  as the BOTTOM background layer, so a missing PNG degrades to the previous look. Cards are
+  opaque `var(--card)`, so the image only shows in the gutters; table contrast is untouched.
+- **概览 stats → `.harbour`**: the flat pale-blue `.stat` blocks are gone (CSS deleted, not
+  orphaned), replaced by app.css's deep-sea glass bar with gold serif numerals. Each category
+  carries an existing badge as a plain icon — 学生 shkj · 教师 jj · 家长 gg · 公众 whz, 总档案数
+  badge_hx — via `CAT_BADGE` + `harbourCell()`. **These badges carry no achievement meaning
+  here, they are just category art.** 未填写 has no badge and renders `.hb-icon.none`
+  (`visibility:hidden`) so the row's baselines stay aligned. `.top` also gained a 36px `.crest`.
+- Every `<img>` added has an `onerror` that hides its ring/slot, per the repo's graceful-degrade
+  habit — a 404 never shows a broken-image icon.
+- **VERIFIED in a real browser** (`python3 -m http.server` + the Browser pane on 127.0.0.1 —
+  this works, try it before falling back to code-reading): login hero at 1280×800 / 1024×600 /
+  375×812; register pane on a short screen scrolls without clipping (measured with
+  `getBoundingClientRect`); dashboard stubbed signed-in shows the harbour + badges + crest with
+  the study_bg gutters and fully readable tables. Zero console errors, JS parses (JavaScriptCore),
+  CSS braces balance 67/67.
