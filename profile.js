@@ -394,7 +394,14 @@
     { k: "idea",    label: "💡 建议" },
     { k: "other",   label: "❓ 其他" }
   ];
-  var FB_MIN = 5, FB_MAX = 1000, FB_DAILY = 5, FB_COOLDOWN_MS = 30000;
+  /* Default quota raised 5 → 20 (owner 2026-08-14). The reasoning is worth
+     keeping: the student who files eight real problems in an afternoon is the
+     most valuable user this feature has, and capping them to guard against a
+     hypothetical spammer optimises for the wrong person. 20 is still bounded,
+     and feedbackQuota/{uid} raises or zeroes it per student when needed.
+     ⚠️ A CAPTCHA was considered and rejected — see the CLAUDE.md section. */
+  var FB_MIN = 5, FB_MAX = 1000, FB_DAILY_DEFAULT = 20, FB_COOLDOWN_MS = 20000;
+  var _fbQuota = null;                       // null until read from the cloud
   var FB_STATUS_LABEL = { "new": "待处理", open: "处理中", resolved: "已解决", wontfix: "不处理" };
 
   /* Asia/Singapore date — the same key the ticket id uses, so the local counter
@@ -411,9 +418,23 @@
   }
   function fbSaveLocal(o) { try { localStorage.setItem("ws2_fb", JSON.stringify(o)); } catch (e) {} }
 
+  function fbQuota() { return _fbQuota === null ? FB_DAILY_DEFAULT : _fbQuota; }
+
   function openFeedback() {
     var prof = load() || {};
     var sel = "content";
+    /* Re-read the quota EVERY time the form opens, not once per page load: a
+       teacher who raises a prolific reporter's quota mid-session would otherwise
+       have no effect until that student reloaded — and worse, the client would
+       stop trying slots at the old, lower number even though the rules now allow
+       more. One cheap read on a screen that opens rarely. */
+    if (window.WSCloud && window.WSCloud.myFeedbackQuota) {
+      window.WSCloud.myFeedbackQuota(function (m) {
+        _fbQuota = (typeof m === "number") ? m : FB_DAILY_DEFAULT;
+        var left = document.getElementById("fbLeft");
+        if (left) left.textContent = Math.max(0, fbQuota() - fbLocal().n);
+      });
+    }
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
     ov.style.zIndex = 70;                       // above 我的档案 (65)
@@ -443,7 +464,7 @@
         (sending ? "送出中…" : "送出") + '</button></div>';
 
       var lo = fbLocal();
-      card.querySelector("#fbLeft").textContent = Math.max(0, FB_DAILY - lo.n);
+      card.querySelector("#fbLeft").textContent = Math.max(0, fbQuota() - lo.n);
       var ta = card.querySelector("#fbText");
       ta.oninput = function () { card.querySelector("#fbCount").textContent = ta.value.length + " / " + FB_MAX; };
       Array.prototype.forEach.call(card.querySelectorAll("[data-fb]"), function (b) {
@@ -464,7 +485,10 @@
       text = (text || "").trim();
       var lo = fbLocal();
       if (text.length < FB_MIN) { say("请再多写几个字，让老师看得明白。"); return; }
-      if (lo.n >= FB_DAILY) { say("今天已经提交 " + FB_DAILY + " 次了，明天再来吧。"); return; }
+      /* quota 0 is a teacher shutting this account off, not a used-up daily
+         allowance — 「今天已经提交 0 次了」 would read as nonsense */
+      if (fbQuota() <= 0) { say("这个账号暂时无法提交反馈，请直接告诉老师。"); return; }
+      if (lo.n >= fbQuota()) { say("今天已经提交 " + fbQuota() + " 次了，明天再来吧。"); return; }
       if (Date.now() - (lo.last || 0) < FB_COOLDOWN_MS) {
         say("刚刚才送出过，请等一下再提交。"); return;
       }
@@ -473,7 +497,7 @@
       }
       draw("", true);
       window.WSCloud.submitFeedback({
-        day: fbToday(), type: sel, text: text.slice(0, FB_MAX),
+        day: fbToday(), max: fbQuota(), type: sel, text: text.slice(0, FB_MAX),
         nickname: prof.nickname || "", school: prof.school || "",
         mtlClass: prof.mtlClass || "", category: prof.category || "",
         stream: window.STREAM || "", page: location.pathname.split("/").pop(),
@@ -488,7 +512,7 @@
           return;
         }
         if (res && res.reason === "cap") {
-          var l2 = fbLocal(); l2.n = FB_DAILY; fbSaveLocal(l2);
+          var l2 = fbLocal(); l2.n = fbQuota(); fbSaveLocal(l2);
           draw("今天的反馈次数用完了，明天再来吧。");
         } else if (res && res.reason === "permission-denied") {
           draw("暂时无法提交反馈，请联系老师。");

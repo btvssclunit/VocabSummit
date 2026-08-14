@@ -67,26 +67,36 @@ service cloud.firestore {
     }
 
     // ---- 意见反馈工单 (2026-08-14) ------------------------------------------
-    // Doc id is deliberately STRUCTURED: "{uid}__{YYYY-MM-DD}__{n}" with n 0-4.
-    // That is what enforces the rate limit. Firestore rules cannot count
-    // documents, so a "max 5 per day" check is impossible the obvious way — but
-    // if the id must be one of exactly five permitted names per user per day,
-    // and create (unlike set) fails on an existing doc, then five is a HARD
-    // server-side ceiling that costs zero extra reads. A student cannot forge
-    // someone else's ticket either, because the id must start with their uid.
+    // Doc id is deliberately STRUCTURED: "{uid}__{YYYY-MM-DD}__{n}".
+    // That is what enforces the daily quota. Firestore rules cannot count
+    // documents, so "max N per day" is not expressible the obvious way — but if
+    // the id must be one of exactly N permitted names per user per day, and
+    // create (unlike set) fails on an existing doc, then N is a HARD
+    // server-side ceiling. A student cannot forge someone else's ticket either,
+    // because the id must start with their own uid.
+    //
+    // QUOTA (revised 2026-08-14 after owner feedback): the default is 20/day,
+    // not 5. A student who finds 8 real problems in one afternoon is the single
+    // most valuable user this feature has, and throttling them to protect
+    // against a hypothetical spammer is the wrong trade. feedbackQuota/{uid}
+    // overrides the default per student — raise it for a prolific reporter,
+    // set it to 0 to shut off an abuser. Absent doc = the default.
     //
     // The day segment is checked against request.time with a ±1 day tolerance:
     // request.time is UTC and the app stamps Asia/Singapore dates (+8), so an
     // early-morning submission legitimately carries "tomorrow" in UTC terms.
-    // The tolerance means a student could straddle midnight for 10 in 24h;
-    // that is an accepted trade for not rejecting real submissions at 7am.
     function fbDayOk(day) {
       return day is string && day.size() == 10
         && request.time >= timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10])) - duration.value(1, 'd')
         && request.time <  timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10])) + duration.value(2, 'd');
     }
+    function fbQuota() {
+      return exists(/databases/$(database)/documents/feedbackQuota/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/feedbackQuota/$(request.auth.uid)).data.max
+        : 20;
+    }
     match /feedback/{ticketId} {
-      // a student reads only their OWN tickets (so they can see the status);
+      // a student reads only their OWN tickets (so they can follow the status);
       // teachers read the whole queue.
       allow read: if isTeacher()
                   || (request.auth != null && resource.data.uid == request.auth.uid);
@@ -94,7 +104,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && ticketId.split("__").size() == 3
         && ticketId.split("__")[0] == request.auth.uid
-        && ticketId.split("__")[2] in ["0", "1", "2", "3", "4"]
+        && ticketId.split("__")[2].matches("^[0-9]{1,3}$")
+        && int(ticketId.split("__")[2]) < fbQuota()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.day == ticketId.split("__")[1]
         && fbDayOk(request.resource.data.day)
@@ -102,11 +113,10 @@ service cloud.firestore {
         && request.resource.data.type in ["content", "bug", "idea", "other"]
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 5
-        && request.resource.data.text.size() <= 1000
-        && !exists(/databases/$(database)/documents/feedbackBans/$(request.auth.uid));
+        && request.resource.data.text.size() <= 1000;
 
-      // students never edit a submitted ticket (they cannot rewrite history after
-      // a teacher has replied); teachers only ever move it through the workflow.
+      // students never edit a submitted ticket (they cannot rewrite history
+      // after a teacher has replied); teachers only move it through the workflow.
       allow update: if isTeacher()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(["status", "note", "handledBy", "handledAt"])
@@ -115,11 +125,12 @@ service cloud.firestore {
       allow delete: if isHod();
     }
 
-    // feedback ban list: an HOD blocks an abusive submitter. Presence of the doc
-    // is the block — the create rule above reads it with exists().
-    match /feedbackBans/{uid} {
+    // per-student daily quota override. Absent = the default in fbQuota().
+    // max: 0 is how an abuser is shut off — one control, not a separate ban list.
+    // The student may READ their own so the form can show what is left.
+    match /feedbackQuota/{uid} {
       allow read:  if isTeacher() || (request.auth != null && request.auth.uid == uid);
-      allow write: if isHod();
+      allow write: if isTeacher();
     }
 
     // 结伴登峰 live classroom rooms. Teachers create + drive; any signed-in

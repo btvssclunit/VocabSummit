@@ -326,7 +326,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260814k";
+  var ASSET_V = "?v=20260814m";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -1313,9 +1313,10 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      待处理 → 处理中 → 已解决 / 不处理, carries a developer note, and shows who
      sent it (nickname · class · school · uid) plus the app version and page it
      came from — the context you need to reproduce a bug without asking.
-     Abuse: the 5-per-day ceiling is enforced structurally by the ticket ID in
-     firestore.rules. Repeat offenders are stopped with 封禁 (HOD only), which
-     writes feedbackBans/{uid} — the create rule checks it with exists(). */
+     Abuse: the daily ceiling is enforced structurally by the ticket ID in
+     firestore.rules (default 20/day). 额度 below writes feedbackQuota/{uid} —
+     raise it for a prolific reporter, set it to 0 to shut off an abuser. One
+     control, not a separate ban list. */
   /* default is "todo" (待处理 + 处理中), NOT "open" — the first draft defaulted
      to "open" and brand-new tickets were invisible the moment they arrived,
      which is exactly the queue you most need to see. */
@@ -1408,7 +1409,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
             '<button class="btn" data-set="resolved">标记已解决</button>' +
             '<button class="btn ghost" data-set="wontfix">不处理</button>' +
             '<button class="btn ghost" data-set="new">退回待处理</button>' +
-            (canBan ? '<button class="btn ghost fb-ban" data-ban="' + esc(r.uid || "") + '">封禁此用户</button>' : "") +
+            (canBan ? '<button class="btn ghost fb-ban" data-quota="' + esc(r.uid || "") + '">额度…</button>' : "") +
           '</div>' +
           (r.handledBy ? '<div class="fb-handled">最近处理：' + esc(r.handledBy) + ' · ' + esc(fbWhen(r.handledAt)) + '</div>' : "") +
           '</div>';
@@ -1443,15 +1444,23 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
           });
         };
       });
-      var ban = card.querySelector(".fb-ban");
-      if (ban) ban.onclick = function () {
-        var uid = ban.getAttribute("data-ban");
-        if (!uid || !confirm("封禁这个用户的反馈提交？\n他们仍然可以正常使用学习功能，只是不能再提交反馈。")) return;
-        db.collection("feedbackBans").doc(uid).set({
-          at: firebase.firestore.FieldValue.serverTimestamp(),
-          by: (_me && _me.name) || ""
-        }).then(function () { alert("已封禁。这个用户不能再提交反馈。"); })
-          .catch(function (e) { alert("操作失败：" + (e.code || e.message)); });
+      var q = card.querySelector(".fb-ban");
+      if (q) q.onclick = function () {
+        var uid = q.getAttribute("data-quota");
+        if (!uid) return;
+        var v = prompt("这位同学每天可以提交几条反馈？\n\n" +
+                       "· 留空 = 恢复默认（20 条）\n" +
+                       "· 调高 = 反馈很有用的同学，例如 50\n" +
+                       "· 填 0 = 停止接收（学习功能不受影响）", "");
+        if (v === null) return;
+        var ref = db.collection("feedbackQuota").doc(uid);
+        var p = (v.trim() === "")
+          ? ref.delete()
+          : ref.set({ max: Math.max(0, parseInt(v, 10) || 0),
+                      by: (_me && _me.name) || "",
+                      at: firebase.firestore.FieldValue.serverTimestamp() });
+        p.then(function () { alert(v.trim() === "" ? "已恢复默认额度。" : "已设为每天 " + (parseInt(v, 10) || 0) + " 条。"); })
+         .catch(function (e) { alert("操作失败：" + (e.code || e.message)); });
       };
     });
   }

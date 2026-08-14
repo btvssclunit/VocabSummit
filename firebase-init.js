@@ -159,9 +159,13 @@
        being hit — that is reported as a friendly message, not an error. */
     submitFeedback: function (payload, cb) {
       whenReady(function () {
-        var day = payload.day, slot = 0;
+        var day = payload.day, slot = 0, max = payload.max || 20;
+        /* `max` is a client-side hint for how many slots to try — it must not be
+           written into the ticket. Firestore throws on an undefined value, so the
+           key is deleted rather than blanked. */
+        delete payload.max;
         function tryNext() {
-          if (slot > 4) { cb({ ok: false, reason: "cap" }); return; }
+          if (slot >= max) { cb({ ok: false, reason: "cap" }); return; }
           var id = _uid + "__" + day + "__" + slot;
           var doc = Object.assign({}, payload, {
             uid: _uid, status: "new",
@@ -211,11 +215,14 @@
         }).then(function () { cb(true); }).catch(function (e) { console.error("setFeedbackStatus:", e); cb(false); });
       });
     },
-    setFeedbackBan: function (uid, on, cb) {
+    /* the student's own daily quota (absent doc = the default). One read when
+       the form opens, so it can show an honest "N left today" and stop trying
+       slots the rules would refuse anyway. */
+    myFeedbackQuota: function (cb) {
       whenReady(function () {
-        var ref = db.collection("feedbackBans").doc(uid);
-        var p = on ? ref.set({ at: firebase.firestore.FieldValue.serverTimestamp() }) : ref.delete();
-        p.then(function () { cb(true); }).catch(function (e) { console.error("setFeedbackBan:", e); cb(false); });
+        db.collection("feedbackQuota").doc(_uid).get()
+          .then(function (d) { cb(d.exists && typeof d.data().max === "number" ? d.data().max : null); })
+          .catch(function () { cb(null); });
       });
     },
 
