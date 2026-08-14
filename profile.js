@@ -237,6 +237,11 @@
     { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
     { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤" },
     { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙" },
+    { id: "jtw_tangseng", file: "art/avatar/avatar_jtw_tangseng.png", category: "jtw", label: "西游记·唐僧" },
+    { id: "jtw_sunwukong", file: "art/avatar/avatar_jtw_sunwukong.png", category: "jtw", label: "西游记·孙悟空" },
+    { id: "jtw_zhubajie", file: "art/avatar/avatar_jtw_zhubajie.png", category: "jtw", label: "西游记·猪八戒" },
+    { id: "jtw_shaseng", file: "art/avatar/avatar_jtw_shaseng.png", category: "jtw", label: "西游记·沙僧" },
+    { id: "jtw_bailongma", file: "art/avatar/avatar_jtw_bailongma.png", category: "jtw", label: "西游记·白龙马" },
     { id: "zodiac_rat", file: "art/avatar/avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
     { id: "zodiac_ox", file: "art/avatar/avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
     { id: "zodiac_tiger", file: "art/avatar/avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },
@@ -250,7 +255,7 @@
     { id: "zodiac_dog", file: "art/avatar/avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗" },
     { id: "zodiac_pig", file: "art/avatar/avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪" }
   ];
-  var AVATAR_CAT_LABEL = { char: "角色", pet: "神兽", zodiac: "生肖" };
+  var AVATAR_CAT_LABEL = { pet: "神兽", jtw: "西游记", zodiac: "生肖" };
   window.WSAvatars = AVATAR_CATALOG;
   function avatarById(id) {
     for (var i = 0; i < AVATAR_CATALOG.length; i++) if (AVATAR_CATALOG[i].id === id) return AVATAR_CATALOG[i];

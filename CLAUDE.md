@@ -36,7 +36,7 @@ unreadable. Code and entry points stay at root; assets and data moved down:
     art/bg/           landing_hero_bg · hero_bg · study_bg · rain_bg · sprint_bg · mountain_bg
                       · climb-wall-tile · bg-01..05
     art/badge/        badge_shkj/hx/gg/jj/whz
-    art/avatar/       avatar_pet_* (4) · avatar_zodiac_* (12)
+    art/avatar/       avatar_pet_* (4) · avatar_jtw_* (5) · avatar_zodiac_* (12)
     art/camp/         camp_bg · tent · gear_* (11) · deco_* (10) · pet_* (4) · linglu
     art/item/         consumable_* (7) · powerup_* (3)   ← 2026-08-14, system NOT built
     art/sprite/       sprite_g1/g2/g3/hcl_raw · tileset_raw   (8-bit art awaiting processing)
@@ -1869,3 +1869,39 @@ correctly. ⚠️ Still wants a real finger on a real iPad — touch EMULATION i
 Note for whoever reads this next: this is the second feature in two days that passed headless
 assertions and failed on first contact with a browser (the 攀山竞速 landscape split was the first).
 Assertions prove data flow. They cannot prove that an event ever reaches your handler.
+
+## 头像池扩充 · 西游记五人组 · 2026-08-14 (avatars_bundle 交付)
+
+Source: `~/Downloads/avatars_bundle/` (avatars_ready/ + the original DESIGN_头像与档案页.md).
+Avatar pool 16 → **21**. app assets + profile.js only; no data, no rules, no Firestore change.
+
+- **五张新头像入库** `art/avatar/avatar_jtw_{tangseng,sunwukong,zhubajie,shaseng,bailongma}.png`,
+  category `jtw`, chip 「西游记」, inserted between 神兽 and 生肖 in `AVATAR_CATALOG`. Not
+  stream-limited, same as every other avatar (doc §0.1).
+- **The bundle's OTHER two folders were deliberately not taken in**: (a) its four `pet_*.png` are
+  **byte-identical** (md5-checked) to the repo's `art/camp/pet_*.png` — nothing to update, and the
+  avatar picker keeps using the separate square `avatar_pet_*.png` files per the standing warning
+  that those two sets must never be pointed at each other; (b) `avatar_char_g1/g2/g3/hcl.png` are
+  the 角色 avatars the **owner removed on 2026-08-13**, and the bundle's design doc simply predates
+  that call — they stay out, and the dead `char` key was dropped from `AVATAR_CAT_LABEL`.
+- **Art processing:** the drop arrived alpha-cut but with the usual magenta edge fringing
+  (539 px on 孙悟空, 826 on 唐僧, **93%+ of it adjacent to a transparent pixel** — the documented
+  signature) at 1187–1357px / 725KB–1MB. Ran the repo's pipeline (min(R,B)−G signature, despill
+  ramp, hard fringe above the threshold dropped, re-trim, square-pad, LANCZOS to 320px) → 99–143KB,
+  matching the existing avatars exactly. Verified by compositing on BOTH a deep-sea and a gold
+  background, and by rendering the real 64px circular thumbnails: the full-body figures read as
+  clearly as the existing 生肖 at picker size, so no re-crop was needed.
+- **VERIFIED in a real browser** (`python3` + a **no-store** handler on 127.0.0.1 — the Browser pane
+  accepted it this session): catalog length 21, four chips 全部/神兽/西游记/生肖, all five jtw
+  thumbnails load at 320×320, and the full real path 顶栏 pill → 我的档案 → 换头像 → 孙悟空 writes
+  `avatarId` while leaving nickname/班级 intact, updates the topbar image immediately, and shows on
+  the landing greeting after a reload. Zero console errors, zero broken images. profile.js parses.
+- Cache-bust bumped `20260814b` → **`20260814c`** in all six places (the third deploy today — this
+  is exactly the same-day letter case the ritual warns about).
+
+⚠️ **Still not built: the design doc's §3/§5 「点头像先放大看简介」 detail card.** The doc's decision 5
+says a tap should open an enlarged card (大图 + 名字 + `bio`) with a 「选用这个头像」 confirm button,
+and §1.6 supplies finished bio text for all 4 瑞兽 and all 12 生肖. The picker shipped on
+2026-08-13 with instant-select instead (matching the nickname picker) and no `bio` field exists in
+`AVATAR_CATALOG`. Not changed unilaterally here — it is a UX reversal, and the five 西游记 bios are
+marked 「简介待补」 in the doc, so it needs the owner's text and sign-off first.
