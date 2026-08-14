@@ -887,9 +887,11 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
    `min-height:520px` used to win over the height cap on any short screen
    (phone landscape, 1024x600 Chromebook) and pushed the wall off-frame.
    Nothing here may reintroduce a min-height larger than the cap. */
-.sprint-shell{display:flex;flex-direction:column;gap:8px;height:calc(100vh - 68px);
-  max-height:calc(100vh - 68px);min-height:0;overflow:hidden}
-.sprint-shell{height:calc(100dvh - 68px);max-height:calc(100dvh - 68px)}   /* Safari 15.4+: 100vh includes the URL-bar strip */
+/* 94vh, not 100: a little breathing room under the round (owner 2026-08-14).
+   One number to retune, ~88–96. */
+.sprint-shell{display:flex;flex-direction:column;gap:8px;height:calc(94vh - 68px);
+  max-height:calc(94vh - 68px);min-height:0;overflow:hidden}
+.sprint-shell{height:calc(94dvh - 68px);max-height:calc(94dvh - 68px)}   /* Safari 15.4+: 100vh includes the URL-bar strip */
 /* if the options still cannot fit, THIS column scrolls — never the page */
 .sprint-right{min-height:0;overflow-y:auto}
 .sprint-canvas{width:100%;flex:1 1 auto;min-height:120px;border-radius:16px;display:block;

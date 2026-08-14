@@ -3733,9 +3733,17 @@
      0.586/0.583 and 0.156/0.153, i.e. 3px apart on the source art — and those
      were exactly the "sometimes it jumps horizontally" steps the owner saw.
      Both near-duplicates are dropped; 6 shelves per tile, all clearly separated. */
+  /* Re-traced 2026-08-14 for the taller tile (948×1659, was 1024×1536). Traced by
+     PIXEL SCAN, not by eye: rows whose bright-tan run is ≥120px wide are grouped
+     into components, and y is the MIDDLE of each slab's lit top face (its very
+     top edge would plant the feet behind the slab). 11 shelves, verified by
+     rendering the polyline over the PNG. `x` is the traced slab centre and is
+     now INFORMATIONAL ONLY — movement is strictly vertical (see frame()). */
   var SPRINT_LEDGES = [
-    { x: 0.605, y: 0.804 }, { x: 0.332, y: 0.752 }, { x: 0.055, y: 0.586 },
-    { x: 0.107, y: 0.374 }, { x: 0.483, y: 0.326 }, { x: 0.500, y: 0.156 }
+    { x: 0.737, y: 0.921 }, { x: 0.369, y: 0.876 }, { x: 0.574, y: 0.774 },
+    { x: 0.291, y: 0.685 }, { x: 0.748, y: 0.598 }, { x: 0.368, y: 0.519 },
+    { x: 0.688, y: 0.445 }, { x: 0.493, y: 0.364 }, { x: 0.272, y: 0.276 },
+    { x: 0.712, y: 0.221 }, { x: 0.418, y: 0.124 }
   ];
   /* dev guard: a future re-trace that breaks the invariant should say so loudly
      rather than silently reintroducing sideways hops */
@@ -4010,10 +4018,6 @@
           var tt = Math.floor(gi / NL), li = ((gi % NL) + NL) % NL;
           return (tt + 1 - SPRINT_LEDGES[li].y) * tileH;
         };
-        var ledgeX = function (gi) {
-          var li = ((Math.floor(gi) % NL) + NL) % NL;
-          return SPRINT_LEDGES[li].x;
-        };
         var i0 = Math.floor(climbAlt), fstep = climbAlt - i0;
         var curH = ledgeH(i0) + (ledgeH(i0 + 1) - ledgeH(i0)) * fstep;   // camera height
 
@@ -4035,11 +4039,13 @@
           }
         }
 
-        var x0 = ledgeX(i0), x1 = ledgeX(i0 + 1);
+        /* strictly VERTICAL movement (owner 2026-08-14): the climber stays on the
+           centre line and only rises, instead of hopping sideways to whichever
+           column the art's next shelf happens to sit in. */
         var slipX = slipT > 0 ? Math.sin(slipT * 25) * 3.5 : 0;
-        var px = (x0 + (x1 - x0) * fstep) * W + slipX;
+        var px = W * 0.5 + slipX;
         var py = anchorY - Math.sin(fstep * Math.PI) * (tileH * 0.06);   // hop arc between ledges
-        drawClimber(px, py, moving, t / 1000, x1 < x0);
+        drawClimber(px, py, moving, t / 1000, false);
       } else {
         var sky = ctx.createLinearGradient(0, 0, 0, H);
         sky.addColorStop(0, "#3B4A5A"); sky.addColorStop(1, "#6A7A88");
