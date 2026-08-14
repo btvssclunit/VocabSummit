@@ -6,6 +6,25 @@
 (function () {
   "use strict";
 
+  /* ---------- cache busting ----------
+     GitHub Pages serves every file with cache-control: max-age=600, so for ten
+     minutes a browser will not even ASK whether there is a newer copy — and it
+     ages each file independently. That is how a device ends up running a NEW
+     app.css beside an OLD app.js (hover styling works, click handlers missing).
+     It has cost this project real debugging time more than once.
+     The HTML tags carry ?v=YYYYMMDD; this reads the version straight off our own
+     <script> tag so the data JSONs are pinned to the SAME build with no second
+     string to remember. Falls back to no query, which is simply today's
+     behaviour, so it can never break a load. BUMP THE DATE IN THE 5 HTML FILES
+     ON EVERY DEPLOY. */
+  var ASSET_V = (function () {
+    try {
+      var src = (document.currentScript && document.currentScript.src) || "";
+      var m = src.match(/[?&]v=([^&]+)/);
+      return m ? "?v=" + m[1] : "";
+    } catch (e) { return ""; }
+  })();
+
   var STREAM = window.STREAM || "g3";
   var APP_META = {
     g1: { zh: "词星大冒险", sub: "G1 基础华文" },
@@ -4309,7 +4328,7 @@
       '<div class="loading">正在装载词库…</div></div>';
     setTopbar("landing", "");
 
-    fetch("data/" + STREAM + ".json")
+    fetch("data/" + STREAM + ".json" + ASSET_V)
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (json) {
         DATA = json;

@@ -1801,3 +1801,32 @@ every referenced asset path still resolves.
 ⚠️ Not proven without a device: how the blur performs on a managed Chromebook (backdrop-filter is
 GPU work on every scroll — if 词雨/攀山竞速 feel less smooth on real PLDs, the first thing to try is
 dropping the blur from `.card` and keeping it on the topbar and popovers only).
+
+## 部署缓存版本号 (cache busting) · 2026-08-14 — READ BEFORE EVERY DEPLOY
+
+**⚠️ ON EVERY DEPLOY, BUMP THE DATE IN SIX PLACES:** `?v=YYYYMMDD` on the asset tags in
+`index.html` + the four `*_index.html` stream pages, and the `ASSET_V` literal near the top of
+`teacher.html`'s script. That is the whole ritual.
+
+Why it exists: GitHub Pages serves every file with `cache-control: max-age=600`. For ten minutes a
+browser does not even ASK whether a newer copy exists, and it ages each file INDEPENDENTLY. So a
+device can run a NEW `app.css` beside an OLD `app.js`. The owner hit exactly that on 2026-08-14: the
+new badge tiles responded to hover (new CSS) but did nothing on click (old JS had no handler), and
+the live site was verified correct at the same moment. The 2026-08-13 结伴登峰 「没有反应」 live-test
+report is very likely the same bug — that session could not rule out a stale deploy.
+
+- Versioned: `app.css` · `app.js` · `arena.js` · `profile.js` · `nickname.js` · `firebase-init.js`.
+  The gstatic Firebase SDK URLs are already versioned upstream and are left alone. `voices.html`
+  has no local assets.
+- **The data JSONs inherit the version automatically.** `app.js` and `arena.js` read `?v=` off their
+  OWN `<script src>` via `document.currentScript` and append it to `fetch("data/…json")`, so there is
+  no second string to remember and a vocab regeneration can never be served stale beside new code.
+  Falls back to no query if `currentScript` is unavailable — that is just today's behaviour, so it
+  can never break a load.
+- `teacher.html` is the one exception: it is standalone and loads no local `.js`, so it cannot read
+  its own tag. Its `ASSET_V` is a literal and must be bumped by hand with the other five.
+- Forgetting to bump is not a regression — it simply leaves you with the pre-2026-08-14 behaviour.
+- This is NOT a build step and NOT a service worker; both remain ruled out by the conventions above.
+
+Verified in-browser: all six local assets plus `hcl.json` requested with `?v=20260814`, zero console
+errors, badge card still opens.

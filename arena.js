@@ -34,6 +34,16 @@
   }
   function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
+  /* same cache-busting version app.js uses, read off our own <script src=…?v=>.
+     See the note at the top of app.js. */
+  var ASSET_V = (function () {
+    try {
+      var src = (document.currentScript && document.currentScript.src) || "";
+      var m = src.match(/[?&]v=([^&]+)/);
+      return m ? "?v=" + m[1] : "";
+    } catch (e) { return ""; }
+  })();
+
   var STYLE_ID = "wsArenaStyle";
   function injectStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -116,7 +126,7 @@
     function ensureStream(stream, cb) {
       if (!stream || stream === ctx.stream) { indexWords(ctx.words || []); return cb(); }
       if (streamCache[stream]) { indexWords(streamCache[stream]); return cb(); }
-      fetch("data/" + stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
+      fetch("data/" + stream + ".json" + ASSET_V).then(function (r) { return r.json(); }).then(function (j) {
         var list = [];
         j.levels.forEach(function (lv) {
           lv.units.forEach(function (u) {

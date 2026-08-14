@@ -294,6 +294,11 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <script>
 (function () {
   "use strict";
+  /* Cache-bust for the vocabulary JSONs (GitHub Pages sends max-age=600).
+     teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
+     it cannot read the version off its own <script> tag. This is a LITERAL and is
+     the ONE place outside the 5 HTML entry points that needs the same date. */
+  var ASSET_V = "?v=20260814";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -601,7 +606,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   function loadWordMap() {
     _wordMap = {};
     return Promise.all(STREAMS.map(function (s) {
-      return fetch("data/" + s + ".json").then(function (r) { return r.json(); }).then(function (j) {
+      return fetch("data/" + s + ".json" + ASSET_V).then(function (r) { return r.json(); }).then(function (j) {
         j.levels.forEach(function (lv) {
           lv.units.forEach(function (u) {
             u.components.forEach(function (c) {
@@ -1261,7 +1266,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
   function fetchStreamJson(stream) {
     if (_arena.json[stream]) return Promise.resolve(_arena.json[stream]);
-    return fetch("data/" + stream + ".json").then(function (r) { return r.json(); }).then(function (j) {
+    return fetch("data/" + stream + ".json" + ASSET_V).then(function (r) { return r.json(); }).then(function (j) {
       var units = [], byKey = {};
       j.levels.forEach(function (lv) {
         lv.units.forEach(function (u) {
