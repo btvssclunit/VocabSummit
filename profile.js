@@ -420,9 +420,20 @@
 
   function fbQuota() { return _fbQuota === null ? FB_DAILY_DEFAULT : _fbQuota; }
 
+  /* one short line describing the current question, from the host page */
+  function ctxLine() {
+    try {
+      var c = window.WS_FEEDBACK_CTX && window.WS_FEEDBACK_CTX();
+      if (!c || !c.word) return "";
+      return [c.mode || "", c.word || "", c.id || ""].filter(Boolean).join(" · ").slice(0, 160);
+    } catch (e) { return ""; }
+  }
+
   function openFeedback() {
     var prof = load() || {};
-    var sel = "content";
+    var ctx = ctxLine();
+    /* a report opened from a question is almost always about that question */
+    var sel = ctx ? "content" : "content";
     /* Re-read the quota EVERY time the form opens, not once per page load: a
        teacher who raises a prolific reporter's quota mid-session would otherwise
        have no effect until that student reloaded — and worse, the client would
@@ -447,6 +458,8 @@
     function draw(msg, sending) {
       card.innerHTML =
         '<div class="pop-title">✍️ 意见反馈</div>' +
+        (ctx ? '<div class="fb-ctx">正在看：<b>' + esc(ctx) + '</b><br>' +
+               '<span class="pop-note">这条信息会一起送出，老师就知道是哪一题。</span></div>' : '') +
         '<div class="pop-note">你的昵称、班级和学校会随反馈一起送出，方便老师跟进。请不要写真实姓名或联络方式。</div>' +
         '<div class="pop-label" style="margin-top:12px">这是哪一类？</div>' +
         '<div class="prof-chips" id="fbTypes">' +
@@ -498,6 +511,12 @@
       draw("", true);
       window.WSCloud.submitFeedback({
         day: fbToday(), max: fbQuota(), type: sel, text: text.slice(0, FB_MAX),
+        /* WHAT THE STUDENT WAS LOOKING AT. The moment someone notices a broken
+           cloze sentence is while answering it — asking them to describe which
+           word it was, from a settings panel, loses exactly the information the
+           report needs. app.js publishes the live question through
+           window.WS_FEEDBACK_CTX; absent on the landing page, which is fine. */
+        ctx: ctxLine(),
         nickname: prof.nickname || "", school: prof.school || "",
         mtlClass: prof.mtlClass || "", category: prof.category || "",
         stream: window.STREAM || "", page: location.pathname.split("/").pop(),
@@ -1045,6 +1064,7 @@
     maybePromptClassUpdate: maybePromptClassUpdate,
     openAvatarPicker: openAvatarPicker,
     openAvatarInfo: openAvatarInfo,
-    avatarImgHtml: avatarImgHtml
+    avatarImgHtml: avatarImgHtml,
+    openFeedback: openFeedback
   };
 })();

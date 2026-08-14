@@ -438,8 +438,11 @@
         if (correctIds.indexOf(w.id) === -1) { correctIds.push(w.id); correctTexts.push(w.w); }
         /* 历练值/灵露 + the reward chime. `streak - 1` is the 连对 count ENTERING
            this question, which is what scoreCorrect's contract expects. */
-        reward(w, room.mode, streak - 1);
-      } else { streak = 0; }
+        reward(w, room.mode, streak - 1);       // plays the reward chime too
+      } else {
+        streak = 0;
+        if (ctx.sfx) { try { ctx.sfx("bad"); } catch (e) {} }
+      }
       // reveal
       var fb = ov.querySelector("#arFb");
       if (opts && btn) {
@@ -603,7 +606,10 @@
         myAnswered++;
         var hit = -1;
         for (var i = 0; i < liveW.length; i++) if (liveW[i].w.w === val) { hit = i; break; }
-        if (hit === -1) { scheduleWrite(); return; }
+        if (hit === -1) {
+          if (ctx.sfx) { try { ctx.sfx("bad"); } catch (e) {} }
+          scheduleWrite(); return;
+        }
         var o = liveW[hit];
         liveW.splice(hit, 1);
         cleared++; myCorrect++;

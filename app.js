@@ -254,6 +254,7 @@
     s.pkDur = s.pkDur || 300;          // 同伴挑战 时长(秒)
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
     s.quizMode = s.quizMode || "cloze"; // 学习挑战 题型: cloze|zhmcq|enmcq (§2.1 merged entry)
+    s.compMode = s.compMode || "cloze"; // 徽章「去挑战」 practice mode
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
     s.bestStreak = s.bestStreak || 0;
     s.lingLu = s.lingLu || 0;          // 灵露 currency (number)
@@ -857,6 +858,45 @@
     };
   }
 
+  /* ---------- 意见反馈 floating button (owner 2026-08-14) ----------
+     Placement borrowed from the gov.sg satisfaction widget: a small persistent
+     corner button, reachable from anywhere with no navigation. What is NOT
+     borrowed is the 😊😐☹️ rating — see the CLAUDE.md note; this app needs
+     actionable defect reports, not a sentiment score.
+
+     ⚠️ HIDDEN during timed games (词雨灵露, 攀山竞速). Bottom-left is where 词雨
+     words land, and a stray tap during a timed run is exactly the near-miss
+     hazard the 可及性 pass spent a whole session removing. A student reports
+     after the round; nothing is lost. */
+  var _fabEl = null;
+  function ensureFab() {
+    if (_fabEl && _fabEl.isConnected) return _fabEl;
+    _fabEl = document.createElement("button");
+    _fabEl.className = "fb-fab";
+    _fabEl.id = "fbFab";
+    _fabEl.title = "意见反馈 · 报错";
+    _fabEl.setAttribute("aria-label", "意见反馈");
+    _fabEl.innerHTML = '<span class="fb-fab-icon">💬</span><span class="fb-fab-txt">反馈</span>';
+    _fabEl.onclick = function () {
+      if (window.WSProfile && window.WSProfile.openFeedback) window.WSProfile.openFeedback();
+    };
+    document.body.appendChild(_fabEl);
+    return _fabEl;
+  }
+  function showFab(on) {
+    var f = ensureFab();
+    f.style.display = on ? "" : "none";
+  }
+
+  /* What the student is looking at RIGHT NOW, read by profile.js when a feedback
+     ticket is opened. Set wherever a question is drawn; cleared on the home
+     screen so a general comment is not mislabelled as being about a word. */
+  var _fbCtx = null;
+  function setFbCtx(mode, w) {
+    _fbCtx = w ? { mode: mode || "", word: w.w || "", id: w.id || "" } : null;
+  }
+  window.WS_FEEDBACK_CTX = function () { return _fbCtx; };
+
   /* ---------- scoping ---------- */
   /* 复习范围 = the selected UNITS, narrowed by the 板块 filter. The filter is a
      stream-wide component-TYPE switch, not a per-unit one: with 4-6 units per
@@ -926,6 +966,8 @@
     return (window.WSProfile && window.WSProfile.avatarImgHtml) ? window.WSProfile.avatarImgHtml(p && p.avatarId) : "👤";
   }
   function setTopbar(backTo, right) {
+    showFab(true);          // timed games turn it off again right after
+    _pyApply = null;        // each screen re-registers if it shows pinyin
     var tb = document.querySelector(".topbar");
     tb.innerHTML =
       '<button class="back" id="tbBack">‹</button>' +
@@ -935,6 +977,7 @@
         /* 中/EN 英文提示 toggle (G1/G2). Icon-only by design: findable without
            being able to read the interface it fixes. */
         enToggleHtml() +
+        pyToggleHtml() +
         /* avatar + nickname in one pill: this is now the ONLY 我的档案 entry on a
            stream page (the duplicate chip under the stats bar was removed
            2026-08-13). Nickname hides under 520px so the topbar still fits. */
@@ -948,6 +991,7 @@
     var pf = document.getElementById("tbProfile");
     if (pf) pf.onclick = openProfilePanel;
     wireEnToggle();
+    wirePyToggle();
   }
 
   function miniHorizon() {
@@ -1167,7 +1211,10 @@
       getUid: function (cb) { if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null); },
       conferMastery: conferMasteryFromRoom,
       awardBattle: awardBattleMedal,
-      roomCorrect: roomCorrect
+      roomCorrect: roomCorrect,
+      /* arena has no audio of its own (it is deliberately isolated), so the
+         shared sfx pair is handed over the same way everything else is */
+      sfx: function (kind) { if (kind === "bad") sfxBad(); else sfxOk(); }
     };
   }
   function renderPkConfig() {
@@ -1253,6 +1300,7 @@
   }
 
   function renderHome() {
+    setFbCtx(null, null);      // a report from home is general, not about a word
     setTopbar("landing", "");
     var t = totals();
     var mastered = Object.keys(store.mastered).length;
@@ -1636,12 +1684,28 @@
     /* the count must match what 去挑战 will actually serve (unmastered only, and
        cloze-capable when any word in the 板块 has a blank) — otherwise the button
        promises a number the round does not deliver */
-    var hasCloze = function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; };
     var todo = words.filter(function (w) { return !store.mastered[w.id]; });
-    var goN = words.some(hasCloze) ? todo.filter(hasCloze).length : todo.length;
+    var goN = (function () {
+      var u = compModeUsable(words, store.compMode || "cloze");
+      if (!u.length) return todo.length;                       // startCompStudy falls back to zhmcq
+      var ids = {}; u.forEach(function (w) { ids[w.id] = 1; });
+      var n = todo.filter(function (w) { return ids[w.id]; }).length;
+      return n || todo.length;
+    })();
+    var cmode = store.compMode || "cloze";
+    var modeRow = "";
+    if (!got) {
+      modeRow = '<div class="bd-modes"><div class="bd-modes-lab">用哪种方式练？</div>' +
+        COMP_MODES.filter(function (m) { return compModeUsable(words, m.k).length > 0; })
+          .map(function (m) {
+            return '<button class="bd-mode' + (cmode === m.k ? " on" : "") + '" data-cm="' + m.k + '">' +
+              m.label + (m.masters ? '<span class="bd-mode-tag">点亮徽章</span>' : '') + '</button>';
+          }).join("") +
+        '<div class="pop-note">只有<b>填空挑战</b>答对会提升海拔、点亮这枚徽章；其他方式用来熟悉词语。</div></div>';
+    }
     var actions = got
       ? '<button class="nav-btn primary" id="bdAgain">🔁 再次挑战 · ' + words.length + ' 题全对</button>'
-      : '<button class="nav-btn primary" id="bdGo">去挑战 · 学这 ' + goN + ' 个词语</button>';
+      : '<button class="nav-btn primary" id="bdGo">去挑战 · ' + goN + ' 个词语</button>';
 
     var ov = popOverlay(
       '<div class="bd-card">' +
@@ -1654,13 +1718,29 @@
       meta +
       '<div class="bd-prog"><div class="bd-prog-track"><div class="bd-prog-fill" style="width:' + pct + '%"></div></div>' +
       '<span>已掌握 ' + done + ' / ' + words.length + ' 词</span></div>' +
-      '<div class="bd-words">' + chips + '</div>' +
+      '<div class="bd-words">' + chips + '</div>' + modeRow +
       '<div class="nav-row">' + actions +
       '<button class="nav-btn" id="bdClose">关闭</button></div></div>');
 
     ov.querySelector("#bdClose").onclick = function () { ov.remove(); };
+    Array.prototype.forEach.call(ov.querySelectorAll(".bd-mode"), function (b) {
+      b.onclick = function () {
+        store.compMode = b.getAttribute("data-cm"); saveStore();
+        Array.prototype.forEach.call(ov.querySelectorAll(".bd-mode"), function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        /* the count is mode-dependent (not every word has a cloze blank or an
+           English gloss), so the button must not keep promising the old number */
+        var btn = ov.querySelector("#bdGo");
+        if (btn) {
+          var u = compModeUsable(words, store.compMode), ids = {};
+          u.forEach(function (x) { ids[x.id] = 1; });
+          var n = todo.filter(function (x) { return ids[x.id]; }).length || todo.length;
+          btn.textContent = "去挑战 · " + n + " 个词语";
+        }
+      };
+    });
     var go = ov.querySelector("#bdGo");
-    if (go) go.onclick = function () { ov.remove(); startCompStudy(c); };
+    if (go) go.onclick = function () { ov.remove(); startCompStudy(c, store.compMode || "cloze"); };
     var ag = ov.querySelector("#bdAgain");
     if (ag) ag.onclick = function () { ov.remove(); startBadgeTrial(c); };
   }
@@ -1669,10 +1749,26 @@
      the same weak-first ordering startMode uses, but scoped to one 板块 rather
      than the whole 复习范围, and NOT capped to 题数 (the point is to finish the
      板块). Words with no valid __ blank are skipped, per the content rule. */
-  function startCompStudy(c) {
+  /* Which practice modes a 板块 can be challenged with (owner 2026-08-14: 去挑战
+     used to force 填空挑战 with no choice). `masters` marks the one that actually
+     lights the badge — 填空挑战 is the mastery gate, so a student who picks 华文解释
+     and answers everything right would otherwise wonder why the badge stayed grey.
+     The card says so rather than letting them find out the hard way. */
+  var COMP_MODES = [
+    { k: "cloze", label: "✍️ 填空挑战", masters: true },
+    { k: "zhmcq", label: "🔎 华文解释" },
+    { k: "enmcq", label: "🌐 英文翻译" },
+    { k: "flash", label: "📖 词语闪卡" }
+  ];
+  function compModeUsable(words, mode) {
+    if (mode === "cloze") return words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
+    if (mode === "enmcq") return words.filter(function (w) { return w.en; });
+    return words.slice();
+  }
+  function startCompStudy(c, mode) {
     var words = compWords(c);
-    var usable = words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
-    var mode = "cloze";
+    mode = mode || "cloze";
+    var usable = compModeUsable(words, mode);
     if (!usable.length) { usable = words; mode = "zhmcq"; }   // fall back rather than show nothing
     /* 去挑战 serves ONLY the words still unmastered (owner 2026-08-14) — the
        button already promises 「学这 N 个词语」, so replaying the whole 板块 made
@@ -2090,6 +2186,7 @@
 
   /* ---------- flashcards ---------- */
   function renderFlash(state) {
+    setFbCtx("词语闪卡", state.seq[state.i]);
     var w = state.seq[state.i];
     var back = state.revealed;
     var inner;
@@ -2452,15 +2549,34 @@
      numbered — they are not steps. */
   function stepNo(n) { return '<span class="step-no">' + n + '</span>'; }
 
-  function pyAidToggleHtml() {
+  /* 拼音辅助 lives in the TOPBAR (owner 2026-08-14), beside 中/EN, instead of
+     being a per-screen rail control. It is a standing preference like the
+     English aid, so it belongs in the same place on every screen rather than
+     appearing and disappearing depending on which mode you are in — and a
+     student who needs it mid-round no longer has to hunt for it.
+     Available wherever pyAidAvailable() is true (G1/G2/G3; never HCL). */
+  function pyAidToggleHtml() { return ""; }        // retired: the rail no longer carries it
+  function wirePyAidToggle(onToggle) { _pyApply = onToggle || null; }
+  function pyToggleHtml() {
     if (!pyAidAvailable()) return "";
-    return '<div class="diff-label">学习支援' + enl("学习支援") + '</div><div class="diff">' +
-      '<button class="dopt' + (store.pyAid ? " on" : "") + '" data-pyaid="1">' +
-      '<span class="stars">拼</span><span>拼音辅助' + enl("拼音辅助") + '</span></button></div>';
+    return '<button class="tb-py' + (store.pyAid ? " on" : "") + '" id="tbPy" ' +
+      'title="拼音辅助" aria-label="拼音辅助 Show pinyin" ' +
+      'aria-pressed="' + (store.pyAid ? "true" : "false") + '">' +
+      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音' + enli("拼音辅助") + '</span></button>';
   }
-  function wirePyAidToggle(onToggle) {
-    var b = view().querySelector(".dopt[data-pyaid]");
-    if (b) b.onclick = function () { store.pyAid = !store.pyAid; saveStore(); onToggle(); };
+  /* the CURRENT screen's "pinyin changed, redraw yourself" hook. Cleared by
+     setTopbar and re-set by whichever screen has a pinyin surface, so a screen
+     that has none simply flips the stored preference and nothing else. */
+  var _pyApply = null;
+  function wirePyToggle() {
+    var b = document.getElementById("tbPy");
+    if (!b) return;
+    b.onclick = function () {
+      store.pyAid = !store.pyAid; saveStore();
+      b.classList.toggle("on", store.pyAid);
+      b.setAttribute("aria-pressed", store.pyAid ? "true" : "false");
+      if (_pyApply) { try { _pyApply(); } catch (e) {} }
+    };
   }
   function wireDiff(state) {
     // takes effect on the current question — mid-round switching stays allowed
@@ -2509,6 +2625,7 @@
     return state._opts;
   }
   function renderCloze(state) {
+    setFbCtx("填空挑战", state.seq[state.i]);
     var w = state.seq[state.i];
     /* the blank is non-CJK, so it survives rubyText untouched and the
        existing __ -> <u></u> swap still lands on it */
@@ -2646,6 +2763,7 @@
 
   /* ---------- MCQ (华文解释 / 英文翻译) ---------- */
   function renderMcq(state) {
+    setFbCtx("选择题", state.seq[state.i]);
     var w = state.seq[state.i];
     var isZh = state.mode === "zhmcq";
     var prompt = isZh ? w.zh : w.en;
@@ -2953,6 +3071,7 @@
       return;
     }
     setTopbar("home", "");
+    showFab(false);        // timed round: no stray taps, and 词雨 words land here
     view().innerHTML =
       '<div class="rain-shell">' +
       /* room code lives FIRST in the DOM so the portrait stack pins it at the very
@@ -3095,6 +3214,7 @@
          above — that's a stray keystroke, not a guess. */
       if (hit === -1) {
         bump("rain", false);
+        sfxBad();                 // a wrong guess sounded like nothing at all
         input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake");
         combo = 1; document.getElementById("rCombo").textContent = "×1";
         return;
@@ -3360,6 +3480,21 @@
     return '<div class="diff-label">字块数量' + enl("字块数量") + '</div>' +
       qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt);
   }
+  /* Column count for the chip grid: always a FULL rectangle, never a row with one
+     orphan tile (owner 2026-08-14 — 16 chips at 3 columns gave 5 rows plus a
+     single stray). Start from ceil(sqrt(n)) — which gives 3,3,4,4 for the four
+     sizes — and walk outward to the nearest divisor when the pool is smaller than
+     requested and n is awkward (e.g. a 7-chip pool becomes 7×1 rather than 3+3+1).
+     Capped at 5 so a chip never gets too narrow to tap. */
+  function asmCols(n) {
+    if (n <= 3) return n || 1;
+    var start = Math.min(5, Math.ceil(Math.sqrt(n)));
+    for (var d = 0; d <= 3; d++) {
+      if (start - d >= 2 && n % (start - d) === 0) return start - d;
+      if (start + d <= 5 && n % (start + d) === 0) return start + d;
+    }
+    return start;
+  }
   /* Draw the decoy pool ONCE per question and slice it, exactly as clozeOpts does
      for 填空挑战 — otherwise toggling 出题方式 or 字块数量 redraws the decoys while
      the answer's characters necessarily survive every draw, and two toggles hand
@@ -3381,6 +3516,7 @@
     return state._chipArr[n];
   }
   function renderAssemble(state) {
+    setFbCtx("组词挑战", state.seq[state.i]);
     setTopbar("home", "");
     var w = state.seq[state.i];
     var target = w.w.split("");
@@ -3411,7 +3547,7 @@
       '<div class="q-foot">' + ttsBtn + '</div></div>' +
       '<div class="asm-slots" id="asmSlots">' +
       target.map(function () { return '<div class="asm-slot"></div>'; }).join("") + '</div>' +
-      '<div class="asm-chips" id="asmChips">' +
+      '<div class="asm-chips" id="asmChips" style="--asm-cols:' + asmCols(chips.length) + '">' +
       chips.map(function (c, i) {
         return '<button class="asm-chip" data-c="' + esc(c) + '" data-i="' + i + '">' + esc(c) + '</button>';
       }).join("") + '</div>' +
@@ -3603,6 +3739,7 @@
     }
     _deferCel = true;
     setTopbar("home", "");
+    showFab(false);        // timed round: no stray taps, and 词雨 words land here
     view().innerHTML = '<div class="sprint-shell">' +
       '<canvas class="sprint-canvas" id="spCv"></canvas>' +
       '<div class="sprint-right">' +
@@ -3615,10 +3752,6 @@
       '<div class="sq-prompt" id="spPrompt"></div>' +
       '<button class="tts sm" id="spSay">🔊</button></div>' +
       '<div class="sopts" id="spOpts"></div>' +
-      /* 拼音辅助 lives on the PLAYING screen too (owner 2026-08-14) — it used to
-         exist only on the pre-start config, so a student who needed it mid-round
-         had to quit the timed run to turn it on. */
-      '<div class="sprint-aid" id="spAid">' + pyAidToggleHtml() + '</div>' +
       '</div></div></div>';
 
     /* Redraw only the option list, so flipping 拼音辅助 mid-round never redraws
@@ -3669,6 +3802,7 @@
       if (over || !document.getElementById("spPrompt")) return;
       locked = false;
       cur = nextWordS();
+      setFbCtx("攀山竞速", cur);
       var say = document.getElementById("spSay");
       var pr = document.getElementById("spPrompt");
       if (smode === "en") {
@@ -3713,8 +3847,12 @@
             document.getElementById("spOk").textContent = ok;
             document.getElementById("spCombo").textContent = "🔥" + combo;
             document.getElementById("spAlt").textContent = altitudeNow();
+            /* The reward chime EVERY mode uses, plus a combo-pitched accent on a
+               streak. Before this, sprint played only the two bare combo tones —
+               quiet, unlike every other mode, and the owner read it as silence. */
+            sfxOk();
             var p = Math.min(combo, 8);
-            tone(520 + p * 55, 0, 0.09); tone(700 + p * 55, 0.07, 0.11);
+            if (combo >= 3) tone(1320 + p * 55, 0.26, 0.14, "sine", 0.09);
             b.classList.add("right");
             setTimeout(askNext, 260);
           } else {

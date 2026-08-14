@@ -215,6 +215,8 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 .fb-pill.s-resolved{background:#E8F3EC;border-color:#A9CDB6;color:#1E5138}
 .fb-pill.s-wontfix{background:#EEF2F5;border-color:#CBD7E0;color:#6B7885}
 .fb-when{margin-left:auto;font-size:12px;color:#7C8B98}
+.fb-ctx-line{margin-top:9px;padding:6px 11px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:#FFF7E4;border:1px solid #EFD9A4;color:#6B4A05;display:inline-block}
 .fb-text{margin:10px 0;font-size:15px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
 .fb-meta{font-size:12px;color:#6B7885;line-height:1.6}
 .fb-meta code{background:#EEF4F9;border-radius:4px;padding:1px 5px}
@@ -326,7 +328,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260814m";
+  var ASSET_V = "?v=20260814u";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -1392,6 +1394,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
             '<span class="fb-pill ty">' + esc(FB_TY[r.type] || r.type || "") + '</span>' +
             '<span class="fb-when">' + esc(fbWhen(r.createdAt)) + '</span>' +
           '</div>' +
+          (r.ctx ? '<div class="fb-ctx-line">📍 ' + esc(r.ctx) + '</div>' : "") +
           '<div class="fb-text">' + esc(r.text || "") + '</div>' +
           '<div class="fb-meta">' +
             esc(r.nickname || "（无昵称）") +
