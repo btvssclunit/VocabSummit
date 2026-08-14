@@ -1679,3 +1679,41 @@ renderers and never touches the 灵露/inventory path, so rooms are consumable-f
 
 ### 4. 对战徽章
 Owner will design it separately. Nothing recorded, nothing stubbed — unchanged from the PK section.
+
+## Fix batch, 2026-08-14 (post-deploy) — 6 owner-reported issues
+
+1. **词雨 暂停 button REMOVED** (owner). The HUD button and its handler are gone; the internal
+   `running` flag stays (the rAF loop and `fitViewport` still use it), it simply has no UI.
+2. **结伴登峰 / 同伴挑战 pills overlapped.** Both were `.mtn-arena{position:absolute;left:10px;
+   bottom:8px}` — i.e. stacked exactly on top of each other, since the PK pill reused that class.
+   They now sit in ONE absolutely-positioned flex row (`.mtn-rooms`), so a third pill later cannot
+   reintroduce it.
+3. **我的档案 had no visible way out.** There WAS a 关闭 button, but only at the very bottom of a
+   long scrolling panel. Added a sticky `.prof-x` ✕ pinned to the top of the card (sticky to the
+   CARD, not the page, or it scrolls away mid-panel). Bottom 关闭 and backdrop-tap still work.
+4. **Pending teachers saw "无法验证权限" (read as "access denied").** Root cause was a RULE, not
+   copy: `teachers/{uid}` was `allow read: if isTeacher()`, and a registered-but-unapproved teacher
+   has no doc there — so the read came back permission-denied and teacher.html showed the raw error.
+   Two-part fix: (a) the client now catches `permission-denied` specifically and falls through to
+   the user's OWN `teacherRequests` row to show 待审批 / 尚未申请, so **it works without any rules
+   change**; (b) the rule now also allows reading your own row. Title reworded to ⏳ 等待审批中.
+5. **攀山竞速 canvas overflowed the screen.** `.sprint-shell` had `min-height:520px`, which BEATS
+   `height:calc(100dvh - 68px)` on any short screen (phone landscape, 1024×600 Chromebook) and
+   pushed the wall past the frame, triggering page scroll during a timed round. Now
+   `min-height:0` + an explicit `max-height` cap + `overflow:hidden`, with `.sprint-right`
+   scrolling internally if the options still cannot fit. ⚠️ Never reintroduce a `min-height` on
+   `.sprint-shell` larger than the viewport cap.
+6. **攀山竞速 options are now ONE column** (`.sopts{grid-template-columns:1fr}`) at every width —
+   the 2×2 grid halved the tap-target width during a timed round. The landscape block's duplicate
+   override was removed, and in that row layout `.sprint-right` is now
+   `flex:0 0 clamp(280px,38%,440px)` so the wall keeps most of the width.
+
+⚠️ **Rules changed again — needs ANOTHER publish** (bundled, not urgent): the own-row `teachers`
+read from #4, plus `rooms/{code}/players/{uid}` delete now also allowed for the row's owner and for
+the room's host. That second one exists because **Firestore TTL deletes the room but never its
+subcollection**, and a student PK host previously had no way to clear player rows. Owner's copy at
+`Documents/VocabSummit/firestore/` re-synced. Fix #4 does NOT depend on this publish.
+
+Verified: all five suites still pass (camp 57 · teacher 58 · economy 34 · PK 22 · rain 12), all JS
+parses, CSS braces 644/644. ⚠️ #2, #3, #5 and #6 are LAYOUT claims — they need eyes on a real
+device, especially the sprint shell on a 1024×600 Chromebook and in phone landscape.

@@ -484,6 +484,22 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         else showStatus(user, "register");
       }).catch(function () { showStatus(user, "register"); });
     }).catch(function (e) {
+      /* A teacher who has registered but NOT been approved has no teachers/{uid}
+         doc, and the rule gates that read behind isTeacher() — so the read comes
+         back permission-denied and this used to show a blunt "无法验证权限",
+         which reads as "access denied" to someone who is simply waiting.
+         Fall through to their own teacherRequests row (which they ARE allowed to
+         read) and show the real state: 待审批 / 尚未申请. Only a genuine
+         infrastructure error still shows an error. */
+      if ((e.code || "") === "permission-denied") {
+        db.collection("teacherRequests").doc(user.uid).get().then(function (rs) {
+          if (rs.exists) showStatus(user, "pending", rs.data());
+          else showStatus(user, "register");
+        }).catch(function () {
+          showSignedOut("暂时无法确认你的审批状态，请稍后再试。若持续如此，请联系 HOD。");
+        });
+        return;
+      }
       showSignedOut("无法验证权限：" + (e.code || e.message) + "（请确认 Firestore 规则已发布）。");
     });
   });
@@ -521,7 +537,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("registerHere").style.display = "none";
     el("statusMsg").textContent = "";
     if (kind === "pending") {
-      el("statusTitle").textContent = "申请审批中";
+      el("statusTitle").textContent = "⏳ 等待审批中";
       el("statusBody").innerHTML = "你的教师注册申请已提交，正在等待 HOD 审批。通过后用同一电邮登录即可使用。<br>电邮：" + esc(user.email);
     } else if (kind === "revoked") {
       el("statusTitle").textContent = "账号已停用";

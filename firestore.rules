@@ -59,7 +59,10 @@ service cloud.firestore {
     // only ever be minted in the console — request.resource.data.role must be
     // "teacher", so no in-app HOD creation or self-escalation is possible.
     match /teachers/{uid} {
-      allow read:  if isTeacher();
+      // own-row read added 2026-08-14: a registered-but-unapproved teacher has no
+      // doc here, and gating the read behind isTeacher() made that indistinguishable
+      // from being locked out. Reading only your OWN row leaks nothing.
+      allow read:  if isTeacher() || (request.auth != null && request.auth.uid == uid);
       allow write: if isHod() && request.resource.data.role == "teacher";
     }
 
@@ -90,7 +93,13 @@ service cloud.firestore {
         // may (re)join and write their own row any time the room is not ended.
         allow create, update: if request.auth != null && request.auth.uid == uid
                       && get(/databases/$(database)/documents/rooms/$(code)).data.status in ["lobby", "running"];
-        allow delete: if isTeacher();
+        // TTL on rooms.expiresAt deletes the ROOM but never its subcollection, so
+        // somebody has to clear player rows. Teachers do it via 关闭这场; a student
+        // PK host and each player may now clear their own room's rows too.
+        allow delete: if isTeacher()
+                      || (request.auth != null && request.auth.uid == uid)
+                      || (request.auth != null
+                          && get(/databases/$(database)/documents/rooms/$(code)).data.hostUid == request.auth.uid);
       }
     }
   }

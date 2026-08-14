@@ -410,6 +410,11 @@
       var catShown = cat ? CAT_LABEL[cat] : "未填写";
 
       var html =
+        /* There WAS a 关闭 button, but only at the very bottom of a long
+           scrolling panel — students could not see any way out without
+           scrolling to the end. This ✕ stays pinned at the top; the bottom
+           关闭 and the backdrop tap both still work. */
+        '<button class="prof-x" id="profCloseX" aria-label="关闭我的档案" title="关闭">✕</button>' +
         '<div class="pop-title">👤 我的档案</div>' +
         '<div class="prof-grid">' +
 
@@ -471,6 +476,7 @@
 
     function wire() {
       ov.querySelector("#profClose").onclick = function () { ov.remove(); };
+      ov.querySelector("#profCloseX").onclick = function () { ov.remove(); };
 
       ov.querySelector("#profChangeNick").onclick = function () {
         if (opts.onChangeNickname) opts.onChangeNickname(function () {

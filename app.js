@@ -876,8 +876,10 @@
       '<img class="mh-img" src="art/bg/landing_hero_bg.png" alt="">' +
       '<div class="app-zh">' + META.zh + '</div>' +
       '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
-      '<span class="mtn-arena" id="arenaPill">🏔️ 加入结伴登峰</span>' +
-      '<span class="mtn-arena mtn-pk" id="pkPill">⚔️ 同伴挑战</span>' +
+      '<div class="mtn-rooms">' +
+        '<span class="mtn-arena" id="arenaPill">🏔️ 加入结伴登峰</span>' +
+        '<span class="mtn-arena mtn-pk" id="pkPill">⚔️ 同伴挑战</span>' +
+      '</div>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
   }
   /* Shared by 结伴登峰 and 同伴挑战: a correct answer in a room marks the word
@@ -2312,8 +2314,7 @@
       '<span>得分 <b id="rScore">0</b></span>' +
       '<span>连击 <b id="rCombo">×1</b></span>' +
       '<span>波次 <b id="rWave">1</b></span>' +
-      '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span>' +
-      '<button class="nav-btn" id="rPause" style="margin-left:auto;padding:6px 14px">⏸ 暂停</button></div>' +
+      '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span></div>' +
       '<div class="rain-input-row">' +
       '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
       '<button class="check-btn" id="rFire">收集</button></div></div></div>';
@@ -2485,10 +2486,6 @@
       document.getElementById("again").onclick = function () { startRain(showPy, roomCode); };
       document.getElementById("home").onclick = renderHome;
     }
-    document.getElementById("rPause").onclick = function () {
-      running = !running;
-      this.textContent = running ? "⏸ 暂停" : "▶ 继续";
-    };
     document.getElementById("rFire").onclick = fire;
     input.addEventListener("compositionstart", function () { composing = true; });
     input.addEventListener("compositionend", function () { composing = false; });
