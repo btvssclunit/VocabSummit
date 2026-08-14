@@ -1233,7 +1233,7 @@
       PK_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '时长' + enl("时长") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '时长' + pyl("时长") + enl("时长") + '</div>' +
       qtySlider("pkDur", PK_DUR_SECS, dur, pkDurFmt) +
       '<div class="nav-row" style="flex-wrap:wrap">' +
       '<button class="nav-btn" id="pkBack">‹ 返回</button>' +
@@ -1312,16 +1312,16 @@
     html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
       'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
 
-    html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + enl("复习范围") + '</div>' +
+    html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围") + enl("复习范围") + '</div>' +
       '<div class="card" id="scopeCard">' +
       '<div class="scope-top">' +
-      '<button class="unit" id="selAll">全选' + enli("全选") + '</button>' +
-      '<button class="unit" id="selNone">清空' + enli("清空") + '</button>' +
+      '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
+      '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button>' +
       '<span class="scope-sum" id="scopeSum"></span></div>';
     /* 板块 filter — one row, stream-wide, above the levels */
     var comps = streamComps();
     if (comps.length > 1) {
-      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块' + enli("板块") + '</span>' +
+      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块' + pyl("板块") + enli("板块") + '</span>' +
         comps.map(function (c) {
           return '<button class="comp-chip' + (compIsOn(c) ? " on" : "") + '" data-comp="' + esc(c) + '">' +
             esc(c) + '</button>';
@@ -1350,13 +1350,13 @@
     html += '</div>';
 
     html += '</div><div class="home-right">' +
-      '<div class="section-label">' + stepNo(2) + '选择学习方式' + enl("选择方式") + '</div>' +
+      '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择方式") + enl("选择方式") + '</div>' +
       '<div class="htabs">' +
-      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + enl("修行") + '</button>' +
-      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + enl("闯关") + '</button></div>';
+      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + pyl("修行") + enl("修行") + '</button>' +
+      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + pyl("闯关") + enl("闯关") + '</button></div>';
 
     if (store.homeTab === "play") {
-      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + enl("今日路线") + '</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("今日路线") + enl("今日路线") + '</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
         ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
@@ -1366,7 +1366,7 @@
          「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
          being spread across the home page. 词语闪卡 keeps its own card — different
          interaction (看词认义/点读), not a question-answering mode. */
-      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + enl("今日路线") + '</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + pyl("今日路线") + enl("今日路线") + '</div><div class="camps">' +
         camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") +
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
@@ -1387,24 +1387,24 @@
     /* block gloss, not inline: 「成就徽章 Badges · 0/97」 on one line overflowed the
        card and clipped the count (owner 2026-08-14). English sits UNDER now. */
     html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
-      enl("成就徽章") + '</span></button>';
+      pyl("成就徽章") + enl("成就徽章") + '</span></button>';
 
     /* sublines removed 2026-08-14 (owner). The 连续 N 天 streak that used to live
        here is still shown inside 我的词语表 itself, so nothing is lost — it just
        stops competing with the title on the home page. */
     html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
-      '<div><b>我的词语表' + enli("我的词语表") + '</b></div></button>';
+      '<div><b>我的词语表' + pyl("我的词语表") + enli("我的词语表") + '</b></div></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
-      '<div><b>词山风云榜' + enli("词山风云榜") + '</b></div></button>';
+      '<div><b>词山风云榜' + pyl("词山风云榜") + enli("词山风云榜") + '</b></div></button>';
     html += '</div>';   // .home-entries
 
     html += '<div class="harbour">' +
-      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ' + enli("已掌握词语") + '</span></div>' +
-      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值' + enli("历练值") + '</span></div>' +
-      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率' + enli("正确率") + '</span></div>' +
+      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ' + pyl("已掌握词语") + enli("已掌握词语") + '</span></div>' +
+      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值' + pyl("历练值") + enli("历练值") + '</span></div>' +
+      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率' + pyl("正确率") + enli("正确率") + '</span></div>' +
       /* the 我的档案 chip that used to sit here was a duplicate of the topbar
          avatar pill (which now carries the nickname too) — removed 2026-08-13 */
-      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对' + enli("最高连对") + '</span></div></div></div></div>';
+      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对' + pyl("最高连对") + enli("最高连对") + '</span></div></div></div></div>';
 
     view().innerHTML = html;
 
@@ -1488,7 +1488,7 @@
     function camp(mode, icon, name, desc) {
       return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
         '<span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + enli(name) + '</b></div></button>';
+        '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
     }
     function updateScopeSum() {
       var n = scopedWords().length;
@@ -2156,8 +2156,8 @@
       '<div class="prog-track"><div class="prog-fill" style="width:' + Math.round(100 * state.i / total) + '%"></div></div>' +
       /* 词语闪卡不计连对、不计历练值（G-1）——不显示这两行，免得学生以为闪卡该赚分 */
       (state.mode === "flash" ? "" :
-        '<div class="streak">连对' + enli("连对") + ' <b>' + state.streak + '</b> 🔥' + mchip + '</div>' +
-        '<div class="rail-pts">历练值' + enli("历练值") + ' <b>' + fmtNum(store.pts.total) + '</b></div>') +
+        '<div class="streak">连对' + pyl("连对") + enli("连对") + ' <b>' + state.streak + '</b> 🔥' + mchip + '</div>' +
+        '<div class="rail-pts">历练值' + pyl("历练值") + enli("历练值") + ' <b>' + fmtNum(store.pts.total) + '</b></div>') +
       (extra || "") + '</div>';
   }
   /* flash the multiplier chip + reward tone when the 连对 tier just went up */
@@ -2295,7 +2295,7 @@
   function diffSelector(stepN) {
     var keys = diffKeys(), cur = store.diff;
     if (keys.indexOf(cur) === -1) cur = keys[0];
-    return '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + enl("挑战难度") + '</div>' +
+    return '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + pyl("挑战难度") + enl("挑战难度") + '</div>' +
       qtySlider("diffSel", keys, cur, diffFmt) + pyAidToggleHtml();
   }
   /* one wiring helper for BOTH sites the ladder appears at (config screen and the
@@ -2429,6 +2429,46 @@
     "返回": "Back",
     "板块": "Sections"
   };
+  /* 拼音 for the INTERFACE (owner 2026-08-14: "students who are weak can't read
+     this and can get overwhelmed"). Same contract as EN_LAB — navigation and
+     button SHELL text only, never quiz content — and the same mechanism: the
+     span is ALWAYS in the DOM and CSS-gated on body.py-aid, so toggling is one
+     class flip that cannot re-render anything (and therefore cannot leak an
+     answer the way a redraw would).
+     ⚠️ Hand-authored, NOT generated. There is deliberately no hanzi→pinyin table
+     in the client: these are fixed strings, so writing them out avoids polyphone
+     guessing entirely (得分 is dé, 时长 is cháng, 正确率 is lǜ). Add a line here
+     whenever you add an EN_LAB entry — pyl() falls back to nothing if a key is
+     missing, so a gap is silent, not broken. */
+  var PY_LAB = {
+    "复习范围": "fù xí fàn wéi", "全选": "quán xuǎn", "清空": "qīng kōng",
+    "选择方式": "xuǎn zé fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",
+    "今日路线": "jīn rì lù xiàn", "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
+    "词雨灵露": "cí yǔ líng lù", "攀山竞速": "pān shān jìng sù", "组词挑战": "zǔ cí tiǎo zhàn",
+    "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
+    "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
+    "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
+    "学习支援": "xué xí zhī yuán", "填空挑战": "tián kòng tiǎo zhàn",
+    "华文解释": "huá wén jiě shì", "英文翻译": "yīng wén fān yì",
+    "题目类型": "tí mù lèi xíng", "冲刺时长": "chōng cì shí cháng",
+    "速度模式": "sù dù mó shì", "下落速度": "xià luò sù dù", "拼音辅助": "pīn yīn fǔ zhù",
+    "开始挑战": "kāi shǐ tiǎo zhàn", "开始攀登": "kāi shǐ pān dēng", "开始游戏": "kāi shǐ yóu xì",
+    "回营地": "huí yíng dì", "下一题": "xià yī tí",
+    "答对": "dá duì", "连对": "lián duì", "海拔": "hǎi bá", "历练值": "lì liàn zhí",
+    "正确率": "zhèng què lǜ", "最高连对": "zuì gāo lián duì", "已掌握词语": "yǐ zhǎng wò cí yǔ",
+    "得分": "dé fēn", "连击": "lián jī", "波次": "bō cì", "拼对": "pīn duì",
+    "出题方式": "chū tí fāng shì", "字块数量": "zì kuài shù liàng", "时长": "shí cháng",
+    "检查": "jiǎn chá", "收集": "shōu jí", "提示": "tí shì", "看成绩": "kàn chéng jì",
+    "再来一次": "zài lái yī cì", "查看": "chá kàn", "关闭": "guān bì", "返回": "fǎn huí",
+    "板块": "bǎn kuài"
+  };
+  function pyl(key) {
+    if (!pyAidAvailable()) return "";
+    var t = PY_LAB[key];
+    return t ? '<span class="pylab">' + esc(t) + '</span>' : "";
+  }
+  function applyPyAid() { document.body.classList.toggle("py-aid", !!store.pyAid && pyAidAvailable()); }
+
   /* block gloss, sits under the Chinese label */
   function enl(key) {
     if (!enAidAvailable()) return "";
@@ -2562,7 +2602,7 @@
     return '<button class="tb-py' + (store.pyAid ? " on" : "") + '" id="tbPy" ' +
       'title="拼音辅助" aria-label="拼音辅助 Show pinyin" ' +
       'aria-pressed="' + (store.pyAid ? "true" : "false") + '">' +
-      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音' + enli("拼音辅助") + '</span></button>';
+      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音' + pyl("拼音辅助") + enli("拼音辅助") + '</span></button>';
   }
   /* the CURRENT screen's "pinyin changed, redraw yourself" hook. Cleared by
      setTopbar and re-set by whichever screen has a pinyin surface, so a screen
@@ -2575,6 +2615,7 @@
       store.pyAid = !store.pyAid; saveStore();
       b.classList.toggle("on", store.pyAid);
       b.setAttribute("aria-pressed", store.pyAid ? "true" : "false");
+      applyPyAid();                       // interface pinyin: one class flip
       if (_pyApply) { try { _pyApply(); } catch (e) {} }
     };
   }
@@ -2657,7 +2698,7 @@
     }
     html += '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
-      '<button class="nav-btn primary" id="next">下一题 ›' + enli("下一题") + '</button></div></div></div>';
+      '<button class="nav-btn primary" id="next">下一题 ›' + pyl("下一题") + enli("下一题") + '</button></div></div></div>';
     view().innerHTML = html;
     flashMult(state);
 
@@ -2786,7 +2827,7 @@
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
       '<div class="nav-row" id="nextRow" style="display:none">' +
-      '<button class="nav-btn primary" id="next">下一题 ›' + enli("下一题") + '</button></div></div></div>';
+      '<button class="nav-btn primary" id="next">下一题 ›' + pyl("下一题") + enli("下一题") + '</button></div></div></div>';
     flashMult(state);
 
     var tp = document.getElementById("ttsP");
@@ -3018,18 +3059,18 @@
     var m = store.quizMode || "cloze";
     var cur = QUIZ_MODES.filter(function (x) { return x.k === m; })[0] || QUIZ_MODES[0];
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">✍️ 学习挑战' + enli("学习挑战") + '</div>' +
+      '<div class="mode-name">✍️ 学习挑战' + pyl("学习挑战") + enli("学习挑战") + '</div>' +
       '<div class="mode-desc">' + esc(cur.desc) + '<br>答对可累积历练值；填空挑战答对还会提升海拔。</div>' +
-      '<div class="diff-label">' + stepNo(1) + '题型' + enl("题型") + '</div><div class="diff" id="qmodeSel">' +
+      '<div class="diff-label">' + stepNo(1) + '题型' + pyl("题型") + enl("题型") + '</div><div class="diff" id="qmodeSel">' +
       QUIZ_MODES.map(function (x) {
         return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' +
-          '<span>' + x.label + enl(x.zh) + '</span></button>';
+          '<span>' + x.label + pyl(x.zh) + enl(x.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '每次题数' + enl("每次题数") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '每次题数' + pyl("每次题数") + enl("每次题数") + '</div>' +
       qtySlider("qlenSel", QUIZ_LENS, store.quizLen, function (n) { return n + " 题"; }) +
       (m === "cloze" ? diffSelector(3) : pyAidToggleHtml()) +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
-      '<button class="nav-btn primary" id="go">开始挑战 ›' + enli("开始挑战") + '</button></div></div>';
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始挑战 ›' + pyl("开始挑战") + enli("开始挑战") + '</button></div></div>';
 
     Array.prototype.forEach.call(view().querySelectorAll("#qmodeSel .dopt"), function (b) {
       b.onclick = function () { store.quizMode = b.getAttribute("data-m"); saveStore(); renderQuizConfig(); };
@@ -3047,13 +3088,13 @@
     setTopbar("home", "");
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">\ud83c\udf27\ufe0f 词雨灵露' + enli("词雨灵露") + '</div>' +
+      '<div class="mode-name">\ud83c\udf27\ufe0f 词雨灵露' + pyl("词雨灵露") + enli("词雨灵露") + '</div>' +
       '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。<br>雨势会越下越急 —— 每一局都从最慢开始。</div>' +
-      '<div class="diff-label">拼音辅助' + enl("拼音辅助") + '</div><div class="diff">' +
+      '<div class="diff-label">拼音辅助' + pyl("拼音辅助") + enl("拼音辅助") + '</div><div class="diff">' +
       '<button class="dopt on" id="pySel">在词语下方显示拼音</button></div>' +
       '<div class="rain-best">本机最高分：<b>' + best + '</b> · \u2764\ufe0f 生命 ' + RAIN_LIVES + '</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 回营地' + enli("回营地") + '</button>' +
-      '<button class="nav-btn primary" id="go">开始游戏 \u203a' + enli("开始游戏") + '</button></div></div>';
+      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始游戏 \u203a' + pyl("开始游戏") + enli("开始游戏") + '</button></div></div>';
     var showPy = true;
     document.getElementById("pySel").onclick = function () {
       showPy = !showPy; this.classList.toggle("on", showPy);
@@ -3084,13 +3125,13 @@
       '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
       '<div class="rain-right">' +
       '<div class="rain-hud">' +
-      '<span>得分' + enli("得分") + ' <b id="rScore">0</b></span>' +
-      '<span>连击' + enli("连击") + ' <b id="rCombo">×1</b></span>' +
-      '<span>波次' + enli("波次") + ' <b id="rWave">1</b></span>' +
+      '<span>得分' + pyl("得分") + enli("得分") + ' <b id="rScore">0</b></span>' +
+      '<span>连击' + pyl("连击") + enli("连击") + ' <b id="rCombo">×1</b></span>' +
+      '<span>波次' + pyl("波次") + enli("波次") + ' <b id="rWave">1</b></span>' +
       '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span></div>' +
       '<div class="rain-input-row">' +
       '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
-      '<button class="check-btn" id="rFire">收集' + enli("收集") + '</button></div></div></div>';
+      '<button class="check-btn" id="rFire">收集' + pyl("收集") + enli("收集") + '</button></div></div></div>';
 
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
@@ -3460,7 +3501,7 @@
   ];
   function asmPromptSelector() {
     var cur = store.asmPrompt || "def";
-    var html = '<div class="diff-label">出题方式' + enl("出题方式") + '</div><div class="diff">';
+    var html = '<div class="diff-label">出题方式' + pyl("出题方式") + enl("出题方式") + '</div><div class="diff">';
     ASM_PROMPTS.forEach(function (p) {
       html += '<button class="dopt' + (cur === p.k ? " on" : "") + '" data-ap="' + p.k + '">' + p.label + '</button>';
     });
@@ -3477,7 +3518,7 @@
   }
   function asmChipFmt(n) { return n + " 块"; }
   function asmSizeSelector() {
-    return '<div class="diff-label">字块数量' + enl("字块数量") + '</div>' +
+    return '<div class="diff-label">字块数量' + pyl("字块数量") + enl("字块数量") + '</div>' +
       qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt);
   }
   /* Column count for the chip grid: always a FULL rectangle, never a row with one
@@ -3539,7 +3580,7 @@
       '<div class="mode-name">🧩 组词挑战</div>' +
       '<div class="mode-desc">按顺序点出词语的字。</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
-      '<div class="streak">拼对' + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
+      '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
       asmPromptSelector() + asmSizeSelector() + '</div>' +
       '<div class="stage"><div class="q-card">' +
       '<span class="q-tag">' + promptTag + '</span>' +
@@ -3554,7 +3595,7 @@
       '<div class="feedback" id="asmFb"></div>' +
       '<div class="nav-row" id="asmNextRow" style="display:none">' +
       '<button class="nav-btn primary" id="asmNext">' +
-      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›" + enli("下一题")) + '</button></div></div></div>';
+      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›" + pyl("下一题") + enli("下一题")) + '</button></div></div></div>';
     view().innerHTML = html;
 
     Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
@@ -3699,21 +3740,21 @@
     setTopbar("home", "");
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">⛰️ 攀山竞速' + enli("攀山竞速") + '</div>' +
+      '<div class="mode-name">⛰️ 攀山竞速' + pyl("攀山竞速") + enli("攀山竞速") + '</div>' +
       '<div class="mode-desc">登山冲刺：答对就向上攀登！<br>' +
       '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
       '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
       '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
-      '<div class="diff-label">' + stepNo(1) + '题目类型' + enl("题目类型") + '</div><div class="diff" id="modeSel">' +
+      '<div class="diff-label">' + stepNo(1) + '题目类型' + pyl("题目类型") + enl("题目类型") + '</div><div class="diff" id="modeSel">' +
       SPRINT_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' +
-          '<span>' + m.label + enl(m.zh) + '</span></button>';
+          '<span>' + m.label + pyl(m.zh) + enl(m.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '冲刺时长' + enl("冲刺时长") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '冲刺时长' + pyl("冲刺时长") + enl("冲刺时长") + '</div>' +
       qtySlider("secSel", SPRINT_OPTS, store.sprintSecs, secFmt) +
       pyAidToggleHtml() +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
-      '<button class="nav-btn primary" id="go">开始攀登 ›' + enli("开始攀登") + '</button></div></div>';
+      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<button class="nav-btn primary" id="go">开始攀登 ›' + pyl("开始攀登") + enli("开始攀登") + '</button></div></div>';
     Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (b) {
       b.onclick = function () {
         Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (x) { x.classList.remove("on"); });
@@ -3745,9 +3786,9 @@
       '<div class="sprint-right">' +
       '<div class="sprint-hud">' +
       '<div class="sprint-timer"><div class="sprint-timer-fill" id="spTime"></div></div>' +
-      '<span>答对' + enli("答对") + ' <b id="spOk">0</b></span>' +
-      '<span>连对' + enli("连对") + ' <b id="spCombo">🔥0</b></span>' +
-      '<span>海拔' + enli("海拔") + ' <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
+      '<span>答对' + pyl("答对") + enli("答对") + ' <b id="spOk">0</b></span>' +
+      '<span>连对' + pyl("连对") + enli("连对") + ' <b id="spCombo">🔥0</b></span>' +
+      '<span>海拔' + pyl("海拔") + enli("海拔") + ' <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
       '<div class="sprint-q card"><div class="sq-row">' +
       '<div class="sq-prompt" id="spPrompt"></div>' +
       '<button class="tts sm" id="spSay">🔊</button></div>' +
@@ -5033,6 +5074,7 @@
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));
         applyAmbience();
         applyEnAid();      // 英文提示: CSS-gated on body.en-aid, so this is the only switch
+    applyPyAid();      // 拼音提示: same mechanism, body.py-aid
         updateStreak();
 
         /* hand the 我的档案 panel (profile.js) this stream's 进度码 hooks */

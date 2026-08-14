@@ -745,6 +745,20 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
    are always rendered and gated here, so the toggle is one class flip on
    <body> and never needs a re-render. NAV/BUTTON SHELL TEXT ONLY — no rule
    here may ever be extended to 题干/释义/句子. */
+/* 界面拼音 (2026-08-14): same always-in-DOM, CSS-gated mechanism as .enlab, so
+   toggling is a single class flip on <body> and re-renders nothing. Sits under
+   the Chinese; when BOTH aids are on, pinyin comes first (it decodes the same
+   script the student is looking at) and English under it. */
+.pylab{display:none}
+body.py-aid .pylab{display:block;font-family:var(--sans);font-size:10.5px;line-height:1.3;
+  color:#7A6A3C;letter-spacing:.01em;font-weight:600;margin-top:1px}
+body.py-aid .unit.on .pylab,body.py-aid .htab.on .pylab,
+body.py-aid .nav-btn.primary .pylab,body.py-aid .dopt.on .pylab{color:#6B5010}
+body.py-aid .camp .go .pylab{color:var(--gold-deep);text-align:right}
+/* HUD/stat pills: wrap under, never widen the container (same rule as .enlab.i) */
+body.py-aid .harbour .pylab,body.py-aid .sprint-hud .pylab,body.py-aid .rain-hud .pylab,
+body.py-aid .streak .pylab,body.py-aid .rail-pts .pylab,body.py-aid .comp-lab .pylab{
+  display:block;margin:1px 0 0}
 .enlab{display:none}
 body.en-aid .enlab{display:block;font-family:var(--sans);font-size:10.5px;line-height:1.25;
   letter-spacing:.01em;font-weight:400;color:#7C93A5;margin-top:1px;text-transform:none}
