@@ -1186,7 +1186,7 @@
       PK_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '时长</div>' +
+      '<div class="diff-label">' + stepNo(2) + '时长' + enl("时长") + '</div>' +
       qtySlider("pkDur", PK_DUR_SECS, dur, pkDurFmt) +
       '<div class="nav-row" style="flex-wrap:wrap">' +
       '<button class="nav-btn" id="pkBack">‹ 返回</button>' +
@@ -1273,7 +1273,7 @@
     /* 板块 filter — one row, stream-wide, above the levels */
     var comps = streamComps();
     if (comps.length > 1) {
-      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块</span>' +
+      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块' + enli("板块") + '</span>' +
         comps.map(function (c) {
           return '<button class="comp-chip' + (compIsOn(c) ? " on" : "") + '" data-comp="' + esc(c) + '">' +
             esc(c) + '</button>';
@@ -1336,8 +1336,10 @@
     badgeOrder.filter(function (comp) { return compPresent[comp]; }).forEach(function (comp) {
       html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "art/badge/badge_hx.png") + '" alt=""></span>';
     });
-    html += '<span class="badge-note">成就徽章' + enli("成就徽章") + ' · ' + badgeCount + '/' + badgeTotal +
-      '</span></button>';
+    /* block gloss, not inline: 「成就徽章 Badges · 0/97」 on one line overflowed the
+       card and clipped the count (owner 2026-08-14). English sits UNDER now. */
+    html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
+      enl("成就徽章") + '</span></button>';
 
     /* sublines removed 2026-08-14 (owner). The 连续 N 天 streak that used to live
        here is still shown inside 我的词语表 itself, so nothing is lost — it just
@@ -1349,12 +1351,12 @@
     html += '</div>';   // .home-entries
 
     html += '<div class="harbour">' +
-      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
-      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值</span></div>' +
-      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率</span></div>' +
+      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ' + enli("已掌握词语") + '</span></div>' +
+      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值' + enli("历练值") + '</span></div>' +
+      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率' + enli("正确率") + '</span></div>' +
       /* the 我的档案 chip that used to sit here was a duplicate of the topbar
          avatar pill (which now carries the nickname too) — removed 2026-08-13 */
-      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对</span></div></div></div></div>';
+      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对' + enli("最高连对") + '</span></div></div></div></div>';
 
     view().innerHTML = html;
 
@@ -2058,8 +2060,8 @@
       '<div class="prog-track"><div class="prog-fill" style="width:' + Math.round(100 * state.i / total) + '%"></div></div>' +
       /* 词语闪卡不计连对、不计历练值（G-1）——不显示这两行，免得学生以为闪卡该赚分 */
       (state.mode === "flash" ? "" :
-        '<div class="streak">连对 <b>' + state.streak + '</b> 🔥' + mchip + '</div>' +
-        '<div class="rail-pts">历练值 <b>' + fmtNum(store.pts.total) + '</b></div>') +
+        '<div class="streak">连对' + enli("连对") + ' <b>' + state.streak + '</b> 🔥' + mchip + '</div>' +
+        '<div class="rail-pts">历练值' + enli("历练值") + ' <b>' + fmtNum(store.pts.total) + '</b></div>') +
       (extra || "") + '</div>';
   }
   /* flash the multiplier chip + reward tone when the 连对 tier just went up */
@@ -2302,7 +2304,33 @@
     "开始攀登": "Start climbing",
     "开始游戏": "Start game",
     "回营地": "Back",
-    "下一题": "Next"
+    "下一题": "Next",
+    /* HUD + stat labels (owner 2026-08-14: "actually can translate things like
+       答对 连对 etc — check through the whole website"). These are shell text, so
+       they are in scope; quiz CONTENT stays Chinese-only, as always. */
+    "答对": "Correct",
+    "连对": "Streak",
+    "海拔": "Altitude",
+    "历练值": "XP",
+    "正确率": "Accuracy",
+    "最高连对": "Best streak",
+    "已掌握词语": "Words mastered",
+    "得分": "Score",
+    "连击": "Combo",
+    "波次": "Wave",
+    "拼对": "Solved",
+    "出题方式": "Prompt type",
+    "字块数量": "How many tiles",
+    "时长": "How long",
+    "检查": "Check",
+    "收集": "Collect",
+    "提示": "Hint",
+    "看成绩": "See results",
+    "再来一次": "Play again",
+    "查看": "Open",
+    "关闭": "Close",
+    "返回": "Back",
+    "板块": "Sections"
   };
   /* block gloss, sits under the Chinese label */
   function enl(key) {
@@ -2840,12 +2868,21 @@
      names behind a handle position. */
   function qtySlider(id, values, cur, fmt) {
     var i = values.indexOf(cur); if (i === -1) i = 0;
-    return '<div class="qty"><div class="qty-row">' +
+    /* ⚠️ The readout sits ABOVE the track, never beside it. In the first version
+       it was a flex sibling of the range, so the track LENGTH changed with the
+       label's width — 「⭐ 两个选项」 and 「⌨️ 打拼音 · 一成历练值」 are wildly
+       different widths, and the bar visibly grew and shrank as you dragged. The
+       track is now always full width and only the text above it changes.
+       Ticks are drawn per step so the stops are visible without end labels
+       (which had the same variable-width problem, and wrapped to two lines). */
+    var ticks = "";
+    for (var k = 0; k < values.length; k++) ticks += '<i></i>';
+    return '<div class="qty">' +
+      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b>' +
+      '<div class="qty-track">' +
+      '<div class="qty-ticks" aria-hidden="true">' + ticks + '</div>' +
       '<input type="range" class="qty-range" id="' + id + '" min="0" max="' + (values.length - 1) +
-      '" step="1" value="' + i + '" aria-label="数量">' +
-      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b></div>' +
-      '<div class="qty-ends"><span>' + esc(fmt(values[0])) + '</span>' +
-      '<span>' + esc(fmt(values[values.length - 1])) + '</span></div></div>';
+      '" step="1" value="' + i + '" aria-label="数量"></div></div>';
   }
   /* onPick fires on every move (input), so the readout tracks the thumb live. */
   function wireQtySlider(id, values, fmt, onPick) {
@@ -2928,13 +2965,13 @@
       '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
       '<div class="rain-right">' +
       '<div class="rain-hud">' +
-      '<span>得分 <b id="rScore">0</b></span>' +
-      '<span>连击 <b id="rCombo">×1</b></span>' +
-      '<span>波次 <b id="rWave">1</b></span>' +
+      '<span>得分' + enli("得分") + ' <b id="rScore">0</b></span>' +
+      '<span>连击' + enli("连击") + ' <b id="rCombo">×1</b></span>' +
+      '<span>波次' + enli("波次") + ' <b id="rWave">1</b></span>' +
       '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span></div>' +
       '<div class="rain-input-row">' +
       '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
-      '<button class="check-btn" id="rFire">收集</button></div></div></div>';
+      '<button class="check-btn" id="rFire">收集' + enli("收集") + '</button></div></div></div>';
 
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
@@ -3303,7 +3340,7 @@
   ];
   function asmPromptSelector() {
     var cur = store.asmPrompt || "def";
-    var html = '<div class="diff-label">出题方式</div><div class="diff">';
+    var html = '<div class="diff-label">出题方式' + enl("出题方式") + '</div><div class="diff">';
     ASM_PROMPTS.forEach(function (p) {
       html += '<button class="dopt' + (cur === p.k ? " on" : "") + '" data-ap="' + p.k + '">' + p.label + '</button>';
     });
@@ -3320,7 +3357,7 @@
   }
   function asmChipFmt(n) { return n + " 块"; }
   function asmSizeSelector() {
-    return '<div class="diff-label">字块数量</div>' +
+    return '<div class="diff-label">字块数量' + enl("字块数量") + '</div>' +
       qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt);
   }
   /* Draw the decoy pool ONCE per question and slice it, exactly as clozeOpts does
@@ -3366,7 +3403,7 @@
       '<div class="mode-name">🧩 组词挑战</div>' +
       '<div class="mode-desc">按顺序点出词语的字。</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
-      '<div class="streak">拼对 <b>' + state.perfect + '</b> 🧩</div>' +
+      '<div class="streak">拼对' + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
       asmPromptSelector() + asmSizeSelector() + '</div>' +
       '<div class="stage"><div class="q-card">' +
       '<span class="q-tag">' + promptTag + '</span>' +
@@ -3493,11 +3530,26 @@
      within one tile: {x, y} as image fractions of each shelf's top surface. The
      climber lands on one of these every jump; the list repeats each tile. Re-trace
      if the wall image changes. */
+  /* ⚠️ Every entry MUST be strictly higher than the one before it (y strictly
+     DECREASING), or a correct answer moves the climber sideways instead of up.
+     The original trace had two pairs at effectively the same height —
+     0.586/0.583 and 0.156/0.153, i.e. 3px apart on the source art — and those
+     were exactly the "sometimes it jumps horizontally" steps the owner saw.
+     Both near-duplicates are dropped; 6 shelves per tile, all clearly separated. */
   var SPRINT_LEDGES = [
     { x: 0.605, y: 0.804 }, { x: 0.332, y: 0.752 }, { x: 0.055, y: 0.586 },
-    { x: 0.625, y: 0.583 }, { x: 0.107, y: 0.374 }, { x: 0.483, y: 0.326 },
-    { x: 0.500, y: 0.156 }, { x: 0.850, y: 0.153 }
+    { x: 0.107, y: 0.374 }, { x: 0.483, y: 0.326 }, { x: 0.500, y: 0.156 }
   ];
+  /* dev guard: a future re-trace that breaks the invariant should say so loudly
+     rather than silently reintroducing sideways hops */
+  (function () {
+    for (var i = 1; i < SPRINT_LEDGES.length; i++) {
+      if (SPRINT_LEDGES[i].y >= SPRINT_LEDGES[i - 1].y - 0.03) {
+        console.warn("SPRINT_LEDGES: ledge " + i + " is not clearly above ledge " + (i - 1) +
+                     " — the climber will appear to jump sideways.");
+      }
+    }
+  })();
   var TILE_IMG = new Image();
   TILE_IMG.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAABQCAMAAADiFLV2AAABAlBMVEX/9qGibpzAY1v5//17kCuCwFW674X/y3+iP2sAAAAAAAA6AB9VV1SIgmx/RxQLIz0mNlgwTjSpbzBWOgDlrgAZOACEuxiftpzLsqvqKxkCZST0xbEmiyXAIgVbDAC6nHZYnABQKFAxXXbIfwDJ1+J/WUKtv8uv4gEzbQAmAEacCAD259L8pCbInCOhYgD/0Q1zFyRdsjPgyTuolkqwKzDuWTh0THSJp8PXUQCP3TLqqmBibyC55UhLhUtffp38fQDz+lUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACbDVwuAAAAQXRSTlP///////////8A/////////////////////////////////////////////////////////////////////////771nsgAAB5cSURBVHja7Z0JQyI5sMed1dl9pvogdEfAUaCFRlBuHEZ0HP3+n+pVVZI+oGnw2jdvh+wO9oEInV//60glHJ0e2n+8wQAGez4TQEDZE44OV/O/DosQIPalRQhxoOUPbmIxfxH70iJa83mZuhxo+a9Ly8lkAgpgj2ciLaPJ8EDLn0xLNQwnYbCHuoB4mYdheKDlT6YlDoeTyZ60TMJhWGa2DrT892mZ7EvLHGkZHmj5s3mBeehNm7CrCTEPAzjERAdavCkF0oxErukD9jA+D9SBlj87hhadztiLF7taHHc6gTpoyx9OC1TH1XEnpNiIGroxYVEbY2sesnN/PC0j1JbqaFfz4nHnQMuBFvRHfL/i72zs5Q4OtPzZfgtSsD8tcKDlT46IAMbjqCL9SqXiVxwHH/WPCm+Zhqw4lfnQi+NDLvePhqU1H48lkUL/rq40I/gD/zEtPj3iw9XV/HnseZ+cnculeA7987vZocfhJPCklRFLi972E4UhWion48AbwyfTkk33HLrn95IWIcbhUBkkUjquCmipVJQfD4ei5Kb/EFpub2u2HQTmd6MlHobKL6QF9/0cLb7/SLQI8am0dLuGlXpd7CrW+/DLcWCzzElYuJ6HdmiDlquMl2u8F3yQQeAtWvC5tLhuwgu16PTfkxc4GD+bVfHFZuwMo3CcQaJSQIuxR74l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";
   var SPRINT_OPTS = [60, 90, 120];
@@ -3556,13 +3608,25 @@
       '<div class="sprint-right">' +
       '<div class="sprint-hud">' +
       '<div class="sprint-timer"><div class="sprint-timer-fill" id="spTime"></div></div>' +
-      '<span>答对 <b id="spOk">0</b></span>' +
-      '<span>连对 <b id="spCombo">🔥0</b></span>' +
-      '<span>海拔 <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
+      '<span>答对' + enli("答对") + ' <b id="spOk">0</b></span>' +
+      '<span>连对' + enli("连对") + ' <b id="spCombo">🔥0</b></span>' +
+      '<span>海拔' + enli("海拔") + ' <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
       '<div class="sprint-q card"><div class="sq-row">' +
       '<div class="sq-prompt" id="spPrompt"></div>' +
       '<button class="tts sm" id="spSay">🔊</button></div>' +
-      '<div class="sopts" id="spOpts"></div></div></div></div>';
+      '<div class="sopts" id="spOpts"></div>' +
+      /* 拼音辅助 lives on the PLAYING screen too (owner 2026-08-14) — it used to
+         exist only on the pre-start config, so a student who needed it mid-round
+         had to quit the timed run to turn it on. */
+      '<div class="sprint-aid" id="spAid">' + pyAidToggleHtml() + '</div>' +
+      '</div></div></div>';
+
+    /* Redraw only the option list, so flipping 拼音辅助 mid-round never redraws
+       the DISTRACTORS. Same 选项重洗=泄题 hazard the 填空 rail hit: the answer is
+       the one option that survives a fresh draw. paintOpts is assigned inside
+       askNext and repaints the CURRENT question's existing options. */
+    var paintOpts = null;
+    wirePyAidToggle(function () { if (paintOpts) paintOpts(); });
 
     var cv = document.getElementById("spCv");
     var ctx = cv.getContext("2d");
@@ -3621,6 +3685,8 @@
       pr.className = "sq-prompt" + qCls(pr.innerHTML);
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
+      /* repaint the SAME opts array — never a fresh draw (see paintOpts above) */
+      paintOpts = function () {
       box.innerHTML = opts.map(function (o, i) {
         return '<div class="opt-row"><button class="sopt" data-i="' + i + '"><span class="letter">' +
           String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
@@ -3667,6 +3733,8 @@
           }
         };
       });
+      };            // end paintOpts
+      paintOpts();
     }
 
     /* ----- 8-bit sprite climber (falls back to blocks until image decodes) ----- */
@@ -3678,17 +3746,19 @@
         else if (moving) f = 3 + (Math.floor(t * 5) % 2); // climb A/B alternate
         var row = SPRITE_ROW[STREAM] || 0;
         var DW = SPRITE_FW * SPRITE_SCALE, DH = SPRITE_FH * SPRITE_SCALE;
-        // landing shadow: helps the climber read against the brown rock wall,
-        // and makes "standing on the ledge" clear. Feet anchor stays at py+6.
+        /* Feet sit ON the shelf's top surface (owner 2026-08-14: it used to read as
+           standing IN FRONT of the ledge). py IS that surface, so the sprite's
+           bottom edge lands on py — the old +6 pushed it 6px below the line, which
+           is what put the climber over the rock face instead of on the shelf.
+           The contact shadow sits ON the same line for the same reason. */
         ctx.save();
-        ctx.globalAlpha = 0.30; ctx.fillStyle = "#0A1420";
-        ctx.beginPath(); ctx.ellipse(px, py + 6, DW * 0.30, DH * 0.055, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.32; ctx.fillStyle = "#0A1420";
+        ctx.beginPath(); ctx.ellipse(px, py, DW * 0.30, DH * 0.05, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
         ctx.save();
         if (faceLeft) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
-        // scale about the feet: bottom stays at py+6 so the climber still lands on the ledge
         ctx.drawImage(SPRITE_IMG, f * SPRITE_FW, row * SPRITE_FH, SPRITE_FW, SPRITE_FH,
-          px - DW / 2, py - DH + 6, DW, DH);
+          px - DW / 2, py - DH, DW, DH);
         ctx.restore();
         return;
       }

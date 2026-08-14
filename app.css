@@ -187,7 +187,12 @@ img{max-width:100%}
 .badge-chip img{width:100%;height:100%;object-fit:cover;display:block}
 .badge-chip.locked{border-color:#C9DCE9}
 .badge-chip.locked img{filter:grayscale(1) opacity(.45)}
-.badge-note{font-size:12px;color:var(--ink-soft);margin-left:auto;text-align:right;line-height:1.4;flex:none}
+.badge-note{font-size:12px;color:var(--ink-soft);margin-left:auto;text-align:right;line-height:1.4;
+  flex:0 1 auto;min-width:0}
+/* HUD/stat glosses must never widen their pill — wrap under, never push out */
+body.en-aid .harbour .enlab.i,body.en-aid .sprint-hud .enlab.i,body.en-aid .rain-hud .enlab.i,
+body.en-aid .streak .enlab.i,body.en-aid .rail-pts .enlab.i,body.en-aid .comp-lab .enlab.i{
+  display:block;margin:1px 0 0}
 
 .harbour{background:rgba(18,42,66,.82);border:1px solid rgba(255,255,255,.2);border-radius:16px;
   padding:15px 22px;display:flex;gap:28px;color:#EAF4FA;margin-top:14px;justify-content:center;flex-wrap:wrap}
@@ -345,15 +350,20 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .comp-chip.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
 .comp-chip:active{transform:scale(.96)}
 
-/* ---------- 数量滑杆 (2026-08-14): replaces stacks of quantity tiles ----------
-   NO touch-action:manipulation here — a range input needs the drag gesture. */
-.qty{margin:2px 0 4px}
-.qty-row{display:flex;align-items:center;gap:14px}
-.qty-val{flex:none;min-width:104px;text-align:right;font-family:var(--serif);font-weight:800;
-  font-size:16px;color:var(--gold-deep)}
-.qty-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);
-  margin:3px 2px 0;padding-right:118px}
-.qty-range{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:26px;background:transparent;cursor:pointer}
+/* ---------- 数量滑杆 (2026-08-14, redesigned same day) ----------
+   The readout is ABOVE the track, not beside it: as a flex sibling it changed the
+   track's length every time the label's width changed, which made the bar look
+   like it was stretching and shrinking as you dragged. Track is now a fixed
+   full-width row. NO touch-action:manipulation — a range needs the drag gesture. */
+.qty{margin:2px 0 6px}
+.qty-val{display:block;font-family:var(--serif);font-weight:800;font-size:16.5px;
+  color:var(--gold-deep);line-height:1.35;margin:0 0 6px;min-height:22px}
+.qty-track{position:relative;padding:9px 0}
+.qty-ticks{position:absolute;left:13px;right:13px;top:50%;transform:translateY(-50%);
+  display:flex;justify-content:space-between;pointer-events:none}
+.qty-ticks i{width:3px;height:3px;border-radius:50%;background:rgba(23,58,90,.3)}
+.qty-range{-webkit-appearance:none;appearance:none;display:block;width:100%;height:26px;
+  background:transparent;cursor:pointer;margin:0}
 .qty-range:focus{outline:none}
 .qty-range:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:8px}
 .qty-range::-webkit-slider-runnable-track{height:8px;border-radius:999px;
@@ -362,19 +372,14 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .qty-range::-moz-range-track{height:8px;border-radius:999px;
   background:linear-gradient(90deg,rgba(227,166,60,.75),rgba(180,205,225,.7));
   border:1px solid var(--glass-line)}
-/* 30px thumb: this is the whole control's tap target on a PLD, so it must clear
-   the same finger-size bar the 可及性 pass set for the answer buttons */
+/* 30px thumb: the whole control's tap target on a PLD, so it clears the same
+   finger-size bar the 可及性 pass set for the answer buttons */
 .qty-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;
   margin-top:-12px;border-radius:50%;background:linear-gradient(180deg,#FFF6E0,#F5C443);
   border:2.5px solid var(--gold-deep);box-shadow:0 3px 10px rgba(23,58,90,.32)}
 .qty-range::-moz-range-thumb{width:30px;height:30px;border-radius:50%;
   background:linear-gradient(180deg,#FFF6E0,#F5C443);
   border:2.5px solid var(--gold-deep);box-shadow:0 3px 10px rgba(23,58,90,.32)}
-.qty-range:active::-webkit-slider-thumb{transform:scale(1.08)}
-@media (max-width:520px){
-  .qty-val{min-width:88px;font-size:15px}
-  .qty-ends{padding-right:102px}
-}
 
 .ach-badge-count{font-size:11px;color:var(--ink-soft)}
 /* 对战徽章 block on 成就墙: its own labelled section AFTER the whole A层 ladder,
@@ -801,7 +806,7 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 .sprint-shell{height:calc(100dvh - 68px);max-height:calc(100dvh - 68px)}   /* Safari 15.4+: 100vh includes the URL-bar strip */
 /* if the options still cannot fit, THIS column scrolls — never the page */
 .sprint-right{min-height:0;overflow-y:auto}
-.sprint-canvas{width:100%;flex:1 1 auto;min-height:120px;border-radius:16px;display:block;
+.sprint-canvas{width:100%;flex:0 1 auto;min-height:120px;max-height:46vh;border-radius:16px;display:block;
   box-shadow:0 6px 20px rgba(23,58,90,.18);image-rendering:pixelated}
 .sprint-hud{display:flex;align-items:center;gap:16px;font-size:14px;color:#3A5A70;flex-wrap:wrap}
 .sprint-hud b{color:var(--ink);font-size:16px}
@@ -849,9 +854,14 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
      the row while the question sat in a narrow column with small type. The wall
      is scenery — it carries no information the student has to read — so it is
      now capped and the question column takes the rest. */
-  .sprint-canvas{width:auto;flex:0 1 clamp(240px,30%,430px);min-height:0;min-width:0}
+  /* The wall is scenery, so it is capped in BOTH axes now (owner 2026-08-14: it
+     was still too tall). align-self keeps it centred in the row instead of being
+     stretched to the shell's full height by align-items:stretch. */
+  .sprint-canvas{width:auto;flex:0 1 clamp(220px,26%,360px);min-height:0;min-width:0;
+    max-height:min(58vh,430px);align-self:center}
   .sprint-right{flex:1 1 auto;display:flex;flex-direction:column;gap:10px;min-width:0;
     justify-content:center}
+  .sprint-aid{margin-top:2px}
   .sprint-q{padding:20px 24px}
   .sprint-q .sq-prompt{font-size:clamp(22px,2.1vw,30px);line-height:1.5;margin-bottom:18px;min-height:0}
   .sopts{gap:12px}
