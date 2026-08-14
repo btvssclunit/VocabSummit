@@ -219,7 +219,15 @@
        日期未记录 rather than inventing a date. n counts 再次挑战 passes. */
     s.badgeLog = s.badgeLog || {};
     s.best = s.best || {};             // rain: score, handle: streak
-    s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
+    s.accOpen = s.accOpen || {};       // RETIRED 2026-08-14 (was: level -> bool). Kept so an
+                                       // old store still parses; nothing reads it any more.
+    /* 复习范围 accordion is now EXCLUSIVE: at most one level's units are visible,
+       so this is a single level name (or "" = all folded, the first-login state). */
+    s.accLevel = s.accLevel || "";
+    /* 板块 filter: component NAME -> 1 means "excluded". Stored as the exclusions
+       rather than the inclusions so a stream that gains a new 板块 shows it by
+       default instead of silently hiding it. */
+    s.compOff = s.compOff || {};
     s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
     s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
     /* rainSpeed / rainRamp retired 2026-08-14: 词雨 is progressive-only now.
@@ -849,8 +857,23 @@
   }
 
   /* ---------- scoping ---------- */
+  /* 复习范围 = the selected UNITS, narrowed by the 板块 filter. The filter is a
+     stream-wide component-TYPE switch, not a per-unit one: with 4-6 units per
+     level and up to 5 板块 each, per-unit toggles would put ~25 extra chips on
+     the home page, and the owner's constraint was explicitly "not cluttered".
+     A student thinking "just 核心 this week" is served by one row of chips. */
+  function compIsOn(name) { return !store.compOff[name]; }
   function scopedWords() {
-    return WORDS.filter(function (w) { return scope.has(unitKey(w)); });
+    return WORDS.filter(function (w) { return scope.has(unitKey(w)) && compIsOn(w.component); });
+  }
+  /* component types present in THIS stream, in narrative order */
+  var COMP_ORDER = ["生活空间", "核心", "巩固", "进阶", "文化站"];
+  function streamComps() {
+    var present = {};
+    COMP_LIST.forEach(function (c) { present[c.component] = 1; });
+    var out = COMP_ORDER.filter(function (c) { return present[c]; });
+    Object.keys(present).forEach(function (c) { if (out.indexOf(c) === -1) out.push(c); });
+    return out;
   }
   function _bigrams(s) {
     var t = String(s || "").replace(/[，。、！？；：""''（）\s]/g, "");
@@ -934,7 +957,7 @@
       '<div class="app-zh">' + META.zh + '</div>' +
       '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
       '<div class="mtn-rooms">' +
-        '<span class="mtn-arena" id="arenaPill">🏔️ 加入结伴登峰</span>' +
+        '<span class="mtn-arena" id="arenaPill">🏔️ 结伴登峰</span>' +
         '<span class="mtn-arena mtn-pk" id="pkPill">⚔️ 同伴挑战</span>' +
       '</div>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
@@ -1118,7 +1141,9 @@
     { k: "zhmcq", label: "🔎 华文解释" },
     { k: "enmcq", label: "🌐 英文翻译" }
   ];
-  var PK_DURATIONS = [[180, "3 分钟"], [300, "5 分钟"], [480, "8 分钟"]];
+  var PK_DUR_SECS = [180, 300, 480];
+  function pkDurFmt(n) { return (n / 60) + " 分钟"; }
+  function secFmt(n) { return n + " 秒"; }
   function arenaCtx() {
     return {
       stream: STREAM,
@@ -1146,10 +1171,8 @@
       PK_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '时长</div><div class="diff" id="pkDur">' +
-      PK_DURATIONS.map(function (d) {
-        return '<button class="dopt' + (d[0] === dur ? " on" : "") + '" data-d="' + d[0] + '">' + d[1] + '</button>';
-      }).join("") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '时长</div>' +
+      qtySlider("pkDur", PK_DUR_SECS, dur, pkDurFmt) +
       '<div class="nav-row" style="flex-wrap:wrap">' +
       '<button class="nav-btn" id="pkBack">‹ 返回</button>' +
       '<button class="nav-btn" id="pkJoin">加入朋友的房间</button>' +
@@ -1157,9 +1180,7 @@
     Array.prototype.forEach.call(view().querySelectorAll("#pkMode .dopt"), function (b) {
       b.onclick = function () { store.pkMode = b.getAttribute("data-m"); saveStore(); renderPkConfig(); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll("#pkDur .dopt"), function (b) {
-      b.onclick = function () { store.pkDur = parseInt(b.getAttribute("data-d"), 10); saveStore(); renderPkConfig(); };
-    });
+    wireQtySlider("pkDur", PK_DUR_SECS, pkDurFmt, function (n) { store.pkDur = n; saveStore(); });
     document.getElementById("pkBack").onclick = renderHome;
     document.getElementById("pkJoin").onclick = function () { window.WSArena.open(arenaCtx()); };
     document.getElementById("pkHost").onclick = function () {
@@ -1234,10 +1255,24 @@
       '<button class="unit" id="selAll">全选' + enli("全选") + '</button>' +
       '<button class="unit" id="selNone">清空' + enli("清空") + '</button>' +
       '<span class="scope-sum" id="scopeSum"></span></div>';
+    /* 板块 filter — one row, stream-wide, above the levels */
+    var comps = streamComps();
+    if (comps.length > 1) {
+      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块</span>' +
+        comps.map(function (c) {
+          return '<button class="comp-chip' + (compIsOn(c) ? " on" : "") + '" data-comp="' + esc(c) + '">' +
+            esc(c) + '</button>';
+        }).join("") + '</div>';
+    }
     var byLevel = {};
     UNIT_LIST.forEach(function (u) { (byLevel[u.level] = byLevel[u.level] || []).push(u); });
-    Object.keys(byLevel).forEach(function (lv, li) {
-      var open = (store.accOpen[lv] !== undefined) ? store.accOpen[lv] : (li === 0);
+    /* EXCLUSIVE accordion (owner 2026-08-14): at most one level's units on screen.
+       Default is ALL folded — a first-time student sees four short rows, not one
+       level dumped open — and the last-opened level is remembered thereafter.
+       Selection is unaffected by folding, so units can still be picked across
+       years; only VISIBILITY is one-at-a-time. */
+    Object.keys(byLevel).forEach(function (lv) {
+      var open = store.accLevel === lv;
       html += '<button class="scope-acc' + (open ? " open" : "") + '" data-lv="' + esc(lv) + '">' +
         esc(lv) + '<span class="cnt" data-cnt="' + esc(lv) + '"></span><span class="chev">›</span></button>' +
         '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">';
@@ -1315,10 +1350,25 @@
     Array.prototype.forEach.call(view().querySelectorAll(".scope-acc"), function (b) {
       b.onclick = function () {
         var lv = b.getAttribute("data-lv");
-        var body = view().querySelector('.units[data-lvbody="' + lv + '"]');
-        var nowOpen = !body.classList.toggle("collapsed");
-        b.classList.toggle("open", nowOpen);
-        store.accOpen[lv] = nowOpen; saveStore();
+        var nowOpen = store.accLevel !== lv;          // tapping the open one folds it
+        store.accLevel = nowOpen ? lv : ""; saveStore();
+        Array.prototype.forEach.call(view().querySelectorAll(".scope-acc"), function (x) {
+          var l = x.getAttribute("data-lv"), on = (l === store.accLevel);
+          x.classList.toggle("open", on);
+          var body = view().querySelector('.units[data-lvbody="' + l + '"]');
+          if (body) body.classList.toggle("collapsed", !on);
+        });
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".comp-chip"), function (b) {
+      b.onclick = function () {
+        var c = b.getAttribute("data-comp");
+        if (store.compOff[c]) delete store.compOff[c]; else store.compOff[c] = 1;
+        /* never let the student filter every 板块 away — that empties 复习范围
+           while the unit chips still read as selected, which looks like a bug */
+        if (!streamComps().some(compIsOn)) { delete store.compOff[c]; return; }
+        b.classList.toggle("on", compIsOn(c));
+        saveStore(); updateScopeSum();
       };
     });
     document.getElementById("selAll").onclick = function () {
@@ -1368,7 +1418,9 @@
     }
     function updateScopeSum() {
       var n = scopedWords().length;
-      document.getElementById("scopeSum").textContent = "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
+      var off = streamComps().filter(function (c) { return !compIsOn(c); }).length;
+      document.getElementById("scopeSum").textContent =
+        "已选 " + scope.size + " 个单元 · 共 " + n + " 词" + (off ? "（已筛去 " + off + " 个板块）" : "");
       Object.keys(byLevel).forEach(function (lv) {
         var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
         if (!el) return;
@@ -1485,7 +1537,7 @@
       '<div class="bd-where">' + esc(f.zh) + ' · ' + esc(f.blurb) + '</div>' +
       meta + prog +
       '<div class="nav-row">' +
-      '<button class="nav-btn primary" id="bbGo">' + (family === "room" ? "🏔️ 加入结伴登峰" : "⚔️ 开一场同伴挑战") + '</button>' +
+      '<button class="nav-btn primary" id="bbGo">' + (family === "room" ? "🏔️ 结伴登峰" : "⚔️ 开一场同伴挑战") + '</button>' +
       '<button class="nav-btn" id="bbClose">关闭</button></div></div>');
     ov.querySelector("#bbClose").onclick = function () { ov.remove(); };
     ov.querySelector("#bbGo").onclick = function () {
@@ -2019,12 +2071,29 @@
   }
 
   /* ---------- cloze with difficulty ladder ---------- */
+  var QUIZ_LENS = [10, 20, 30, 40, 50];
+  var _asmSizeT = null, _diffT = null, _sprintT = null;
   var DIFF_OPTS = [
     { k: "2", stars: "⭐", label: "两个选项" },
     { k: "3", stars: "⭐⭐", label: "三个选项" },
     { k: "4", stars: "⭐⭐⭐", label: "四个选项" },
     { k: "type", stars: "⭐⭐⭐⭐", label: "打字输入" }
   ];
+  /* 打拼音 (G1/G2 only) sits at the EASY end of the ladder, before ⭐: it is a
+     familiarisation tier that earns 10% 历练值 and confers no 海拔, so putting it
+     after ⭐⭐⭐⭐ would read as the hardest setting, which it is not. */
+  function diffLadder() {
+    var out = (STREAM === "g1" || STREAM === "g2")
+      ? [{ k: "pinyin", stars: "⌨️", label: "打拼音 · 一成历练值" }].concat(DIFF_OPTS)
+      : DIFF_OPTS.slice();
+    return out;
+  }
+  function diffKeys() { return diffLadder().map(function (d) { return d.k; }); }
+  function diffFmt(k) {
+    var l = diffLadder();
+    for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i].stars + " " + l[i].label;
+    return k;
+  }
   /* pinyin comparison for the practice-only 打拼音 mode: strip tone marks
      (NFD + combining removal), fold ü/v→u, drop spaces, lowercase. So the
      student can type "xingwei" / "xing wei" for 行为 (xíng wéi). */
@@ -2034,20 +2103,23 @@
   }
   /* stepN: only the config SCREEN numbers this group (决定四). The mid-round
      rail reuses diffSelector too, and a numeral there would be meaningless. */
+  /* 挑战难度 is a slider too (owner 2026-08-14): the tiers are an ORDERED ladder,
+     so a handle sliding along it reads more naturally than five stacked tiles,
+     and the readout keeps the stars + the tier's name visible at all times. */
   function diffSelector(stepN) {
-    var html = '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + enl("挑战难度") + '</div><div class="diff">';
-    DIFF_OPTS.forEach(function (d) {
-      html += '<button class="dopt' + (store.diff === d.k ? " on" : "") + '" data-d="' + d.k + '">' +
-        '<span class="stars">' + d.stars + '</span>' + d.label + '</button>';
+    var keys = diffKeys(), cur = store.diff;
+    if (keys.indexOf(cur) === -1) cur = keys[0];
+    return '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + enl("挑战难度") + '</div>' +
+      qtySlider("diffSel", keys, cur, diffFmt) + pyAidToggleHtml();
+  }
+  /* one wiring helper for BOTH sites the ladder appears at (config screen and the
+     mid-round rail), so they can never drift apart */
+  function wireDiffSlider(after) {
+    wireQtySlider("diffSel", diffKeys(), diffFmt, function (k) {
+      store.diff = k; saveStore();
+      clearTimeout(_diffT);
+      _diffT = setTimeout(after, 260);
     });
-    /* G1/G2 only: type just the pinyin (no tones) as familiarisation. No 历练值,
-       no mastery — practice only (owner request 2026-08-10). */
-    if (STREAM === "g1" || STREAM === "g2") {
-      html += '<button class="dopt' + (store.diff === "pinyin" ? " on" : "") + '" data-d="pinyin">' +
-        '<span class="stars">⌨️</span>打拼音 · 练习不计分</button>';
-    }
-    html += '</div>' + pyAidToggleHtml();
-    return html;
   }
   /* 拼音辅助 (D1): student-toggled, default off. Shown wherever options are
      answered (cloze MCQ rail + 攀山竞速 pre-start). Reveals pronunciation only,
@@ -2276,13 +2348,8 @@
     if (b) b.onclick = function () { store.pyAid = !store.pyAid; saveStore(); onToggle(); };
   }
   function wireDiff(state) {
-    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-d]"), function (b) {
-      b.onclick = function () {
-        store.diff = b.getAttribute("data-d");
-        saveStore();
-        renderCloze(state); // takes effect on the current question, mid-round switching allowed
-      };
-    });
+    // takes effect on the current question — mid-round switching stays allowed
+    wireDiffSlider(function () { renderCloze(state); });
     wirePyAidToggle(function () { renderCloze(state); });
   }
   /* E2: anti-mashing — briefly disable 下一题 after an MCQ answer so a mashed
@@ -2336,7 +2403,7 @@
     var html = '<div class="study">' +
       railHtml(state, "填空挑战", "读句子，填出空格里的词语", diffSelector()) +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">' + (pyMode ? "读句子，打出空格里词语的拼音（不用声调，练习不计分）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
+      '<span class="q-tag">' + (pyMode ? "读句子，打出空格里词语的拼音（不用声调，历练值一成）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
       '<div class="q-text' + qCls(qtext) + '">' + qtext + '</div>' +
       '<div class="q-foot"><button class="tts" id="ttsS">🔊 朗读句子</button></div></div>';
 
@@ -2674,6 +2741,36 @@
     { k: "zhmcq", label: "🔎 华文解释", zh: "华文解释", desc: "看释义，选出词语" },
     { k: "enmcq", label: "🌐 英文翻译", zh: "英文翻译", desc: "看英译，选出词语" }
   ];
+  /* ---------- 数量选择滑杆 (owner 2026-08-14) ----------
+     Quantity pickers used to be a stack of full-width tiles — five of them for
+     每次题数 alone, which dominated the config screen. A slider says the same
+     thing in one row. The range is indexed over the ALLOWED values (min 0, max
+     n-1, step 1) rather than over the numbers themselves, so a drag can only
+     ever land on a legal value and the steps stay evenly spaced even when the
+     values are not (60/90/120).
+     Only genuine quantities become sliders. 题型 and 挑战难度 stay as labelled
+     tiles: they are named choices, not amounts, and a slider would hide their
+     names behind a handle position. */
+  function qtySlider(id, values, cur, fmt) {
+    var i = values.indexOf(cur); if (i === -1) i = 0;
+    return '<div class="qty"><div class="qty-row">' +
+      '<input type="range" class="qty-range" id="' + id + '" min="0" max="' + (values.length - 1) +
+      '" step="1" value="' + i + '" aria-label="数量">' +
+      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b></div>' +
+      '<div class="qty-ends"><span>' + esc(fmt(values[0])) + '</span>' +
+      '<span>' + esc(fmt(values[values.length - 1])) + '</span></div></div>';
+  }
+  /* onPick fires on every move (input), so the readout tracks the thumb live. */
+  function wireQtySlider(id, values, fmt, onPick) {
+    var el = document.getElementById(id); if (!el) return;
+    var out = document.getElementById(id + "Val");
+    el.oninput = function () {
+      var v = values[parseInt(el.value, 10)];
+      if (out) out.textContent = fmt(v);
+      onPick(v);
+    };
+  }
+
   function renderQuizConfig() {
     setTopbar("home", "");
     var m = store.quizMode || "cloze";
@@ -2686,10 +2783,8 @@
         return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' +
           '<span>' + x.label + enl(x.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '每次题数' + enl("每次题数") + '</div><div class="diff" id="qlenSel">' +
-      [10, 20, 30, 40, 50].map(function (n) {
-        return '<button class="dopt' + (store.quizLen === n ? " on" : "") + '" data-q="' + n + '">' + n + ' 题</button>';
-      }).join("") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '每次题数' + enl("每次题数") + '</div>' +
+      qtySlider("qlenSel", QUIZ_LENS, store.quizLen, function (n) { return n + " 题"; }) +
       (m === "cloze" ? diffSelector(3) : pyAidToggleHtml()) +
       '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
       '<button class="nav-btn primary" id="go">开始挑战 ›' + enli("开始挑战") + '</button></div></div>';
@@ -2697,17 +2792,10 @@
     Array.prototype.forEach.call(view().querySelectorAll("#qmodeSel .dopt"), function (b) {
       b.onclick = function () { store.quizMode = b.getAttribute("data-m"); saveStore(); renderQuizConfig(); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (b) {
-      b.onclick = function () {
-        Array.prototype.forEach.call(view().querySelectorAll("#qlenSel .dopt"), function (x) { x.classList.remove("on"); });
-        b.classList.add("on");
-        store.quizLen = parseInt(b.getAttribute("data-q"), 10); saveStore();
-      };
-    });
-    /* difficulty tiles are only rendered for 填空; re-render so the panel reflects the pick */
-    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-d]"), function (b) {
-      b.onclick = function () { store.diff = b.getAttribute("data-d"); saveStore(); renderQuizConfig(); };
-    });
+    wireQtySlider("qlenSel", QUIZ_LENS, function (n) { return n + " 题"; },
+      function (n) { store.quizLen = n; saveStore(); });
+    /* the difficulty slider only exists for 填空; re-render so the panel reflects the pick */
+    wireDiffSlider(renderQuizConfig);
     wirePyAidToggle(renderQuizConfig);
     document.getElementById("back").onclick = renderHome;
     document.getElementById("go").onclick = function () { startMode(store.quizMode || "cloze"); };
@@ -3143,13 +3231,10 @@
     var n = store.asmChips || 9;
     return ASM_SIZES.indexOf(n) === -1 ? 9 : n;
   }
+  function asmChipFmt(n) { return n + " 块"; }
   function asmSizeSelector() {
-    var cur = asmChipCount();
-    var html = '<div class="diff-label">字块数量</div><div class="diff">';
-    ASM_SIZES.forEach(function (n) {
-      html += '<button class="dopt' + (cur === n ? " on" : "") + '" data-ac="' + n + '">' + n + ' 块</button>';
-    });
-    return html + '</div>';
+    return '<div class="diff-label">字块数量</div>' +
+      qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt);
   }
   /* Draw the decoy pool ONCE per question and slice it, exactly as clozeOpts does
      for 填空挑战 — otherwise toggling 出题方式 or 字块数量 redraws the decoys while
@@ -3187,7 +3272,7 @@
     var promptTag, promptHtml, ttsBtn = "", ttsFn = null;
     if (pm === "en") { promptTag = "看英文，拼出词语"; promptHtml = esc(w.en); }
     else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; promptHtml = esc(w.cloze).replace(/_{2,}/g, "<u></u>"); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读句子</button>'; ttsFn = function () { speakCloze(w.cloze); }; }
-    else if (pm === "py") { promptTag = "看拼音，拼出词语（练习不计分）"; promptHtml = esc(w.py); }
+    else if (pm === "py") { promptTag = "看拼音，拼出词语（历练值一成）"; promptHtml = esc(w.py); }
     else { promptTag = "看释义，拼出词语"; promptHtml = esc(w.zh); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读释义</button>'; ttsFn = function () { speak(w.zh); }; }
 
     var html = '<div class="study"><div class="rail card">' +
@@ -3215,8 +3300,12 @@
     Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
       b.onclick = function () { store.asmPrompt = b.getAttribute("data-ap"); saveStore(); renderAssemble(state); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ac]"), function (b) {
-      b.onclick = function () { store.asmChips = parseInt(b.getAttribute("data-ac"), 10); saveStore(); renderAssemble(state); };
+    /* re-render on release, not on every move: each step redraws the chip grid,
+       and asmChips() caches per size so the answer's characters never re-shuffle */
+    wireQtySlider("asmSize", ASM_SIZES, asmChipFmt, function (n) {
+      store.asmChips = n; saveStore();
+      clearTimeout(_asmSizeT);
+      _asmSizeT = setTimeout(function () { renderAssemble(state); }, 260);
     });
     if (ttsFn && document.getElementById("asmTts")) document.getElementById("asmTts").onclick = ttsFn;
     var nextIdx = 0, wrongThis = false, done = false;
@@ -3345,10 +3434,8 @@
         return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' +
           '<span>' + m.label + enl(m.zh) + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="diff-label">' + stepNo(2) + '冲刺时长' + enl("冲刺时长") + '</div><div class="diff" id="secSel">' +
-      SPRINT_OPTS.map(function (s) {
-        return '<button class="dopt' + (s === store.sprintSecs ? " on" : "") + '" data-s="' + s + '">' + s + ' 秒</button>';
-      }).join("") + '</div>' +
+      '<div class="diff-label">' + stepNo(2) + '冲刺时长' + enl("冲刺时长") + '</div>' +
+      qtySlider("secSel", SPRINT_OPTS, store.sprintSecs, secFmt) +
       pyAidToggleHtml() +
       '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + enli("回营地") + '</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›' + enli("开始攀登") + '</button></div></div>';
@@ -3360,14 +3447,7 @@
         saveStore();
       };
     });
-    Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (b) {
-      b.onclick = function () {
-        Array.prototype.forEach.call(view().querySelectorAll("#secSel .dopt"), function (x) { x.classList.remove("on"); });
-        b.classList.add("on");
-        store.sprintSecs = parseInt(b.getAttribute("data-s"), 10);
-        saveStore();
-      };
-    });
+    wireQtySlider("secSel", SPRINT_OPTS, secFmt, function (n) { store.sprintSecs = n; saveStore(); });
     wirePyAidToggle(renderSprintConfig);
     document.getElementById("back").onclick = renderHome;
     document.getElementById("go").onclick = startSprint;
@@ -3863,16 +3943,17 @@
     { key: "cat",       name: "打盹的猫", price: 60, file: "art/camp/deco_cat.png",       w:  7, desc: "营地里的常住客" },
     { key: "signpost",  name: "木牌路标", price: 45, file: "art/camp/deco_signpost.png",  w:  7, desc: "指向远方的路" }
   ];
-  /* 地貌景观: system-placed, 海拔-gated, never purchasable, never draggable.
-     ⚠️ The three tree thresholds are the doc's PROPOSED %, flagged there for
-     the owner to adjust exactly like the old C-tier pricing. */
-  var SCENERY = [
-    { key: "pine",      name: "青松",     file: "art/camp/deco_pine.png",      pct: 0.15, cx: 90, by: 68, w: 12, desc: "山脚的松林" },
-    { key: "sakura",    name: "樱花树",   file: "art/camp/deco_sakura.png",    pct: 0.35, cx:  9, by: 73, w: 14, desc: "一季花开，满树粉白" },
-    { key: "viewdeck",  name: "望山台",   file: "art/camp/deco_viewdeck.png",  pct: 0.50, cx:  3, by: 54, w: 12, desc: "一览群峰的高台" },
-    { key: "maple",     name: "红枫",     file: "art/camp/deco_maple.png",     pct: 0.60, cx: 89, by: 71, w: 13, desc: "秋来满树红" },
-    { key: "waterfall", name: "悬泉飞瀑", file: "art/camp/deco_waterfall.png", pct: 0.80, cx: 99, by: 51, w: 12, desc: "飞泉直落，云雾缭绕" }
-  ];
+  /* 地貌景观 RETIRED 2026-08-14 (owner): "retire everything in the campsite and
+     shop that are not camping related e.g. all the scenery items". 青松 / 樱花树 /
+     望山台 / 红枫 / 悬泉飞瀑 were landscape features, not things a hiker camps
+     with — the camp is now gear only.
+     The array is kept (empty) rather than ripped out because sceneryUnlocked and
+     both render paths are written against it; refilling it is a one-line change
+     if the owner ever wants location features back. The five PNGs stay in
+     art/camp/ unreferenced, matching how the garden-era art was retired: archived,
+     never deleted. store.deco entries are never pruned either, so nothing an
+     existing student owns is lost. */
+  var SCENERY = [];
   /* §6 starter layout = what a new player sees, and the 整理营地 reset target.
      Not a constraint: every one of these can be dragged anywhere in BOUNDS. */
   var DEFAULT_POS = {
@@ -4158,13 +4239,6 @@
     var trinketHtml = TRINKETS.map(function (it) {
       return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key);
     }).join("");
-    var sceneryHtml = SCENERY.map(function (s) {
-      var need = Math.round((WORDS.length || 0) * s.pct);
-      var right = sceneryUnlocked(s) ? '<span class="shop-owned">已出现 ✓</span>'
-        : '<span class="shop-locked">海拔 ' + need + ' 米出现</span>';
-      return '<div class="shop-row"><img class="shop-thumb" src="' + s.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-        '<div class="shop-info"><b>' + esc(s.name) + '</b><span>' + esc(s.desc) + ' · 属于这座山，灵露买不到</span></div>' + right + '</div>';
-    }).join("");
 
     var html = '<div class="camp2-wrap"><div class="shop2-card">' +
       '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
@@ -4172,7 +4246,6 @@
       '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
       gearHtml +
       '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
-      '<div class="shop-tier-label">地貌景观 <span class="shop-slot-note">· 随海拔自动出现</span></div><div class="shop-grid">' + sceneryHtml + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button></div>' +
       '</div></div>';
     view().innerHTML = html;
@@ -4266,7 +4339,11 @@
     return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f };
   }
   function mtnPinIcon(m) {
-    if (m.t === "base") return "⛺";
+    /* the camp is the 你在这里 marker as well as a landmark, so its emoji sits in
+       its own span: the span floats, the button keeps the translate(-50%,-50%)
+       positioning and its hover scale (animating the button's transform would
+       fight both). */
+    if (m.t === "base") return '<span class="mtn2-tent">⛺</span>';
     if (m.t === "summit") return "🏯";
     if (m.t === "level") return store.gym[m.level] ? petFor(m.level).emoji : "🚩";
     return "";   // unit: a plain dot (gold when its badge is earned)
@@ -4291,17 +4368,24 @@
       return ZONES[Math.min(bounds.length - 2, ZONES.length - 1)];
     }
 
+    /* 你的营地 climbs WITH the student (owner 2026-08-14). It used to be nailed to
+       frac 0 with a separate 15px "你在这里" dot at the live altitude — two markers
+       for one idea, and the tent never moved no matter how far you got. Now the
+       tent IS the you-are-here marker: it sits at the current altitude fraction,
+       and the old .mtn2-hero dot is gone (it would have sat exactly underneath).
+       Only the RENDERED position changed — buildMarks still records the camp at
+       alt 0, so goals, zone boundaries and markDone are all untouched. */
+    var meFrac = Math.min(1, alt / totalAlt);
     var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage">';
     pins.forEach(function (m, i) {
-      var frac = m.t === "base" ? 0 : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
+      var frac = m.t === "base" ? meFrac : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
       var p = mtnPathAt(frac);
       var cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "");
-      html += '<button class="' + cls + '" data-i="' + i + '" title="' + esc(markLabel(m)) +
+      html += '<button class="' + cls + '" data-i="' + i + '" title="' +
+        esc(m.t === "base" ? (markLabel(m) + " · 你在这里") : markLabel(m)) +
         '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%">' +
         mtnPinIcon(m) + '</button>';
     });
-    var cp = mtnPathAt(Math.min(1, alt / totalAlt));
-    html += '<div class="mtn2-hero" style="left:' + (cp.x * 100).toFixed(2) + '%;top:' + (cp.y * 100).toFixed(2) + '%" title="你在这里"></div>';
     html += '</div>';   // .mtn2-stage
     html += '<div class="mtn2-hud">' +
       '<span class="m2pill">⛰️ 已掌握 <b>' + alt + '</b> 米</span>' +

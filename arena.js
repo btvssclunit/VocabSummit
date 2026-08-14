@@ -194,7 +194,7 @@
     function renderJoin(msg) {
       detach();
       ov.innerHTML =
-        '<div class="arena-card"><div class="arena-t">🏔️ 加入结伴登峰</div>' +
+        '<div class="arena-card"><div class="arena-t">🏔️ 结伴登峰</div>' +
         '<div class="arena-sub">请老师在白板上写出擂台码，输入 6 位码加入。</div>' +
         '<input class="arena-code-in" id="arCode" maxlength="6" autocomplete="off" placeholder="ABC123">' +
         '<button class="arena-btn" id="arJoin">加入</button>' +

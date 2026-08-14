@@ -764,9 +764,14 @@ Teacher-hosted live in-class competition (spec: DESIGN_ARENA_课堂擂台.md). O
 - D-1 name: 结伴登峰 (student button 「加入结伴登峰」, teacher tab 结伴登峰). NOT 课堂擂台.
 - D-2 credit: a correct answer marks the word MASTERED (掌握/海拔) but awards NO 历练值 and NO 灵露.
   ⚠️ This ADDS a mastery-conferring path beyond 填空挑战/攀山竞速 — update the MASTERY-GATE note + the
-  showMasteryInfo popover when built. 历练值 stays self-directed-only so a keen teacher can't inflate
-  the 词山风云榜. Structurally: arena code must NEVER call scoreCorrect/bankPts; it may call the mastery
-  mark only. Keep arena in its own arena.js overlay, never entering renderStep().
+  showMasteryInfo popover when built.
+  ⚠️⚠️ **THE ZERO-REWARD HALF OF D-2 WAS REVERSED 2026-08-14** (owner: rooms are students actively
+  USING their vocabulary, and excluding them from the incentive system works against engagement).
+  Rooms now earn 历练值 + 灵露 through `ctx.roomCorrect`. The line that used to stand here —
+  「arena code must NEVER call scoreCorrect/bankPts」 — is **no longer in force**; see the
+  「房间模式计分」 section below for what replaced it and what is still structurally forbidden.
+  What DOES still hold: keep arena in its own arena.js overlay, never entering renderStep(), and let
+  app.js own the store — arena reaches scoring only through a ctx hook, never by touching internals.
 - D-3 modes (v1): 填空挑战 + 华文解释 + 英文翻译 + 攀山竞速 + 词雨灵露. Teacher picks ONE per room.
   For 词雨 the host also sets time / lives / pinyin on-off / 固定-vs-递增 speed; for 攀山竞速 the timer.
   (汉兜 / 组词 excluded from v1.) NOTE: this is BIGGER than the spec's cloze-only v1 — the two real-time
@@ -1427,10 +1432,10 @@ flagged exactly like the old C-tier pricing was.
 - `整理营地` resets positions to the §6 starter layout after a confirm dialog that says plainly that
   nothing owned is lost.
 
-### Scenery thresholds (§5)
+### Scenery thresholds (§5) — ⚠️ RETIRED 2026-08-14, see the 营地只留露营装备 section below
 青松 15% · 樱花树 35% · 望山台 50% · 红枫 60% · 悬泉飞瀑 80% of the stream's word count, via the
-same `sceneryUnlocked()` math the old `prestigeUnlocked()` used. ⚠️ The three tree percentages are
-the doc's PROPOSED values, flagged there for the owner to adjust.
+same `sceneryUnlocked()` math the old `prestigeUnlocked()` used. **None of this is live any more** —
+the owner retired the whole 地貌景观 family. `SCENERY` is now an empty array.
 
 ### 验证
 **No browser again** — the Browser pane blocked 127.0.0.1 and localhost this session too, and there
@@ -1632,9 +1637,12 @@ Defaults assumed, not asked: §5.3 join by typed code only · §5.5 no loss cons
   开一个房间 / 加入朋友的房间. Entry is a ⚔️ pill beside 结伴登峰 on the home mini-horizon.
 
 ### Reward
-**Nothing but mastery.** A PK win awards NO 历练值, NO 灵露 — same locked principle as 结伴登峰, and
-it matters more here: without it, PK is a shortcut around the mastery gate that rewards fast typing
-over knowing the word. ⚠️ The cosmetic **对战徽章 (§5.4) is NOT built** — it needs its own art brief
+⚠️ **SUPERSEDED 2026-08-14.** This used to read 「Nothing but mastery — a PK win awards NO 历练值,
+NO 灵露」. Rooms now earn both, per the owner (see 「房间模式计分」). The old worry (PK becomes a
+shortcut that rewards fast typing over knowing the word) is answered by the formula rather than by a
+blanket ban: the same per-word 灵露 decay and per-day 历练值 repeat cap apply inside a room, so a
+already-known word pays its 10% floor there too. The **placing** itself still awards nothing but a
+cosmetic 对战徽章. Battle badges are BUILT since 2026-08-14 (§B层 对战徽章) — it needs its own art brief
 and must never reuse or mix with the five locked progression badges (shkj/hx/gg/jj/whz). Wins are
 not yet recorded anywhere; add a counter when the badge art exists.
 
@@ -1987,14 +1995,11 @@ B层放在**整个 A层阶梯之后**，独立 `.section-label`（doc §7 明确
 两个家族各一张卡，每张 4 枚（金/银/铜/称号），称号格显示 `4/5 金` 进度。点任意一枚开详情卡
 （复用 `.bd-*`：大图不裁、首次/最近日期、获得次数；称号多一条进度条），底部按钮直接进对应房间。
 
-### ⚠️ 没做的部分（不是遗漏，是有意留下）
-- **doc §0「推翻 arena 零奖励闸门」没有实作。** §0 要房间模式计入 历练值/灵露，但 doc §7 自己写着
-  「房间模式是否沿用 attemptDecay/streakMultiplier，还是用房间专属简化计分 —— 需要单独一轮设计」。
-  计分公式没定就动闸门，等于我替 owner 定了。所以**闸门维持原样**：房间模式仍然只给 海拔，
-  不给 历练值/灵露。对战徽章是纯纪念品，不碰任何排行榜数字。CLAUDE.md「结伴登峰」章节那句
-  「arena code must NEVER call scoreCorrect/bankPts」**目前依然有效**，等 §0 单独一轮设计后再改。
+### ⚠️ 没做的部分
 - **C层（学期风云榜/周榜之星/手速榜）、D层（个人记录）完全没做** —— 美术一张都还没生成，
   且都需要学期结算快照 / 历史数组这类新的 Firestore 结构（doc §7）。
+- （doc §0 的房间模式计分**已在同一天稍后实作**，见下面的「房间模式计分」小节。这里原本写着
+  「闸门维持原样」，那句话已作废。）
 
 ### 验证（真浏览器，本次可用）
 `python3` + **no-store** handler + 127.0.0.1（Browser pane 本次接受了；每个 session 不一定，先试）。
@@ -2017,3 +2022,145 @@ B层放在**整个 A层阶梯之后**，独立 `.section-label`（doc §7 明确
 - Cache-bust `20260814d` → **`20260814e`**（今天第五次部署）。
 ⚠️ **仍未在真设备上跑过**：iPad/Chromebook 上 8 枚一排的换行、结算卡里 58px 奖牌图在手机上的
 观感、以及一场真实的双设备对战（要先发布 rooms 规则）。上课前值得亲手打一局。
+
+## Owner batch, 2026-08-14 (晚) — 房间计分 · 拼音奖励 · 滑杆 · 复习范围 · 营地上山
+
+十三项 owner 要求，一次做完。app.js / arena.js / app.css。**全部在真浏览器里验过**
+（`python3` + no-store handler + 127.0.0.1，Browser pane 本次接受；但**面板处于 hidden 状态，
+截图全白**，所以下面是「量到的」不是「看到的」）。
+
+### 1. 房间模式计入 历练值/灵露 —— 推翻 D-2 零奖励闸门
+Owner 理由：房间是学生**主动运用**词汇的场合，不该被排除在激励系统外。
+- 新 `ctx.roomCorrect(w, mode, entering, tier)`（app.js），arena.js 在每个答对点调用。
+  **arena 的隔离形状没变**：它仍然只通过 ctx 钩子说话，不碰 app.js 内部。
+- 沿用**修行的同一套公式**（doc §7 说房间专属公式「需要单独一轮设计」，所以没有另起炉灶）：
+  base × attemptDecay × streakMultiplier。房间里没有重答，attempt 恒为 1；`entering` 由 arena
+  自己的连对计数提供。cloze 的 base 取 host 设的难度档（`room.tier`）。
+- **词雨房间给 0 历练值**，和单人词雨一致；灵露照给。
+- **+10 首次掌握** 现在也在房间路径发放（`conferMasteryFromRoom` 里，海拔真正上升的那一刻），
+  和 `markMastered` 同一个 once-per-word 守卫，不会重复。
+- ⚠️ **跨年级房间按「词」而不是按 id 计分**：房间发的是 host 的 word 对象，其 id 在本地毫无意义，
+  直接拿来算会让 `wasMastered` 永远是 false，等于给已经掌握的词一直发首次分。`roomCorrect` 先用
+  `wordByText` 把词换成**我们自己的**那一份再计分。
+- 房间不是捷径：同一套 per-word 灵露衰减和 per-day 历练值重复上限照样生效（实测同一个词第二次
+  只拿 3 而不是 5）。
+
+### 2. 答对音效（房间里原本没有）
+`roomCorrect` 一进来就 `sfxOk()`，在任何计分逻辑之前 —— 即使某条路径不计分，声音也一定响。
+单人模式本来就有，只有房间缺。
+
+### 3. 「加入结伴登峰」→「结伴登峰」
+三处：首页药丸、arena.js 加入卡标题、对战徽章详情卡的按钮。
+
+### 4. 你的营地会跟着爬山了
+以前营地钉死在 frac 0，另有一颗 15px 的 `.mtn2-hero` 小圆点标「你在这里」——两个东西表达同一件事，
+而且帐篷永远不动。现在**帐篷就是你在这里**：位置取当前海拔比例，46px → **64px**，加金色呼吸光晕
+（`mtnCampGlow`）与缓慢浮动（`mtnCampFloat`，浮动放在内层 span 上，免得和按钮自己的
+`translate(-50%,-50%)` 定位与 hover 缩放打架），z-index 7 压在其他 pin 之上。`.mtn2-hero` 已删除。
+⚠️ **只有渲染位置变了**：`buildMarks` 里营地仍然记在 alt 0，所以目标、区域边界、markDone 全不受影响。
+`prefers-reduced-motion` 下两个动画都停。
+
+### 5-6. 文字可读性
+- 我的词山的 🎯 目标行和底部图例，原本是**裸文字直接压在画上**（`--gold-deep` / `--ink-soft`），
+  在明亮的竹林/天空 ambience 上根本读不出来。改成 `.ach-hint` 早就用过的做法：深色字 + 玻璃药丸。
+- `.pop-card` 的 alpha 从 .82/.68/.72 提到 .95/.90/.93。⚠️ 2026-08-14 的液态玻璃小节警告过**不要
+  调低**；这次是**调高**，正是为了可读性。`.pop-hint` 从 #8A94A0（几乎看不见）改成 #4E6273，
+  `.gym-sec.lock` 从 `--ink-soft` 改成 `--ink`。要再动之前，先在最亮的背景上打开年级峰弹窗看一眼。
+
+### 7. 组词挑战 字块数量可选 + 一个顺手抓到的泄题 bug
+- `store.asmChips`，6/9/12/16（**含答案本身的字**），滑杆。以前硬编码 9。
+- ⚠️ **抓到一个既有的泄题 bug**：切换「出题方式」会重画 renderAssemble，而**干扰字每次重抽、答案的
+  字必然次次都在** —— 来回切两次就能看出哪些字是答案。和 2026-08-13 记录的「填空选项重洗=泄题」
+  完全同一类。`asmChips()` 现在按题缓存干扰池（key = `state.i + "|" + w.id`）并按数量缓存排列，
+  所以同一数量下切换出题方式得到**完全相同**的字块，改数量只在尾部增减。实测验证。
+
+### 8. 拼音模式给一成奖励
+Owner：「right now pinyin questions give 0 rewards but we need to also affirm their efforts」。
+`PY_PRACTICE_MULT = 0.10`，`scoreCorrect` 新增第 6 个参数 `mult`，**下限 1 分**（重点是肯定，
+不是按劳计酬）。适用 填空·打拼音 与 组词·拼音。文案同步：「练习不计分」→「一成历练值」。
+- ⚠️ **仍然不给海拔**：掌握是有文档的闸门，而且「二元状态的 10%」不存在。
+- ⚠️ **仍然不进连对**：否则学生可以在拼音模式刷出便宜的连对倍率再切回修行。
+- 灵露维持原样（打拼音本来就按 tier 2 全额给，那是 2026-08-14 经济文档的既有决定，没有下调）。
+
+### 9. 徽章详情卡的「去挑战」只练没掌握的
+按钮写着「学这 6 个词语」，实际却发整个板块 7 题。现在只发未掌握的那些，按钮数字也改成按同一套
+过滤算出来（含「板块里有 cloze 就只发有 cloze 的未掌握词」这一层），承诺和实际不再对不上。
+全掌握但徽章未亮的边缘情况回退到全部词，免得开出空回合。
+
+### 10. 复习范围
+- **板块筛选**：一行 chips（生活空间/核心/巩固/进阶/文化站，按本 stream 实际存在的渲染），
+  `store.compOff` 存**排除项**而不是包含项，这样将来新增板块默认可见而不是被悄悄藏掉。
+  ⚠️ 没有做**每个单元各自**的板块开关：4-6 单元 × 最多 5 板块 ≈ 25 个额外 chip，直接违背 owner
+  自己「不能杂乱」的约束。学生真正的诉求是「这周只练核心」，一行就够。
+  最后一个板块不能关掉（否则范围空了但单元还亮着，看起来像 bug）。
+- **手风琴改成互斥**：一次只展开一个年级，`store.accLevel` 存单个年级名。**首次进入全部折叠**
+  （以前默认展开第一个），之后记住上次展开的。折叠不影响选择，跨年级多选照旧。
+- `store.accOpen`（旧的 level→bool map）作废，留在 loadStore 里只为让旧存档还能解析。
+
+### 11. 数量选择一律改滑杆
+每次题数 / 挑战难度 / 冲刺时长 / 同伴挑战时长 / 组词字块数量。以前是一摞整宽按钮（光题数就 5 个）。
+`qtySlider()` + `wireQtySlider()`，**range 的 min/max 走的是允许值的下标**（0..n-1，step 1），
+所以拖动只可能落在合法值上，而且 60/90/120 这种不等距的值在轨道上仍然均匀分布。
+- **难度也做成滑杆**（owner 明确要求；我原先想保留成瓦片，被纠正）。**打拼音排在最简单一端**，
+  在 ⭐ 之前 —— 它是只给一成历练值、不给海拔的熟悉性档位，放在 ⭐⭐⭐⭐ 之后会被读成最难。
+- 滑块 30px，达到可及性那一轮给答题按钮定下的手指尺寸。**没有加 `touch-action:manipulation`**
+  —— range 要靠拖动手势，加了会废掉它。
+
+### 12. 攀山竞速 空间重新分配
+Owner：石墙缩小、题目和选项放大。`.sprint-canvas` 从 `flex:1 1 auto`（约占一半）改成
+`flex:0 1 clamp(240px,30%,430px)`，`.sprint-right` 拿走其余。题干 17.5px → `clamp(22px,2.1vw,30px)`，
+选项 19px → `clamp(21px,1.9vw,27px)`，选项按钮实测高 77px。
+⚠️ **第一次改完字号没生效**：`.sprint-q .sq-prompt{font-size:17.5px}` 这些基础规则**写在 media
+query 后面**，同优先级下后者赢。整个 landscape @media 块已挪到基础规则之后。这个只有在浏览器里量
+computed style 才会发现 —— headless 断言看不出来。
+
+### 13. 词雨「暂停」按钮
+**源码里根本没有这个按钮。** 2026-08-14 的 fix batch 已经删掉（commit `3c339d2`），本地与
+origin/main 都 grep 不到 `暂停`/`⏸`，词雨 HUD 里唯一的按钮是「收集」。owner 看到的几乎可以肯定是
+**浏览器缓存的旧 app.js** —— 正是 cache-bust 那一节存在的原因。硬刷新（或等这次 `?v=` 生效）即可。
+没有改任何代码。
+
+### 常胜擂主/凯旋号手 交付包核对（owner 追问）
+`常胜擂主_凯旋号手_入库交付/` 里的两枚 PNG 是 owner 侧自行抠好的 **256px**；仓库里已经是我处理的
+**320px**。**保留 320px 版**：(a) 和另外六枚一致（交付包 §8 以为六枚是 256px，实际是 320px），
+(b) 详情卡 150px × 2 倍屏需要 300px，256 会略糊，(c) 实测边缘混色带亮度 164 vs 197 —— 交付版留了更多
+白边，在深色卡片上会有一圈白晕。交付包 §8 列的四件事（拆闸门 / 房间接入计分 / 徽章胜场记录 / CLAUDE.md
+更正）**本批全部完成**。
+
+### 验证
+真浏览器，1440×820 与 375×812：
+- 复习范围 9 条 + 板块筛选 7 条（含「不能把板块全关掉」和词数 426→363 的实际变化）
+- 滑杆 12 条（题数/难度/持久化/无遗留瓦片/打拼音在最简端）
+- 拼音奖励 6 条（真的答对一题 `默契 → moqi`，反馈行显示「+1 历练值」，灵露 +20，海拔仍 0，连对仍 0）
+- 组词 8 条（含泄题守卫：同尺寸切换出题方式字块集合完全相同；6/9/16 之间来回后 9 的集合原样恢复）
+- 我的词山 9 条（帐篷 64px、爬到 0.704 高度、发光+浮动动画、z-index 7、仍可点开营地、两行文字都在药丸上）
+- 攀山竞速 8 条（墙 347px vs 题目栏 795px = 30%、题干 30px、选项 27px、点击目标 77px、无溢出）
+- 徽章去挑战 4 条（9 词板块已掌握 3 → 按钮说 6 → 实际发 6 题）
+- 房间计分 13 条（历练值/灵露真的入账、连对倍率生效、cloze 难度档影响 base、词雨 0 历练值但有灵露、
+  衰减照旧、跨年级按词匹配且外来 id 不污染海拔、+10 首次掌握发放且不重复）
+- 房间端到端 5 条（mock Firestore 驱动真 arena.js + 真 ctx：答对入账、结算仍发奖牌）
+JS 全部可解析，CSS 括号 718/718。Cache-bust `20260814e` → **`20260814f`**。
+⚠️ **仍未在真设备上跑过**：滑杆用手指拖的手感、iPad 上的攀山竞速新比例、帐篷动画在 Chromebook 上
+的性能（backdrop-filter + 两个 infinite 动画同屏）。上课前值得亲手过一遍。
+
+## 营地只留露营装备 · 2026-08-14 (owner)
+
+Owner: 「retire everything in the campsite and shop that are not camping related e.g. all the
+scenery items」。**地貌景观 (SCENERY) 整族退役**：青松 / 樱花树 / 望山台 / 红枫 / 悬泉飞瀑。
+它们是地貌特征，不是露营者会带的东西 —— 营地现在只有装备。
+
+- `SCENERY` 变成**空数组**，没有把它连同 `sceneryUnlocked()` 和两处渲染路径一起删掉：留着空数组，
+  哪天 owner 想要地貌回来只是填回一行的事，删掉则要重写三处。
+- 商店的「地貌景观」整个分区连同 `sceneryHtml` 一起移除。
+- 五张 PNG **留在 `art/camp/` 不再被引用**，和当初园林时期美术的处理方式一致：归档，不删除。
+  （所以「每个被引用的 PNG 都存在」这条检查照样通过；反过来的检查——每个 PNG 都被引用——本仓库
+  从来没有做过，也不该做。）
+- `store.deco` 一如既往**不做清理**，学生已拥有的东西不会因为这次退役而消失。
+- **保留的**：九个装备格（住所/照明/探勘/饮水/收纳/起居/茶点/炊事/干粮）全部保留，
+  四件小摆件（篝火 / 风铃 / 打盹的猫 / 木牌路标）也保留 —— 都是能背上山的东西。
+  ⚠️ 风铃和猫算不算「露营相关」有点擦边（便携化那一轮把它们定为 §2c 小摆件），
+  owner 若认为也该退役，照 SCENERY 的做法从 `TRINKETS` 移出即可。
+
+验证（真浏览器，海拔灌满 426/426，也就是旧阈值全部会触发的状态）：营地场景里
+`.camp-scenery` 数量为 0，商店没有「地貌景观」字样，五个名字一个都搜不到，
+装备与小摆件照常显示，无破图。
