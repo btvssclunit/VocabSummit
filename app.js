@@ -1223,13 +1223,13 @@
     var pool = scopedWords();
     var mode = store.pkMode || "cloze", dur = store.pkDur || 300;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">⚔️ 同伴挑战 · PK对决</div>' +
+      '<div class="mode-name">⚔️ 同伴挑战 · PK对决' + pyl("同伴挑战 · PK对决") + enli("同伴挑战 · PK对决") + '</div>' +
       '<div class="mode-desc">和朋友比一比：同一套题，限时内谁答对得多谁赢。' +
       '答对的词照样计入「已掌握」，但对决<b>不计历练值、不计灵露</b>，纯粹为了好玩。<br>' +
       '2 至 ' + 8 + ' 人。开局后不能中途加入，掉线的人可以用房间号回来。</div>' +
       '<div class="pk-scope">出题范围：<b>' + pool.length + '</b> 词' +
       '<span class="pk-scope-note">用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。</span></div>' +
-      '<div class="diff-label">' + stepNo(1) + '题型</div><div class="diff" id="pkMode">' +
+      '<div class="diff-label">' + stepNo(1) + '题型' + pyl("题型") + enl("题型") + '</div><div class="diff" id="pkMode">' +
       PK_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
       }).join("") + '</div>' +
@@ -1312,7 +1312,7 @@
     html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
       'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
 
-    html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围") + enl("复习范围") + '</div>' +
+    html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围 · 可多选") + enl("复习范围 · 可多选") + '</div>' +
       '<div class="card" id="scopeCard">' +
       '<div class="scope-top">' +
       '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
@@ -1350,13 +1350,13 @@
     html += '</div>';
 
     html += '</div><div class="home-right">' +
-      '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择方式") + enl("选择方式") + '</div>' +
+      '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择学习方式") + enl("选择学习方式") + '</div>' +
       '<div class="htabs">' +
       '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + pyl("修行") + enl("修行") + '</button>' +
       '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + pyl("闯关") + enl("闯关") + '</button></div>';
 
     if (store.homeTab === "play") {
-      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("今日路线") + enl("今日路线") + '</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("词语游乐场") + enl("词语游乐场") + '</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
         ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
@@ -1366,7 +1366,7 @@
          「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
          being spread across the home page. 词语闪卡 keeps its own card — different
          interaction (看词认义/点读), not a question-answering mode. */
-      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + pyl("今日路线") + enl("今日路线") + '</div><div class="camps">' +
+      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + pyl("今日路线 · 选择你的营地") + enl("今日路线 · 选择你的营地") + '</div><div class="camps">' +
         camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") +
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
@@ -1514,8 +1514,10 @@
     var tab = store.achTab === "battle" ? "battle" : "milestone";
     var html = '<div class="ach-wrap">' +
       '<div class="ach-tabs">' +
-      '<button class="ach-tab' + (tab === "milestone" ? " on" : "") + '" data-at="milestone">📜 掌握里程碑</button>' +
-      '<button class="ach-tab' + (tab === "battle" ? " on" : "") + '" data-at="battle">⚔️ 对战徽章</button></div>';
+      '<button class="ach-tab' + (tab === "milestone" ? " on" : "") + '" data-at="milestone">📜 掌握里程碑' +
+        pyl("掌握里程碑") + enl("掌握里程碑") + '</button>' +
+      '<button class="ach-tab' + (tab === "battle" ? " on" : "") + '" data-at="battle">⚔️ 对战徽章' +
+        pyl("对战徽章") + enl("对战徽章") + '</button></div>';
     if (tab === "battle") {
       html += battleWallHtml() + '</div>';
       view().innerHTML = html;
@@ -1525,7 +1527,8 @@
       });
       return;
     }
-    html += '<div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王</div>' +
+    html += '<div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王' +
+      pyl("成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王") + enl("成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王") + '</div>' +
       '<div class="ach-hint">点一下任何一枚板块章：看清大图与获得日期，未得到的可以直接挑战这个板块。</div>';
     LEVELS.forEach(function (lv) {
       var lvDone = store.badges[badgeKeyL(lv)];
@@ -1632,7 +1635,7 @@
       meta + prog +
       '<div class="nav-row">' +
       '<button class="nav-btn primary" id="bbGo">' + (family === "room" ? "🏔️ 结伴登峰" : "⚔️ 开一场同伴挑战") + '</button>' +
-      '<button class="nav-btn" id="bbClose">关闭</button></div></div>');
+      '<button class="nav-btn" id="bbClose">关闭' + pyl("关闭") + enli("关闭") + '</button></div></div>');
     ov.querySelector("#bbClose").onclick = function () { ov.remove(); };
     ov.querySelector("#bbGo").onclick = function () {
       ov.remove();
@@ -1720,7 +1723,7 @@
       '<span>已掌握 ' + done + ' / ' + words.length + ' 词</span></div>' +
       '<div class="bd-words">' + chips + '</div>' + modeRow +
       '<div class="nav-row">' + actions +
-      '<button class="nav-btn" id="bdClose">关闭</button></div></div>');
+      '<button class="nav-btn" id="bdClose">关闭' + pyl("关闭") + enli("关闭") + '</button></div></div>');
 
     ov.querySelector("#bdClose").onclick = function () { ov.remove(); };
     Array.prototype.forEach.call(ov.querySelectorAll(".bd-mode"), function (b) {
@@ -1830,7 +1833,7 @@
         '<div class="big">🎖 ' + esc(c.component) + ' · 已获得 ' + log.n + ' 次</div>' +
         '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
         '<div class="msg">温故而知新。这枚板块章已经收入囊中 ' + log.n + ' 次。</div>' +
-        '<div class="nav-row"><button class="nav-btn" id="again">再来一次</button>' +
+        '<div class="nav-row"><button class="nav-btn" id="again">再来一次' + pyl("再来一次") + enli("再来一次") + '</button>' +
         '<button class="nav-btn primary" id="home">‹ 回成就墙</button></div></div>';
     } else {
       var miss = wrongIds.map(function (id) { var w = WORDS[_idIndex[id]]; return w ? esc(w.w) : null; }).filter(Boolean);
@@ -2110,7 +2113,7 @@
       (d.school ? '<div class="pb-sub">' + esc(d.school) + '</div>' : '') +
       cards +
       '<div class="pb-note">只显示对战奖牌数量，不显示学习进度。</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="pbClose">关闭</button></div></div>');
+      '<div class="nav-row"><button class="nav-btn" id="pbClose">关闭' + pyl("关闭") + enli("关闭") + '</button></div></div>');
     ov.querySelector("#pbClose").onclick = function () { ov.remove(); };
   }
 
@@ -2150,7 +2153,7 @@
     var m = streakMult(state.streak);
     var mchip = m > 1 ? ' <span class="mult" id="multChip">×' + m.toFixed(1) + '</span>' : '';
     return '<div class="rail card">' +
-      '<div class="mode-name">' + name + '</div>' +
+      '<div class="mode-name">' + name + pyl(name) + enli(name) + '</div>' +
       '<div class="mode-desc">' + desc + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + total + '</small></div>' +
       '<div class="prog-track"><div class="prog-fill" style="width:' + Math.round(100 * state.i / total) + '%"></div></div>' +
@@ -2251,7 +2254,7 @@
       '<div class="msg">词语看熟了，就去填空挑战里检验一下吧！</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再看一轮</button>' +
-      '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
     document.getElementById("again").onclick = function () { startMode("flash"); };
     document.getElementById("home").onclick = renderHome;
   }
@@ -2368,13 +2371,14 @@
   /* Shell labels only. Keep this list SHORT and navigational: it is a
      decoding crutch for the interface, not a translation layer for the app. */
   var EN_LAB = {
-    "复习范围": "Choose your units",
+    "复习范围 · 可多选": "Choose your units",
     "全选": "Select all",
     "清空": "Clear",
-    "选择方式": "Pick a path",
+    "选择学习方式": "Pick a path",
     "修行": "Practice",
     "闯关": "Games",
-    "今日路线": "Pick an activity",
+    "词语游乐场": "Pick a game",
+    "今日路线 · 选择你的营地": "Pick an activity",
     "学习挑战": "Quiz",
     "词语闪卡": "Flashcards",
     "词雨灵露": "Word Rain",
@@ -2397,6 +2401,7 @@
     "速度模式": "Speed mode",
     "下落速度": "Falling speed",
     "拼音辅助": "Show pinyin",
+    "拼音": "Show pinyin",
     "开始挑战": "Start",
     "开始攀登": "Start climbing",
     "开始游戏": "Start game",
@@ -2427,7 +2432,14 @@
     "查看": "Open",
     "关闭": "Close",
     "返回": "Back",
-    "板块": "Sections"
+    "板块": "Sections",
+    "再来一局": "Play again",
+    "回到营地": "Back to camp",
+    "连胜": "Win streak",
+    "同伴挑战 · PK对决": "Duel a friend",
+    "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王": "Badge wall",
+    "掌握里程碑": "Milestones",
+    "对战徽章": "Battle medals"
   };
   /* 拼音 for the INTERFACE (owner 2026-08-14: "students who are weak can't read
      this and can get overwhelmed"). Same contract as EN_LAB — navigation and
@@ -2441,9 +2453,11 @@
      whenever you add an EN_LAB entry — pyl() falls back to nothing if a key is
      missing, so a gap is silent, not broken. */
   var PY_LAB = {
-    "复习范围": "fù xí fàn wéi", "全选": "quán xuǎn", "清空": "qīng kōng",
-    "选择方式": "xuǎn zé fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",
-    "今日路线": "jīn rì lù xiàn", "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
+    "复习范围 · 可多选": "fù xí fàn wéi · kě duō xuǎn", "全选": "quán xuǎn", "清空": "qīng kōng",
+    "选择学习方式": "xuǎn zé xué xí fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",
+    "词语游乐场": "cí yǔ yóu lè chǎng",
+    "今日路线 · 选择你的营地": "jīn rì lù xiàn · xuǎn zé nǐ de yíng dì",
+    "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
     "词雨灵露": "cí yǔ líng lù", "攀山竞速": "pān shān jìng sù", "组词挑战": "zǔ cí tiǎo zhàn",
     "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
     "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
@@ -2451,7 +2465,7 @@
     "学习支援": "xué xí zhī yuán", "填空挑战": "tián kòng tiǎo zhàn",
     "华文解释": "huá wén jiě shì", "英文翻译": "yīng wén fān yì",
     "题目类型": "tí mù lèi xíng", "冲刺时长": "chōng cì shí cháng",
-    "速度模式": "sù dù mó shì", "下落速度": "xià luò sù dù", "拼音辅助": "pīn yīn fǔ zhù",
+    "速度模式": "sù dù mó shì", "下落速度": "xià luò sù dù", "拼音辅助": "pīn yīn fǔ zhù", "拼音": "pīn yīn",
     "开始挑战": "kāi shǐ tiǎo zhàn", "开始攀登": "kāi shǐ pān dēng", "开始游戏": "kāi shǐ yóu xì",
     "回营地": "huí yíng dì", "下一题": "xià yī tí",
     "答对": "dá duì", "连对": "lián duì", "海拔": "hǎi bá", "历练值": "lì liàn zhí",
@@ -2460,7 +2474,12 @@
     "出题方式": "chū tí fāng shì", "字块数量": "zì kuài shù liàng", "时长": "shí cháng",
     "检查": "jiǎn chá", "收集": "shōu jí", "提示": "tí shì", "看成绩": "kàn chéng jì",
     "再来一次": "zài lái yī cì", "查看": "chá kàn", "关闭": "guān bì", "返回": "fǎn huí",
-    "板块": "bǎn kuài"
+    "板块": "bǎn kuài", "连胜": "lián shèng",
+    "再来一局": "zài lái yī jú", "回到营地": "huí dào yíng dì",
+    "同伴挑战 · PK对决": "tóng bàn tiǎo zhàn · PK duì jué",
+    "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王":
+      "chéng jiù qiáng · bǎn kuài zhāng → dān yuán zhāng → nián jí zhāng → dǐng jí cí wáng",
+    "掌握里程碑": "zhǎng wò lǐ chéng bēi", "对战徽章": "duì zhàn huī zhāng"
   };
   function pyl(key) {
     if (!pyAidAvailable()) return "";
@@ -2602,7 +2621,7 @@
     return '<button class="tb-py' + (store.pyAid ? " on" : "") + '" id="tbPy" ' +
       'title="拼音辅助" aria-label="拼音辅助 Show pinyin" ' +
       'aria-pressed="' + (store.pyAid ? "true" : "false") + '">' +
-      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音' + pyl("拼音辅助") + enli("拼音辅助") + '</span></button>';
+      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音' + pyl("拼音") + enli("拼音") + '</span></button>';
   }
   /* the CURRENT screen's "pinyin changed, redraw yourself" hook. Cleared by
      setTopbar and re-set by whichever screen has a pinyin surface, so a screen
@@ -2683,7 +2702,7 @@
     if (typing) {
       html += '<div class="answer-row">' +
         '<input class="answer-input" id="ans" autocomplete="off" placeholder="' + (pyMode ? "输入拼音（不用声调）…" : "输入词语…") + '">' +
-        '<button class="check-btn" id="chk">检查</button></div>' +
+        '<button class="check-btn" id="chk">检查' + pyl("检查") + enli("检查") + '</button></div>' +
         '<button class="hint-btn" id="hint">' + (pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
     } else {
       var n = parseInt(store.diff, 10);
@@ -2907,8 +2926,8 @@
       '<div class="sub">正确率 ' + pct + '%</div>' +
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
-      '<button class="nav-btn" id="again">再来一局</button>' +
-      '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+      '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
+      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
     document.getElementById("again").onclick = function () { startMode(state.mode); };
     document.getElementById("home").onclick = renderHome;
   }
@@ -3296,8 +3315,8 @@
         '<div class="msg">' + campLingluIcon() + ' 收获灵露 ' + dew + ' · 现有 ' + fmtNum(store.lingLu) + '（在词山营地兑换装备）</div>' +
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
         '<div class="nav-row">' +
-        '<button class="nav-btn" id="again">再来一局</button>' +
-        '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+        '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
+        '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
       document.getElementById("again").onclick = function () { startRain(showPy, roomCode); };
       document.getElementById("home").onclick = renderHome;
     }
@@ -3386,10 +3405,10 @@
     setTopbar("home", "");
     var streak = store.best.handle || 0;
     var html = '<div class="study"><div class="rail card">' +
-      '<div class="mode-name">🀄 词语汉兜</div>' +
+      '<div class="mode-name">🀄 词语汉兜' + pyl("词语汉兜") + enli("词语汉兜") + '</div>' +
       '<div class="mode-desc">猜一个范围内的四字词语。<br>🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字</div>' +
       '<div class="prog-big">' + state.rows.length + ' <small>/ 6 次</small></div>' +
-      '<div class="streak">连胜 <b>' + streak + '</b> 🏮</div>' +
+      '<div class="streak">连胜' + pyl("连胜") + enli("连胜") + ' <b>' + streak + '</b> 🏮</div>' +
       handleHintHtml(state) + '</div>' +
       '<div class="stage">';
     var ini = pyInitials(state.answer.py);
@@ -3414,7 +3433,7 @@
       var hintsLeft = state.hintN < 4 || !state.showDef;
       html += '<div class="answer-row handle-input">' +
         '<input class="answer-input" id="hAns" autocomplete="off" maxlength="4" placeholder="输入四字词语…">' +
-        '<button class="nav-btn" id="hHint"' + (hintsLeft ? "" : " disabled") + '>💡 提示</button>' +
+        '<button class="nav-btn" id="hHint"' + (hintsLeft ? "" : " disabled") + '>💡 提示' + pyl("提示") + enli("提示") + '</button>' +
         '<button class="check-btn" id="hChk">猜！</button></div>' +
         '<div class="feedback" id="hFb"></div>';
     } else {
@@ -3577,7 +3596,7 @@
     else { promptTag = "看释义，拼出词语"; promptHtml = esc(w.zh); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读释义</button>'; ttsFn = function () { speak(w.zh); }; }
 
     var html = '<div class="study"><div class="rail card">' +
-      '<div class="mode-name">🧩 组词挑战</div>' +
+      '<div class="mode-name">🧩 组词挑战' + pyl("组词挑战") + enli("组词挑战") + '</div>' +
       '<div class="mode-desc">按顺序点出词语的字。</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
@@ -3595,7 +3614,8 @@
       '<div class="feedback" id="asmFb"></div>' +
       '<div class="nav-row" id="asmNextRow" style="display:none">' +
       '<button class="nav-btn primary" id="asmNext">' +
-      (state.i + 1 >= state.seq.length ? "看成绩 ›" : "下一题 ›" + pyl("下一题") + enli("下一题")) + '</button></div></div></div>';
+      (state.i + 1 >= state.seq.length ? "看成绩 ›" + pyl("看成绩") + enli("看成绩")
+        : "下一题 ›" + pyl("下一题") + enli("下一题")) + '</button></div></div></div>';
     view().innerHTML = html;
 
     Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
@@ -3671,8 +3691,8 @@
       '<div class="sub">组词挑战 · 一次拼对 ' + state.perfect + ' 题</div>' +
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
-      '<button class="nav-btn" id="again">再来一局</button>' +
-      '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+      '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
+      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
     document.getElementById("again").onclick = startAssemble;
     document.getElementById("home").onclick = renderHome;
   }
@@ -4046,8 +4066,8 @@
         '<div class="sub">攀山竞速 · 新掌握 ' + newMastered + ' 词 · 海拔 +' + newMastered + ' 米</div>' +
         '<div class="msg">' + (isBest ? "🚩 个人新纪录！" : "我的海拔：" + altitudeNow() + " 米") + '</div>' +
         '<div class="nav-row">' +
-        '<button class="nav-btn" id="again">再来一局</button>' +
-        '<button class="nav-btn primary" id="home">回到营地</button></div></div>';
+        '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
+        '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
       document.getElementById("again").onclick = startSprint;
       document.getElementById("home").onclick = renderHome;
       flushCelebrations();
@@ -4582,7 +4602,7 @@
       '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
       gearHtml +
       '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
-      '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地</button></div>' +
+      '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button></div>' +
       '</div></div>';
     view().innerHTML = html;
     document.getElementById("shopBack").onclick = openCampScene;
@@ -4764,6 +4784,7 @@
       role: opts.currentRole || "student",
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
+      schoolQ: "",
       heardFrom: opts.currentHeard || "" };
 
     var ov = document.createElement("div");
@@ -4789,6 +4810,18 @@
       Array.prototype.forEach.call(root.querySelectorAll(".wchip"), function (el) {
         el.onclick = function () { onClick(el.getAttribute("data-v")); };
       });
+    }
+
+    /* 🎲 roll a fresh 描述词·名词 pair. Used by the first-step dice AND by
+       换一个 on the confirm step, so a student can keep rolling until they like
+       the name instead of walking the four chip steps again. */
+    function rollNick() {
+      var dCats = Object.keys(DESC_CATS), nCats = Object.keys(NOUN_CATS);
+      var dCat = dCats[Math.floor(Math.random() * dCats.length)];
+      var nCat = nCats[Math.floor(Math.random() * nCats.length)];
+      var dList = DESC_CATS[dCat], nList = NOUN_CATS[nCat];
+      st.descCat = dCat; st.desc = dList[Math.floor(Math.random() * dList.length)].w;
+      st.nounCat = nCat; st.noun = nList[Math.floor(Math.random() * nList.length)];
     }
 
     function renderStep() {
@@ -4830,16 +4863,17 @@
             : "你的学校 Your school";
           var otherPh = role === "teacher" ? "请输入学校 / 机构名称 School / organisation name" : "请输入学校名称 School name";
           detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("npSchoolQ", st.schoolQ) : "") +
             '<select id="npSchool" class="np-select">' +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel)
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ)
               : ('<option value="' + esc(_bvss) + '"' + (sel === _bvss ? " selected" : "") + '>' + esc(_bvss) + '</option>' +
                  '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>')) +
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
         html = '<div class="pop-title">🎉 你的昵称</div>' +
-          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 12px">' +
-          esc(nickname) + '</div>' +
+          '<div class="np-name-row"><span class="np-name">' + esc(nickname) + '</span>' +
+          '<button class="np-roll" id="npRoll">🎲 换一个</button></div>' +
           '<div class="pop-label">你的身份 I am a…</div>' +
           '<div class="np-roles">' + roleBtns.map(function (r) {
             return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
@@ -4854,13 +4888,7 @@
       if (st.step === "descCat") {
         wireChips(card);
         document.getElementById("npRandom").onclick = function () {
-          var dCats = Object.keys(DESC_CATS), nCats = Object.keys(NOUN_CATS);
-          var dCat = dCats[Math.floor(Math.random() * dCats.length)];
-          var nCat = nCats[Math.floor(Math.random() * nCats.length)];
-          var dList = DESC_CATS[dCat], nList = NOUN_CATS[nCat];
-          st.descCat = dCat; st.desc = dList[Math.floor(Math.random() * dList.length)].w;
-          st.nounCat = nCat; st.noun = nList[Math.floor(Math.random() * nList.length)];
-          st.step = "confirm"; renderStep();
+          rollNick(); st.step = "confirm"; renderStep();
         };
         Array.prototype.forEach.call(card.querySelectorAll(".wchip"), function (el) {
           el.onclick = function () { st.descCat = el.getAttribute("data-v"); st.step = "descWord"; renderStep(); };
@@ -4884,7 +4912,17 @@
         Array.prototype.forEach.call(card.querySelectorAll(".np-role"), function (b) {
           b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
         });
+        document.getElementById("npRoll").onclick = function () { rollNick(); renderStep(); };
         var selEl = document.getElementById("npSchool");
+        if (selEl && window.SG_SCHOOLS) {
+          window.SG_SCHOOLS.wireSearch(document.getElementById("npSchoolQ"), selEl, function (v, q) {
+            st.schoolQ = q;
+            if (v === st.schoolSel) return;
+            var wasOther = st.schoolSel === "other";
+            st.schoolSel = v;
+            if (wasOther) renderStep();   // drop the free-text box now a school was found
+          });
+        }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
         var otherEl = document.getElementById("npSchoolOther");
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };

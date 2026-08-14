@@ -210,17 +210,57 @@
     BVSS: SCHOOL_BVSS,
     LIST: SCHOOL_LIST,
     isKnown: function (v) { return v === SCHOOL_BVSS || SCHOOL_LIST.indexOf(v) !== -1; },
+    normQ: function (q) { return String(q == null ? "" : q).trim().toLowerCase(); },
+    /* Schools whose name CONTAINS the query, matched against the whole
+       "中文 English" string, so 「培华」 and 「pei hwa」 both find the same row.
+       Empty query = everything, BVSS pinned first. */
+    matches: function (q) {
+      var n = this.normQ(q);
+      var all = [SCHOOL_BVSS].concat(SCHOOL_LIST);
+      if (!n) return all;
+      return all.filter(function (s) { return s.toLowerCase().indexOf(n) !== -1; });
+    },
     /* <option>s for a school <select>. `sel` = the currently stored value; a
        non-empty value that is NOT a listed school selects 其他 (the caller then
-       shows a free-text box). BVSS is always pinned first. */
-    optionsHtml: function (sel) {
+       shows a free-text box). `q` (optional) narrows the list to matches — the
+       stored school is always kept in its own dropdown even when it no longer
+       matches, so a search can never silently drop what is already chosen. */
+    optionsHtml: function (sel, q) {
       var known = this.isKnown(sel);
-      var out = '<option value="' + esc(SCHOOL_BVSS) + '"' + (sel === SCHOOL_BVSS ? " selected" : "") + '>' + esc(SCHOOL_BVSS) + '</option>';
-      for (var i = 0; i < SCHOOL_LIST.length; i++) {
-        out += '<option value="' + esc(SCHOOL_LIST[i]) + '"' + (sel === SCHOOL_LIST[i] ? " selected" : "") + '>' + esc(SCHOOL_LIST[i]) + '</option>';
+      var list = this.matches(q);
+      var hits = list.length;              // BEFORE the current school is pinned back in
+      if (known && list.indexOf(sel) === -1) list = [sel].concat(list);
+      var out = "";
+      if (!sel) out += '<option value="" selected>请选择学校 Select school…</option>';
+      if (this.normQ(q) && !hits) out += '<option value="" disabled>没有找到，请选「其他 Others」</option>';
+      for (var i = 0; i < list.length; i++) {
+        out += '<option value="' + esc(list[i]) + '"' + (sel === list[i] ? " selected" : "") + '>' + esc(list[i]) + '</option>';
       }
       out += '<option value="other"' + (((sel && !known) || sel === "other") ? " selected" : "") + '>其他 Others</option>';
       return out;
+    },
+    /* The search box that drives the filter above. 150+ schools is far too many
+       to scroll on a phone, so every school <select> in the app is paired with
+       one of these. */
+    searchHtml: function (id, q) {
+      return '<input type="search" class="np-search" id="' + id + '" autocomplete="off" ' +
+        'placeholder="🔍 输入校名任意部分 Type any part of the name" value="' + esc(q || "") + '">';
+    },
+    /* Live-filter `select` from `input`. onPick(value, query) fires on every
+       keystroke, so the caller can persist the query and react to a changed
+       school. Rebuilds the <option>s in place (never a full re-render) — the
+       search box must keep focus while the student is still typing. */
+    wireSearch: function (input, select, onPick) {
+      if (!input || !select) return;
+      var self = this;
+      input.oninput = function () {
+        var q = input.value;
+        var cur = select.value;
+        select.innerHTML = self.optionsHtml(cur, q);
+        var list = self.matches(q);
+        if (self.normQ(q) && list.length === 1) select.value = list[0];  // only one left: choose it
+        if (onPick) onPick(select.value, q);
+      };
     }
   };
 
@@ -587,7 +627,8 @@
     var draft = {
       school: prof.school || "",
       category: prof.category || "",
-      mtlClass: prof.mtlClass || ""
+      mtlClass: prof.mtlClass || "",
+      schoolQ: ""                  // the school search box; survives re-renders
     };
     // which <option> the school <select> shows: a listed school, "other"
     // (free-text), or "" (nothing chosen yet). draft.school holds the value.
@@ -663,9 +704,9 @@
             '</div>' +
           '</div>' +
           '<div class="pop-label" style="font-weight:500;margin-top:10px">学校</div>' +
+          (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("profSchoolQ", draft.schoolQ) : "") +
           '<select class="np-select" id="profSchool">' +
-            (draft.schoolPick === "" ? '<option value="" selected>请选择学校 Select school…</option>' : "") +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick)
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick, draft.schoolQ)
               : ('<option value="' + esc(draft.school) + '" selected>' + esc(draft.school || "百德中学 Bukit View Secondary School") + '</option>')) +
           '</select>' +
           (draft.schoolPick === "other" ? '<input type="text" class="prof-input" id="profSchoolOther" style="margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(draft.school) + '">' : "") +
@@ -749,6 +790,16 @@
       if (avBtn2) avBtn2.onclick = openPicker;
 
       var schoolEl = ov.querySelector("#profSchool");
+      if (schoolEl && window.SG_SCHOOLS) {
+        window.SG_SCHOOLS.wireSearch(ov.querySelector("#profSchoolQ"), schoolEl, function (v, q) {
+          draft.schoolQ = q;
+          if (v === draft.schoolPick) return;
+          var wasOther = draft.schoolPick === "other";
+          draft.schoolPick = v;
+          if (v !== "other") draft.school = v;
+          if (wasOther) render();   // the free-text box has to go now a school was found
+        });
+      }
       if (schoolEl) schoolEl.onchange = function () {
         draft.schoolPick = schoolEl.value;
         if (draft.schoolPick !== "other") {
@@ -940,6 +991,8 @@
      only the primary button differs, so the two flows can never drift apart.
        mode "pick"    -> 「选用这个头像」, calls onChoose(id) (the caller writes avatarId)
        mode "current" -> 「换一个」,       calls onSwitch()   (the caller opens the grid)
+     opts.onReroll (dice roll) adds 「🎲 再抽一次」 so the student can keep rolling
+     from this same card until they like what they see.
      Sits above the picker (z 68 vs 65) so 返回 reveals the grid underneath. */
   function openAvatarInfo(id, opts) {
     var a = avatarById(id);
@@ -955,11 +1008,15 @@
       (a.bio ? '<div class="av-info-bio">' + esc(a.bio) + '</div>' : "") +
       '<div class="nav-row" style="margin-top:14px">' +
         '<button class="nav-btn" id="aiBack">' + (isCurrent ? "关闭" : "返回") + '</button>' +
+        (opts.onReroll ? '<button class="nav-btn" id="aiRoll">🎲 再抽一次</button>' : "") +
         '<button class="nav-btn primary" id="aiOk">' + (isCurrent ? "换一个" : "选用这个头像") + '</button>' +
       '</div></div>';
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
     document.body.appendChild(ov);
     ov.querySelector("#aiBack").onclick = function () { ov.remove(); };
+    if (opts.onReroll) {
+      ov.querySelector("#aiRoll").onclick = function () { ov.remove(); opts.onReroll(); };
+    }
     ov.querySelector("#aiOk").onclick = function () {
       ov.remove();
       if (isCurrent) { if (opts.onSwitch) opts.onSwitch(); }
@@ -994,8 +1051,24 @@
         '<div class="pop-title">换头像</div>' +
         '<div class="prof-chips">' + chipsHtml + '</div>' +
         '<div class="avatar-grid">' + (gridHtml || '<div class="pop-note">这个分类还没有头像。</div>') + '</div>' +
-        '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">取消</button></div></div>';
+        '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">取消</button>' +
+        (shown.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个</button>' : "") + '</div></div>';
       ov.querySelector("#apClose").onclick = function () { ov.remove(); };
+      /* Dice roll: shows the rolled avatar's card with 再抽一次 on it, so the
+         student keeps rolling from there and only writes anything on 选用. The
+         roll stays inside the current category filter, and never rolls the
+         avatar it just showed (a repeat reads as a broken button). */
+      function roll(lastId) {
+        var pool = shown.filter(function (a) { return a.id !== lastId; });
+        var pick = pool[Math.floor(Math.random() * pool.length)];
+        openAvatarInfo(pick.id, {
+          mode: "pick",
+          onChoose: function (id) { ov.remove(); if (onPick) onPick(id); },
+          onReroll: function () { roll(pick.id); }
+        });
+      }
+      var rollBtn = ov.querySelector("#apRoll");
+      if (rollBtn) rollBtn.onclick = function () { roll(currentId); };
       Array.prototype.forEach.call(ov.querySelectorAll(".prof-chip[data-cat]"), function (b) {
         b.onclick = function () { activeCat = b.getAttribute("data-cat"); render(); };
       });

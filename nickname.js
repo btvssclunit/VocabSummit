@@ -60,6 +60,7 @@
       role: opts.currentRole || "student",
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
+      schoolQ: "",
       heardFrom: opts.currentHeard || "" };
 
     var ov = document.createElement("div");
@@ -85,6 +86,18 @@
       Array.prototype.forEach.call(root.querySelectorAll(".wchip"), function (el) {
         el.onclick = function () { onClick(el.getAttribute("data-v")); };
       });
+    }
+
+    /* 🎲 roll a fresh 描述词·名词 pair. Used by the first-step dice AND by
+       换一个 on the confirm step, so a student can keep rolling until they like
+       the name instead of walking the four chip steps again. */
+    function rollNick() {
+      var dCats = Object.keys(DESC_CATS), nCats = Object.keys(NOUN_CATS);
+      var dCat = dCats[Math.floor(Math.random() * dCats.length)];
+      var nCat = nCats[Math.floor(Math.random() * nCats.length)];
+      var dList = DESC_CATS[dCat], nList = NOUN_CATS[nCat];
+      st.descCat = dCat; st.desc = dList[Math.floor(Math.random() * dList.length)].w;
+      st.nounCat = nCat; st.noun = nList[Math.floor(Math.random() * nList.length)];
     }
 
     function renderStep() {
@@ -126,16 +139,17 @@
             : "你的学校 Your school";
           var otherPh = role === "teacher" ? "请输入学校 / 机构名称 School / organisation name" : "请输入学校名称 School name";
           detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("npSchoolQ", st.schoolQ) : "") +
             '<select id="npSchool" class="np-select">' +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel)
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ)
               : ('<option value="' + esc(_bvss) + '"' + (sel === _bvss ? " selected" : "") + '>' + esc(_bvss) + '</option>' +
                  '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>')) +
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
         html = '<div class="pop-title">🎉 你的昵称</div>' +
-          '<div class="pop-body" style="font-size:19px;font-weight:700;color:var(--ink);text-align:center;margin:6px 0 12px">' +
-          esc(nickname) + '</div>' +
+          '<div class="np-name-row"><span class="np-name">' + esc(nickname) + '</span>' +
+          '<button class="np-roll" id="npRoll">🎲 换一个</button></div>' +
           '<div class="pop-label">你的身份 I am a…</div>' +
           '<div class="np-roles">' + roleBtns.map(function (r) {
             return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
@@ -150,13 +164,7 @@
       if (st.step === "descCat") {
         wireChips(card);
         document.getElementById("npRandom").onclick = function () {
-          var dCats = Object.keys(DESC_CATS), nCats = Object.keys(NOUN_CATS);
-          var dCat = dCats[Math.floor(Math.random() * dCats.length)];
-          var nCat = nCats[Math.floor(Math.random() * nCats.length)];
-          var dList = DESC_CATS[dCat], nList = NOUN_CATS[nCat];
-          st.descCat = dCat; st.desc = dList[Math.floor(Math.random() * dList.length)].w;
-          st.nounCat = nCat; st.noun = nList[Math.floor(Math.random() * nList.length)];
-          st.step = "confirm"; renderStep();
+          rollNick(); st.step = "confirm"; renderStep();
         };
         Array.prototype.forEach.call(card.querySelectorAll(".wchip"), function (el) {
           el.onclick = function () { st.descCat = el.getAttribute("data-v"); st.step = "descWord"; renderStep(); };
@@ -180,7 +188,17 @@
         Array.prototype.forEach.call(card.querySelectorAll(".np-role"), function (b) {
           b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
         });
+        document.getElementById("npRoll").onclick = function () { rollNick(); renderStep(); };
         var selEl = document.getElementById("npSchool");
+        if (selEl && window.SG_SCHOOLS) {
+          window.SG_SCHOOLS.wireSearch(document.getElementById("npSchoolQ"), selEl, function (v, q) {
+            st.schoolQ = q;
+            if (v === st.schoolSel) return;
+            var wasOther = st.schoolSel === "other";
+            st.schoolSel = v;
+            if (wasOther) renderStep();   // drop the free-text box now a school was found
+          });
+        }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
         var otherEl = document.getElementById("npSchoolOther");
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
