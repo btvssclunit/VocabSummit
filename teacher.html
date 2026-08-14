@@ -200,6 +200,33 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   border-radius:12px;padding:10px 12px}
 .scope-box label{display:inline-block;margin:3px 12px 3px 0;font-weight:400;
   font-size:13px;letter-spacing:0;color:var(--ink)}
+/* ---- 意见反馈工单 (2026-08-14) ---- */
+.fb-badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;
+  border-radius:999px;background:#C4553F;color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
+.fb-filters{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.fchip-btn{border:1px solid #C4D5E2;background:#fff;color:#5A7080;border-radius:999px;
+  padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer}
+.fchip-btn.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
+.fb-ticket{margin-top:12px}
+.fb-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fb-pill{border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;border:1px solid #D8E4EC;background:#F3F8FC;color:#4E6273}
+.fb-pill.s-new{background:#FDECE7;border-color:#EFC0B2;color:#8C3A22}
+.fb-pill.s-open{background:#FFF4D9;border-color:#EFD9A4;color:#7A5B12}
+.fb-pill.s-resolved{background:#E8F3EC;border-color:#A9CDB6;color:#1E5138}
+.fb-pill.s-wontfix{background:#EEF2F5;border-color:#CBD7E0;color:#6B7885}
+.fb-when{margin-left:auto;font-size:12px;color:#7C8B98}
+.fb-text{margin:10px 0;font-size:15px;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.fb-meta{font-size:12px;color:#6B7885;line-height:1.6}
+.fb-meta code{background:#EEF4F9;border-radius:4px;padding:1px 5px}
+.fb-ua{margin-top:6px;font-size:11.5px;color:#7C8B98}
+.fb-ua code{word-break:break-all}
+.fb-note{width:100%;box-sizing:border-box;margin-top:10px;padding:9px 11px;border:1px solid #C4D5E2;
+  border-radius:9px;font-size:13.5px;background:#fff}
+.fb-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.fb-actions .btn{padding:7px 13px;font-size:12.5px}
+.fb-ban{margin-left:auto;color:#8C3A22;border-color:#EFC0B2}
+.fb-handled{margin-top:7px;font-size:11.5px;color:#7C8B98}
+
 </style>
 </head>
 <body class="gate">
@@ -277,6 +304,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       <button class="tab" data-tab="hard">词语难点</button>
       <button class="tab" data-tab="restores">恢复记录</button>
       <button class="tab" data-tab="arena">结伴登峰</button>
+      <button class="tab" data-tab="feedback">意见反馈 <span id="fbBadge" class="fb-badge" style="display:none">0</span></button>
       <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
       <button class="tab" data-tab="mod" id="modTab" style="display:none">处理</button>
     </div>
@@ -298,7 +326,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260814j";
+  var ASSET_V = "?v=20260814k";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -961,6 +989,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     if (_tab === "hard") return renderHard(panel);
     if (_tab === "restores") return renderRestores(panel);
     if (_tab === "arena") return renderArena(panel);
+    if (_tab === "feedback") return renderFeedback(panel);
     if (_tab === "approvals") return renderApprovals(panel);
     if (_tab === "mod") return renderMod(panel);
   }
@@ -1276,6 +1305,154 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         });
       });
       _arena.json[stream] = { units: units, byKey: byKey }; return _arena.json[stream];
+    });
+  }
+
+  /* ================= 意见反馈工单 (2026-08-14) =================================
+     A ticket queue, not a dump: every row can be moved through
+     待处理 → 处理中 → 已解决 / 不处理, carries a developer note, and shows who
+     sent it (nickname · class · school · uid) plus the app version and page it
+     came from — the context you need to reproduce a bug without asking.
+     Abuse: the 5-per-day ceiling is enforced structurally by the ticket ID in
+     firestore.rules. Repeat offenders are stopped with 封禁 (HOD only), which
+     writes feedbackBans/{uid} — the create rule checks it with exists(). */
+  /* default is "todo" (待处理 + 处理中), NOT "open" — the first draft defaulted
+     to "open" and brand-new tickets were invisible the moment they arrived,
+     which is exactly the queue you most need to see. */
+  var _fb = null, _fbStatus = "todo", _fbType = "";
+  var FB_ST = { "new": "待处理", open: "处理中", resolved: "已解决", wontfix: "不处理" };
+  var FB_TY = { content: "📖 词语内容", bug: "🐞 程序出错", idea: "💡 建议", other: "❓ 其他" };
+  function fbWhen(t) {
+    if (!t || !t.toDate) return "—";
+    var d = t.toDate();
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2) +
+      " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+  function fbRefreshBadge() {
+    if (!_fb) return;
+    var n = _fb.filter(function (r) { return r.status === "new"; }).length;
+    var b = el("fbBadge"); if (!b) return;
+    b.textContent = n; b.style.display = n ? "" : "none";
+  }
+  function renderFeedback(panel) {
+    if (!_fb) {
+      panel.innerHTML = '<div class="card hint">读取反馈…</div>';
+      /* teacher.html is standalone and never loads firebase-init.js — it talks to
+         its own `db` handle, same as every other tab here. */
+      db.collection("feedback").limit(300).get().then(function (qs) {
+        var rows = []; qs.forEach(function (d) { rows.push(Object.assign({ id: d.id }, d.data())); });
+        _fb = rows; fbRefreshBadge(); renderFeedback(el("panel"));
+      }).catch(function (e) {
+        panel.innerHTML = '<div class="card hint">读取失败：' + esc(e.code || e.message) +
+          '<br>请确认 firestore.rules 里的 feedback 区块已发布。</div>';
+      });
+      return;
+    }
+    /* newest first, client-side: createdAt is a serverTimestamp and is briefly
+       null on a just-written doc, so an orderBy query would hide the newest. */
+    var rows = _fb.slice().sort(function (a, b) {
+      var x = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+      var y = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+      return y - x;
+    });
+    var counts = { all: rows.length, "new": 0, open: 0, resolved: 0, wontfix: 0 };
+    rows.forEach(function (r) { if (counts[r.status] !== undefined) counts[r.status]++; });
+    var shown = rows.filter(function (r) {
+      if (_fbStatus === "todo" && (r.status === "resolved" || r.status === "wontfix")) return false;
+      if (_fbStatus !== "todo" && _fbStatus !== "all" && r.status !== _fbStatus) return false;
+      if (_fbType && r.type !== _fbType) return false;
+      return true;
+    });
+    var canBan = _me && _me.role === "hod";
+
+    var chips = [["todo", "未处理 " + (counts["new"] + counts.open)], ["new", "待处理 " + counts["new"]],
+                 ["open", "处理中 " + counts.open], ["resolved", "已解决 " + counts.resolved],
+                 ["wontfix", "不处理 " + counts.wontfix], ["all", "全部 " + counts.all]];
+    var tychips = [["", "全部类型"]].concat(Object.keys(FB_TY).map(function (k) { return [k, FB_TY[k]]; }));
+
+    var html = '<div class="card"><h2 style="margin-top:0">意见反馈 · 工单</h2>' +
+      '<div class="fb-filters">' +
+      chips.map(function (c) {
+        return '<button class="fchip-btn' + (_fbStatus === c[0] ? " on" : "") + '" data-fs="' + c[0] + '">' + c[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="fb-filters">' +
+      tychips.map(function (c) {
+        return '<button class="fchip-btn' + (_fbType === c[0] ? " on" : "") + '" data-ft="' + c[0] + '">' + c[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="row" style="margin-top:8px"><button class="btn ghost" id="fbReload">重新读取</button></div></div>';
+
+    if (!shown.length) {
+      html += '<div class="card hint">这个筛选下没有工单。</div>';
+    } else {
+      html += shown.map(function (r) {
+        return '<div class="card fb-ticket" data-id="' + esc(r.id) + '">' +
+          '<div class="fb-top">' +
+            '<span class="fb-pill s-' + esc(r.status || "new") + '">' + esc(FB_ST[r.status] || r.status || "待处理") + '</span>' +
+            '<span class="fb-pill ty">' + esc(FB_TY[r.type] || r.type || "") + '</span>' +
+            '<span class="fb-when">' + esc(fbWhen(r.createdAt)) + '</span>' +
+          '</div>' +
+          '<div class="fb-text">' + esc(r.text || "") + '</div>' +
+          '<div class="fb-meta">' +
+            esc(r.nickname || "（无昵称）") +
+            (r.mtlClass ? " · " + esc(r.mtlClass) : "") +
+            (r.school ? " · " + esc(canonSchool(r.school)) : "") +
+            ' · <code title="' + esc(r.uid || "") + '">' + esc((r.uid || "").slice(0, 8)) + '</code>' +
+            (r.stream ? " · " + esc(r.stream.toUpperCase()) : "") +
+            (r.page ? " · " + esc(r.page) : "") +
+            (r.appV ? " · " + esc(r.appV) : "") +
+          '</div>' +
+          (r.ua ? '<details class="fb-ua"><summary>设备信息</summary><code>' + esc(r.ua) + '</code></details>' : "") +
+          '<input class="fb-note" data-note="' + esc(r.id) + '" placeholder="开发笔记（学生看不到）" value="' + esc(r.note || "") + '">' +
+          '<div class="fb-actions">' +
+            '<button class="btn ghost" data-set="open">处理中</button>' +
+            '<button class="btn" data-set="resolved">标记已解决</button>' +
+            '<button class="btn ghost" data-set="wontfix">不处理</button>' +
+            '<button class="btn ghost" data-set="new">退回待处理</button>' +
+            (canBan ? '<button class="btn ghost fb-ban" data-ban="' + esc(r.uid || "") + '">封禁此用户</button>' : "") +
+          '</div>' +
+          (r.handledBy ? '<div class="fb-handled">最近处理：' + esc(r.handledBy) + ' · ' + esc(fbWhen(r.handledAt)) + '</div>' : "") +
+          '</div>';
+      }).join("");
+    }
+    panel.innerHTML = html;
+
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-fs]"), function (b) {
+      b.onclick = function () { _fbStatus = b.getAttribute("data-fs"); renderFeedback(el("panel")); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll("[data-ft]"), function (b) {
+      b.onclick = function () { _fbType = b.getAttribute("data-ft"); renderFeedback(el("panel")); };
+    });
+    el("fbReload").onclick = function () { _fb = null; renderFeedback(el("panel")); };
+    Array.prototype.forEach.call(panel.querySelectorAll(".fb-ticket"), function (card) {
+      var id = card.getAttribute("data-id");
+      Array.prototype.forEach.call(card.querySelectorAll("[data-set]"), function (b) {
+        b.onclick = function () {
+          var st = b.getAttribute("data-set");
+          var note = (card.querySelector("[data-note]") || {}).value || "";
+          b.disabled = true; b.textContent = "…";
+          db.collection("feedback").doc(id).update({
+            status: st, note: note, handledBy: (_me && _me.name) || "",
+            handledAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).then(function () {
+            var row = _fb.filter(function (x) { return x.id === id; })[0];
+            if (row) { row.status = st; row.note = note; row.handledBy = (_me && _me.name) || ""; }
+            fbRefreshBadge(); renderFeedback(el("panel"));
+          }).catch(function (e) {
+            alert("保存失败：" + (e.code || e.message) + "\n请确认 feedback 规则已发布。");
+            b.disabled = false; renderFeedback(el("panel"));
+          });
+        };
+      });
+      var ban = card.querySelector(".fb-ban");
+      if (ban) ban.onclick = function () {
+        var uid = ban.getAttribute("data-ban");
+        if (!uid || !confirm("封禁这个用户的反馈提交？\n他们仍然可以正常使用学习功能，只是不能再提交反馈。")) return;
+        db.collection("feedbackBans").doc(uid).set({
+          at: firebase.firestore.FieldValue.serverTimestamp(),
+          by: (_me && _me.name) || ""
+        }).then(function () { alert("已封禁。这个用户不能再提交反馈。"); })
+          .catch(function (e) { alert("操作失败：" + (e.code || e.message)); });
+      };
     });
   }
 

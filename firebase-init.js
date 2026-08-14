@@ -152,6 +152,73 @@
       });
     },
 
+    /* ---- 意见反馈工单 (2026-08-14) ----
+       The ticket ID carries the rate limit (see firestore.rules): the client
+       tries slot 0..4 for today and stops at the first that succeeds. A slot
+       that already exists fails with "already-exists", which IS the daily cap
+       being hit — that is reported as a friendly message, not an error. */
+    submitFeedback: function (payload, cb) {
+      whenReady(function () {
+        var day = payload.day, slot = 0;
+        function tryNext() {
+          if (slot > 4) { cb({ ok: false, reason: "cap" }); return; }
+          var id = _uid + "__" + day + "__" + slot;
+          var doc = Object.assign({}, payload, {
+            uid: _uid, status: "new",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          db.collection("feedback").doc(id).set(doc, { merge: false })
+            .then(function () { cb({ ok: true, id: id, slot: slot }); })
+            .catch(function (e) {
+              /* create is blocked on an existing doc by the rules, so a taken
+                 slot surfaces as permission-denied rather than already-exists */
+              if (e && (e.code === "already-exists" || e.code === "permission-denied")) {
+                slot++; tryNext(); return;
+              }
+              cb({ ok: false, reason: (e && e.code) || "error" });
+            });
+        }
+        tryNext();
+      });
+    },
+    /* a student's own tickets, so the panel can show their status */
+    myFeedback: function (cb) {
+      whenReady(function () {
+        db.collection("feedback").where("uid", "==", _uid).limit(20).get()
+          .then(function (qs) {
+            var rows = []; qs.forEach(function (d) { rows.push(Object.assign({ id: d.id }, d.data())); });
+            cb(rows);
+          }).catch(function () { cb(null); });
+      });
+    },
+    /* teacher queue. No orderBy: createdAt is a serverTimestamp and is briefly
+       null on a freshly written doc, which would drop the newest ticket from an
+       ordered query — the dashboard sorts client-side instead. */
+    listFeedback: function (n, cb) {
+      whenReady(function () {
+        db.collection("feedback").limit(n || 300).get()
+          .then(function (qs) {
+            var rows = []; qs.forEach(function (d) { rows.push(Object.assign({ id: d.id }, d.data())); });
+            cb(rows);
+          }).catch(function (e) { console.error("listFeedback failed:", e); cb(null); });
+      });
+    },
+    setFeedbackStatus: function (id, status, note, who, cb) {
+      whenReady(function () {
+        db.collection("feedback").doc(id).update({
+          status: status, note: note || "", handledBy: who || "",
+          handledAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function () { cb(true); }).catch(function (e) { console.error("setFeedbackStatus:", e); cb(false); });
+      });
+    },
+    setFeedbackBan: function (uid, on, cb) {
+      whenReady(function () {
+        var ref = db.collection("feedbackBans").doc(uid);
+        var p = on ? ref.set({ at: firebase.firestore.FieldValue.serverTimestamp() }) : ref.delete();
+        p.then(function () { cb(true); }).catch(function (e) { console.error("setFeedbackBan:", e); cb(false); });
+      });
+    },
+
     /* top-N board ordered by a nested field path (e.g. "g3.alt",
        "g3.totalPts", "g3.pts.2026T3"). cb(rows|null); each row: {uid, data}
        where data is the full score doc — app.js pulls the ranked value out. */

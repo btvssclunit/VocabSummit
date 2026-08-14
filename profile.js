@@ -26,6 +26,18 @@
     try { window.WSCloud.getUid(function (u) { _uid = u || null; }); } catch (e) {}
   }
 
+  /* deployed asset version, read off this file's own <script src> — the same
+     trick app.js/arena.js use for the data fetches. Reported with every ticket so
+     a bug report says which build it came from. */
+  var WS_ASSET_V = (function () {
+    try {
+      var sc = document.currentScript;
+      var m = sc && sc.src && sc.src.match(/[?&]v=([^&]+)/);
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  })();
+  window.WS_ASSET_V = WS_ASSET_V;
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -359,6 +371,146 @@
   function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
   var CAT_LABEL = { student: "学生", teacher: "老师", parent: "家长", public: "公众" };
+
+  /* ================= 意见反馈 (2026-08-14) ==================================
+     Abuse control is LAYERED, and it matters which layer does what:
+       · Firestore rules do the real enforcement — the ticket id must be
+         "{uid}__{day}__{0..4}", so five per user per day is a hard server-side
+         ceiling that needs no document counting. Rules also pin the uid, cap the
+         text length, force status "new" on create, and consult feedbackBans.
+       · The client below adds a 30s cooldown, a local daily counter and a
+         minimum length. These are COURTESY guards — they stop double-taps and
+         accidental spam, and they give a friendly message instead of a denied
+         write. They are trivially bypassable and are not relied on.
+       · Every ticket carries nickname + class + school + uid, and the teacher
+         dashboard shows them. Attribution is the strongest practical deterrent
+         in a school setting, and it is what makes a ban meaningful.
+     ⚠️ What is NOT enforceable without Cloud Functions / App Check: a true
+     per-minute rate limit, or blocking a determined student from burning their
+     five slots on nonsense. The answer to that is the ban list, not more rules. */
+  var FB_TYPES = [
+    { k: "content", label: "📖 词语内容有误" },
+    { k: "bug",     label: "🐞 程序出错" },
+    { k: "idea",    label: "💡 建议" },
+    { k: "other",   label: "❓ 其他" }
+  ];
+  var FB_MIN = 5, FB_MAX = 1000, FB_DAILY = 5, FB_COOLDOWN_MS = 30000;
+  var FB_STATUS_LABEL = { "new": "待处理", open: "处理中", resolved: "已解决", wontfix: "不处理" };
+
+  /* Asia/Singapore date — the same key the ticket id uses, so the local counter
+     and the server-side slot ceiling agree on where a "day" starts. */
+  function fbToday() {
+    var d = new Date(Date.now() + 8 * 3600 * 1000);
+    return d.toISOString().slice(0, 10);
+  }
+  function fbLocal() {
+    var o;
+    try { o = JSON.parse(localStorage.getItem("ws2_fb")) || {}; } catch (e) { o = {}; }
+    if (o.day !== fbToday()) o = { day: fbToday(), n: 0, last: 0 };
+    return o;
+  }
+  function fbSaveLocal(o) { try { localStorage.setItem("ws2_fb", JSON.stringify(o)); } catch (e) {} }
+
+  function openFeedback() {
+    var prof = load() || {};
+    var sel = "content";
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay";
+    ov.style.zIndex = 70;                       // above 我的档案 (65)
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    var card = document.createElement("div");
+    card.className = "pop-card fb-card";
+    ov.appendChild(card);
+    document.body.appendChild(ov);
+
+    function draw(msg, sending) {
+      card.innerHTML =
+        '<div class="pop-title">✍️ 意见反馈</div>' +
+        '<div class="pop-note">你的昵称、班级和学校会随反馈一起送出，方便老师跟进。请不要写真实姓名或联络方式。</div>' +
+        '<div class="pop-label" style="margin-top:12px">这是哪一类？</div>' +
+        '<div class="prof-chips" id="fbTypes">' +
+          FB_TYPES.map(function (t) {
+            return '<button class="prof-chip' + (sel === t.k ? " on" : "") + '" data-fb="' + t.k + '">' + t.label + '</button>';
+          }).join("") + '</div>' +
+        '<div class="pop-label" style="margin-top:12px">说说看</div>' +
+        '<textarea class="code-ta fb-ta" id="fbText" maxlength="' + FB_MAX + '" ' +
+          'placeholder="例如：中二单元三「聚集」的填空句好像少了一个字。"></textarea>' +
+        '<div class="prof-row"><span class="pop-note" id="fbCount">0 / ' + FB_MAX + '</span>' +
+        '<span class="pop-note">今天还可以提交 <b id="fbLeft"></b> 次</span></div>' +
+        '<div class="feedback" id="fbMsg">' + (msg || "") + '</div>' +
+        '<div class="nav-row"><button class="nav-btn" id="fbCancel">取消</button>' +
+        '<button class="nav-btn primary" id="fbSend"' + (sending ? " disabled" : "") + '>' +
+        (sending ? "送出中…" : "送出") + '</button></div>';
+
+      var lo = fbLocal();
+      card.querySelector("#fbLeft").textContent = Math.max(0, FB_DAILY - lo.n);
+      var ta = card.querySelector("#fbText");
+      ta.oninput = function () { card.querySelector("#fbCount").textContent = ta.value.length + " / " + FB_MAX; };
+      Array.prototype.forEach.call(card.querySelectorAll("[data-fb]"), function (b) {
+        b.onclick = function () {
+          sel = b.getAttribute("data-fb");
+          Array.prototype.forEach.call(card.querySelectorAll("[data-fb]"), function (x) { x.classList.remove("on"); });
+          b.classList.add("on");
+        };
+      });
+      card.querySelector("#fbCancel").onclick = function () { ov.remove(); };
+      card.querySelector("#fbSend").onclick = function () { send(ta.value); };
+      if (!sending) ta.focus();
+    }
+
+    function say(m) { var el = card.querySelector("#fbMsg"); if (el) el.textContent = m; }
+
+    function send(text) {
+      text = (text || "").trim();
+      var lo = fbLocal();
+      if (text.length < FB_MIN) { say("请再多写几个字，让老师看得明白。"); return; }
+      if (lo.n >= FB_DAILY) { say("今天已经提交 " + FB_DAILY + " 次了，明天再来吧。"); return; }
+      if (Date.now() - (lo.last || 0) < FB_COOLDOWN_MS) {
+        say("刚刚才送出过，请等一下再提交。"); return;
+      }
+      if (!window.WSCloud || !window.WSCloud.submitFeedback || !window.WSCloud.isAvailable()) {
+        say("需要联网才能送出反馈，请检查网络。"); return;
+      }
+      draw("", true);
+      window.WSCloud.submitFeedback({
+        day: fbToday(), type: sel, text: text.slice(0, FB_MAX),
+        nickname: prof.nickname || "", school: prof.school || "",
+        mtlClass: prof.mtlClass || "", category: prof.category || "",
+        stream: window.STREAM || "", page: location.pathname.split("/").pop(),
+        appV: (window.WS_ASSET_V || ""), ua: navigator.userAgent.slice(0, 180)
+      }, function (res) {
+        if (res && res.ok) {
+          var l = fbLocal(); l.n = Math.max(l.n, res.slot + 1); l.last = Date.now(); fbSaveLocal(l);
+          card.innerHTML = '<div class="pop-title">✅ 已送出</div>' +
+            '<div class="pop-body">谢谢你！老师会在后台看到这条反馈。</div>' +
+            '<div class="nav-row"><button class="nav-btn primary" id="fbDone">好</button></div>';
+          card.querySelector("#fbDone").onclick = function () { ov.remove(); renderMyFeedback(); };
+          return;
+        }
+        if (res && res.reason === "cap") {
+          var l2 = fbLocal(); l2.n = FB_DAILY; fbSaveLocal(l2);
+          draw("今天的反馈次数用完了，明天再来吧。");
+        } else if (res && res.reason === "permission-denied") {
+          draw("暂时无法提交反馈，请联系老师。");
+        } else {
+          draw("送出失败，请稍后再试。");
+        }
+      });
+    }
+    draw("");
+  }
+
+  /* the student's own tickets + status, shown as one quiet line in the panel */
+  function renderMyFeedback() {
+    var el = document.getElementById("profFbMine");
+    if (!el || !window.WSCloud || !window.WSCloud.myFeedback || !window.WSCloud.isAvailable()) return;
+    window.WSCloud.myFeedback(function (rows) {
+      if (!el.isConnected || !rows || !rows.length) return;
+      var done = rows.filter(function (r) { return r.status === "resolved"; }).length;
+      el.textContent = "你已提交 " + rows.length + " 条反馈" + (done ? "，其中 " + done + " 条已解决。" : "。");
+    });
+  }
+
   var STREAM_LABEL = { g1: "词星大冒险 G1", g2: "词将竞技场 G2", g3: "词王淬炼坊 G3", hcl: "词圣鸿文苑 HCL" };
   var STREAM_HREF = { g1: "G1_index.html", g2: "G2_index.html", g3: "G3_index.html", hcl: "HCL_index.html" };
 
@@ -495,6 +647,12 @@
         // ---- 进度码 ----
         '<div class="prof-sec"><div class="pop-label">进度码 · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
 
+        // ---- 意见反馈 ----
+        '<div class="prof-sec"><div class="pop-label">意见反馈</div>' +
+          '<div class="pop-note">发现词语内容有误、程序出错，或者有建议，都可以告诉我们。</div>' +
+          '<div class="nav-row" style="margin-top:8px"><button class="nav-btn" id="profFeedback">✍️ 我要反馈</button></div>' +
+          '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>' +
+
         // ---- 技术信息 (§5: collapsed to one line; expands on demand) ----
         '<div class="prof-sec"><details class="prof-more">' +
           '<summary>技术编号与隐私说明</summary>' +
@@ -515,6 +673,9 @@
 
     function wire() {
       ov.querySelector("#profCloseX").onclick = function () { ov.remove(); };
+
+      ov.querySelector("#profFeedback").onclick = function () { openFeedback(); };
+      renderMyFeedback();
 
       ov.querySelector("#profChangeNick").onclick = function () {
         if (opts.onChangeNickname) opts.onChangeNickname(function () {

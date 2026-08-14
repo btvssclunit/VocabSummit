@@ -66,6 +66,62 @@ service cloud.firestore {
       allow write: if isHod() && request.resource.data.role == "teacher";
     }
 
+    // ---- 意见反馈工单 (2026-08-14) ------------------------------------------
+    // Doc id is deliberately STRUCTURED: "{uid}__{YYYY-MM-DD}__{n}" with n 0-4.
+    // That is what enforces the rate limit. Firestore rules cannot count
+    // documents, so a "max 5 per day" check is impossible the obvious way — but
+    // if the id must be one of exactly five permitted names per user per day,
+    // and create (unlike set) fails on an existing doc, then five is a HARD
+    // server-side ceiling that costs zero extra reads. A student cannot forge
+    // someone else's ticket either, because the id must start with their uid.
+    //
+    // The day segment is checked against request.time with a ±1 day tolerance:
+    // request.time is UTC and the app stamps Asia/Singapore dates (+8), so an
+    // early-morning submission legitimately carries "tomorrow" in UTC terms.
+    // The tolerance means a student could straddle midnight for 10 in 24h;
+    // that is an accepted trade for not rejecting real submissions at 7am.
+    function fbDayOk(day) {
+      return day is string && day.size() == 10
+        && request.time >= timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10])) - duration.value(1, 'd')
+        && request.time <  timestamp.date(int(day[0:4]), int(day[5:7]), int(day[8:10])) + duration.value(2, 'd');
+    }
+    match /feedback/{ticketId} {
+      // a student reads only their OWN tickets (so they can see the status);
+      // teachers read the whole queue.
+      allow read: if isTeacher()
+                  || (request.auth != null && resource.data.uid == request.auth.uid);
+
+      allow create: if request.auth != null
+        && ticketId.split("__").size() == 3
+        && ticketId.split("__")[0] == request.auth.uid
+        && ticketId.split("__")[2] in ["0", "1", "2", "3", "4"]
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.day == ticketId.split("__")[1]
+        && fbDayOk(request.resource.data.day)
+        && request.resource.data.status == "new"          // never self-resolve
+        && request.resource.data.type in ["content", "bug", "idea", "other"]
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 5
+        && request.resource.data.text.size() <= 1000
+        && !exists(/databases/$(database)/documents/feedbackBans/$(request.auth.uid));
+
+      // students never edit a submitted ticket (they cannot rewrite history after
+      // a teacher has replied); teachers only ever move it through the workflow.
+      allow update: if isTeacher()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["status", "note", "handledBy", "handledAt"])
+        && request.resource.data.status in ["new", "open", "resolved", "wontfix"];
+
+      allow delete: if isHod();
+    }
+
+    // feedback ban list: an HOD blocks an abusive submitter. Presence of the doc
+    // is the block — the create rule above reads it with exists().
+    match /feedbackBans/{uid} {
+      allow read:  if isTeacher() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isHod();
+    }
+
     // 结伴登峰 live classroom rooms. Teachers create + drive; any signed-in
     // (incl. anonymous) user reads the config and writes ONLY their own player row.
     // Rooms are ephemeral — a Firestore TTL policy on rooms.expiresAt deletes them.
