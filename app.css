@@ -88,7 +88,16 @@ img{max-width:100%}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
 /* ---------- shared bits ---------- */
-.section-label{font-size:12px;letter-spacing:.28em;color:var(--ink-soft);margin:0 2px 10px}
+/* Section headers sit DIRECTLY on the painted ambience (bg-01..05 / the bamboo
+   backdrop), not on a card — so light grey + wide tracking was unreadable on the
+   bright ones. Same fix as .ach-hint and the 我的词山 HUD: dark ink on a glass
+   pill. inline-block so the pill hugs its own text instead of striping the row;
+   the 英文提示 gloss sits inside it, which reads as one label rather than two. */
+.section-label{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.2em;
+  color:var(--ink);margin:0 2px 10px;padding:6px 15px;border-radius:999px;
+  background:rgba(255,255,255,.78);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
 .card{background:linear-gradient(150deg,rgba(255,255,255,.74),rgba(255,255,255,.56) 46%,rgba(232,243,251,.60));
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);border-radius:18px;

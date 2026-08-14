@@ -1320,13 +1320,16 @@
       html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "art/badge/badge_hx.png") + '" alt=""></span>';
     });
     html += '<span class="badge-note">成就徽章' + enli("成就徽章") + ' · ' + badgeCount + '/' + badgeTotal +
-      '<br><span style="font-size:11px">查看成就墙 ›</span></span></button>';
+      '</span></button>';
 
+    /* sublines removed 2026-08-14 (owner). The 连续 N 天 streak that used to live
+       here is still shown inside 我的词语表 itself, so nothing is lost — it just
+       stops competing with the title on the home page. */
     html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
-      '<div><b>我的词语表' + enli("我的词语表") + '</b><span>看每个词的掌握情况 · 🔥 连续 ' + store.streak + ' 天</span></div>' +
+      '<div><b>我的词语表' + enli("我的词语表") + '</b></div>' +
       '<span class="go">查看 ›</span></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
-      '<div><b>词山风云榜' + enli("词山风云榜") + '</b><span>掌握词数 · 历练值 两榜排名（只显示学生）</span></div>' +
+      '<div><b>词山风云榜' + enli("词山风云榜") + '</b></div>' +
       '<span class="go">查看 ›</span></button>';
 
     html += '<div class="harbour">' +
@@ -1411,9 +1414,15 @@
        boot render — a student who just opened the app has not "seen enough". */
     maybeEnFadePrompt();
 
+    /* desc is accepted but no longer rendered (owner 2026-08-14: strip the small
+       print under every title on the home page). Kept in the signature and in the
+       call sites so the one-line summary of each mode is still recorded next to
+       the mode it describes — the config screen each card opens shows its own
+       mode-desc, which is where a student actually needs the explanation. */
     function camp(mode, icon, name, desc) {
-      return '<button class="camp" data-mode="' + mode + '"><span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + enli(name) + '</b><span>' + desc + '</span></div>' +
+      return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
+        '<span class="flag">' + icon + '</span>' +
+        '<div><b>' + name + enli(name) + '</b></div>' +
         '<span class="go">出发 ›' + enl("出发") + '</span></button>';
     }
     function updateScopeSum() {
