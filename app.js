@@ -193,6 +193,12 @@
     s.mastered = s.mastered || {};     // wordId -> 1
     s.stats = s.stats || {};           // mode -> {a,c}
     s.badges = s.badges || {};         // badgeKey -> 1
+    /* badgeLog: badgeKey -> {first, last, n}. A SEPARATE map on purpose —
+       s.badges stays a plain truthy flag so every existing check, the cloud
+       union and the badge count keep working untouched. Badges earned before
+       this shipped simply have no log entry, and the detail card says
+       日期未记录 rather than inventing a date. n counts 再次挑战 passes. */
+    s.badgeLog = s.badgeLog || {};
     s.best = s.best || {};             // rain: score, handle: streak
     s.accOpen = s.accOpen || {};       // scope accordion: level -> bool
     s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
@@ -312,6 +318,16 @@
     });
     Object.keys(cloud.badges || {}).forEach(function (k) {
       if (!store.badges[k]) { store.badges[k] = 1; changed = true; }
+    });
+    /* badgeLog: earliest 首次 wins (that is the real earning date), latest 最近
+       wins, and the challenge count takes the max — the same never-decreases
+       shape the rest of this merge uses. */
+    Object.keys(cloud.badgeLog || {}).forEach(function (k) {
+      var c = cloud.badgeLog[k] || {}, m = store.badgeLog[k];
+      if (!m) { store.badgeLog[k] = { first: c.first || "", last: c.last || "", n: c.n || 1 }; changed = true; return; }
+      if (c.first && (!m.first || c.first < m.first)) { m.first = c.first; changed = true; }
+      if (c.last && (!m.last || c.last > m.last)) { m.last = c.last; changed = true; }
+      if ((c.n || 1) > (m.n || 1)) { m.n = c.n; changed = true; }
     });
     Object.keys(cloud.best || {}).forEach(function (k) {
       var v = Math.max(store.best[k] || 0, cloud.best[k] || 0);
@@ -613,11 +629,19 @@
   function badgeKeyC(c) { return "c·" + c.key; }
   function badgeKeyU(level, unit) { return "u·" + level + "·" + unit; }
   function badgeKeyL(level) { return "l·" + level; }
+  /* Stamps the earning date the first time a badge is awarded. n starts at 1;
+     每一次 再次挑战 全对 bumps it (bumpBadgeAgain). */
+  function logBadge(key) {
+    var d = todaySG();
+    if (!store.badgeLog[key]) store.badgeLog[key] = { first: d, last: d, n: 1 };
+  }
+  function badgeInfo(key) { return store.badgeLog[key] || null; }
   function checkBadges(silent) {
     var earned = [];
     COMP_LIST.forEach(function (c) {
       if (!store.badges[badgeKeyC(c)] && isCompDone(c)) {
         store.badges[badgeKeyC(c)] = 1;
+        logBadge(badgeKeyC(c));
         earned.push({ tier: 1, level: c.level, unit: c.unit, component: c.component });
       }
     });
@@ -626,6 +650,7 @@
       var all = comps.length && comps.every(function (c) { return store.badges[badgeKeyC(c)]; });
       if (all && !store.badges[badgeKeyU(u.level, u.unit)]) {
         store.badges[badgeKeyU(u.level, u.unit)] = 1;
+        logBadge(badgeKeyU(u.level, u.unit));
         earned.push({ tier: 2, level: u.level, unit: u.unit });
       }
     });
@@ -634,12 +659,14 @@
       var all = units.length && units.every(function (u) { return store.badges[badgeKeyU(u.level, u.unit)]; });
       if (all && !store.badges[badgeKeyL(lv)]) {
         store.badges[badgeKeyL(lv)] = 1;
+        logBadge(badgeKeyL(lv));
         earned.push({ tier: 3, level: lv });
       }
     });
     var allLv = LEVELS.length && LEVELS.every(function (lv) { return store.badges[badgeKeyL(lv)]; });
     if (allLv && !store.badges["t4"]) {
       store.badges["t4"] = 1;
+      logBadge("t4");
       earned.push({ tier: 4 });
     }
     if (earned.length) { saveStore(); if (!silent) queueCelebrations(earned); }
@@ -1189,7 +1216,8 @@
   /* ---------- achievements wall ---------- */
   function renderAchievements() {
     setTopbar("home", "");
-    var html = '<div class="ach-wrap"><div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王</div>';
+    var html = '<div class="ach-wrap"><div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王</div>' +
+      '<div class="ach-hint">点一下任何一枚板块章：看清大图与获得日期，未得到的可以直接挑战这个板块。</div>';
     LEVELS.forEach(function (lv) {
       var lvDone = store.badges[badgeKeyL(lv)];
       html += '<div class="ach-level"><div class="ach-level-head">' +
@@ -1201,11 +1229,17 @@
         COMP_LIST.filter(function (c) { return c.level === lv && c.unit === u.unit; }).forEach(function (c) {
           var got = store.badges[badgeKeyC(c)];
           var done = c.ids.filter(function (id) { return store.mastered[id]; }).length;
-          html += '<div class="ach-badge' + (got ? "" : " locked") + '">' +
+          var log = badgeInfo(badgeKeyC(c));
+          var times = (log && log.n > 1) ? log.n : 0;
+          /* A button, not a div: the whole tile opens the badge card. The ×N
+             chip sits UNDER the art — never over it (badge spec: no text on
+             the badge, never crop the ring). */
+          html += '<button class="ach-badge' + (got ? "" : " locked") + '" data-ck="' + esc(c.key) + '">' +
             '<img src="' + (BADGE_IMG[c.component] || "art/badge/badge_hx.png") + '" alt="">' +
-            '<span class="ach-badge-name">' + esc(c.component) + '</span>' +
+            '<span class="ach-badge-name">' + esc(c.component) +
+            (times ? '<span class="ach-times">×' + times + '</span>' : '') + '</span>' +
             (c.textTitle ? '<span class="ach-badge-title">' + esc(c.textTitle) + '</span>' : '') +
-            '<span class="ach-badge-count">' + done + '/' + c.ids.length + '</span></div>';
+            '<span class="ach-badge-count">' + done + '/' + c.ids.length + '</span></button>';
         });
         html += '</div></div>';
       });
@@ -1214,6 +1248,154 @@
     html += '<div class="ach-t4' + (store.badges["t4"] ? " got" : "") + '">👑 顶级词王 · ' +
       (store.badges["t4"] ? "已达成！锲而不舍，金石可镂。" : "掌握全部词语后解锁") + '</div></div>';
     view().innerHTML = html;
+    Array.prototype.forEach.call(view().querySelectorAll(".ach-badge"), function (b) {
+      b.onclick = function () { openBadgeDetail(b.getAttribute("data-ck")); };
+    });
+  }
+
+  /* ---------- 徽章详情卡 (badge detail) ----------
+     Tap a 板块章 on 成就墙 to see it large, with when it was earned and how
+     many times it has been won. The card is also the entry point into the
+     板块's own words:
+       未获得 → 去挑战: a 填空挑战 round over EXACTLY this 板块, unmastered
+                first. 填空 is the mastery gate, so answering here is what
+                actually earns the badge.
+       已获得 → 再次挑战: a 板块试炼 (华文解释 MCQ over every word in the
+                板块). 全对 = the badge is won again and the count rises.
+                A miss costs nothing — mastery/海拔/待巩固 are untouched. */
+  function compByKey(key) {
+    for (var i = 0; i < COMP_LIST.length; i++) if (COMP_LIST[i].key === key) return COMP_LIST[i];
+    return null;
+  }
+  function compWords(c) {
+    ensureIdIndex();
+    return c.ids.map(function (id) { return WORDS[_idIndex[id]]; }).filter(Boolean);
+  }
+  function openBadgeDetail(key) {
+    var c = compByKey(key); if (!c) return;
+    var bk = badgeKeyC(c), got = !!store.badges[bk], log = badgeInfo(bk);
+    var words = compWords(c);
+    var done = words.filter(function (w) { return store.mastered[w.id]; }).length;
+    var pct = words.length ? Math.round(100 * done / words.length) : 0;
+
+    var meta;
+    if (got) {
+      meta = '<div class="bd-earned">🎖 已获得' + ((log && log.n > 1) ? ' · 第 ' + log.n + ' 次' : '') + '</div>' +
+        '<div class="bd-date">首次获得：' + esc((log && log.first) || "日期未记录") +
+        ((log && log.n > 1 && log.last) ? '<br>最近一次：' + esc(log.last) : '') + '</div>';
+    } else {
+      meta = '<div class="bd-locked">尚未获得</div>' +
+        '<div class="bd-date">掌握这个板块的全部词语，就能点亮它。</div>';
+    }
+
+    var chips = words.map(function (w) {
+      return '<span class="bd-word' + (store.mastered[w.id] ? " done" : "") + '">' + esc(w.w) + '</span>';
+    }).join("");
+
+    var actions = got
+      ? '<button class="nav-btn primary" id="bdAgain">🔁 再次挑战 · ' + words.length + ' 题全对</button>'
+      : '<button class="nav-btn primary" id="bdGo">去挑战 · 学这 ' + (words.length - done) + ' 个词语</button>';
+
+    var ov = popOverlay(
+      '<div class="bd-card">' +
+      '<div class="bd-art' + (got ? "" : " locked") + '">' +
+      '<img src="' + (BADGE_IMG[c.component] || "art/badge/badge_hx.png") + '" alt="' + esc(c.component) + '徽章"></div>' +
+      '<div class="bd-name">' + esc(c.component) + '</div>' +
+      '<div class="bd-where">' + esc(c.level) + ' · ' + esc(c.unit) +
+      /* textTitle already carries its own 《》 in the data — do not add more */
+      (c.textTitle ? '<br>' + esc(c.textTitle) : '') + '</div>' +
+      meta +
+      '<div class="bd-prog"><div class="bd-prog-track"><div class="bd-prog-fill" style="width:' + pct + '%"></div></div>' +
+      '<span>已掌握 ' + done + ' / ' + words.length + ' 词</span></div>' +
+      '<div class="bd-words">' + chips + '</div>' +
+      '<div class="nav-row">' + actions +
+      '<button class="nav-btn" id="bdClose">关闭</button></div></div>');
+
+    ov.querySelector("#bdClose").onclick = function () { ov.remove(); };
+    var go = ov.querySelector("#bdGo");
+    if (go) go.onclick = function () { ov.remove(); startCompStudy(c); };
+    var ag = ov.querySelector("#bdAgain");
+    if (ag) ag.onclick = function () { ov.remove(); startBadgeTrial(c); };
+  }
+
+  /* 未获得: learn this 板块. 填空挑战 over just these words, unmastered first —
+     the same weak-first ordering startMode uses, but scoped to one 板块 rather
+     than the whole 复习范围, and NOT capped to 题数 (the point is to finish the
+     板块). Words with no valid __ blank are skipped, per the content rule. */
+  function startCompStudy(c) {
+    var words = compWords(c);
+    var usable = words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
+    var mode = "cloze";
+    if (!usable.length) { usable = words; mode = "zhmcq"; }   // fall back rather than show nothing
+    var un = [], rv = [];
+    usable.forEach(function (w) { (store.mastered[w.id] ? rv : un).push(w); });
+    var seq = shuffle(un).concat(shuffle(rv));
+    if (!seq.length) { alert("这个板块暂时没有可练习的词语。"); return; }
+    var pool = WORDS.filter(function (w) { return w.level === c.level && w.unit === c.unit; });
+    if (pool.length < 6) pool = WORDS;
+    renderStep({ mode: mode, seq: seq, i: 0, correct: 0, revealed: false, streak: 0,
+      comp: c.key, pool: pool });
+  }
+
+  /* 已获得: 板块试炼. Every word in the 板块, 华文解释 MCQ, 全对才算通过 —
+     the same all-correct shape as 年度试炼, so 「再次获得」 means something.
+     Distractors come from the same 单元 first (harder, and fair). */
+  function startBadgeTrial(c) {
+    var words = compWords(c);
+    if (words.length < 2) { alert("这个板块的词语太少，暂时无法再次挑战。"); return; }
+    var pool = WORDS.filter(function (w) { return w.level === c.level && w.unit === c.unit; });
+    if (pool.length < 4) pool = WORDS;
+    renderStep({ mode: "zhmcq", seq: shuffle(words.slice()), i: 0, correct: 0, revealed: false,
+      streak: 0, bchal: c.key, pool: pool, wrong: {} });
+  }
+
+  function renderCompResult(state) {
+    var c = compByKey(state.comp);
+    var total = state.seq.length, got = c && store.badges[badgeKeyC(c)];
+    var done = c ? c.ids.filter(function (id) { return store.mastered[id]; }).length : 0;
+    setTopbar("home", "");
+    view().innerHTML = '<div class="result">' +
+      '<div class="big">' + (got ? "🎖 板块章到手！" : state.correct + " / " + total) + '</div>' +
+      '<div class="sub">' + (c ? esc(c.level) + ' · ' + esc(c.unit) + ' · ' + esc(c.component) : "") + '</div>' +
+      '<div class="msg">' + (got ? "这个板块的词语已全部掌握。"
+        : "已掌握 " + done + " / " + (c ? c.ids.length : total) + " 词，再练一轮就更近了。") + '</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="again">再练一轮</button>' +
+      '<button class="nav-btn primary" id="home">‹ 回成就墙</button></div></div>';
+    document.getElementById("again").onclick = function () { if (c) startCompStudy(c); };
+    document.getElementById("home").onclick = renderAchievements;
+  }
+
+  function renderBadgeTrialResult(state) {
+    ensureIdIndex();
+    var c = compByKey(state.bchal), total = state.seq.length;
+    var wrongIds = Object.keys(state.wrong);
+    var passed = wrongIds.length === 0;
+    setTopbar("home", "");
+    if (passed && c) {
+      var bk = badgeKeyC(c), log = store.badgeLog[bk];
+      if (!log) log = store.badgeLog[bk] = { first: todaySG(), last: todaySG(), n: 1 };
+      log.n = (log.n || 1) + 1;
+      log.last = todaySG();
+      saveStore();
+      sfxBadge();
+      view().innerHTML = '<div class="result">' +
+        '<div class="big">🎖 ' + esc(c.component) + ' · 第 ' + log.n + ' 次获得</div>' +
+        '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
+        '<div class="msg">温故而知新。这枚板块章已经收入囊中 ' + log.n + ' 次。</div>' +
+        '<div class="nav-row"><button class="nav-btn" id="again">再来一次</button>' +
+        '<button class="nav-btn primary" id="home">‹ 回成就墙</button></div></div>';
+    } else {
+      var miss = wrongIds.map(function (id) { var w = WORDS[_idIndex[id]]; return w ? esc(w.w) : null; }).filter(Boolean);
+      view().innerHTML = '<div class="result">' +
+        '<div class="big">' + state.correct + ' / ' + total + '</div>' +
+        '<div class="sub">板块试炼 · 差一点全对</div>' +
+        '<div class="msg">这几个词再看一眼：<br><b>' + miss.join("、") + '</b><br>' +
+        '<span style="font-size:12px">（徽章和海拔都不受影响，随时可以再来）</span></div>' +
+        '<div class="nav-row"><button class="nav-btn" id="again">再试一次</button>' +
+        '<button class="nav-btn primary" id="home">‹ 回成就墙</button></div></div>';
+    }
+    document.getElementById("again").onclick = function () { if (c) startBadgeTrial(c); };
+    document.getElementById("home").onclick = renderAchievements;
   }
 
   /* ---------- 个人词语表 (personal word list) ----------
@@ -1877,7 +2059,10 @@
     var key = state.i + "|" + w.id;
     if (state._optsFor !== key) {
       state._optsFor = key;
-      state._pool = distractorsFor(w, scopedWords(), MAX_CLOZE_OPTS - 1);
+      /* state.pool is set only by the scoped rounds (板块挑战): a student whose
+         复习范围 is a single unit would otherwise get too few distractors when
+         challenging a 板块 from elsewhere on the 成就墙. */
+      state._pool = distractorsFor(w, state.pool || scopedWords(), MAX_CLOZE_OPTS - 1);
       state._optsN = 0;
       state._opts = null;
     }
@@ -2070,7 +2255,7 @@
             gained = scoreCorrect(w, PTS_BASE[state.mode] || 2, 1, entering, wasMastered);
             awardLingLu(w, state.mode);
           }
-          else if (state.gym) state.wrong[w.id] = 1;
+          else if (state.gym || state.bchal) state.wrong[w.id] = 1;
           bump(state.mode, right);
           Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (b, bi) {
             var o = opts[bi];
@@ -2100,6 +2285,8 @@
   /* ---------- result ---------- */
   function renderResult(state) {
     if (state.gym) return renderGymResult(state);
+    if (state.bchal) return renderBadgeTrialResult(state);
+    if (state.comp) return renderCompResult(state);
     if (state.fromWordList) {
       var w0 = state.seq[0];
       var ok = state.correct > 0;

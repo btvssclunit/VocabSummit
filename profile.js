@@ -410,13 +410,16 @@
       var catShown = cat ? CAT_LABEL[cat] : "未填写";
 
       var html =
-        /* There WAS a 关闭 button, but only at the very bottom of a long
-           scrolling panel — students could not see any way out without
-           scrolling to the end. This ✕ stays pinned at the top; the bottom
-           关闭 and the backdrop tap both still work. */
+        /* The only close affordance: sticky to the CARD, so it is reachable
+           from anywhere in the panel. The old 关闭 button at the very bottom
+           was removed once this shipped — it was unreachable without scrolling
+           to the end, which was the original complaint. Backdrop tap works too. */
         '<button class="prof-x" id="profCloseX" aria-label="关闭我的档案" title="关闭">✕</button>' +
         '<div class="pop-title">👤 我的档案</div>' +
-        '<div class="prof-grid">' +
+        /* Two independent columns, NOT four grid cells: as cells, the short
+           进度/技术 blocks were locked to the row heights of the tall
+           身份/进度码 blocks and left the panel half empty. */
+        '<div class="prof-grid"><div class="prof-col">' +
 
         // ---- 身份 + 基本资料 (§5: merged into one header block, no gap between) ----
         '<div class="prof-sec">' +
@@ -452,6 +455,11 @@
         // ---- 我的进度 ----
         '<div class="prof-sec"><div class="pop-label">我的进度</div>' + progressHtml() + '</div>' +
 
+        /* Column break sits HERE, and only here, because it is the split that
+           leaves the two columns nearly the same height (identity+progress vs
+           code+tech). Moving it costs the panel hundreds of px of dead space. */
+        '</div><div class="prof-col">' +
+
         // ---- 进度码 ----
         '<div class="prof-sec"><div class="pop-label">进度码 · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
 
@@ -467,15 +475,13 @@
           '用来记录学习情况。我们不收集真实姓名，班级是选填。</div>' +
           '</details></div>' +
 
-        '</div>' + // .prof-grid
-        '<div class="nav-row"><button class="nav-btn" id="profClose">关闭</button></div>';
+        '</div></div>'; // .prof-col + .prof-grid
 
       card.innerHTML = html;
       wire();
     }
 
     function wire() {
-      ov.querySelector("#profClose").onclick = function () { ov.remove(); };
       ov.querySelector("#profCloseX").onclick = function () { ov.remove(); };
 
       ov.querySelector("#profChangeNick").onclick = function () {

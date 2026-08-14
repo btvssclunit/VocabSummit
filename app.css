@@ -10,6 +10,20 @@
   --sea1:#2E6391; --sea2:#1F4A70; --sea3:#173A5A;
   --ink:#243B4A; --ink-soft:#5A7080; --gold:#E3A63C; --gold-deep:#B7791F;
   --card:rgba(255,255,255,.92); --card-line:#C9DCE9;
+  /* ---- liquid glass ----
+     Panels float ON the painted backdrops instead of covering them: a
+     translucent white plate + a real backdrop blur + a bright top hairline
+     that reads as the lit edge of a pane. Inner controls are translucent too,
+     or the card looks like glass with opaque stickers on it.
+     Alphas are deliberately high (.55-.72): these sit over busy painterly art
+     on school Chromebooks, and legibility beats the effect. A @supports
+     fallback near the bottom of this file raises them where there is no blur. */
+  --glass:rgba(255,255,255,.60); --glass-strong:rgba(255,255,255,.72);
+  --glass-soft:rgba(255,255,255,.40); --glass-line:rgba(255,255,255,.65);
+  --glass-line-2:rgba(150,185,212,.45);
+  --glass-blur:saturate(165%) blur(20px);
+  --glass-lift:0 10px 34px rgba(23,58,90,.20);
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.30);
   --ok:#3E7D57; --bad:#B44A3C;
   --serif:"Noto Serif SC","Songti SC","STSong",serif;
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
@@ -49,8 +63,14 @@ img{max-width:100%}
 
 /* ---------- app shell ---------- */
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;
-  padding:12px 20px;background:rgba(234,244,250,.9);backdrop-filter:blur(8px);border-bottom:1px solid rgba(185,206,221,.6)}
-.topbar .back{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.8);border:1px solid #B9CEDD;color:#3A5A70;font-size:16px;flex:none}
+  padding:12px 20px;background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.48));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--glass-line);
+  box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
+.topbar .back{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
+  color:#3A5A70;font-size:16px;flex:none}
 .topbar .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em}
 .topbar .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
 .topbar .tb-right{margin-left:auto;font-size:12.5px;color:var(--ink-soft);
@@ -69,8 +89,10 @@ img{max-width:100%}
 
 /* ---------- shared bits ---------- */
 .section-label{font-size:12px;letter-spacing:.28em;color:var(--ink-soft);margin:0 2px 10px}
-.card{background:var(--card);border:1px solid var(--card-line);border-radius:16px;
-  padding:16px 18px;box-shadow:0 6px 20px rgba(23,58,90,.12)}
+.card{background:linear-gradient(150deg,rgba(255,255,255,.74),rgba(255,255,255,.56) 46%,rgba(232,243,251,.60));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:18px;
+  padding:16px 18px;box-shadow:var(--glass-lift),var(--glass-edge)}
 .tts{display:inline-flex;align-items:center;gap:6px;font-size:14px;background:var(--sea1);color:#fff;
   border-radius:999px;padding:8px 18px;box-shadow:0 4px 12px rgba(23,58,90,.25);transition:transform .12s;
   position:relative;touch-action:manipulation}
@@ -167,10 +189,15 @@ img{max-width:100%}
 
 .diff-label{font-size:11.5px;letter-spacing:.24em;color:var(--ink-soft);margin:16px 0 8px}
 .diff{display:flex;flex-direction:column;gap:7px}
-.dopt{display:flex;align-items:center;gap:9px;border:1.5px solid #B9CEDD;border-radius:12px;
-  padding:9px 13px;font-size:14px;background:#fff;text-align:left;color:var(--ink);touch-action:manipulation}
+.dopt{display:flex;align-items:center;gap:9px;border:1px solid var(--glass-line);border-radius:13px;
+  padding:9px 13px;font-size:14px;background:rgba(255,255,255,.62);text-align:left;color:var(--ink);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 2px 8px rgba(23,58,90,.09);
+  transition:background .15s ease,border-color .15s ease;touch-action:manipulation}
+.dopt:hover{background:rgba(255,255,255,.8)}
 .dopt .stars{color:var(--gold-deep);letter-spacing:.5px;font-size:13px;min-width:62px;flex:none;margin-right:3px}
-.dopt.on{border-color:var(--sea1);background:#EAF2F8;font-weight:700}
+.dopt.on{border-color:rgba(46,99,145,.55);background:rgba(214,233,246,.72);font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 3px 12px rgba(23,58,90,.16)}
 
 .q-card{background:var(--card);border:1px solid var(--card-line);border-radius:18px;
   padding:24px 26px;box-shadow:0 10px 26px rgba(23,58,90,.14);margin-bottom:16px}
@@ -223,8 +250,12 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .feedback.ok{background:#E8F3EC;color:#25513A;border:1px solid #BFDCCB}
 .feedback.bad{background:#F9ECE9;color:#7A3228;border:1px solid #E3C0B8}
 .nav-row{display:flex;gap:10px;margin-top:16px}
-.nav-btn{flex:1;border:1px solid #B9CEDD;border-radius:13px;padding:13px;font-size:15px;background:rgba(255,255,255,.85);color:#3A5A70;touch-action:manipulation}
-.nav-btn.primary{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700}
+.nav-btn{flex:1;border:1px solid var(--glass-line);border-radius:13px;padding:13px;font-size:15px;
+  background:rgba(255,255,255,.62);color:#3A5A70;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12);touch-action:manipulation}
+.nav-btn.primary{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.55);color:#3A2A08;font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
 .nav-btn:disabled{opacity:.5;cursor:default}
 
 /* ---------- flashcards ---------- */
@@ -262,7 +293,21 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .ach-unit{margin-bottom:12px}
 .ach-unit-name{font-size:15px;font-weight:700;color:#3A5A70;display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .ach-badges{display:flex;gap:18px;flex-wrap:wrap}
-.ach-badge{display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;text-align:center}
+/* a glass pill, not white text: the wall sits on bright sky art where plain
+   light type on the backdrop is unreadable */
+.ach-hint{display:inline-block;font-size:12.5px;color:var(--ink);margin:-4px 2px 14px;
+  background:rgba(255,255,255,.6);border:1px solid var(--glass-line);border-radius:999px;padding:5px 14px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
+/* the whole tile is the tap target for the badge detail card */
+.ach-badge{display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;text-align:center;
+  background:none;border:none;padding:4px 2px;border-radius:14px;cursor:pointer;
+  touch-action:manipulation;transition:transform .14s ease,background .14s ease}
+.ach-badge:hover{transform:translateY(-2px);background:rgba(255,255,255,.35)}
+.ach-badge:active{transform:scale(.97)}
+/* repeat count: BESIDE the name, never over the art (badge spec) */
+.ach-times{display:inline-block;margin-left:5px;font-size:11px;font-weight:800;color:#7A5B12;
+  background:#FDF3DC;border:1px solid #EFD9A4;border-radius:999px;padding:0 7px;vertical-align:1px}
 .ach-badge img{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2.5px solid var(--gold);box-shadow:0 5px 14px rgba(23,58,90,.2);background:#fff}
 .ach-badge.locked img{filter:grayscale(1) opacity(.4);border-color:#C9DCE9}
 .ach-badge-name{font-size:12.5px;font-weight:700}
@@ -270,6 +315,31 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .ach-badge-title{font-size:10px;color:#5A7080;line-height:1.25;max-width:104px}
 .ach-badge.locked .ach-badge-title{color:#B4C4D0}
 .ach-badge-count{font-size:11px;color:var(--ink-soft)}
+/* ---------- 徽章详情卡 (badge detail, opened from 成就墙) ----------
+   The art is shown LARGE and uncropped, with nothing drawn over it; the
+   locked state is the same grayscale filter the wall uses. */
+.bd-card{text-align:center}
+.bd-art{width:150px;height:150px;margin:2px auto 12px;border-radius:50%;
+  border:3px solid var(--gold);background:rgba(255,255,255,.75);overflow:hidden;
+  box-shadow:0 10px 30px rgba(23,58,90,.26),inset 0 1px 0 rgba(255,255,255,.9)}
+.bd-art img{width:100%;height:100%;object-fit:contain;display:block}
+.bd-art.locked{border-color:#C9DCE9}
+.bd-art.locked img{filter:grayscale(1) opacity(.42)}
+.bd-name{font-family:var(--serif);font-weight:900;font-size:24px;letter-spacing:.08em;color:var(--ink)}
+.bd-where{font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin-top:3px}
+.bd-earned{display:inline-block;margin-top:10px;font-size:13.5px;font-weight:700;color:#7A5B12;
+  background:linear-gradient(180deg,#FDF3DC,#F7E4B4);border:1px solid #EFD9A4;border-radius:999px;padding:4px 16px}
+.bd-locked{display:inline-block;margin-top:10px;font-size:13.5px;font-weight:700;color:#6A8296;
+  background:rgba(255,255,255,.6);border:1px solid var(--glass-line);border-radius:999px;padding:4px 16px}
+.bd-date{font-size:12.5px;color:var(--ink-soft);line-height:1.7;margin-top:6px}
+.bd-prog{margin:14px 0 10px;font-size:12.5px;color:var(--ink-soft)}
+.bd-prog-track{height:8px;border-radius:99px;background:rgba(216,228,236,.8);overflow:hidden;margin-bottom:6px}
+.bd-prog-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-deep));border-radius:99px}
+.bd-words{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-height:132px;overflow:auto;
+  padding:10px;border-radius:12px;background:rgba(255,255,255,.42);border:1px solid var(--glass-line)}
+.bd-word{font-size:13px;color:#6A8296;background:rgba(255,255,255,.7);border:1px solid var(--glass-line);
+  border-radius:8px;padding:2px 9px}
+.bd-word.done{color:#3A2A08;background:#FDF3DC;border-color:#EFD9A4;font-weight:700}
 .ach-t4{text-align:center;margin:26px auto 10px;max-width:520px;background:rgba(18,42,66,.82);
   color:#DCEAF4;border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:16px;font-size:15px}
 .ach-t4.got{background:linear-gradient(135deg,#8A6A2E,#E3A63C);color:#fff;font-weight:700}
@@ -455,16 +525,21 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .hint-line b{color:var(--gold-deep);letter-spacing:.08em}
 
 /* ---------- shared popover ---------- */
-.pop-overlay{position:fixed;inset:0;z-index:60;background:rgba(23,45,66,.45);
+.pop-overlay{position:fixed;inset:0;z-index:60;background:rgba(23,45,66,.42);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
   display:flex;align-items:center;justify-content:center;padding:18px}
-.pop-card{background:#fff;border-radius:18px;max-width:520px;width:100%;max-height:86vh;
-  overflow:auto;padding:22px 24px;box-shadow:0 14px 40px rgba(12,30,48,.35)}
+.pop-card{background:linear-gradient(150deg,rgba(255,255,255,.82),rgba(255,255,255,.68) 46%,rgba(230,242,251,.72));
+  -webkit-backdrop-filter:saturate(170%) blur(26px);backdrop-filter:saturate(170%) blur(26px);
+  border:1px solid var(--glass-line);border-radius:20px;max-width:520px;width:100%;max-height:86vh;
+  overflow:auto;padding:22px 24px;
+  box-shadow:0 18px 50px rgba(12,30,48,.34),var(--glass-edge)}
 .pop-title{font-family:var(--serif);font-weight:900;font-size:20px;color:var(--ink);margin-bottom:10px}
 .pop-body{font-size:14.5px;line-height:1.8;color:#41576A}
 .pop-note{font-size:12.5px;color:var(--ink-soft)}
 .pop-label{font-size:12.5px;font-weight:700;color:#3A5A70;margin:10px 0 6px;letter-spacing:.06em}
-.code-ta{width:100%;box-sizing:border-box;height:74px;border:1.5px solid #B9CEDD;border-radius:10px;
-  padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink);background:#F7FAFC}
+.code-ta{width:100%;box-sizing:border-box;height:74px;border:1px solid var(--glass-line);border-radius:11px;
+  padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink);
+  background:rgba(255,255,255,.5);box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
 .code-link{display:inline-flex;align-items:center;gap:4px;
   background:#FDF6E4;border:2px solid var(--gold,#D9A72B);border-radius:8px;
   color:#5C4009;font-size:15px;font-weight:700;letter-spacing:.02em;
@@ -475,24 +550,28 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .np-role{flex:1;border:1.5px solid #B9CEDD;border-radius:12px;padding:10px 4px;font-size:14px;font-weight:700;
   color:var(--ink-soft);background:#fff;cursor:pointer}
 .np-role.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
-.np-select{width:100%;box-sizing:border-box;height:44px;border:1.5px solid #B9CEDD;border-radius:10px;
-  padding:0 11px;font-size:15px;color:var(--ink);background:#F7FAFC}
+.np-select{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px;
+  padding:0 11px;font-size:15px;color:var(--ink);background:rgba(255,255,255,.55);
+  box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
 
 /* ---------- 我的档案 profile panel (profile.js) ---------- */
-.pop-card.prof-wide{max-width:840px}
+.pop-card.prof-wide{max-width:880px;padding:20px 22px}
 .prof-grid{display:block}
+.prof-col{display:block}
 .prof-sec{margin-top:12px}
+.prof-col>.prof-sec:first-child{margin-top:0}
 .prof-sec:first-child{margin-top:2px}
 .prof-nick{font-family:var(--serif);font-weight:900;font-size:23px;color:var(--ink)}
 /* merged 身份+基本资料 header: avatar left, nickname/class/school + links right */
 .prof-head{display:flex;align-items:center;gap:14px}
 /* 我的档案 close affordance: the panel is a full-height scrolling sheet, so the
    ✕ is sticky to the card, not the page, or it scrolls away mid-panel. */
-.prof-x{position:sticky;top:0;float:right;z-index:2;margin:-4px -4px 0 0;
-  width:34px;height:34px;border-radius:50%;border:1px solid var(--card-line,#C9DCE9);
-  background:#fff;color:#3A5A70;font-size:15px;line-height:1;cursor:pointer;
-  box-shadow:0 2px 8px rgba(23,58,90,.14);touch-action:manipulation}
-.prof-x:hover{background:#F1F6FB;color:var(--bad,#B44A3C)}
+.prof-x{position:sticky;top:0;float:right;z-index:2;margin:-2px -4px 0 0;
+  width:34px;height:34px;border-radius:50%;border:1px solid var(--glass-line);
+  background:rgba(255,255,255,.72);color:#3A5A70;font-size:15px;line-height:1;cursor:pointer;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.18);touch-action:manipulation}
+.prof-x:hover{background:rgba(255,255,255,.9);color:var(--bad,#B44A3C)}
 .prof-x:active{transform:translateY(1px)}
 .prof-head-txt{min-width:0;flex:1}
 .prof-head-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.5;word-break:break-word}
@@ -506,25 +585,34 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .prof-more[open]>summary::after{transform:rotate(90deg)}
 .prof-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .prof-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
-.prof-chip{border:1.5px solid #B9CEDD;border-radius:999px;padding:7px 15px;font-size:13.5px;
-  background:rgba(255,255,255,.9);color:#3A5A70;cursor:pointer}
-.prof-chip.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700}
-.prof-input{width:100%;box-sizing:border-box;height:44px;border:1.5px solid #B9CEDD;border-radius:10px;
-  padding:0 12px;font-size:15px;font-family:inherit;color:var(--ink);background:#F7FAFC}
-.prof-prog{display:flex;flex-wrap:wrap;gap:8px}
-.prof-prog div{flex:1;min-width:130px;background:#F1F6FB;border:1px solid #DBE7F1;border-radius:12px;padding:10px 13px}
-.prof-prog b{display:block;font-size:19px;color:var(--ink);font-weight:800}
+.prof-chip{border:1px solid var(--glass-line);border-radius:999px;padding:7px 15px;font-size:13.5px;
+  background:rgba(255,255,255,.6);color:#3A5A70;cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.1)}
+.prof-chip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.5);
+  color:#3A2A08;font-weight:700;box-shadow:0 3px 12px rgba(227,166,60,.4)}
+.prof-input{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px;
+  padding:0 12px;font-size:15px;font-family:inherit;color:var(--ink);background:rgba(255,255,255,.55);
+  box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
+/* 我的进度: a real grid, so four numbers never stretch into four wide, mostly
+   empty plates the way flex:1 made them. */
+.prof-prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
+.prof-prog div{background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:13px;
+  padding:9px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.prof-prog b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold-deep);font-weight:800;line-height:1.25}
 .prof-prog span{font-size:11.5px;color:var(--ink-soft)}
 .prof-uid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all;
-  background:#F1F6FB;border:1px solid #DBE7F1;border-radius:10px;padding:10px 12px;color:var(--ink)}
+  background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:10px;padding:9px 12px;color:var(--ink)}
 /* avatar + nickname pill — the single 我的档案 entry on a stream page */
 .tb-profile{display:inline-flex;align-items:center;gap:8px;
-  background:rgba(255,255,255,.82);border:1px solid #B9CEDD;border-radius:999px;
+  background:rgba(255,255,255,.55);border:1px solid var(--glass-line);border-radius:999px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14);
   height:36px;max-width:min(42vw,240px);font-size:17px;cursor:pointer;color:#3A5A70;flex:none;
   margin-left:6px;padding:2px 13px 2px 2px;overflow:hidden;touch-action:manipulation}
 .tb-profile:active{transform:translateY(1px)}
 .tb-av{width:30px;height:30px;border-radius:50%;flex:none;overflow:hidden;
-  display:grid;place-items:center;background:#F1F6FB;font-size:16px}
+  display:grid;place-items:center;background:rgba(241,246,251,.85);font-size:16px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
 .tb-profile img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 .tb-nick{font-family:var(--serif);font-weight:700;font-size:13.5px;letter-spacing:.02em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -552,7 +640,9 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 /* 中/EN toggle — icon-only on purpose: a student who cannot read the interface
    must still be able to find the control that fixes that. */
 .tb-en{display:inline-flex;align-items:center;gap:3px;flex:none;height:36px;padding:0 11px;
-  background:rgba(255,255,255,.82);border:1px solid #B9CEDD;border-radius:999px;
+  background:rgba(255,255,255,.55);border:1px solid var(--glass-line);border-radius:999px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14);
   color:#3A5A70;cursor:pointer;margin-left:6px;touch-action:manipulation;line-height:1}
 .tb-en:active{transform:translateY(1px)}
 .tb-en .tb-en-zh{font-family:var(--serif);font-weight:800;font-size:15px}
@@ -577,9 +667,15 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 .avatar-thumb img{width:100%;height:100%;object-fit:contain;display:block}
 .avatar-thumb.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,166,60,.35)}
 .avatar-cell-label{font-size:10.5px;text-align:center;color:var(--ink-soft);line-height:1.3}
+/* Two REAL columns, not four grid cells. As four cells the row heights were
+   coupled, so the short 我的进度 / 技术编号 blocks sat beside the tall
+   身份 / 进度码 blocks and left half the panel empty. Each column now flows
+   independently and packs. Below 900px both columns collapse to one stack in
+   source order: 身份 → 进度 → 进度码 → 技术. */
 @media(min-width:900px){
-  .prof-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
-  .prof-sec{margin-top:0}
+  .prof-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);gap:20px;align-items:start}
+  .prof-col>.prof-sec{margin-top:14px}
+  .prof-col>.prof-sec:first-child{margin-top:0}
 }
 
 /* ---------- 你的营地 / 营地商店 / 年度试炼 ---------- */
@@ -1027,3 +1123,18 @@ button.m2pill{cursor:pointer}
 .shop-thumb{width:44px;height:44px;object-fit:contain;flex:none;image-rendering:pixelated}
 .shop-locked{font-size:12px;font-weight:700;color:var(--ink-soft);flex:none;text-align:right;max-width:110px}
 @media (max-width:480px){.camp2-hud .m2pill{font-size:12px;padding:7px 10px}}
+
+/* ---------- liquid glass fallback ----------
+   Older ChromeOS builds and any browser without backdrop-filter would render
+   the panels above as thin washes over busy artwork. Where the blur is not
+   available, opacity carries the plate instead. Keep this block LAST so it
+   wins on specificity-equal rules. */
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .topbar{background:rgba(240,247,252,.96)}
+  .card{background:rgba(255,255,255,.93)}
+  .pop-card{background:rgba(255,255,255,.97)}
+  .tb-profile,.tb-en,.topbar .back,.prof-x{background:rgba(255,255,255,.92)}
+  .dopt,.nav-btn,.prof-chip{background:rgba(255,255,255,.9)}
+  .prof-input,.np-select,.code-ta,.prof-uid,.prof-prog div{background:rgba(255,255,255,.88)}
+  .dopt.on{background:#E3EEF7}
+}

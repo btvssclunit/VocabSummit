@@ -1653,9 +1653,12 @@ round — especially the reconnect path and cross-stream play (a G1 and a G3 stu
 See the rewritten **File structure** section above — the flat-root rule is retired, 66 files moved
 into `data/` + `art/{bg,badge,avatar,camp,item,sprite}` + `docs/`, every reference rewritten and
 verified (61 asset paths, 0 missing), all 183 test assertions still passing afterwards.
-⚠️ The local clone is **36 commits behind origin** — it is the owner's UPLOAD SOURCE, not a synced
-working copy. That is why deploying the reorg needs either a git push from here or a manual purge of
-the 66 old root files first; a plain re-upload would duplicate rather than move them.
+⚠️ At the time this was written the local clone was 36 commits behind origin, which is why deploying
+the reorg needed either a git push from here or a manual purge of the 66 old root files first (a plain
+re-upload would duplicate rather than move them). **RESOLVED 2026-08-14: the reorg is pushed and the
+clone is now IN SYNC with origin/main** (verified `git rev-list --left-right --count`). Normal flow
+from here is commit + push in GitHub Desktop; there is no longer any need for web-UI uploads. Check
+the real ahead/behind before assuming either state — this line has been stale once already.
 
 ### 2. 词雨 landscape split reweighted (owner)
 The §3 split shipped at 62/38, which the owner judged too even: *"the screen still can take up most
@@ -1717,3 +1720,84 @@ subcollection**, and a student PK host previously had no way to clear player row
 Verified: all five suites still pass (camp 57 · teacher 58 · economy 34 · PK 22 · rain 12), all JS
 parses, CSS braces 644/644. ⚠️ #2, #3, #5 and #6 are LAYOUT claims — they need eyes on a real
 device, especially the sprint shell on a 1024×600 Chromebook and in phone landscape.
+
+## 液态玻璃 UI + 档案页压缩 + 徽章详情卡 · 2026-08-14 (owner request)
+
+Two owner asks in one pass, both in app.css / app.js / profile.js. **Verified in a real browser**
+(`python3 -m http.server` was blocked by cache staleness at first — a plain SimpleHTTPRequestHandler
+sends Last-Modified, so the Browser pane served an OLD app.js and the new markup silently did not
+appear. Use a no-store handler when testing edits; the 30 seconds of confusion is avoidable).
+
+### 1. 液态玻璃 (liquid glass)
+Six tokens at the top of app.css (`--glass`, `--glass-strong`, `--glass-soft`, `--glass-line`,
+`--glass-blur`, `--glass-lift`, `--glass-edge`) drive every panel, so the whole look retunes from one
+place. The recipe is: translucent white plate + a REAL `backdrop-filter` blur + a bright top hairline
+(`inset 0 1px 0`) that reads as the lit edge of a pane.
+- Applied to: `.topbar` (+ `.back` / `.tb-profile` / `.tb-en` pills), `.card` (so every config screen
+  and home card), `.pop-card` (so 我的档案 and every popover), `.pop-overlay` (3px scrim blur).
+- **Inner controls had to go translucent too** — `.dopt` `.nav-btn` `.prof-chip` `.prof-input`
+  `.np-select` `.code-ta` `.prof-uid` `.prof-prog div`. A glass card with opaque white buttons on it
+  reads as glass with stickers stuck to it, which is worse than no glass at all.
+- `.opt` (the quiz answer buttons) is DELIBERATELY left solid. Answering a question is the one place
+  where legibility must not be traded for effect.
+- ⚠️ **Alphas are .5–.72 on purpose.** These panels sit over busy painterly art on school
+  Chromebooks. Do not "improve" the effect by lowering them without looking at bg-01..05 and
+  landing_hero_bg behind a full question screen.
+- **`@supports not (backdrop-filter)` block at the very END of app.css** raises every alpha for
+  browsers with no blur — keep it last, and add any new glass surface to it.
+
+### 2. 我的档案 空间压缩
+- The ≥900px panel was FOUR grid cells in a 2×2, so row heights were coupled: the short 我的进度 /
+  技术编号 blocks were pinned to the row heights of the tall 身份 / 进度码 blocks and left ~350px of
+  dead space. `render()` now emits **two `.prof-col` wrappers** that flow independently.
+- ⚠️ **The column break sits after 我的进度, and that position is load-bearing**: it is the only split
+  that leaves the columns near-equal (measured 559px vs 533px; card height 880 → 643). Moving 我的进度
+  to the right column puts the 350px hole back on the other side.
+- Below 900px both columns collapse and source order is unchanged (身份 → 进度 → 进度码 → 技术),
+  verified on a 375px viewport.
+- **The bottom 关闭 button is REMOVED**, per the owner: the sticky `.prof-x` ✕ (added earlier the same
+  day) is now the only close control, plus the backdrop tap. Its wiring was deleted too — do not
+  re-add a `#profClose` lookup, it will throw.
+- 我的进度 is a real `grid` now (`auto-fit,minmax(112px,1fr)`), not `flex:1` — four numbers no longer
+  stretch into four wide, mostly-empty plates. Numbers are serif gold-deep, matching 概览's harbour.
+
+### 3. 徽章详情卡 + 板块挑战 (owner request)
+成就墙's component badges are now buttons opening `openBadgeDetail()`: the art LARGE (150px,
+`object-fit:contain`, uncropped, nothing drawn over it — badge spec respected), 年级·单元·课文标题,
+earned state, 已掌握 N/M with a progress bar, and every word in the 板块 as a chip (mastered ones gold).
+- **New `store.badgeLog`**: `badgeKey -> {first, last, n}`. A SEPARATE map from `store.badges` on
+  purpose — `s.badges` stays a plain truthy flag so every existing check, the cloud union and the
+  badge count keep working untouched. `logBadge()` stamps it from `todaySG()` in all four
+  `checkBadges` tiers. Badges earned before this shipped have no entry and the card says
+  **日期未记录** rather than inventing a date. Merged from cloud as earliest-`first` /
+  latest-`last` / max-`n`. NOT in 进度码.
+- **未获得 → 去挑战**: `startCompStudy()` runs 填空挑战 over exactly that 板块, unmastered first, NOT
+  capped to 题数 (the point is to finish the 板块). 填空 is the mastery gate, so answering here is what
+  actually earns the badge — verified end to end, including the T1 celebration firing.
+- **已获得 → 再次挑战**: `startBadgeTrial()` = 板块试炼, 华文解释 MCQ over EVERY word in the 板块,
+  **全对 only**, modelled on 年度试炼 (`state.bchal` mirrors `state.gym`). A pass does `log.n++` +
+  `log.last`, so the same badge can be won repeatedly and the wall shows a `×N` chip **beside the
+  name, never over the art**. A miss costs nothing at all — no 待巩固, no mastery change (verified:
+  22/23 left n at 2 and 海拔 at 23).
+- 历练值 / 灵露 are earned normally in both rounds (they route through renderCloze/renderMcq); the
+  repeat count itself is cosmetic and touches no leaderboard.
+- `clozeOpts` now honours `state.pool` — a student whose 复习范围 is one unit would otherwise get too
+  few distractors when challenging a 板块 from elsewhere on the wall.
+- `.ach-hint` is a glass PILL, not light text: the wall sits on bright sky art where light type on the
+  backdrop is unreadable.
+- ⚠️ Only the five 板块章 are clickable. 单元章/年级章/顶级词王 have no art (they are emoji seals), so
+  there is nothing to zoom — they would need art before they could get the same card.
+- ⚠️ NOTE for the record: `.ach-level-head b` (中一/中二…) is white serif on the bare backdrop and is
+  hard to read on the pale sky art. Pre-existing, untouched, worth a pass with the hint-pill treatment.
+
+### 验证
+Real browser at 1280×820 and 375×812: glass on topbar/home cards/攀山竞速 config/我的档案; profile
+column heights and card height measured with `getBoundingClientRect`; mobile section order asserted;
+badge card open from the wall (locked + earned states); 去挑战 launching a 23-question cloze round over
+the right 板块; a real correct answer awarding the badge, stamping badgeLog and firing the celebration;
+a scripted all-correct 板块试炼 taking n to 2 and the wall showing ×2; a deliberate miss leaving n and
+海拔 untouched. Zero console errors. app.js + profile.js parse (JavaScriptCore), CSS braces 676/676,
+every referenced asset path still resolves.
+⚠️ Not proven without a device: how the blur performs on a managed Chromebook (backdrop-filter is
+GPU work on every scroll — if 词雨/攀山竞速 feel less smooth on real PLDs, the first thing to try is
+dropping the blur from `.card` and keeping it on the topbar and popovers only).
