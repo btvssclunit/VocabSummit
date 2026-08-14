@@ -1299,7 +1299,9 @@
 
     var meta;
     if (got) {
-      meta = '<div class="bd-earned">🎖 已获得' + ((log && log.n > 1) ? ' · 第 ' + log.n + ' 次' : '') + '</div>' +
+      /* 已获得 N 次. A pre-badgeLog badge has no count on record, so it falls
+         back to a bare 已获得 rather than claiming a number it does not know. */
+      meta = '<div class="bd-earned">🎖 已获得' + (log ? ' ' + (log.n || 1) + ' 次' : '') + '</div>' +
         '<div class="bd-date">首次获得：' + esc((log && log.first) || "日期未记录") +
         ((log && log.n > 1 && log.last) ? '<br>最近一次：' + esc(log.last) : '') + '</div>';
     } else {
@@ -1398,7 +1400,7 @@
       saveStore();
       sfxBadge();
       view().innerHTML = '<div class="result">' +
-        '<div class="big">🎖 ' + esc(c.component) + ' · 第 ' + log.n + ' 次获得</div>' +
+        '<div class="big">🎖 ' + esc(c.component) + ' · 已获得 ' + log.n + ' 次</div>' +
         '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
         '<div class="msg">温故而知新。这枚板块章已经收入囊中 ' + log.n + ' 次。</div>' +
         '<div class="nav-row"><button class="nav-btn" id="again">再来一次</button>' +
