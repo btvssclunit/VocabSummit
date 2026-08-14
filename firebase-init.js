@@ -140,7 +140,12 @@
           /* speed boards (DESIGN_排行榜扩展): canonical-config runs only —
              90s 攀山竞速 and 递增速度 词雨. pts.week rides inside pts. */
           bestSprint90: entry.bestSprint90 || 0,
-          bestRainRamp: entry.bestRainRamp || 0
+          bestRainRamp: entry.bestRainRamp || 0,
+          /* 对战徽章 counts, published so a classmate tapping your name on the
+             leaderboard can see what you have won. Compact keys (rg/rs/rb/rc =
+             结伴登峰 gold/silver/bronze/称号, p* = 同伴挑战) because this rides in
+             every score write. Counts only — no dates, no word data. */
+          battle: entry.battle || {}
         };
         db.collection("scores").doc(_uid).set(s, { merge: true })
           .catch(function (e) { console.error("saveScore failed:", e); });

@@ -156,27 +156,38 @@ img{max-width:100%}
 .htab:active{transform:scale(.985)}
 .htab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;box-shadow:0 4px 14px rgba(227,166,60,.35)}
 
-.camps{display:grid;grid-template-columns:1fr;gap:12px}
-.camp{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--card-line);
-  border-radius:16px;padding:17px 16px;width:100%;text-align:left;
+/* Games sit in ONE row (owner 2026-08-14). auto-fit + a min track means 3 or 4
+   cards share the row on a PLD and wrap gracefully on a phone, without the count
+   being hardcoded — the stream decides how many modes exist (G1/G2 get 组词,
+   G3/HCL get 汉兜). Dropping 出发 › is what buys the width to do this. */
+.camps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.camp{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--card-line);
+  border-radius:16px;padding:13px 13px;width:100%;text-align:left;min-width:0;
   box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s ease}
 .camp:hover{transform:translateY(-2px)}
 .camp:active{transform:scale(.985)}
-.camp .flag{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:23px;background:#FDF3DC;border:1px solid #EFD9A4;flex:none}
-.camp b{font-size:17px;display:block}
+.camp .flag{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:21px;background:#FDF3DC;border:1px solid #EFD9A4;flex:none}
+.camp b{font-size:15.5px;display:block;line-height:1.3}
+.camp>div{min-width:0}
 .camp span{font-size:12.5px;color:var(--ink-soft)}
 .camp .go{margin-left:auto;font-size:13px;color:var(--gold-deep);font-weight:700;flex:none}
 
-.badge-strip{display:flex;gap:10px;align-items:center;margin-top:16px;background:var(--card);
-  border:1px solid var(--card-line);border-radius:16px;padding:12px 16px;width:100%;text-align:left;
-  box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s}
+/* 成就徽章 + 我的词语表 + 词山风云榜 in ONE row (owner 2026-08-14). The badge
+   strip needs more width than the other two because it carries the badge art, so
+   this is a 3-track grid weighted 1.4/1/1 rather than three equal columns. */
+.home-entries{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:14px}
+@media (min-width:760px){.home-entries{grid-template-columns:1.4fr 1fr 1fr}}
+.home-entries>*{margin-top:0}
+.badge-strip{display:flex;gap:8px;align-items:center;margin-top:0;background:var(--card);
+  border:1px solid var(--card-line);border-radius:16px;padding:11px 13px;width:100%;text-align:left;
+  min-width:0;box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s}
 .badge-strip:hover{transform:translateY(-2px)}
-.badge-chip{width:46px;height:46px;border-radius:50%;overflow:hidden;flex:none;background:#fff;
+.badge-chip{width:36px;height:36px;border-radius:50%;overflow:hidden;flex:none;background:#fff;
   border:2px solid var(--gold);box-shadow:0 3px 10px rgba(23,58,90,.18)}
 .badge-chip img{width:100%;height:100%;object-fit:cover;display:block}
 .badge-chip.locked{border-color:#C9DCE9}
 .badge-chip.locked img{filter:grayscale(1) opacity(.45)}
-.badge-note{font-size:12.5px;color:var(--ink-soft);margin-left:auto;text-align:right;line-height:1.5}
+.badge-note{font-size:12px;color:var(--ink-soft);margin-left:auto;text-align:right;line-height:1.4;flex:none}
 
 .harbour{background:rgba(18,42,66,.82);border:1px solid rgba(255,255,255,.2);border-radius:16px;
   padding:15px 22px;display:flex;gap:28px;color:#EAF4FA;margin-top:14px;justify-content:center;flex-wrap:wrap}
@@ -525,7 +536,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* ---------- landscape (primary target: ≥900px) ---------- */
 @media (min-width:900px){
   .home-grid{grid-template-columns:400px 1fr}
-  .camps{grid-template-columns:1fr 1fr}
+  /* auto-fit already handles the row; no fixed 2-up override any more */
   .study{grid-template-columns:300px 1fr}
   .rail{position:sticky;top:78px}
   .arrow{display:block}
@@ -1042,13 +1053,14 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
 @media (hover:hover) and (pointer:fine){ .mtn-joy{display:none} }
 
 /* ===== 个人词语表 (personal word list) ===== */
-.wl-entry{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--card-line);
+.wl-entry{display:flex;align-items:center;gap:11px;min-width:0;background:var(--card);border:1px solid var(--card-line);
   border-radius:16px;padding:15px 16px;width:100%;text-align:left;box-shadow:0 6px 20px rgba(23,58,90,.14);
-  transition:transform .12s;margin-top:12px;cursor:pointer}
+  transition:transform .12s;margin-top:0;cursor:pointer}
 .wl-entry:hover{transform:translateY(-2px)}
-.wl-entry .flag{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;
+.wl-entry .flag{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:21px;
   background:#EAF2FB;border:1px solid #CBDDEC;flex:none}
-.wl-entry b{font-size:16px;display:block;color:var(--ink)}
+.wl-entry b{font-size:15.5px;display:block;color:var(--ink);line-height:1.3}
+.wl-entry>div{min-width:0}
 .wl-entry>div>span{font-size:12.5px;color:var(--ink-soft)}
 .wl-entry .go{margin-left:auto;font-size:13px;color:var(--gold-deep);font-weight:700;flex:none}
 .wl-wrap{max-width:760px;margin:0 auto;padding:6px 12px 24px}
@@ -1239,6 +1251,30 @@ button.m2pill{cursor:pointer}
 .shop-locked{font-size:12px;font-weight:700;color:var(--ink-soft);flex:none;text-align:right;max-width:110px}
 @media (max-width:480px){.camp2-hud .m2pill{font-size:12px;padding:7px 10px}}
 
+/* ---------- 成就墙 tabs (2026-08-14) ----------
+   The 对战 block used to sit ~5,700px down a single scrolling wall, which is
+   exactly why the owner could not find it. Two tabs, same pattern as .htab. */
+.ach-tabs{display:flex;gap:8px;margin:0 0 12px}
+.ach-tab{flex:1;border:1px solid var(--glass-line);border-radius:14px;padding:11px 10px;
+  font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;touch-action:manipulation;
+  background:rgba(255,255,255,.7);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
+.ach-tab.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
+
+/* ---------- 别人的对战徽章 (leaderboard name -> badge card) ---------- */
+.lb-row{width:100%;text-align:left;cursor:pointer;font:inherit}
+.pb-card{text-align:left}
+.pb-sub{font-size:12.5px;color:var(--ink-soft);margin:-6px 0 12px}
+.pb-fam{margin-top:12px}
+.pb-fam-name{font-size:13px;font-weight:800;color:var(--ink);letter-spacing:.1em;margin-bottom:8px}
+.pb-grid{display:flex;gap:14px;flex-wrap:wrap}
+.pb-badge{width:92px;text-align:center;font-size:11.5px;color:var(--ink-soft);line-height:1.35}
+.pb-badge img{width:62px;height:62px;border-radius:50%;object-fit:contain;background:rgba(255,255,255,.85);
+  border:2px solid var(--gold);box-shadow:0 4px 12px rgba(23,58,90,.2);display:block;margin:0 auto 5px}
+.pb-none{font-size:12.5px;color:var(--ink-soft);background:rgba(255,255,255,.55);
+  border:1px dashed #B9CEDD;border-radius:12px;padding:10px 12px}
+.pb-note{margin-top:14px;font-size:11.5px;color:#4E6273}
+
 /* ---------- liquid glass fallback ----------
    Older ChromeOS builds and any browser without backdrop-filter would render
    the panels above as thin washes over busy artwork. Where the blur is not
@@ -1249,7 +1285,8 @@ button.m2pill{cursor:pointer}
   .card{background:rgba(255,255,255,.93)}
   .pop-card{background:rgba(255,255,255,.97)}
   .tb-profile,.tb-en,.topbar .back,.prof-x{background:rgba(255,255,255,.92)}
-  .dopt,.nav-btn,.prof-chip{background:rgba(255,255,255,.9)}
+  .dopt,.nav-btn,.prof-chip,.ach-tab{background:rgba(255,255,255,.9)}
+  .section-label,.mtn2-tip{background:rgba(255,255,255,.95)}
   .prof-input,.np-select,.code-ta,.prof-uid,.prof-prog div{background:rgba(255,255,255,.88)}
   .dopt.on{background:#E3EEF7}
 }

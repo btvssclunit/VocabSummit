@@ -329,7 +329,8 @@
       /* speed boards publish CANONICAL-CONFIG runs only (90s sprint / 递增 rain);
          store.best.sprint / .rain stay private personal bests across all configs */
       bestSprint90: store.best.sprint90 || 0,
-      bestRainRamp: store.best.rainRamp || 0
+      bestRainRamp: store.best.rainRamp || 0,
+      battle: battleSummary()
     });
   }
   window.addEventListener("pagehide", flushCloudSyncNow);
@@ -1012,6 +1013,20 @@
     var log = store.badgeLog[k];
     return (log && log.n) || 1;
   }
+  /* Compact 对战徽章 counts for publication (see firebase-init saveScore). Only
+     counts travel — never dates, never anything about which words a student
+     knows. Read back by openPlayerBadges when a classmate taps a name. */
+  var BATTLE_PUB = { room: "r", peer: "p" }, BATTLE_PUB_T = { gold: "g", silver: "s", bronze: "b", champion: "c" };
+  function battleSummary() {
+    var out = {};
+    Object.keys(BATTLE_PUB).forEach(function (fam) {
+      Object.keys(BATTLE_PUB_T).forEach(function (tier) {
+        var n = battleCount(fam, tier);
+        if (n) out[BATTLE_PUB[fam] + BATTLE_PUB_T[tier]] = n;
+      });
+    });
+    return out;
+  }
   /* A层 badge count only — battle keys live in the same map but are not part of
      the 板块/单元/年级/词王 ladder the home stat measures. */
   function achBadgeCount() {
@@ -1287,7 +1302,7 @@
     html += '</div>';
 
     html += '</div><div class="home-right">' +
-      '<div class="section-label">' + stepNo(2) + '选择方式' + enl("选择方式") + '</div>' +
+      '<div class="section-label">' + stepNo(2) + '选择学习方式' + enl("选择方式") + '</div>' +
       '<div class="htabs">' +
       '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + enl("修行") + '</button>' +
       '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + enl("闯关") + '</button></div>';
@@ -1308,7 +1323,9 @@
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
 
-    html += '<button class="badge-strip" id="badgeStrip">';
+    /* 成就徽章 · 我的词语表 · 词山风云榜 share ONE row (owner 2026-08-14). The
+       badge strip opens the row; the two entry cards below close it. */
+    html += '<div class="home-entries"><button class="badge-strip" id="badgeStrip">';
     /* One badge per component TYPE present in THIS stream (G1:3 · G2/G3:4 · HCL:5),
        in narrative order, ALL full-colour on the dashboard. The locked-vs-earned
        greyscale distinction lives in 成就墙 (renderAchievements) only, seen after
@@ -1326,11 +1343,10 @@
        here is still shown inside 我的词语表 itself, so nothing is lost — it just
        stops competing with the title on the home page. */
     html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
-      '<div><b>我的词语表' + enli("我的词语表") + '</b></div>' +
-      '<span class="go">查看 ›</span></button>';
+      '<div><b>我的词语表' + enli("我的词语表") + '</b></div></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
-      '<div><b>词山风云榜' + enli("词山风云榜") + '</b></div>' +
-      '<span class="go">查看 ›</span></button>';
+      '<div><b>词山风云榜' + enli("词山风云榜") + '</b></div></button>';
+    html += '</div>';   // .home-entries
 
     html += '<div class="harbour">' +
       '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ</span></div>' +
@@ -1422,8 +1438,7 @@
     function camp(mode, icon, name, desc) {
       return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
         '<span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + enli(name) + '</b></div>' +
-        '<span class="go">出发 ›' + enl("出发") + '</span></button>';
+        '<div><b>' + name + enli(name) + '</b></div></button>';
     }
     function updateScopeSum() {
       var n = scopedWords().length;
@@ -1440,9 +1455,27 @@
   }
 
   /* ---------- achievements wall ---------- */
+  /* 成就墙 has TWO families that answer different questions — 里程碑 is evidence
+     of learning, 对战 is a record of matches — so they get tabs rather than one
+     endless scroll. Before this the 对战 block sat ~5,700px down the page and the
+     owner could not find it, which is the whole reason the toggle exists. */
   function renderAchievements() {
     setTopbar("home", "");
-    var html = '<div class="ach-wrap"><div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王</div>' +
+    var tab = store.achTab === "battle" ? "battle" : "milestone";
+    var html = '<div class="ach-wrap">' +
+      '<div class="ach-tabs">' +
+      '<button class="ach-tab' + (tab === "milestone" ? " on" : "") + '" data-at="milestone">📜 掌握里程碑</button>' +
+      '<button class="ach-tab' + (tab === "battle" ? " on" : "") + '" data-at="battle">⚔️ 对战徽章</button></div>';
+    if (tab === "battle") {
+      html += battleWallHtml() + '</div>';
+      view().innerHTML = html;
+      wireAchTabs();
+      Array.prototype.forEach.call(view().querySelectorAll(".ach-badge[data-bf]"), function (b) {
+        b.onclick = function () { openBattleBadge(b.getAttribute("data-bf"), b.getAttribute("data-bt")); };
+      });
+      return;
+    }
+    html += '<div class="section-label">成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王</div>' +
       '<div class="ach-hint">点一下任何一枚板块章：看清大图与获得日期，未得到的可以直接挑战这个板块。</div>';
     LEVELS.forEach(function (lv) {
       var lvDone = store.badges[badgeKeyL(lv)];
@@ -1473,13 +1506,16 @@
     });
     html += '<div class="ach-t4' + (store.badges["t4"] ? " got" : "") + '">👑 顶级词王 · ' +
       (store.badges["t4"] ? "已达成！锲而不舍，金石可镂。" : "掌握全部词语后解锁") + '</div>';
-    html += battleWallHtml() + '</div>';
+    html += '</div>';
     view().innerHTML = html;
+    wireAchTabs();
     Array.prototype.forEach.call(view().querySelectorAll(".ach-badge[data-ck]"), function (b) {
       b.onclick = function () { openBadgeDetail(b.getAttribute("data-ck")); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".ach-badge[data-bf]"), function (b) {
-      b.onclick = function () { openBattleBadge(b.getAttribute("data-bf"), b.getAttribute("data-bt")); };
+  }
+  function wireAchTabs() {
+    Array.prototype.forEach.call(view().querySelectorAll(".ach-tab"), function (b) {
+      b.onclick = function () { store.achTab = b.getAttribute("data-at"); saveStore(); renderAchievements(); };
     });
   }
 
@@ -1488,8 +1524,7 @@
      new families. Each family gets its own card so the "官方赛事 / 自约对局"
      split stays visible, with the 称号 last as the family's capstone. */
   function battleWallHtml() {
-    var out = '<div class="section-label ach-sec">对战徽章 · 现场名次</div>' +
-      '<div class="ach-hint">房间对战拿到前三名就收下一面奖牌，同一面可以反复获得。' +
+    var out = '<div class="ach-hint">房间对战拿到前三名就收下一面奖牌，同一面可以反复获得。' +
       '两个家族的金牌<b>分开累计</b>，各自集满 ' + BATTLE_CHAMPION_AT + ' 面解锁专属称号。</div>';
     ["room", "peer"].forEach(function (fam) {
       var f = BATTLE_FAMILY[fam], golds = battleCount(fam, "gold");
@@ -1898,7 +1933,10 @@
           if (scope === "school" && d.school !== LB_BVSS) return false;
           return true;
         }).map(function (r) {
-          return { uid: r.uid, nickname: (r.data.nickname || ""), school: (r.data.school || ""), val: lbValueOf(r.data) };
+          /* keep `data` on the row: openPlayerBadges reads the published battle
+             counts straight off it, so tapping a name costs no extra read */
+          return { uid: r.uid, nickname: (r.data.nickname || ""), school: (r.data.school || ""),
+                   val: lbValueOf(r.data), data: r.data };
         });
         if (!rows.length) { body.innerHTML = '<div class="wl-empty">还没有人上榜，快去成为第一个！</div>'; return; }
         var top = rows.slice(0, 20);
@@ -1907,12 +1945,16 @@
         var out = "";
         top.forEach(function (r, idx) {
           var rank = idx + 1, tier = lbTier(rank), mine = (r.uid === myUid);
-          out += '<div class="lb-row' + (tier ? " " + tier : "") + (mine ? " me" : "") + '">' +
+          /* the whole row is a button: tapping a classmate shows the 对战徽章
+             they have won (owner 2026-08-14). Counts only, from their own
+             scores/{uid} doc — nothing about which words they know. */
+          out += '<button class="lb-row' + (tier ? " " + tier : "") + (mine ? " me" : "") +
+            '" data-lbu="' + esc(r.uid) + '">' +
             '<span class="lb-rank">' + lbMedal(rank) + ' ' + rank + '</span>' +
             '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + (mine ? " · 你" : "") + '</b>' +
             (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
             '<span class="lb-uid">' + esc(r.uid) + '</span></div>' +
-            '<span class="lb-alt">' + fmtNum(r.val) + unit + '</span></div>';
+            '<span class="lb-alt">' + fmtNum(r.val) + unit + '</span></button>';
         });
         /* own standing line — never a bare rank; always something actionable */
         var meLine = "";
@@ -1934,8 +1976,44 @@
           meLine = meLine.replace("</div>", ' <span id="lbMeRank" class="lb-me-rank"></span></div>');
         }
         body.innerHTML = out + meLine;
+        /* rows carry the full score doc we already fetched, so opening a
+           classmate's badge card costs no extra read */
+        var byUid = {}; rows.forEach(function (r) { byUid[r.uid] = r; });
+        Array.prototype.forEach.call(body.querySelectorAll(".lb-row[data-lbu]"), function (b) {
+          b.onclick = function () { openPlayerBadges(byUid[b.getAttribute("data-lbu")]); };
+        });
       });
     });
+  }
+
+  /* 别人的对战徽章 (owner 2026-08-14): tap a name on 词山风云榜 to see what that
+     student has won. Reads ONLY the compact `battle` counts already published in
+     their scores/{uid} doc (battleSummary) — no dates, no mastery, no word data,
+     and nothing that is not already visible on the board itself. */
+  function openPlayerBadges(row) {
+    if (!row) return;
+    var d = row.data || {}, mine = (d[STREAM] || {}).battle || {};
+    var cards = "";
+    ["room", "peer"].forEach(function (fam) {
+      var f = BATTLE_FAMILY[fam], any = "";
+      BATTLE_RANKS.concat("champion").forEach(function (tier) {
+        var n = mine[BATTLE_PUB[fam] + BATTLE_PUB_T[tier]] || 0;
+        if (!n) return;
+        any += '<div class="pb-badge"><img src="' + battleImg(fam, tier) + '" alt="" ' +
+          'onerror="this.style.visibility=\'hidden\'">' +
+          '<span>' + esc(battleName(fam, tier)) + (n > 1 ? ' ×' + n : '') + '</span></div>';
+      });
+      cards += '<div class="pb-fam"><div class="pb-fam-name">' + esc(f.zh) + '</div>' +
+        (any ? '<div class="pb-grid">' + any + '</div>'
+             : '<div class="pb-none">还没有拿过奖牌</div>') + '</div>';
+    });
+    var ov = popOverlay(
+      '<div class="pb-card"><div class="pop-title">' + esc(d.nickname || "（无昵称）") + ' 的对战徽章</div>' +
+      (d.school ? '<div class="pb-sub">' + esc(d.school) + '</div>' : '') +
+      cards +
+      '<div class="pb-note">只显示对战奖牌数量，不显示学习进度。</div>' +
+      '<div class="nav-row"><button class="nav-btn" id="pbClose">关闭</button></div></div>');
+    ov.querySelector("#pbClose").onclick = function () { ov.remove(); };
   }
 
   /* ---------- study mode shared ---------- */
