@@ -232,28 +232,55 @@
      sprites (pet_*.png). Do NOT point the catalogue back at pet_*.png: those are
      rendered in 营地 via PET_LAYOUT at their own aspect ratios, and square-padding
      / mirroring them would silently change the camp art. */
+  /* `bio` text is the owner's, from DESIGN_头像与档案页.md §1.6. Two deliberate
+     departures from the doc's raw text: curly quotes are rewritten as 「」 per the
+     repo's code-embedded-text rule, and each 生肖 line folds its 地支 into the
+     doc's own opening sentence (the doc's §1.6 heading asks for 排第几位 + 地支
+     first, but its list carries the 地支 in the animal's NAME, which the card
+     already shows above the bio). */
   var AVATAR_CATALOG = [
-    { id: "pet_gui", file: "art/avatar/avatar_pet_gui.png", category: "pet", label: "瑞兽·龟" },
-    { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟" },
-    { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤" },
-    { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙" },
-    { id: "jtw_tangseng", file: "art/avatar/avatar_jtw_tangseng.png", category: "jtw", label: "西游记·唐僧" },
-    { id: "jtw_sunwukong", file: "art/avatar/avatar_jtw_sunwukong.png", category: "jtw", label: "西游记·孙悟空" },
-    { id: "jtw_zhubajie", file: "art/avatar/avatar_jtw_zhubajie.png", category: "jtw", label: "西游记·猪八戒" },
-    { id: "jtw_shaseng", file: "art/avatar/avatar_jtw_shaseng.png", category: "jtw", label: "西游记·沙僧" },
-    { id: "jtw_bailongma", file: "art/avatar/avatar_jtw_bailongma.png", category: "jtw", label: "西游记·白龙马" },
-    { id: "zodiac_rat", file: "art/avatar/avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠" },
-    { id: "zodiac_ox", file: "art/avatar/avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛" },
-    { id: "zodiac_tiger", file: "art/avatar/avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎" },
-    { id: "zodiac_rabbit", file: "art/avatar/avatar_zodiac_rabbit.png", category: "zodiac", label: "生肖·兔" },
-    { id: "zodiac_dragon", file: "art/avatar/avatar_zodiac_dragon.png", category: "zodiac", label: "生肖·龙" },
-    { id: "zodiac_snake", file: "art/avatar/avatar_zodiac_snake.png", category: "zodiac", label: "生肖·蛇" },
-    { id: "zodiac_horse", file: "art/avatar/avatar_zodiac_horse.png", category: "zodiac", label: "生肖·马" },
-    { id: "zodiac_goat", file: "art/avatar/avatar_zodiac_goat.png", category: "zodiac", label: "生肖·羊" },
-    { id: "zodiac_monkey", file: "art/avatar/avatar_zodiac_monkey.png", category: "zodiac", label: "生肖·猴" },
-    { id: "zodiac_rooster", file: "art/avatar/avatar_zodiac_rooster.png", category: "zodiac", label: "生肖·鸡" },
-    { id: "zodiac_dog", file: "art/avatar/avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗" },
-    { id: "zodiac_pig", file: "art/avatar/avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪" }
+    { id: "pet_gui", file: "art/avatar/avatar_pet_gui.png", category: "pet", label: "瑞兽·龟",
+      bio: "传统故事里龟是长寿与稳重的象征，背负万物而不急不躁，古人常说「龟寿千年」形容长久安康。" },
+    { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟",
+      bio: "古代传说中的仁兽，性情温和，从不伤害任何生灵，只在太平盛世才会出现，象征吉祥美好。" },
+    { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤",
+      bio: "百鸟之王，象征尊贵、祥瑞与重生，传说凤凰浴火重生，代表不畏艰难、追求更好的自己。" },
+    { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙",
+      bio: "华人文化中最具代表性的祥瑞之兽，象征力量、智慧与吉祥，古人相信龙能呼风唤雨。" },
+    { id: "jtw_tangseng", file: "art/avatar/avatar_jtw_tangseng.png", category: "jtw", label: "西游记·唐僧",
+      bio: "法号玄奘，是取经队伍的师父，一心向佛，意志坚定，无论路上多少艰难险阻都不曾放弃西行取经的信念。他心地善良、待人宽厚，是团队精神上的领路人。" },
+    { id: "jtw_sunwukong", file: "art/avatar/avatar_jtw_sunwukong.png", category: "jtw", label: "西游记·孙悟空",
+      bio: "《西游记》里神通广大的齐天大圣，手持金箍棒，一个筋斗云能翻十万八千里。他机智勇敢、爱憎分明，一路降妖伏魔保护师父，是团队里最厉害的守护者，也常常因为冲动闯祸，学着收敛脾气、听取劝告。" },
+    { id: "jtw_zhubajie", file: "art/avatar/avatar_jtw_zhubajie.png", category: "jtw", label: "西游记·猪八戒",
+      bio: "原是天上的天蓬元帅，因犯错被贬下凡投错猪胎，因此人身猪面。他手持九齿钉耙，性格贪吃贪睡、爱耍小聪明，常常闹笑话，但关键时刻仍愿意出力帮忙，为取经路上增添不少趣味。" },
+    { id: "jtw_shaseng", file: "art/avatar/avatar_jtw_shaseng.png", category: "jtw", label: "西游记·沙僧",
+      bio: "原是天宫的卷帘大将，因犯错被贬下凡，在流沙河为妖，后来被唐僧收为徒弟。他手持月牙铲，个性忠厚老实、任劳任怨，一路默默挑担扛物，是团队里最踏实可靠的成员。" },
+    { id: "jtw_bailongma", file: "art/avatar/avatar_jtw_bailongma.png", category: "jtw", label: "西游记·白龙马",
+      bio: "原是西海龙王的三太子，因犯错被贬，化身白马，驮着唐僧走完取经路。它任劳任怨、默默付出，虽然话不多、戏份少，却是让师徒四人能够顺利前行的重要伙伴。" },
+    { id: "zodiac_rat", file: "art/avatar/avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠",
+      bio: "十二生肖排第 1 位（地支属「子」），为十二生肖之首，机灵敏捷，象征聪明与灵活应变。" },
+    { id: "zodiac_ox", file: "art/avatar/avatar_zodiac_ox.png", category: "zodiac", label: "生肖·牛",
+      bio: "十二生肖排第 2 位（地支属「丑」），勤劳踏实，任劳任怨，象征脚踏实地的耕耘精神。" },
+    { id: "zodiac_tiger", file: "art/avatar/avatar_zodiac_tiger.png", category: "zodiac", label: "生肖·虎",
+      bio: "十二生肖排第 3 位（地支属「寅」），威猛勇敢，被称为「百兽之王」，象征勇气与力量。" },
+    { id: "zodiac_rabbit", file: "art/avatar/avatar_zodiac_rabbit.png", category: "zodiac", label: "生肖·兔",
+      bio: "十二生肖排第 4 位（地支属「卯」），温和机敏，象征谨慎、平和与好运。" },
+    { id: "zodiac_dragon", file: "art/avatar/avatar_zodiac_dragon.png", category: "zodiac", label: "生肖·龙",
+      bio: "十二生肖排第 5 位（地支属「辰」），是十二生肖中唯一的神话生物，象征尊贵、权势与非凡志向。" },
+    { id: "zodiac_snake", file: "art/avatar/avatar_zodiac_snake.png", category: "zodiac", label: "生肖·蛇",
+      bio: "十二生肖排第 6 位（地支属「巳」），聪慧沉稳，被称为「小龙」，象征智慧与洞察力。" },
+    { id: "zodiac_horse", file: "art/avatar/avatar_zodiac_horse.png", category: "zodiac", label: "生肖·马",
+      bio: "十二生肖排第 7 位（地支属「午」），奔腾不息，象征自由、坚毅与勇往直前。" },
+    { id: "zodiac_goat", file: "art/avatar/avatar_zodiac_goat.png", category: "zodiac", label: "生肖·羊",
+      bio: "十二生肖排第 8 位（地支属「未」），温顺善良，象征和睦、知足常乐。" },
+    { id: "zodiac_monkey", file: "art/avatar/avatar_zodiac_monkey.png", category: "zodiac", label: "生肖·猴",
+      bio: "十二生肖排第 9 位（地支属「申」），机智活泼，象征灵活的思维与创造力。" },
+    { id: "zodiac_rooster", file: "art/avatar/avatar_zodiac_rooster.png", category: "zodiac", label: "生肖·鸡",
+      bio: "十二生肖排第 10 位（地支属「酉」），每天清晨啼叫报晓，象征勤奋与守时。" },
+    { id: "zodiac_dog", file: "art/avatar/avatar_zodiac_dog.png", category: "zodiac", label: "生肖·狗",
+      bio: "十二生肖排第 11 位（地支属「戌」），忠诚可靠，是人类最忠实的朋友，象征忠诚与守护。" },
+    { id: "zodiac_pig", file: "art/avatar/avatar_zodiac_pig.png", category: "zodiac", label: "生肖·猪",
+      bio: "十二生肖排第 12 位（地支属「亥」），也是最后一位，憨厚可爱，象征福气、富足与乐观的生活态度。" }
   ];
   var AVATAR_CAT_LABEL = { pet: "神兽", jtw: "西游记", zodiac: "生肖" };
   window.WSAvatars = AVATAR_CATALOG;
@@ -429,7 +456,7 @@
         // ---- 身份 + 基本资料 (§5: merged into one header block, no gap between) ----
         '<div class="prof-sec">' +
           '<div class="prof-head">' +
-            '<button class="prof-avatar lg" id="profAvatarBtn" title="换头像">' + avatarImgHtml(prof.avatarId) + '</button>' +
+            '<button class="prof-avatar lg" id="profAvatarBtn" title="查看简介 · 换头像">' + avatarImgHtml(prof.avatarId) + '</button>' +
             '<div class="prof-head-txt">' +
               '<div class="prof-nick">' + esc(prof.nickname || "（未命名）") + '</div>' +
               '<div class="prof-head-sub">' + esc(catShown) +
@@ -506,8 +533,14 @@
           if (opts.onChanged) opts.onChanged();
         });
       };
+      /* §3: tapping your OWN avatar shows the same detail card, with 「换一个」
+         instead of 「选用这个头像」. With no avatar set there is nothing to show,
+         so it goes straight to the grid. */
       var avBtn = ov.querySelector("#profAvatarBtn");
-      if (avBtn) avBtn.onclick = openPicker;
+      if (avBtn) avBtn.onclick = function () {
+        if (prof.avatarId) openAvatarInfo(prof.avatarId, { mode: "current", onSwitch: openPicker });
+        else openPicker();
+      };
       var avBtn2 = ov.querySelector("#profChangeAvatar");
       if (avBtn2) avBtn2.onclick = openPicker;
 
@@ -698,8 +731,41 @@
     return a ? '<img src="' + esc(a.file) + '" alt="">' : '👤';
   }
 
-  /* 头像选择弹层: tap = instant select + close, no separate confirm step
-     (matches the nickname picker's own immediate-save convention). */
+  /* AvatarInfoCard (设计文档 §3): the ONE enlarged card both entry points use —
+     a grid thumbnail and the student's own current avatar. Same card, same code;
+     only the primary button differs, so the two flows can never drift apart.
+       mode "pick"    -> 「选用这个头像」, calls onChoose(id) (the caller writes avatarId)
+       mode "current" -> 「换一个」,       calls onSwitch()   (the caller opens the grid)
+     Sits above the picker (z 68 vs 65) so 返回 reveals the grid underneath. */
+  function openAvatarInfo(id, opts) {
+    var a = avatarById(id);
+    if (!a) { if (opts && opts.onSwitch) opts.onSwitch(); return; }
+    opts = opts || {};
+    var isCurrent = opts.mode === "current";
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay";
+    ov.style.zIndex = "68";
+    ov.innerHTML = '<div class="pop-card av-info">' +
+      '<div class="av-info-img"><img src="' + esc(a.file) + '" alt=""></div>' +
+      '<div class="av-info-name">' + esc(a.label) + '</div>' +
+      (a.bio ? '<div class="av-info-bio">' + esc(a.bio) + '</div>' : "") +
+      '<div class="nav-row" style="margin-top:14px">' +
+        '<button class="nav-btn" id="aiBack">' + (isCurrent ? "关闭" : "返回") + '</button>' +
+        '<button class="nav-btn primary" id="aiOk">' + (isCurrent ? "换一个" : "选用这个头像") + '</button>' +
+      '</div></div>';
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    ov.querySelector("#aiBack").onclick = function () { ov.remove(); };
+    ov.querySelector("#aiOk").onclick = function () {
+      ov.remove();
+      if (isCurrent) { if (opts.onSwitch) opts.onSwitch(); }
+      else if (opts.onChoose) opts.onChoose(a.id);
+    };
+  }
+
+  /* 头像选择弹层: a thumbnail tap opens the AvatarInfoCard first (设计文档 §0.5) —
+     the student reads the 简介 and only then confirms, so nothing is written on
+     a stray tap. */
   function openAvatarPicker(currentId, onPick) {
     var cats = [];
     AVATAR_CATALOG.forEach(function (a) { if (cats.indexOf(a.category) === -1) cats.push(a.category); });
@@ -731,9 +797,10 @@
       });
       Array.prototype.forEach.call(ov.querySelectorAll(".avatar-thumb"), function (b) {
         b.onclick = function () {
-          var id = b.getAttribute("data-id");
-          ov.remove();
-          if (onPick) onPick(id);
+          openAvatarInfo(b.getAttribute("data-id"), {
+            mode: "pick",
+            onChoose: function (id) { ov.remove(); if (onPick) onPick(id); }
+          });
         };
       });
     }
@@ -792,6 +859,7 @@
     registerCodeProvider: registerCodeProvider,
     maybePromptClassUpdate: maybePromptClassUpdate,
     openAvatarPicker: openAvatarPicker,
+    openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml
   };
 })();

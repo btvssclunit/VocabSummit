@@ -1899,9 +1899,35 @@ Avatar pool 16 → **21**. app assets + profile.js only; no data, no rules, no F
 - Cache-bust bumped `20260814b` → **`20260814c`** in all six places (the third deploy today — this
   is exactly the same-day letter case the ritual warns about).
 
-⚠️ **Still not built: the design doc's §3/§5 「点头像先放大看简介」 detail card.** The doc's decision 5
-says a tap should open an enlarged card (大图 + 名字 + `bio`) with a 「选用这个头像」 confirm button,
-and §1.6 supplies finished bio text for all 4 瑞兽 and all 12 生肖. The picker shipped on
-2026-08-13 with instant-select instead (matching the nickname picker) and no `bio` field exists in
-`AVATAR_CATALOG`. Not changed unilaterally here — it is a UX reversal, and the five 西游记 bios are
-marked 「简介待补」 in the doc, so it needs the owner's text and sign-off first.
+### AvatarInfoCard · 点头像先看简介 (设计文档 §0.5 / §3, 同日补上)
+
+The owner then delivered `avatars_bundle-2/` — **the art is byte-identical**, the change is the
+doc: §1.6 now carries the five 西游记 bios and rewritten 生肖 bios. That was the missing input, so
+the detail card is now built and the picker's instant-select is retired.
+
+- **`bio` added to all 21 catalogue entries.** Two deliberate departures from the doc's raw text,
+  both noted in a comment above `AVATAR_CATALOG`: curly quotes → 「」 per the repo's
+  code-embedded-text rule (「龟寿千年」「百兽之王」「小龙」), and each 生肖 line folds its 地支 into
+  the doc's own opening sentence (「十二生肖排第 3 位（地支属「寅」）…」) — §1.6's heading asks for
+  排第几位 + 地支 first, but its list carries the 地支 in the animal's NAME, which the card already
+  prints above the bio.
+- ⚠️ **One typo corrected in the owner's text**: 猪八戒 「原是**天蓝上**的天蓬元帅」 → 「原是**天上**的
+  天蓬元帅」. Flagged rather than silently kept; fix the master doc too.
+- **`openAvatarInfo(id, opts)`** is the shared component §3 asks for — ONE card, both entry points,
+  only the primary button differs (`mode:"pick"` → 「选用这个头像」 · `mode:"current"` → 「换一个」).
+  z-index 68 over the picker's 65, so 返回 reveals the grid still standing underneath.
+- Flow now: grid thumbnail → card → confirm writes `avatarId`. **A tap on a thumbnail no longer
+  writes anything**, which also removes the stray-tap hazard the 可及性 pass chased elsewhere.
+  Tapping your OWN avatar in 我的档案 opens the same card with 「换一个」 → the grid; with no avatar
+  set there is nothing to show, so it still goes straight to the grid. The 换头像 link keeps going
+  directly to the grid — that is what its label promises.
+- CSS `.pop-card.av-info` + `.av-info-{img,name,bio}` in app.css (180px gold-ringed portrait,
+  serif name, left-aligned bio), dropping to 136px under 420px. Not a new glass surface — it
+  inherits `.pop-card`, so the `@supports not (backdrop-filter)` block needs no entry.
+- **VERIFIED in a real browser** at 1280×820 and 375×812: all 21 entries have a bio; a thumbnail tap
+  opens the card and writes NOTHING; 返回 leaves the grid open; 选用 commits and closes both layers;
+  the real 顶栏 → 我的档案 → 头像 path saves `avatarId` while leaving nickname/班级/学校 intact and
+  updates the topbar image; the current-avatar card shows 关闭/换一个 and 换一个 reopens the grid with
+  the current avatar ringed. The longest bio (孙悟空) fits a 375px screen with no scroll. Zero
+  console errors, profile.js parses, CSS braces 685/685.
+- Cache-bust bumped again `20260814c` → **`20260814d`** (fourth deploy today).

@@ -667,6 +667,19 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 .avatar-thumb img{width:100%;height:100%;object-fit:contain;display:block}
 .avatar-thumb.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,166,60,.35)}
 .avatar-cell-label{font-size:10.5px;text-align:center;color:var(--ink-soft);line-height:1.3}
+/* AvatarInfoCard: the enlarged 简介 card shown before a pick is committed. */
+.pop-card.av-info{max-width:400px;text-align:center}
+.av-info-img{width:180px;height:180px;margin:2px auto 0;border-radius:50%;overflow:hidden;
+  background:radial-gradient(circle at 50% 42%,#FFFFFF 0%,#EAF2F9 72%,#DCE8F3 100%);
+  border:3px solid var(--gold);box-shadow:0 6px 20px rgba(23,58,90,.2)}
+.av-info-img img{width:100%;height:100%;object-fit:contain;display:block}
+.av-info-name{font-family:var(--serif);font-size:21px;font-weight:700;color:var(--sea3);margin-top:12px}
+.av-info-bio{font-size:13.5px;line-height:1.85;color:var(--ink);margin-top:8px;text-align:left}
+@media (max-width:420px){
+  .av-info-img{width:136px;height:136px}
+  .av-info-name{font-size:19px}
+  .av-info-bio{font-size:13px;line-height:1.75}
+}
 /* Two REAL columns, not four grid cells. As four cells the row heights were
    coupled, so the short 我的进度 / 技术编号 blocks sat beside the tall
    身份 / 进度码 blocks and left half the panel empty. Each column now flows
