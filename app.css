@@ -315,6 +315,13 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .ach-badge-title{font-size:10px;color:#5A7080;line-height:1.25;max-width:104px}
 .ach-badge.locked .ach-badge-title{color:#B4C4D0}
 .ach-badge-count{font-size:11px;color:var(--ink-soft)}
+/* 对战徽章 block on 成就墙: its own labelled section AFTER the whole A层 ladder,
+   so the five 里程碑徽章 keep the top of the wall to themselves (doc §7). */
+.ach-sec{margin-top:26px}
+.ach-fam-note{display:block;font-size:11.5px;font-weight:400;color:var(--ink-soft);margin-top:2px}
+/* battle art is a transparent circular cutout, so contain (never cover — a
+   crop would cut the outer ring, which the badge spec forbids) */
+.ach-badge[data-bf] img{object-fit:contain}
 /* ---------- 徽章详情卡 (badge detail, opened from 成就墙) ----------
    The art is shown LARGE and uncropped, with nothing drawn over it; the
    locked state is the same grayscale filter the wall uses. */

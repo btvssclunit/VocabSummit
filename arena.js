@@ -66,6 +66,15 @@
       ".arena-msg{font-size:13.5px;margin-top:10px;min-height:18px;color:#FFCF8F}" +
       ".arena-code-chip{background:rgba(255,233,176,.16);border:1px solid rgba(255,233,176,.5);border-radius:999px;padding:2px 10px}" +
       ".arena-code-chip b{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:#FFE9B0}" +
+      /* B层 对战徽章, shown in the result card itself — NOT via app.js's
+         cel-overlay, which sits at z-index 300 and would cover this board. */
+      ".arena-medal{display:flex;align-items:center;gap:13px;margin:14px 0 0;padding:11px 14px;border-radius:14px;" +
+      "background:rgba(255,233,176,.13);border:1px solid rgba(255,233,176,.45)}" +
+      ".arena-medal.champ{background:rgba(217,167,43,.22);border-color:#D9A72B}" +
+      ".arena-medal img{width:58px;height:58px;flex:none;border-radius:50%;object-fit:contain;background:rgba(255,255,255,.9)}" +
+      ".arena-medal-txt{display:flex;flex-direction:column;gap:2px;min-width:0}" +
+      ".arena-medal-txt b{font-family:'Noto Serif SC',serif;font-size:17px;color:#FFE9B0}" +
+      ".arena-medal-txt span{font-size:12.5px;color:#CBD8EA}" +
       ".arena-hud{display:flex;gap:14px;align-items:center;width:100%;max-width:620px;margin-bottom:14px;font-size:14px}" +
       ".arena-hud b{color:#FFE9B0;font-size:18px}" +
       ".arena-timer{margin-left:auto;background:rgba(12,24,48,.7);border:1px solid #8FD3FF;border-radius:999px;padding:6px 16px;font-weight:800;color:#8FD3FF}" +
@@ -652,6 +661,7 @@
         (isPk ? '你答对 <b style="color:#FFE9B0;font-size:20px">' + myCorrect + '</b> 题（共答 ' + myAnswered + ' 题）<br>'
               : '你的得分 <b style="color:#FFE9B0;font-size:20px">' + myScore + '</b>　答对 ' + myCorrect + '/' + myAnswered + '<br>') +
         (correctIds.length ? '答对的词已计入「已掌握」（海拔 +' + correctIds.length + '，本场不计历练值）。' : '再接再厉！') + '</div>' +
+        '<div id="arMedal"></div>' +
         '<div class="arena-board" id="arBoard"><div class="arena-sub">读取排名…</div></div>' +
         '<button class="arena-btn" id="arDone" style="margin-top:14px">完成</button></div>';
       ov.querySelector("#arDone").onclick = close;
@@ -666,6 +676,7 @@
               return ((b.correct || 0) - (a.correct || 0)) || ((a.msUsed || 0) - (b.msUsed || 0));
             }
           : function (a, b) { return (b.score || 0) - (a.score || 0); });
+        awardMedal(rows);
         var html = rows.slice(0, 20).map(function (r, i) {
           var me = r.uid === myUid;
           return '<div class="arena-row' + (me ? " me" : "") + '"><span class="arena-rk">' + (i + 1) + '</span>' +
@@ -674,6 +685,36 @@
         }).join("");
         var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = html || '<div class="arena-sub">暂无排名。</div>';
       }).catch(function () { var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = '<div class="arena-sub">排名读取失败。</div>'; });
+    }
+
+    /* B层 对战徽章 (DESIGN_徽章体系_对战与排行榜 §3). The ranking is only known
+       here, after the final board read, so this is where the medal is awarded.
+       app.js owns the badge store — arena.js just asks through ctx.awardBattle
+       and renders whatever comes back, keeping the §7 isolation intact.
+
+       Guards, both deliberate: a room with a single player is not a placing, and
+       a player who never answered anything did not earn a medal by idling in a
+       three-person room. */
+    function awardMedal(rows) {
+      if (!ctx.awardBattle || rows.length < 2 || myAnswered < 1) return;
+      var rank = 0;
+      for (var i = 0; i < rows.length && i < 3; i++) if (rows[i].uid === myUid) { rank = i + 1; break; }
+      if (!rank) return;
+      var m = null;
+      try { m = ctx.awardBattle(isPk ? "peer" : "room", rank); } catch (e) {}
+      if (!m) return;
+      var box = ov.querySelector("#arMedal"); if (!box) return;
+      box.innerHTML =
+        '<div class="arena-medal"><img src="' + m.img + '" alt="" ' +
+        'onerror="this.style.display=\'none\'">' +
+        '<div class="arena-medal-txt"><b>' + m.icon + ' ' + esc(m.name) + '</b>' +
+        '<span>第 ' + rank + ' 名' + (m.n > 1 ? ' · 已收下 ' + m.n + ' 面' : ' · 收入成就墙') + '</span></div></div>' +
+        (m.champion
+          ? '<div class="arena-medal champ"><img src="' + m.champion.img + '" alt="" ' +
+            'onerror="this.style.display=\'none\'">' +
+            '<div class="arena-medal-txt"><b>🏆 ' + esc(m.champion.name) + '</b>' +
+            '<span>金牌满 5 面，称号永久解锁</span></div></div>'
+          : "");
     }
 
     /* ---------- 同伴挑战 host path ----------

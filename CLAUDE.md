@@ -35,7 +35,9 @@ unreadable. Code and entry points stay at root; assets and data moved down:
     data/             g1/g2/g3/hcl.json · id_registry.json
     art/bg/           landing_hero_bg · hero_bg · study_bg · rain_bg · sprint_bg · mountain_bg
                       · climb-wall-tile · bg-01..05
-    art/badge/        badge_shkj/hx/gg/jj/whz
+    art/badge/        badge_shkj/hx/gg/jj/whz            ← A层 里程碑 (1092px, 不透明白底)
+                      badge_battle_{room,peer}_{gold,silver,bronze,champion}
+                                                        ← B层 对战 (320px, 抠圆透明)
     art/avatar/       avatar_pet_* (4) · avatar_jtw_* (5) · avatar_zodiac_* (12)
     art/camp/         camp_bg · tent · gear_* (11) · deco_* (10) · pet_* (4) · linglu
     art/item/         consumable_* (7) · powerup_* (3)   ← 2026-08-14, system NOT built
@@ -1931,3 +1933,87 @@ the detail card is now built and the picker's instant-select is retired.
   the current avatar ringed. The longest bio (孙悟空) fits a 375px screen with no scroll. Zero
   console errors, profile.js parses, CSS braces 685/685.
 - Cache-bust bumped again `20260814c` → **`20260814d`** (fourth deploy today).
+
+## B层 · 对战徽章 · 2026-08-14 (DESIGN_徽章体系_对战与排行榜.md)
+
+八枚对战奖牌上线：结伴登峰 / 同伴挑战 各 金/银/铜 + 一枚 5金称号。art + app.js + arena.js +
+app.css。**A层五枚里程碑徽章一个字节都没动**，B层是另一个家族（金属圆环 + 擂鼓/号角图腾），
+不共用制图语言，也不共用计数。
+
+### 命名（owner 已定，不要再改）
+学生自约的房间模式叫 **同伴挑战**。设计文档 §6.5 曾提议改名「好友挑战」并注明未经 owner 逐字
+确认——2026-08-14 owner 确认**保持线上已有的 同伴挑战**，文档随后自行改齐。文件名沿用交付时的
+`peer`（= 同伴），和 UI 文案一致。两枚称号：**常胜擂主**（结伴登峰 5 金）/ **凯旋号手**
+（同伴挑战 5 金），美术改用**缠枝牡丹纹**而非桂冠（桂冠非中式符号，doc §6.5）。
+
+### 美术处理
+源文件是 8 张 1254px 白底产品摄影图（RGB，2–2.9MB）。按 doc §6.5 描述的管线抠圆去背：
+72 方向射线从外向内扫描找盘沿（连续 5 像素偏离纸白 ≥14 才算边，避开柔和投影）→ Kasa 最小二乘
+拟合圆 → MAD 剔除离群射线后重拟合 → 内缩 3px 削掉混色边（否则深色底上会留白圈）→ 4× 超采样
+椭圆蒙版 → LANCZOS 缩到 **320×320 RGBA**（最大渲染尺寸是详情卡 150px，2× DPR 刚好）。
+拟合残差 avg 1.2–3.5px / R≈570–617，即 <0.6%。**做法上要记住的一点：不能用「接近白就抠掉」的
+阈值法** —— 银牌盘面本身就接近纸白（近白像素占比 0.40，远高于圆外应有的 0.215），颜色阈值会把
+银牌自己吃掉。必须按几何抠，不按颜色抠。产出 183–237KB/枚，和既有 badge_* 同量级。
+⚠️ **CLAUDE.md 此前说 A层五枚走过「抠圆→256×256 透明」管线，那是不对的**：线上五枚其实是
+1092×1092 **不透明白底 RGB**，从未抠过。CSS 用 `border-radius:50%` 圆形裁切，所以看起来一样。
+B层是真透明，因此成就墙上 `.ach-badge[data-bf] img` 用 `object-fit:contain`（A层用 cover）。
+
+### 数据模型：故意复用 store.badges + store.badgeLog
+没有新建 `store.battle`。键前缀 **`b·`**（`b·room·gold` 这种），和 A层的 `c·`/`u·`/`l·`/`t4`
+不可能撞。这样白拿两件事：`badges` 的云端 union 直接生效；`badgeLog` 本来就是
+`{first,last,n}` 按「最早 first / 最晚 last / 最大 n」合并——**正好就是可重复奖牌需要的形状**。
+没有新增 Firestore 字段，没有新增 merge 代码，规则不用改，不用重新发布。
+- ⚠️ **因此 `Object.keys(store.badges).length` 不再等于 A层徽章数**。首页「徽章 N/M」改走
+  `achBadgeCount()`（过滤掉 `b·`）。以后加 C/D 层徽章务必也用新前缀 + 走这个函数，否则首页会
+  出现 42/40 这种数。
+- **n 是跨设备取 max，不是求和**（沿用 badgeLog 既有语义）。两台设备各拿 3 面金牌，合并后是 3
+  不是 6。可接受，但要知道。
+- **不进 进度码**（profile.js 完全不碰 badges/badgeLog——已确认）。奖牌是纪念，不是可转移进度。
+
+### 发牌逻辑
+`awardBattleMedal(family, rank)` 在 app.js，通过 `ctx.awardBattle` 交给 arena.js，**保持 §7 的
+隔离**：arena.js 只管问和渲染，徽章存储始终归 app.js。arena.js 里发牌点在 `awardMedal(rows)`，
+挂在最终排名读回来之后——名次只有那时才知道。
+- 名次判定沿用各自既有的排序：结伴登峰按 score，同伴挑战按 **答对数**（并列比答题耗时）。
+  已验证：一个 score 900 但答对 0 的对手，在同伴挑战房里排在答对 1 题的人后面。
+- 两条闸门，都是故意的：**房间少于 2 人不算名次**（一个人的房间不是第一名），
+  **一题没答不发牌**（三人房里挂机不能白拿铜牌）。
+- 称号在**本家族**金牌满 5 面时解锁，永久，之后输局不收回；已持有就不再重复播报。
+- **奖牌展示在 arena 自己的结算卡里，不走 app.js 的 cel-overlay** —— cel-overlay 是
+  `z-index:300`，arena 是 90，庆祝层会直接盖住学生正在看的排名板。
+
+### 成就墙
+B层放在**整个 A层阶梯之后**，独立 `.section-label`（doc §7 明确要求别让五枚里程碑被新徽章淹没）。
+两个家族各一张卡，每张 4 枚（金/银/铜/称号），称号格显示 `4/5 金` 进度。点任意一枚开详情卡
+（复用 `.bd-*`：大图不裁、首次/最近日期、获得次数；称号多一条进度条），底部按钮直接进对应房间。
+
+### ⚠️ 没做的部分（不是遗漏，是有意留下）
+- **doc §0「推翻 arena 零奖励闸门」没有实作。** §0 要房间模式计入 历练值/灵露，但 doc §7 自己写着
+  「房间模式是否沿用 attemptDecay/streakMultiplier，还是用房间专属简化计分 —— 需要单独一轮设计」。
+  计分公式没定就动闸门，等于我替 owner 定了。所以**闸门维持原样**：房间模式仍然只给 海拔，
+  不给 历练值/灵露。对战徽章是纯纪念品，不碰任何排行榜数字。CLAUDE.md「结伴登峰」章节那句
+  「arena code must NEVER call scoreCorrect/bankPts」**目前依然有效**，等 §0 单独一轮设计后再改。
+- **C层（学期风云榜/周榜之星/手速榜）、D层（个人记录）完全没做** —— 美术一张都还没生成，
+  且都需要学期结算快照 / 历史数组这类新的 Firestore 结构（doc §7）。
+
+### 验证（真浏览器，本次可用）
+`python3` + **no-store** handler + 127.0.0.1（Browser pane 本次接受了；每个 session 不一定，先试）。
+⚠️ 但 **Browser pane 处于 hidden 状态，截图全白** —— JS 执行、真实点击、`getBoundingClientRect`
+量测都正常，只是看不到画面。所以本次是「量到的」不是「看到的」。
+- **成就墙**（1280 与 375 两个宽度）：8 枚全渲染、locked 态正确、`×N` 正确、称号进度 4/5 与 0/5
+  正确、8 张图 naturalWidth 都是 320（无 404）、无横向溢出、375px 下每家族折成 2 行、详情卡
+  339×478 放得下 812 高。真实 `.click()` 打开详情卡：locked 卡进度条 80%、已获得卡显示
+  「已获得 4 次 + 首次 2026-08-01 + 最近 2026-08-13」、关闭按钮真的关掉。
+- **arena 全流程**（mock Firestore，沿用 arena 一贯的验证法，因为真房间要先发布规则）：
+  join → lobby → 老师开始 → 答题 → 结束 → 结算。发牌调用 `("room",2)`（我 110 分夹在 120 和 60
+  中间，名次对）；同伴挑战房发 `("peer",1)`；奖牌块和称号块都渲染在结算卡里。
+  三条闸门实测：**一人房不发牌 / 一题没答不发牌（哪怕排第 2）/ 第 4 名不发牌**。
+- **app.js 发牌逻辑 25 条断言全过**（真 app.js 载进浏览器，用 `boot()` 导出钩子那招）：
+  首枚 n=1、连拿到 n=4 仍无称号、第 5 面解锁常胜擂主、第 6 面不重复播报、两家族计数互不影响、
+  peer 满 5 解锁凯旋号手且不动 room 的、6 面银牌不产生任何称号、rank 4/0/未知家族一律拒绝、
+  `achBadgeCount()` 只数 A层、落盘 localStorage 正确，以及 **mastery / 历练值 / 灵露 三个数字
+  自始至终没被碰过**（这条是重点，B层必须是纯纪念）。
+- 三个 JS 文件都能解析（JavaScriptCore），CSS 括号 688/688。
+- Cache-bust `20260814d` → **`20260814e`**（今天第五次部署）。
+⚠️ **仍未在真设备上跑过**：iPad/Chromebook 上 8 枚一排的换行、结算卡里 58px 奖牌图在手机上的
+观感、以及一场真实的双设备对战（要先发布 rooms 规则）。上课前值得亲手打一局。

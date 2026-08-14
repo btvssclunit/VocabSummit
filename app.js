@@ -928,6 +928,88 @@
       '</div>' +
       '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
   }
+
+  /* ================= B层 · 对战徽章 (DESIGN_徽章体系_对战与排行榜.md §3/§6.5) ====
+     Awarded for a PLACING in a live room, not for learning. Two families that
+     never merge (doc §3, locked 2026-08-14): 结伴登峰 medals are the official
+     teacher-hosted event, 同伴挑战 medals are the self-arranged one, so the
+     counters stay separate and the 5-gold titles are named separately too
+     (常胜擂主 / 凯旋号手) rather than sharing one badge.
+
+     Storage deliberately REUSES store.badges + store.badgeLog: badges gives the
+     cloud union for free, and badgeLog is already {first,last,n} merged as
+     earliest-first / latest-last / max-n — exactly what a repeatable medal
+     needs. Keys are prefixed "b·" so they can never collide with the A层 keys
+     ("c·" 板块 / "u·" 单元 / "l·" 年级 / "t4"), and achBadgeCount() below
+     excludes them so the home 徽章 N/M stat still counts A层 only.
+     NOT in 进度码 (that is a mastery bitmask; a medal is not progress).
+
+     ⚠️ These medals are cosmetic. A placing awards NO 历练值, NO 灵露 and NO
+     海拔 beyond the mastery the room already confers — doc §0 proposes lifting
+     that gate, but §7 says the room scoring formula still needs its own design
+     round, so the gate stands until then. */
+  var BATTLE_CHAMPION_AT = 5;                       // golds needed for the title
+  var BATTLE_RANKS = ["gold", "silver", "bronze"];  // index = rank - 1
+  var BATTLE_TIER = {
+    gold:   { zh: "金牌", icon: "🥇" },
+    silver: { zh: "银牌", icon: "🥈" },
+    bronze: { zh: "铜牌", icon: "🥉" },
+    champion: { zh: "称号", icon: "🏆" }
+  };
+  var BATTLE_FAMILY = {
+    room: { zh: "结伴登峰", champion: "常胜擂主",
+            blurb: "老师主持的全班现场对战。",
+            champBlurb: "结伴登峰金牌集满 " + BATTLE_CHAMPION_AT + " 面，战鼓外圈缠上牡丹纹。" },
+    peer: { zh: "同伴挑战", champion: "凯旋号手",
+            blurb: "同学之间自己约的房间。",
+            champBlurb: "同伴挑战金牌集满 " + BATTLE_CHAMPION_AT + " 面，号角外圈缠上牡丹纹。" }
+  };
+  function battleKey(family, tier) { return "b·" + family + "·" + tier; }
+  function isBattleKey(k) { return k.indexOf("b·") === 0; }
+  function battleImg(family, tier) { return "art/badge/badge_battle_" + family + "_" + tier + ".png"; }
+  function battleName(family, tier) {
+    var f = BATTLE_FAMILY[family]; if (!f) return "";
+    return tier === "champion" ? f.champion : f.zh + "·" + BATTLE_TIER[tier].zh;
+  }
+  /* how many times this medal has been won; 0 when never earned */
+  function battleCount(family, tier) {
+    var k = battleKey(family, tier);
+    if (!store.badges[k]) return 0;
+    var log = store.badgeLog[k];
+    return (log && log.n) || 1;
+  }
+  /* A层 badge count only — battle keys live in the same map but are not part of
+     the 板块/单元/年级/词王 ladder the home stat measures. */
+  function achBadgeCount() {
+    return Object.keys(store.badges).filter(function (k) { return !isBattleKey(k); }).length;
+  }
+  /* Called by arena.js through ctx.awardBattle when a room ends and the student
+     placed 1st-3rd. Returns what was won so the ROOM can show it in its own
+     result card — deliberately not a cel-overlay, which sits at z-index 300 and
+     would paint straight over the arena board the student is reading. */
+  function awardBattleMedal(family, rank) {
+    var fam = BATTLE_FAMILY[family], tier = BATTLE_RANKS[rank - 1];
+    if (!fam || !tier) return null;
+    var key = battleKey(family, tier), d = todaySG(), log = store.badgeLog[key];
+    if (!store.badges[key]) store.badges[key] = 1;
+    if (!log) log = store.badgeLog[key] = { first: d, last: d, n: 1 };
+    else { log.n = (log.n || 1) + 1; log.last = d; }
+    var out = { family: family, tier: tier, key: key, n: log.n,
+                name: battleName(family, tier), img: battleImg(family, tier),
+                icon: BATTLE_TIER[tier].icon, champion: null };
+    /* 连胜称号: counted within THIS family only, and permanent once reached —
+       a later loss never takes it back (doc §3). */
+    if (tier === "gold" && log.n >= BATTLE_CHAMPION_AT && !store.badges[battleKey(family, "champion")]) {
+      var ck = battleKey(family, "champion");
+      store.badges[ck] = 1;
+      store.badgeLog[ck] = { first: d, last: d, n: 1 };
+      out.champion = { key: ck, name: fam.champion, img: battleImg(family, "champion") };
+    }
+    saveStore();
+    sfxBadge();
+    return out;
+  }
+
   /* Shared by 结伴登峰 and 同伴挑战: a correct answer in a room marks the word
      mastered (海拔) and NOTHING else — never scoreCorrect, never 灵露.
      ids are validated against OUR word list before use, because 海拔 is
@@ -981,7 +1063,8 @@
       words: WORDS,
       profile: loadProfile() || {},
       getUid: function (cb) { if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null); },
-      conferMastery: conferMasteryFromRoom
+      conferMastery: conferMasteryFromRoom,
+      awardBattle: awardBattleMedal
     };
   }
   function renderPkConfig() {
@@ -1074,7 +1157,7 @@
     setTopbar("landing", "");
     var t = totals();
     var mastered = Object.keys(store.mastered).length;
-    var badgeCount = Object.keys(store.badges).length;
+    var badgeCount = achBadgeCount();   // A层 only — 对战徽章 share the map but not this ladder
     var badgeTotal = COMP_LIST.length + UNIT_LIST.length + LEVELS.length + 1;
 
     var html = '<div class="home-grid"><div class="home-left">' + miniHorizon();
@@ -1265,11 +1348,87 @@
       html += '</div>';
     });
     html += '<div class="ach-t4' + (store.badges["t4"] ? " got" : "") + '">👑 顶级词王 · ' +
-      (store.badges["t4"] ? "已达成！锲而不舍，金石可镂。" : "掌握全部词语后解锁") + '</div></div>';
+      (store.badges["t4"] ? "已达成！锲而不舍，金石可镂。" : "掌握全部词语后解锁") + '</div>';
+    html += battleWallHtml() + '</div>';
     view().innerHTML = html;
-    Array.prototype.forEach.call(view().querySelectorAll(".ach-badge"), function (b) {
+    Array.prototype.forEach.call(view().querySelectorAll(".ach-badge[data-ck]"), function (b) {
       b.onclick = function () { openBadgeDetail(b.getAttribute("data-ck")); };
     });
+    Array.prototype.forEach.call(view().querySelectorAll(".ach-badge[data-bf]"), function (b) {
+      b.onclick = function () { openBattleBadge(b.getAttribute("data-bf"), b.getAttribute("data-bt")); };
+    });
+  }
+
+  /* B层 对战徽章 on 成就墙 — a SEPARATE, clearly-labelled block placed AFTER the
+     whole A层 ladder, per doc §7: the five 里程碑徽章 must not be drowned by the
+     new families. Each family gets its own card so the "官方赛事 / 自约对局"
+     split stays visible, with the 称号 last as the family's capstone. */
+  function battleWallHtml() {
+    var out = '<div class="section-label ach-sec">对战徽章 · 现场名次</div>' +
+      '<div class="ach-hint">房间对战拿到前三名就收下一面奖牌，同一面可以反复获得。' +
+      '两个家族的金牌<b>分开累计</b>，各自集满 ' + BATTLE_CHAMPION_AT + ' 面解锁专属称号。</div>';
+    ["room", "peer"].forEach(function (fam) {
+      var f = BATTLE_FAMILY[fam], golds = battleCount(fam, "gold");
+      var got = !!store.badges[battleKey(fam, "champion")];
+      out += '<div class="ach-unit card"><div class="ach-unit-name">' + esc(f.zh) +
+        (got ? '<span class="ach-seal">🏆 ' + esc(f.champion) + '</span>' : '') +
+        '<span class="ach-fam-note">' + esc(f.blurb) + '</span></div><div class="ach-badges">';
+      BATTLE_RANKS.concat("champion").forEach(function (tier) {
+        var n = battleCount(fam, tier), have = n > 0;
+        out += '<button class="ach-badge' + (have ? "" : " locked") + '" data-bf="' + fam + '" data-bt="' + tier + '">' +
+          '<img src="' + battleImg(fam, tier) + '" alt="">' +
+          '<span class="ach-badge-name">' + esc(battleName(fam, tier)) +
+          (n > 1 ? '<span class="ach-times">×' + n + '</span>' : '') + '</span>' +
+          '<span class="ach-badge-count">' +
+          (tier === "champion"
+            ? (have ? "已解锁" : golds + "/" + BATTLE_CHAMPION_AT + " 金")
+            : (have ? "已获得" : "未获得")) + '</span></button>';
+      });
+      out += '</div></div>';
+    });
+    return out;
+  }
+
+  /* 对战徽章 detail card. Same shape as the 板块章 card (large uncropped art,
+     dates, a way back into the activity) but there is no word list to show —
+     a medal belongs to a match, not to a 板块. */
+  function openBattleBadge(family, tier) {
+    var f = BATTLE_FAMILY[family]; if (!f || !BATTLE_TIER[tier]) return;
+    var key = battleKey(family, tier), got = !!store.badges[key], log = badgeInfo(key);
+    var isChamp = tier === "champion", golds = battleCount(family, "gold");
+
+    var meta, prog = "";
+    if (got) {
+      meta = '<div class="bd-earned">' + BATTLE_TIER[tier].icon + ' 已获得' +
+        (isChamp ? '' : (log ? ' ' + (log.n || 1) + ' 次' : '')) + '</div>' +
+        '<div class="bd-date">首次获得：' + esc((log && log.first) || "日期未记录") +
+        ((log && log.n > 1 && log.last) ? '<br>最近一次：' + esc(log.last) : '') + '</div>';
+    } else {
+      meta = '<div class="bd-locked">尚未获得</div><div class="bd-date">' +
+        esc(isChamp ? f.champBlurb : "在" + f.zh + "的一场对战里拿到第 " +
+            (BATTLE_RANKS.indexOf(tier) + 1) + " 名，就能点亮它。") + '</div>';
+    }
+    if (isChamp) {
+      var pct = Math.min(100, Math.round(100 * golds / BATTLE_CHAMPION_AT));
+      prog = '<div class="bd-prog"><div class="bd-prog-track"><div class="bd-prog-fill" style="width:' + pct + '%"></div></div>' +
+        '<span>' + esc(f.zh) + '金牌 ' + Math.min(golds, BATTLE_CHAMPION_AT) + ' / ' + BATTLE_CHAMPION_AT + '</span></div>';
+    }
+
+    var ov = popOverlay(
+      '<div class="bd-card">' +
+      '<div class="bd-art' + (got ? "" : " locked") + '">' +
+      '<img src="' + battleImg(family, tier) + '" alt="' + esc(battleName(family, tier)) + '"></div>' +
+      '<div class="bd-name">' + esc(battleName(family, tier)) + '</div>' +
+      '<div class="bd-where">' + esc(f.zh) + ' · ' + esc(f.blurb) + '</div>' +
+      meta + prog +
+      '<div class="nav-row">' +
+      '<button class="nav-btn primary" id="bbGo">' + (family === "room" ? "🏔️ 加入结伴登峰" : "⚔️ 开一场同伴挑战") + '</button>' +
+      '<button class="nav-btn" id="bbClose">关闭</button></div></div>');
+    ov.querySelector("#bbClose").onclick = function () { ov.remove(); };
+    ov.querySelector("#bbGo").onclick = function () {
+      ov.remove();
+      if (family === "room") openArena(); else renderPkConfig();
+    };
   }
 
   /* ---------- 徽章详情卡 (badge detail) ----------
