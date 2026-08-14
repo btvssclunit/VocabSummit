@@ -436,6 +436,9 @@
         gained = 100 + speed + sb;
         myScore += gained; myCorrect++;
         if (correctIds.indexOf(w.id) === -1) { correctIds.push(w.id); correctTexts.push(w.w); }
+        /* 历练值/灵露 + the reward chime. `streak - 1` is the 连对 count ENTERING
+           this question, which is what scoreCorrect's contract expects. */
+        reward(w, room.mode, streak - 1);
       } else { streak = 0; }
       // reveal
       var fb = ov.querySelector("#arFb");
@@ -606,6 +609,9 @@
         cleared++; myCorrect++;
         myScore += o.w.w.length * 10 * combo;
         if (correctIds.indexOf(o.w.id) === -1) { correctIds.push(o.w.id); correctTexts.push(o.w.w); }
+        /* 词雨 earns 灵露 + the chime; 历练值 base is 0 for rain in rooms exactly
+           as it is in solo play. cleared-1 = the run ENTERING this catch. */
+        reward(o.w, "rain", cleared - 1);
         if (cleared % 3 === 0) combo = Math.min(5, combo + 1);
         setCombo();
         collectToBarrel(o);
@@ -636,6 +642,16 @@
     function scheduleWrite() {
       if (Date.now() - lastWrite >= 5000) { writeNow(false); return; }
       if (!writeTimer) writeTimer = setTimeout(function () { writeTimer = null; writeNow(false); }, 5000 - (Date.now() - lastWrite));
+    }
+    /* 房间模式计分 (owner 2026-08-14) — REVERSES the old D-2 zero-reward rule.
+       app.js owns the formula and the store; arena.js only reports that a word
+       was answered correctly, so the §7 isolation is unchanged in shape: this is
+       one more ctx hook, not a reach into app.js internals.
+       ctx.roomCorrect also plays the reward chime, so a room sounds like the
+       rest of the app even on the rare path where scoring is skipped. */
+    function reward(w, mode, entering) {
+      if (!ctx.roomCorrect || !w) return;
+      try { ctx.roomCorrect(w, mode, entering, room && room.tier); } catch (e) {}
     }
     function finishNow(roomEnded) {
       if (done) return; done = true;

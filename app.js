@@ -261,7 +261,8 @@
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
-    s.asmPrompt = s.asmPrompt || (STREAM === "g1" ? "py" : "def"); // 组词挑战 prompt: def|en|cloze|py (py = practice, no pts); G1 defaults to the easier 拼音 tier
+    s.asmPrompt = s.asmPrompt || (STREAM === "g1" ? "py" : "def"); // 组词挑战 prompt: def|en|cloze|py (py earns 10% 历练值); G1 defaults to the easier 拼音 tier
+    s.asmChips = s.asmChips || 9;      // 组词挑战 字块数量 (incl. the answer's own chars)
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
@@ -518,14 +519,24 @@
   /* Award 历练值 for one correct answer. Pass the mastery state BEFORE this answer
      resolved (wasMastered) and the 连对 count ENTERING the question. Returns the
      points earned (0 for a capped repeat or a base-0 mode). */
-  function scoreCorrect(w, base, attempt, entering, wasMastered) {
+  function scoreCorrect(w, base, attempt, entering, wasMastered, mult) {
     if (!base) return 0;
     var earned = wasMastered
       ? repeatValue(w, base)
       : Math.max(1, Math.round(base * attemptDecay(attempt) * streakMult(entering)));
+    /* mult = the 拼音练习 discount (PY_PRACTICE_MULT). Floored at 1 so a correct
+       pinyin answer always shows SOMETHING — the point is to affirm the effort,
+       not to pay it properly. Never applied to a capped repeat (already 0). */
+    if (mult && mult !== 1 && earned) earned = Math.max(1, Math.round(earned * mult));
     bankPts(earned);
     return earned;
   }
+  /* 拼音 practice modes (填空·打拼音, 组词·拼音) earn 10% of the 历练值 an
+     understanding-based answer earns (owner 2026-08-14: "affirm their efforts in
+     pinyin"). They still do NOT confer 海拔 — mastery is the documented gate and
+     there is no such thing as 10% of a binary — and they still do not build 连对,
+     or a student could farm a cheap streak multiplier and carry it into 修行. */
+  var PY_PRACTICE_MULT = 0.10;
   /* ================= 灵露 award engine (DESIGN_economy_pricing_2026-08-14) =====
      灵露 = base × tier × pinyin × decay, on correct answers only. It sits BESIDE
      历练值 and must never be confused with it: 历练值 rewards effort and streaks
@@ -1010,8 +1021,51 @@
     return out;
   }
 
+  /* ================= 房间模式计分 (owner 2026-08-14) ==========================
+     ⚠️ THIS REVERSES the 2026-08-12 D-2 rule ("arena code must NEVER call
+     scoreCorrect/bankPts"). Owner decision, taken to motivate engagement:
+     结伴登峰 and 同伴挑战 now earn 历练值 and 灵露 exactly like 修行 modes.
+     DESIGN_徽章体系 §0 asked for this; §7 left the formula open, so the call
+     below reuses the SOLO formula rather than inventing a room-only one —
+     see the CLAUDE.md section for what that implies and what to watch.
+
+     Rooms are still NOT a shortcut: the same per-word 灵露 decay curve and the
+     same per-day repeat cap apply, so grinding rooms on known words pays the
+     same 10% floor it pays anywhere else. */
+  var ROOM_PTS_BASE = {
+    zhmcq: PTS_BASE.zhmcq, enmcq: PTS_BASE.enmcq, sprint: PTS_BASE.sprint,
+    rain: 0            // 词雨 earns 0 历练值 in solo play too — keep it consistent
+  };
+  var _txtIndex = null;
+  function wordByText(t) {
+    if (!_txtIndex) { _txtIndex = {}; WORDS.forEach(function (w) { if (!_txtIndex[w.w]) _txtIndex[w.w] = w; }); }
+    return (t && _txtIndex[t]) || null;
+  }
+  /* One correct answer inside a room. Called by arena.js through ctx.roomCorrect.
+     `entering` is the 连对 count BEFORE this question, matching scoreCorrect's
+     contract. `tier` is the host's cloze difficulty (2/3/4/type).
+
+     The word is re-resolved by TEXT against OUR list first: a cross-stream room
+     serves the HOST's word objects, whose ids mean nothing here, and scoring a
+     foreign id would read wasMastered as false forever and quietly hand out
+     first-time points for a word the student already knows. */
+  function roomCorrect(rw, mode, entering, tier) {
+    sfxOk();                                   // always, even if scoring is skipped
+    var w = wordByText(rw && rw.w) || rw;
+    if (!w || !w.id) return null;
+    var base = (mode === "cloze") ? (CLOZE_BASE[tier] || 3) : (ROOM_PTS_BASE[mode] || 0);
+    var wasMastered = !!store.mastered[w.id];
+    var pts = scoreCorrect(w, base, 1, entering || 0, wasMastered);
+    var ll = awardLingLu(w, mode);             // before any gymNote, per the 灵露 rule
+    gymNote(w.id);
+    saveStore();
+    return { pts: pts, ll: ll };
+  }
+
   /* Shared by 结伴登峰 and 同伴挑战: a correct answer in a room marks the word
-     mastered (海拔) and NOTHING else — never scoreCorrect, never 灵露.
+     mastered (海拔). Since 2026-08-14 rooms also earn 历练值/灵露 per answer
+     (roomCorrect above); the +10 首次掌握 bonus is banked here, at the moment
+     海拔 actually rises, exactly as markMastered does it in solo play.
      ids are validated against OUR word list before use, because 海拔 is
      Object.keys(store.mastered).length and a foreign id from a cross-stream host
      would silently inflate this student's altitude with a word that does not
@@ -1025,8 +1079,16 @@
       texts.forEach(function (t) { want[t] = 1; });
       WORDS.forEach(function (w) { if (want[w.w]) mine[w.id] = 1; });
     }
+    ensureIdIndex();
     Object.keys(mine).forEach(function (id) {
-      if (!store.mastered[id]) { store.mastered[id] = 1; changed = true; }
+      if (!store.mastered[id]) {
+        store.mastered[id] = 1; changed = true;
+        /* +10 首次掌握, the moment 海拔 rises — same as markMastered. Guarded
+           once-per-word, so a room can never double-pay a word the student
+           already mastered in 修行. */
+        var w = WORDS[_idIndex[id]];
+        if (w) awardMasteryBonus(w);
+      }
     });
     if (changed) { saveStore(); checkBadges(true); applyAmbience(); }
   }
@@ -1064,7 +1126,8 @@
       profile: loadProfile() || {},
       getUid: function (cb) { if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null); },
       conferMastery: conferMasteryFromRoom,
-      awardBattle: awardBattleMedal
+      awardBattle: awardBattleMedal,
+      roomCorrect: roomCorrect
     };
   }
   function renderPkConfig() {
@@ -1472,9 +1535,15 @@
       return '<span class="bd-word' + (store.mastered[w.id] ? " done" : "") + '">' + esc(w.w) + '</span>';
     }).join("");
 
+    /* the count must match what 去挑战 will actually serve (unmastered only, and
+       cloze-capable when any word in the 板块 has a blank) — otherwise the button
+       promises a number the round does not deliver */
+    var hasCloze = function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; };
+    var todo = words.filter(function (w) { return !store.mastered[w.id]; });
+    var goN = words.some(hasCloze) ? todo.filter(hasCloze).length : todo.length;
     var actions = got
       ? '<button class="nav-btn primary" id="bdAgain">🔁 再次挑战 · ' + words.length + ' 题全对</button>'
-      : '<button class="nav-btn primary" id="bdGo">去挑战 · 学这 ' + (words.length - done) + ' 个词语</button>';
+      : '<button class="nav-btn primary" id="bdGo">去挑战 · 学这 ' + goN + ' 个词语</button>';
 
     var ov = popOverlay(
       '<div class="bd-card">' +
@@ -1507,9 +1576,14 @@
     var usable = words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
     var mode = "cloze";
     if (!usable.length) { usable = words; mode = "zhmcq"; }   // fall back rather than show nothing
+    /* 去挑战 serves ONLY the words still unmastered (owner 2026-08-14) — the
+       button already promises 「学这 N 个词语」, so replaying the whole 板块 made
+       the count a lie and spent the student's time on words they had already
+       proved. Mastered ones are kept as a fallback for the edge case where every
+       usable word is already mastered but the badge is somehow not yet lit. */
     var un = [], rv = [];
     usable.forEach(function (w) { (store.mastered[w.id] ? rv : un).push(w); });
-    var seq = shuffle(un).concat(shuffle(rv));
+    var seq = un.length ? shuffle(un) : shuffle(rv);
     if (!seq.length) { alert("这个板块暂时没有可练习的词语。"); return; }
     var pool = WORDS.filter(function (w) { return w.level === c.level && w.unit === c.unit; });
     if (pool.length < 6) pool = WORDS;
@@ -2304,10 +2378,11 @@
           gymNote(w.id);
           showGain(gained);
         } else {
-          /* 打拼音 still earns 灵露 (2026-08-14 economy doc lists it at tier 2x
-             with the 拼音 modifier). It remains 练习不计分 for 历练值/海拔 —
-             effort currency and learning credit are deliberately different things. */
+          /* 打拼音: full 灵露 (2026-08-14 economy doc, tier 2x with the 拼音
+             modifier) and — since 2026-08-14 — 10% of the 历练值 (PY_PRACTICE_MULT).
+             Still no 海拔: mastery stays gated on understanding, not spelling. */
           awardLingLu(w, "pinyin");
+          showGain(scoreCorrect(w, CLOZE_BASE.type, attempt || 1, entering, wasMastered, PY_PRACTICE_MULT));
         }
         sfxOk();
       }
@@ -3049,7 +3124,7 @@
     { k: "def", label: "释义" },
     { k: "en", label: "英文" },
     { k: "cloze", label: "填空" },
-    { k: "py", label: "拼音·不计分" }
+    { k: "py", label: "拼音·一成历练值" }
   ];
   function asmPromptSelector() {
     var cur = store.asmPrompt || "def";
@@ -3059,15 +3134,48 @@
     });
     return html + '</div>';
   }
+  /* 字块数量 (owner 2026-08-14): the chip grid used to be a hardcoded 9. Students
+     differ a lot here — a weak reader drowns in 16 chips, a strong one finds 6
+     trivial — so the count is theirs to pick, and it INCLUDES the answer's own
+     characters, which is how the doc phrased it. */
+  var ASM_SIZES = [6, 9, 12, 16];
+  function asmChipCount() {
+    var n = store.asmChips || 9;
+    return ASM_SIZES.indexOf(n) === -1 ? 9 : n;
+  }
+  function asmSizeSelector() {
+    var cur = asmChipCount();
+    var html = '<div class="diff-label">字块数量</div><div class="diff">';
+    ASM_SIZES.forEach(function (n) {
+      html += '<button class="dopt' + (cur === n ? " on" : "") + '" data-ac="' + n + '">' + n + ' 块</button>';
+    });
+    return html + '</div>';
+  }
+  /* Draw the decoy pool ONCE per question and slice it, exactly as clozeOpts does
+     for 填空挑战 — otherwise toggling 出题方式 or 字块数量 redraws the decoys while
+     the answer's characters necessarily survive every draw, and two toggles hand
+     the student the answer. Same 选项重洗=泄题 bug, different screen. */
+  function asmChips(state, w, n) {
+    var key = state.i + "|" + w.id;
+    var target = w.w.split("");
+    if (state._chipKey !== key) {
+      state._chipKey = key;
+      var inTarget = {};
+      target.forEach(function (c) { inTarget[c] = 1; });
+      state._decoys = shuffle(state.chars.filter(function (c) { return !inTarget[c]; }));
+      state._chipArr = {};
+    }
+    if (!state._chipArr[n]) {
+      var need = Math.max(0, n - target.length);
+      state._chipArr[n] = shuffle(target.concat(state._decoys.slice(0, need)));
+    }
+    return state._chipArr[n];
+  }
   function renderAssemble(state) {
     setTopbar("home", "");
     var w = state.seq[state.i];
     var target = w.w.split("");
-    var inTarget = {};
-    target.forEach(function (c) { inTarget[c] = 1; });
-    var decoys = shuffle(state.chars.filter(function (c) { return !inTarget[c]; }))
-      .slice(0, 9 - target.length);
-    var chips = shuffle(target.concat(decoys));
+    var chips = asmChips(state, w, asmChipCount());
 
     /* prompt mode: def(释义) | en(英文) | cloze(填空) | py(拼音, practice-only).
        Per-word fallback to 释义 when the chosen field is missing. Chinese-only
@@ -3087,7 +3195,7 @@
       '<div class="mode-desc">按顺序点出词语的字。</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对 <b>' + state.perfect + '</b> 🧩</div>' +
-      asmPromptSelector() + '</div>' +
+      asmPromptSelector() + asmSizeSelector() + '</div>' +
       '<div class="stage"><div class="q-card">' +
       '<span class="q-tag">' + promptTag + '</span>' +
       '<div class="q-text mcq">' + promptHtml + '</div>' +
@@ -3107,6 +3215,9 @@
     Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ap]"), function (b) {
       b.onclick = function () { store.asmPrompt = b.getAttribute("data-ap"); saveStore(); renderAssemble(state); };
     });
+    Array.prototype.forEach.call(view().querySelectorAll(".dopt[data-ac]"), function (b) {
+      b.onclick = function () { store.asmChips = parseInt(b.getAttribute("data-ac"), 10); saveStore(); renderAssemble(state); };
+    });
     if (ttsFn && document.getElementById("asmTts")) document.getElementById("asmTts").onclick = ttsFn;
     var nextIdx = 0, wrongThis = false, done = false;
     var slots = view().querySelectorAll(".asm-slot");
@@ -3125,9 +3236,12 @@
             if (!wrongThis) {
               state.perfect++;
               /* 组词 一次拼对: base 3, no 连对 concept here (×1.0). Does not master.
-                 拼音出题方式为练习模式，不计历练值。 */
-              if (!noScore) { scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id]);
-                              awardLingLu(w, "assemble"); }
+                 拼音出题方式 earns 10% 历练值 (PY_PRACTICE_MULT, owner 2026-08-14)
+                 plus the normal 灵露 — the assembly work is the same either way,
+                 the pinyin prompt only removes the recall step. */
+              scoreCorrect(w, PTS_BASE.assemble, 1, 0, !!store.mastered[w.id],
+                           noScore ? PY_PRACTICE_MULT : 1);
+              awardLingLu(w, "assemble");
             }
             bump("assemble", !wrongThis);
             sfxOk();
