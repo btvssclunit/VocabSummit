@@ -3648,7 +3648,10 @@
      bundled PNG somehow 404s, hide the broken image rather than show a
      browser placeholder icon. */
   function campSprite(cls, file, cx, by, w, title, key) {
-    return '<img class="' + cls + '" ' + (key ? 'data-key="' + esc(key) + '" ' : '') +
+    /* draggable="false": an <img> is natively draggable, and on Safari that
+       native drag hijacks the gesture so the sprite never moves. See the
+       matching -webkit-user-drag rule on .camp-move in app.css. */
+    return '<img class="' + cls + '" draggable="false" ' + (key ? 'data-key="' + esc(key) + '" ' : '') +
       'src="' + file + '" alt="" title="' + esc(title || "") + '" ' +
       'style="left:' + cx + '%;bottom:' + (100 - by) + '%;width:' + w + '%' +
       (key ? ';z-index:' + zFor(by) : '') + '" ' +
@@ -3762,41 +3765,59 @@
      the dwellGate rules elsewhere in the app deliberately do not apply.
      touch-action:none on .camp-move (app.css) stops a drag from scrolling the
      page instead of moving the item. */
+  /* ONE drag record, with move/up bound to the DOCUMENT and wired exactly once.
+     They used to be bound to each sprite and to rely on setPointerCapture — but
+     that call sits in a try/catch, so wherever capture fails silently the
+     pointer leaves the small sprite after a few pixels and pointermove stops
+     firing: the item twitches and sticks. Document-level listening removes the
+     dependency. Wired once because openCampScene() runs on every camp visit and
+     per-visit listeners would pile up. */
+  var _campDrag = null;
+  var _campDragWired = false;
+  function campDragMove(e) {
+    if (!_campDrag) return;
+    var r = _campDrag.stage.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    e.preventDefault();
+    var p = clampPos({ x: (e.clientX - r.left) / r.width * 100,
+                       y: (e.clientY - r.top) / r.height * 100 });
+    _campDrag.img.style.left = p.x + "%";
+    _campDrag.img.style.bottom = (100 - p.y) + "%";
+    _campDrag.img.style.zIndex = zFor(p.y);
+    _campDrag.pos = p; _campDrag.moved = true;
+  }
+  function campDragEnd() {
+    if (!_campDrag) return;
+    _campDrag.img.classList.remove("camp-dragging");
+    // a tap that never moved must NOT rewrite the saved position
+    if (_campDrag.moved && _campDrag.pos) {
+      store.decoPos[_campDrag.img.getAttribute("data-key")] = {
+        x: Math.round(_campDrag.pos.x * 10) / 10, y: Math.round(_campDrag.pos.y * 10) / 10
+      };
+      saveStore();
+    }
+    _campDrag = null;
+  }
   function wireCampDrag(stage) {
     if (!stage) return;
+    _campDrag = null;
     Array.prototype.forEach.call(stage.querySelectorAll(".camp-move"), function (img) {
-      var drag = null;
       img.addEventListener("pointerdown", function (e) {
         e.preventDefault();
-        drag = { moved: false };
+        _campDrag = { img: img, stage: stage, moved: false };
         img.classList.add("camp-dragging");
         try { img.setPointerCapture(e.pointerId); } catch (err) {}
       });
-      img.addEventListener("pointermove", function (e) {
-        if (!drag) return;
-        var r = stage.getBoundingClientRect();
-        if (!r.width || !r.height) return;
-        var p = clampPos({ x: (e.clientX - r.left) / r.width * 100,
-                           y: (e.clientY - r.top) / r.height * 100 });
-        img.style.left = p.x + "%";
-        img.style.bottom = (100 - p.y) + "%";
-        img.style.zIndex = zFor(p.y);
-        drag.pos = p; drag.moved = true;
-      });
-      var end = function () {
-        if (!drag) return;
-        img.classList.remove("camp-dragging");
-        if (drag.moved && drag.pos) {
-          store.decoPos[img.getAttribute("data-key")] = {
-            x: Math.round(drag.pos.x * 10) / 10, y: Math.round(drag.pos.y * 10) / 10
-          };
-          saveStore();
-        }
-        drag = null;
-      };
-      img.addEventListener("pointerup", end);
-      img.addEventListener("pointercancel", end);
+      // belt and braces for Safari, which may still attempt a native image drag
+      img.addEventListener("dragstart", function (e) { e.preventDefault(); });
     });
+    if (_campDragWired) return;
+    _campDragWired = true;
+    /* passive:false so preventDefault() during a move is honoured — without it a
+       touch drag can still scroll the page on some browsers. */
+    document.addEventListener("pointermove", campDragMove, { passive: false });
+    document.addEventListener("pointerup", campDragEnd);
+    document.addEventListener("pointercancel", campDragEnd);
   }
   function petKeyOf(level) {
     var i = LEVELS.indexOf(level);

@@ -1804,9 +1804,14 @@ dropping the blur from `.card` and keeping it on the topbar and popovers only).
 
 ## 部署缓存版本号 (cache busting) · 2026-08-14 — READ BEFORE EVERY DEPLOY
 
-**⚠️ ON EVERY DEPLOY, BUMP THE DATE IN SIX PLACES:** `?v=YYYYMMDD` on the asset tags in
+**⚠️ ON EVERY DEPLOY, BUMP THE VERSION IN SIX PLACES:** `?v=YYYYMMDD` on the asset tags in
 `index.html` + the four `*_index.html` stream pages, and the `ASSET_V` literal near the top of
 `teacher.html`'s script. That is the whole ritual.
+
+⚠️ **Deploying twice in one day? Add or advance a LETTER** — `20260814` → `20260814b` → `20260814c`.
+A date-only string does not change between two same-day deploys, so the second one would be served
+stale, which is the exact bug this whole mechanism exists to prevent. This already happened on day
+one (the 徽章 pass and the 营地拖动 fix shipped hours apart).
 
 Why it exists: GitHub Pages serves every file with `cache-control: max-age=600`. For ten minutes a
 browser does not even ASK whether a newer copy exists, and it ages each file INDEPENDENTLY. So a
@@ -1830,3 +1835,37 @@ report is very likely the same bug — that session could not rule out a stale d
 
 Verified in-browser: all six local assets plus `hcl.json` requested with `?v=20260814`, zero console
 errors, badge card still opens.
+
+## 营地拖动修复 · 2026-08-14 (owner: 「can't seem to move and place them」)
+
+The 便携化 free-placement drag shipped 2026-08-14 verified ONLY by headless assertions — no browser
+ever ran it. Driven in a real browser this session it failed, for three separate reasons. All three
+are fixed and both input paths are now verified with real events.
+
+1. **`<img>` is natively draggable, and on Safari that wins.** `.camp-move` sprites are `<img>`
+   elements with `-webkit-user-drag:auto` and `draggable=true` (both browser defaults, confirmed by
+   reading computed style). Safari therefore starts its OWN image drag-and-drop — ghost image, item
+   never moves — and `preventDefault()` on `pointerdown` does not reliably suppress it there. This is
+   almost certainly what the owner hit: **the only browser on that machine is Safari.** Fixed in
+   three layers: `-webkit-user-drag:none` on `.camp-move`, `draggable="false"` emitted by
+   `campSprite()`, and a `dragstart` preventDefault per sprite. ⚠️ Do not drop any of the three.
+2. **`pointermove`/`pointerup` were bound to each sprite and depended on `setPointerCapture`** — a
+   call sitting inside `try/catch`, so any failure was silent. Wherever capture does not take, the
+   pointer leaves the small sprite within a few pixels and moves simply stop arriving: the item
+   twitches and sticks. They are now on the DOCUMENT with a single `_campDrag` record, so capture is
+   no longer load-bearing. Proven by dispatching every move on `document` rather than the sprite —
+   0px under the old code, 120px now.
+3. **Those document listeners must be wired ONCE** (`_campDragWired`), because `openCampScene()` runs
+   on every camp visit and per-visit listeners would pile up, each closing over a detached stage.
+
+`passive:false` on the move listener so `preventDefault()` is honoured (without it a touch drag can
+still scroll the page). The tap-without-move guard is unchanged and still verified.
+
+VERIFIED in a real browser, both paths: a real mouse drag at 1280×820 (tent moved and persisted to
+`store.decoPos`), a touch-typed pointer sequence at 375×812, a drag whose moves all land on
+`document`, a tap that must NOT rewrite the position, and a leave-and-re-enter cycle still dragging
+correctly. ⚠️ Still wants a real finger on a real iPad — touch EMULATION is not touch.
+
+Note for whoever reads this next: this is the second feature in two days that passed headless
+assertions and failed on first contact with a browser (the 攀山竞速 landscape split was the first).
+Assertions prove data flow. They cannot prove that an event ever reaches your handler.

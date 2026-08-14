@@ -1102,7 +1102,13 @@ button.m2pill{cursor:pointer}
 /* 随身装备 free placement (2026-08-14). touch-action:none is REQUIRED — without
    it a touch drag scrolls the page instead of moving the item. Overrides the
    pointer-events:none above, so only equipped gear is grabbable. */
-.camp-move{pointer-events:auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+/* ⚠️ -webkit-user-drag:none is LOAD-BEARING on Safari. These sprites are <img>
+   elements, and an <img> is natively draggable, so Safari starts its own
+   image drag-and-drop (ghost image, no move) and our pointer drag never runs.
+   preventDefault() on pointerdown does NOT reliably suppress it there. The
+   matching draggable="false" attribute is set in campSprite(). */
+.camp-move{pointer-events:auto;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;
+  -webkit-user-drag:none;user-drag:none}
 .camp-move:active{cursor:grabbing}
 .camp-move.camp-dragging{cursor:grabbing;
   filter:drop-shadow(0 8px 10px rgba(10,20,10,.4)) brightness(1.06)}
