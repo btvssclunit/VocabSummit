@@ -1212,10 +1212,18 @@ body.lp-sea-on .lp-foot{display:none}
   color:#F5C443;font-size:clamp(11px,.92vw,15px);margin-top:2px;letter-spacing:.02em}
 
 /* ---- landscape positions (tuned against composite_test_v5 at 1600x900) ---- */
-.i-g2  {--cx:20.6%; --by:50%;   --w:20vw;    --tx:18%; --ty:39%}
-.i-g3  {--cx:55%;   --by:48%;   --w:26.9vw;  --tx:55%; --ty:35%}
-.i-hcl {--cx:80.6%; --by:26.7%; --w:31.25vw; --tx:65%; --ty:37%}
-.i-g1  {--cx:43.1%; --by:7.8%;  --w:24vw;    --tx:29%; --ty:12%}
+/* owner 2026-08-15: G1 further right off the pier · G2 further left · G3 in the
+   middle of the screen · HCL on the top-right edge.
+   --tx/--ty now sit AGAINST each island's painted shore rather than out in open
+   water (they are computed by walking out from the island centre until the
+   sprite's alpha ends), so the boat moors at the beach.
+   ⚠️ Because the boat now STAYS at its last berth, a voyage can start from any
+   island — that is 20 routes, not 4, and all 20 were verified clear of land
+   with the arc included. Moving any island means re-verifying all of them. */
+.i-g2  {--cx:14%; --by:50%;  --w:20vw;    --tx:23.5%; --ty:53.1%}
+.i-g3  {--cx:50%; --by:42%;  --w:26.9vw;  --tx:50%;   --ty:39.8%}
+.i-hcl {--cx:86%; --by:50%;  --w:31.25vw; --tx:75.4%; --ty:52.8%}
+.i-g1  {--cx:55%; --by:7.8%; --w:24vw;    --tx:51.8%; --ty:33.7%}
 /* the dock is drawn to run off the left and bottom frame edges, so it is
    anchored into the corner and allowed to bleed. Inset it and the cut coastline
    reads as a floating slab.
@@ -1223,7 +1231,7 @@ body.lp-sea-on .lp-foot{display:none}
    viewport edge, so the shared :hover lift raised the whole landmass and opened
    a strip of bare water underneath it. Sitting 6% below the frame means the
    lift has slack to move into and nothing is ever revealed. */
-.i-dock{--cx:12.5%; --by:-6%;   --w:25vw;    --tx:26%; --ty:20%}
+.i-dock{--cx:12.5%; --by:-6%;   --w:25vw;    --tx:26.8%; --ty:17.6%}
 /* the dock has no flat ring to label, and its waterline is off-screen, so its
    plaque is placed on the sand beside the house instead. */
 .i-dock .sea-label{left:44%;bottom:26%}
@@ -1241,21 +1249,44 @@ body.lp-sea-on .lp-foot{display:none}
 .sea-boat.flip img{transform:scaleX(-1)}
 @keyframes seaBob{0%,100%{translate:0 0}50%{translate:0 -2px}}
 /* the voyage. Animates TRANSFORM, not left/bottom: animating the offsets meant
-   a full layout pass every frame, which is what made the sail visibly janky on
-   a real machine. --dx/--dy are set in pixels by nickname.js at click time, so
-   this stays on the compositor.
-   Note the transform is authored as two chained translates. The first repeats
-   the element's own centring; leave it in every keyframe or the boat jumps by
-   half its size the instant the animation starts.
-   The midpoint lifts so the track arcs instead of running dead straight; that
-   lift is part of the route and was included when the arcs were checked for
-   land crossings, so changing it means re-checking them. */
+   a full layout pass every frame, which is what made the sail visibly janky.
+   The track is a quadratic Bezier from the berth (0,0) to --dx/--dy with
+   control point --ctlx/--ctly, all set in pixels by nickname.js at click time:
+       P(t) = 2t(1-t)*C + t^2*E
+   Nine samples, because a three-stop arc visibly corners at its midpoint.
+   ⚠️ Timing MUST stay linear. Per-keyframe easing would accelerate and brake
+   eight separate times over one voyage, which is far worse than the corner it
+   replaced. The easing is baked into WHICH t each keyframe samples instead —
+   the t values below are ease-in-out, so the boat pulls away gently, cruises,
+   and settles, with the interpolation between them left perfectly even.
+   Note the transform is two chained translates. The first repeats the element's
+   own centring; leave it in every keyframe or the boat jumps half its own width
+   the instant the animation starts. */
 @keyframes seaSail{
-  0%  {transform:translate(-50%,50%) translate(0,0)}
-  50% {transform:translate(-50%,50%)
-       translate(calc(var(--dx,0px) / 2), calc(var(--dy,0px) / 2 - 3.5vh))}
-  100%{transform:translate(-50%,50%) translate(var(--dx,0px),var(--dy,0px))}}
-.sea-boat.sailing{animation:seaSail 1.1s ease-in-out forwards}
+  0%    {transform:translate(-50%,50%) translate(0,0)}
+  12.5% {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.0605 + var(--dx,0px)*.0010),
+         calc(var(--ctly,0px)*.0605 + var(--dy,0px)*.0010))}
+  25%   {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.2188 + var(--dx,0px)*.0156),
+         calc(var(--ctly,0px)*.2188 + var(--dy,0px)*.0156))}
+  37.5% {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.4043 + var(--dx,0px)*.0791),
+         calc(var(--ctly,0px)*.4043 + var(--dy,0px)*.0791))}
+  50%   {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.5000 + var(--dx,0px)*.2500),
+         calc(var(--ctly,0px)*.5000 + var(--dy,0px)*.2500))}
+  62.5% {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.4043 + var(--dx,0px)*.5166),
+         calc(var(--ctly,0px)*.4043 + var(--dy,0px)*.5166))}
+  75%   {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.2188 + var(--dx,0px)*.7656),
+         calc(var(--ctly,0px)*.2188 + var(--dy,0px)*.7656))}
+  87.5% {transform:translate(-50%,50%) translate(
+         calc(var(--ctlx,0px)*.0605 + var(--dx,0px)*.9385),
+         calc(var(--ctly,0px)*.0605 + var(--dy,0px)*.9385))}
+  100%  {transform:translate(-50%,50%) translate(var(--dx,0px),var(--dy,0px))}}
+.sea-boat.sailing{animation:seaSail 1.7s linear forwards}
 .sea-boat.sailing img{animation:none}
 
 .sea-back{position:absolute;left:14px;top:14px;z-index:5;cursor:pointer;
@@ -1288,15 +1319,18 @@ body.lp-sea-on .lp-foot{display:none}
    peaks, so nickname.js drops the voyage in portrait and navigates straight
    away — the design doc's own instruction where a route would cross land. ---- */
 @media (orientation:portrait){
-  .i-g2  {--cx:25%; --by:36%; --w:46vw}
-  .i-g3  {--cx:64%; --by:53%; --w:62vw}
+  /* --tx/--ty must be re-stated here, not just the positions: the boat now
+     parks at its last berth, so a portrait layout inheriting the landscape
+     moorings would leave it sitting in open water nowhere near its island. */
+  .i-g2  {--cx:25%; --by:36%; --w:46vw; --tx:43.2%; --ty:47.8%}
+  .i-g3  {--cx:64%; --by:53%; --w:62vw; --tx:55.6%; --ty:53.6%}
   /* 74vw put HCL's summit past the top edge on a 390x844 phone */
-  .i-hcl {--cx:42%; --by:70%; --w:66vw}
+  .i-hcl {--cx:42%; --by:70%; --w:66vw; --tx:44%;   --ty:69.5%}
   /* clear of the moored boat: at 50vw/by 13% its beach sat under the hull */
-  .i-g1  {--cx:66%; --by:19%; --w:46vw}
-  .i-dock{--cx:21%; --by:0%;  --w:58vw}
-  .i-dock .sea-label{left:50%;bottom:26%}
-  .sea-boat{--hx:49%;--hy:13%}
+  .i-g1  {--cx:66%; --by:19%; --w:46vw; --tx:62.5%; --ty:30.5%}
+  .i-dock{--cx:21%; --by:-4%; --w:58vw; --tx:49.6%; --ty:9.8%}
+  .i-dock .sea-label{left:50%;bottom:29%}
+  .sea-boat{--hx:49.6%;--hy:9.8%}
   /* the pill and 返回首页 both live on the top row of a 390px screen, so the
      pill has to give up its comfortable sizing or the nickname gets clipped */
   body.lp-sea-on .lp-greeting{max-width:min(62vw,238px);padding:5px 8px 5px 6px;gap:6px}

@@ -243,12 +243,40 @@
      routes do not justify a pathfinder), and hardcoding the pairing removes any
      chance of the sprite disagreeing with the route at some breakpoint. */
 
+  /* Five sprites cover eight bearings, because the hull is left-right symmetric
+     and each diagonal/broadside file mirrors with scaleX(-1). Screen-space
+     angles: 0 = due right, +90 = down the screen.
+     This is computed rather than authored per island because the boat now stays
+     at its last berth: the same destination is approached from a different
+     direction depending on where the student sailed from, so a fixed heading
+     per island would point the wrong way on most of the 20 routes. */
+  function boatHeading(dx, dy) {
+    var a = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (a >= -22.5 && a < 22.5) return ["broadside", true];     // bow right
+    if (a >= 22.5 && a < 67.5) return ["toward_diag", true];    // toward, lower-right
+    if (a >= 67.5 && a < 112.5) return ["toward", false];       // toward viewer
+    if (a >= 112.5 && a < 157.5) return ["toward_diag", false]; // toward, lower-left
+    if (a >= -67.5 && a < -22.5) return ["away_diag", false];   // away, upper-right
+    if (a >= -112.5 && a < -67.5) return ["away", false];       // straight away
+    if (a >= -157.5 && a < -112.5) return ["away_diag", true];  // away, upper-left
+    return ["broadside", false];                                // bow left
+  }
+
+  /* Where a straight run would cross a third island, the voyage is bent through
+     a hand-placed waypoint (the design doc's own instruction; four fixed islands
+     do not justify a pathfinder). Only one pair needs it: G2 and HCL sit on
+     opposite edges with G3 exactly between them, so no arc in either direction
+     clears — verified by checking all 20 routes at a range of arc heights.
+     Values are % of the viewport, y measured from the BOTTOM. */
+  var SEA_DETOUR = { "G2_index.html|HCL_index.html": [40, 30] };
+
   function initSeaMap(sea) {
     if (sea._wired) return;
     sea._wired = true;
 
     var boat = document.getElementById("lpBoat");
     var busy = false;
+    var BERTH_KEY = "ws_seamap_at";
 
     function skipSail() {
       // Portrait stacks the islands with no clear sailing lane from the jetty,
@@ -261,10 +289,20 @@
       return false;
     }
 
+    /* The berth is where the student last sailed to — the boat stays there as a
+       「你在这里」 marker, and the next voyage departs from it rather than
+       teleporting back to the jetty. Stored as the destination's own data-go
+       plus the heading it arrived on, so the parked boat still faces the way it
+       came in. Device-local, like everything else on this page. */
+    function readBerth() {
+      try { return JSON.parse(localStorage.getItem(BERTH_KEY) || "null"); } catch (e) { return null; }
+    }
+    function isleFor(go) { return sea.querySelector('.sea-isle[data-go="' + go + '"]'); }
+
     /* Put the boat back at its berth, ready to sail again.
-       This is what fixes the two worst bugs reported on the first real run:
-       every voyage after the first did nothing, and coming BACK from a stream
-       page left the map completely dead. Both are the same cause — the page is
+       This is also what fixes the two worst bugs from the first real run: every
+       voyage after the first did nothing, and coming BACK from a stream page
+       left the map completely dead. Both are the same cause — the page is
        restored from the back/forward cache with all JS state intact, so `busy`
        was still true from the voyage that navigated away, and the boat was
        still parked at its destination under animation-fill-mode:forwards. */
@@ -274,8 +312,25 @@
       boat.classList.remove("sailing");
       boat.style.removeProperty("--dx");
       boat.style.removeProperty("--dy");
-      boat.className = "sea-boat h-away_diag";
-      boat.querySelector("img").src = "art/seamap/boat_away_diag.png";
+      boat.style.removeProperty("--ctlx");
+      boat.style.removeProperty("--ctly");
+
+      var b = readBerth(), isle = b && b.go && isleFor(b.go);
+      if (isle) {
+        // moor at that island's landing point. Inline beats the stylesheet, so
+        // this also survives the portrait rules re-declaring --hx/--hy.
+        var cs = getComputedStyle(isle);
+        boat.style.setProperty("--hx", cs.getPropertyValue("--tx").trim());
+        boat.style.setProperty("--hy", cs.getPropertyValue("--ty").trim());
+        var h = (b.boat || "away_diag").split(" ");
+        boat.className = "sea-boat h-" + h[0] + (h[1] === "flip" ? " flip" : "");
+        boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
+      } else {
+        boat.style.removeProperty("--hx");     // fall back to the jetty
+        boat.style.removeProperty("--hy");
+        boat.className = "sea-boat h-away_diag";
+        boat.querySelector("img").src = "art/seamap/boat_away_diag.png";
+      }
     }
     // pageshow fires on a normal load AND on a bfcache restore (persisted:true),
     // which a plain load/DOMContentLoaded listener would miss entirely.
@@ -288,21 +343,44 @@
       var cs = getComputedStyle(isle);
       var tx = parseFloat(cs.getPropertyValue("--tx"));
       var ty = parseFloat(cs.getPropertyValue("--ty"));
-      if (!boat || isNaN(tx) || isNaN(ty) || skipSail()) { location.href = go; return; }
+      if (!boat || isNaN(tx) || isNaN(ty)) { location.href = go; return; }
 
-      // the voyage is animated as a transform, so hand the CSS a pixel delta
-      // from where the boat actually is to where it should moor
+      var W = window.innerWidth, H = window.innerHeight;
       var r = boat.getBoundingClientRect();
-      var fromX = r.left + r.width / 2;
-      var fromY = r.top + r.height / 2;
-      var toX = tx / 100 * window.innerWidth;
-      var toY = window.innerHeight - ty / 100 * window.innerHeight;
+      var fromX = r.left + r.width / 2, fromY = r.top + r.height / 2;
+      var toX = tx / 100 * W, toY = H - ty / 100 * H;
 
-      var h = (isle.getAttribute("data-boat") || "away_diag").split(" ");
-      boat.className = "sea-boat h-" + h[0] + (h[1] === "flip" ? " flip" : "");
+      var h = boatHeading(toX - fromX, toY - fromY);
+      // read the OLD berth before overwriting it — it names where this voyage
+      // departs from, which is what selects the detour
+      var prev = readBerth();
+      try {
+        localStorage.setItem(BERTH_KEY,
+          JSON.stringify({ go: go, boat: h[0] + (h[1] ? " flip" : "") }));
+      } catch (e) {}
+      if (skipSail()) { location.href = go; return; }
+
+      boat.className = "sea-boat h-" + h[0] + (h[1] ? " flip" : "");
       boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
+
+      /* control point for the quadratic the CSS draws. Default is the midpoint
+         lifted into an arc; a detoured pair instead names a point the track must
+         pass THROUGH at the halfway mark, which for a quadratic means
+         C = 2W - (start + end)/2. */
+      var key = ((prev && prev.go) || "dock") + "|" + go;
+      var alt = SEA_DETOUR[key] || SEA_DETOUR[go + "|" + ((prev && prev.go) || "dock")];
+      var cx, cy;
+      if (alt) {
+        cx = 2 * (alt[0] / 100 * W) - (fromX + toX) / 2;
+        cy = 2 * (H - alt[1] / 100 * H) - (fromY + toY) / 2;
+      } else {
+        cx = (fromX + toX) / 2;
+        cy = (fromY + toY) / 2 - H * 0.07;   // 2x the 3.5% arc height: a quadratic
+      }                                       // passes half way to its control point
       boat.style.setProperty("--dx", (toX - fromX).toFixed(1) + "px");
       boat.style.setProperty("--dy", (toY - fromY).toFixed(1) + "px");
+      boat.style.setProperty("--ctlx", (cx - fromX).toFixed(1) + "px");
+      boat.style.setProperty("--ctly", (cy - fromY).toFixed(1) + "px");
       // re-adding a class that is already applied does NOT restart a CSS
       // animation; reading offsetWidth between the remove and the add forces the
       // reflow that does. Without this the second voyage never moves.
@@ -314,7 +392,8 @@
       var done = false;
       function arrive() { if (!done) { done = true; location.href = go; } }
       boat.addEventListener("animationend", arrive, { once: true });
-      setTimeout(arrive, 1600);  // belt and braces if animationend never fires
+      setTimeout(arrive, 2200);  // belt and braces if animationend never fires
+                                 // (must outlast the 1.7s voyage, or it cuts it short)
     }
 
     var isles = sea.querySelectorAll(".sea-isle");
