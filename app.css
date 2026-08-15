@@ -135,9 +135,11 @@ img{max-width:100%}
 .unit.on .unit-theme{color:#6B5010}
 /* #8A5A0F not var(--gold-deep): the token is 3.19:1 on a card, which passes only
    for large text. These small labels need 4.5:1 (measured 5.19:1). */
-.scope-sum{font-size:13px;color:#8A5A0F;font-weight:700}
-.scope-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
-.scope-top .scope-sum{margin-left:auto}
+.scope-sum{font-size:13px;color:#8A5A0F;font-weight:700;margin-bottom:8px}
+/* its own row, above 板块 (owner 2026-08-16) — the summary moved out from beside
+   the buttons onto the line below, so the pair reads as one clear action row */
+.scope-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.scope-top .unit{font-weight:700}
 .scope-acc{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;border-top:1px solid #E4EDF4;padding:11px 2px 8px;font-size:14px;font-weight:700;color:#3A5A70;cursor:pointer;text-align:left}
 .scope-acc .cnt{font-weight:400;font-size:12.5px;color:var(--ink-soft)}
 .scope-acc .chev{margin-left:auto;color:#4E6273;transition:transform .18s}
@@ -396,6 +398,11 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
   touch-action:manipulation;transition:background .12s,color .12s,border-color .12s}
 .comp-chip.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
 .comp-chip:active{transform:scale(.96)}
+/* per-level 全选本级/清空本级, inside the accordion body above that level's units */
+.lv-acts{display:flex;gap:8px;flex-basis:100%;margin:2px 0 2px}
+.lv-act{border:1px dashed #B9CEDD;border-radius:12px;padding:6px 12px;font-size:12.5px;font-weight:700;
+  color:var(--sea2);background:rgba(255,255,255,.7);cursor:pointer;touch-action:manipulation}
+.lv-act:active{transform:scale(.96)}
 
 /* ---------- 数量滑杆 (2026-08-14, redesigned same day) ----------
    The readout is ABOVE the track, not beside it: as a flex sibling it changed the

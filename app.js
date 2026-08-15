@@ -1046,6 +1046,15 @@
   function scopedWords() {
     return WORDS.filter(function (w) { return scope.has(unitKey(w)) && compIsOn(w.component); });
   }
+  /* Why the scope is empty, in the student's terms. Both halves can be cleared now
+     (owner 2026-08-16), so a single 「请先选择至少一个单元」 would send someone hunting
+     through the unit list when what they actually did was switch every 板块 off. */
+  function scopeEmptyMsg(where) {
+    var lead = where ? "请先在「修行」页" : "请先";
+    if (!scope.size) return lead + "选择至少一个单元。";
+    if (!streamComps().some(compIsOn)) return lead + "打开至少一个板块（板块筛选目前全部关闭）。";
+    return lead + "选择至少一个有词语的单元。";
+  }
   /* component types present in THIS stream, in narrative order */
   var COMP_ORDER = ["生活空间", "核心", "巩固", "进阶", "文化站"];
   function streamComps() {
@@ -1461,10 +1470,16 @@
 
     html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围 · 可多选") + enl("复习范围 · 可多选") + '</div>' +
       '<div class="card" id="scopeCard">' +
+      /* ⚠️ ONE 全选/清空 pair for the whole card, on its own row above 板块 (owner
+         2026-08-16). It briefly had a second pair inline in the 板块 row, which put
+         two identical-looking pairs a few pixels apart with no way to tell which was
+         which. This pair now covers BOTH halves of the scope — units AND 板块 — so
+         「全选」really does mean everything and「清空」really does mean nothing. The
+         individual 板块 chips are still toggles, so a 板块-only change is one tap. */
       '<div class="scope-top">' +
       '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
-      '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button>' +
-      '<span class="scope-sum" id="scopeSum"></span></div>';
+      '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button></div>' +
+      '<div class="scope-sum" id="scopeSum"></div>';
     /* 板块 filter — one row, stream-wide, above the levels */
     var comps = streamComps();
     if (comps.length > 1) {
@@ -1489,6 +1504,14 @@
       html += '<button class="scope-acc' + (open ? " open" : "") + '" data-lv="' + esc(lv) + '">' +
         esc(lv) + '<span class="cnt" data-cnt="' + esc(lv) + '"></span><span class="chev">›</span></button>' +
         '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">';
+      /* per-level 全选/清空 (owner 2026-08-16). The card-level pair covers「everything」
+         and「nothing」; picking exactly one year meant tapping its 5-6 units by hand,
+         which with the exclusive accordion is the single most common thing a teacher
+         asks a class to do. Inside the body, not the header: the header is itself a
+         <button> and buttons must never nest. */
+      html += '<div class="lv-acts">' +
+        '<button class="lv-act" data-lvall="' + esc(lv) + '">全选本级' + enli("全选") + '</button>' +
+        '<button class="lv-act" data-lvnone="' + esc(lv) + '">清空本级' + enli("清空") + '</button></div>';
       byLevel[lv].forEach(function (u) {
         var on = scope.has(u.key) ? " on" : "";
         html += '<button class="unit' + on + '" data-k="' + esc(u.key) + '"><b>' + esc(u.unit) + '</b>' +
@@ -1585,21 +1608,43 @@
         });
       };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".comp-chip"), function (b) {
+    /* ⚠️ [data-comp] only — the 全选/清空 pair shares the .comp-chip class for its
+       looks but carries no 板块 name, and this handler would write store.compOff[null]. */
+    Array.prototype.forEach.call(view().querySelectorAll(".comp-chip[data-comp]"), function (b) {
       b.onclick = function () {
         var c = b.getAttribute("data-comp");
         if (store.compOff[c]) delete store.compOff[c]; else store.compOff[c] = 1;
-        /* never let the student filter every 板块 away — that empties 复习范围
-           while the unit chips still read as selected, which looks like a bug */
-        if (!streamComps().some(compIsOn)) { delete store.compOff[c]; return; }
+        /* ⚠️ The old rule 「never let the last 板块 be switched off」 is GONE (owner
+           2026-08-16). It made 清空 impossible and, worse, made the last tap do
+           nothing at all — indistinguishable from a broken button. An empty filter
+           is allowed now; the summary says 共 0 词 and starting a mode explains why. */
         b.classList.toggle("on", compIsOn(c));
         saveStore(); updateScopeSum();
       };
     });
     document.getElementById("selAll").onclick = function () {
-      UNIT_LIST.forEach(function (u) { scope.add(u.key); }); renderHome();
+      UNIT_LIST.forEach(function (u) { scope.add(u.key); });
+      store.compOff = {};                    // 全选 means 板块 too, or it is not 全选
+      saveStore(); renderHome();
     };
-    document.getElementById("selNone").onclick = function () { scope.clear(); renderHome(); };
+    document.getElementById("selNone").onclick = function () {
+      scope.clear();
+      store.compOff = {};
+      streamComps().forEach(function (c) { store.compOff[c] = 1; });
+      saveStore(); renderHome();
+    };
+    Array.prototype.forEach.call(view().querySelectorAll(".lv-act[data-lvall]"), function (b) {
+      b.onclick = function () {
+        (byLevel[b.getAttribute("data-lvall")] || []).forEach(function (u) { scope.add(u.key); });
+        renderHome();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".lv-act[data-lvnone]"), function (b) {
+      b.onclick = function () {
+        (byLevel[b.getAttribute("data-lvnone")] || []).forEach(function (u) { scope.delete(u.key); });
+        renderHome();
+      };
+    });
     Array.prototype.forEach.call(view().querySelectorAll(".htab[data-tab]"), function (btn) {
       btn.onclick = function () {
         var tab = btn.getAttribute("data-tab");
@@ -1620,7 +1665,7 @@
     if (pkPill) pkPill.onclick = function (e) { e.stopPropagation(); renderPkConfig(); };
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
-        if (!scopedWords().length) { alert("请先选择至少一个单元。"); return; }
+        if (!scopedWords().length) { alert(scopeEmptyMsg(false)); return; }
         var mode = btn.getAttribute("data-mode");
         if (mode === "quiz") return renderQuizConfig();       // §2.1: 题型/题数/难度 live in here
         if (mode === "flash") return renderWordList("all");   // flashcards open the list-menu first
@@ -5081,7 +5126,7 @@
     { mode: "handle", label: "🀄 词语汉兜", only: ["g3", "hcl"] }
   ];
   function launchMode(mode) {
-    if (!scopedWords().length) { alert("请先在「修行」页选择至少一个单元。"); return; }
+    if (!scopedWords().length) { alert(scopeEmptyMsg(true)); return; }
     if (mode === "rain") return renderRainConfig();
     if (mode === "sprint") return renderSprintConfig();
     if (mode === "assemble") return startAssemble();

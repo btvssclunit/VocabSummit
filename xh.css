@@ -135,6 +135,17 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   .xh-col-r .xh-tab{padding:12px 12px}
   .xh-col-r .xh-go{padding:12px 18px}
   .xh-col-r .xh-sec{margin-bottom:8px;padding-bottom:6px}
+  /* ⚠️ The four destination tiles live at the BOTTOM OF THE RIGHT COLUMN now
+     (owner 2026-08-16: the left rail ran to ~1000px while the right stopped at
+     ~455px). Two-up, so they fill the width the ② and ③ boards leave empty
+     instead of extending a rail nobody scrolls. They come AFTER 出发 in source,
+     so acceptance §6.1 (出发 above the fold at 1366x768) is unaffected — but
+     re-measure if anything is ever added ABOVE them. */
+  .xh-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+  .xh-tiles .xh-tile{margin-bottom:0;height:100%}
+  /* the 图鉴 cover is the tallest thing here; at half-column width it goes back to
+     a leading strip rather than the phone's full-bleed art */
+  .xh-tiles .xh-tile-art{width:64px;height:auto;flex:none;border-radius:8px}
 }
 @media (max-width:899px){
   .xh-scopewrap.sc-closed{display:none}
@@ -254,9 +265,6 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 
 
 
-
-
-
 .xh-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .xh-mode{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
   touch-action:manipulation;padding:13px 10px;border-radius:14px;
@@ -333,10 +341,35 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
   background:none;border:0;border-bottom:2px solid rgba(138,90,50,.28);color:var(--ink);
   touch-action:manipulation;padding:0 0 7px}
 .xh-sec-lab{flex:1 1 auto;min-width:0}
-.xh-sec-t .xh-sum{flex:none;margin-left:auto;font-family:var(--sans);font-size:13px;font-weight:700;
+/* ⚠️ max-width + ellipsis, not just nowrap. scopeLabel() now returns「N 组」rather
+   than joining the names, but a long single group name can still appear, and a
+   nowrap flex:none pill takes whatever width it wants — which is what wrapped
+   「学习范围 · 可多选」onto three lines on a phone (owner 2026-08-16). */
+.xh-sec-t .xh-sum{flex:0 1 auto;margin-left:auto;font-family:var(--sans);font-size:13px;font-weight:700;
   color:var(--sea2);background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
-  border-radius:999px;padding:4px 11px;white-space:nowrap}
-.xh-caret{font-size:14px;color:var(--sea2);flex:none}
+  border-radius:999px;padding:4px 11px;white-space:nowrap;
+  max-width:48%;overflow:hidden;text-overflow:ellipsis}
+/* ⚠️ Phone header (must sit AFTER .xh-sec-lab above — same specificity, so the
+   later rule wins; placed near the media queries at the top it silently lost): give the LABEL a floor and let the summary pill wrap under it
+   (owner 2026-08-16:「the pill button on mobile becomes too long and other text
+   gets squashed」). The pill is flex and was winning the width fight, wrapping
+   「学习范围 · 可多选」onto its own extra lines. With a 180px floor the label keeps
+   one line per language and the pill drops to a second row instead — which costs
+   no height, because the label block is three lines tall either way. */
+@media (max-width:560px){
+  .xh-sec-t{flex-wrap:wrap;row-gap:6px}
+  .xh-sec-lab{flex:1 1 auto;min-width:180px}
+  .xh-sec-t .xh-sum{margin-left:0;max-width:100%}
+}.xh-caret{font-size:14px;color:var(--sea2);flex:none}
+/* 全选 / 清空 (owner 2026-08-16). A plain pair of pills above the chips, sized to
+   the same 42px finger target the topbar uses. They sit INSIDE the collapsible
+   wrap so a folded scope on a phone stays one line. */
+.xh-scope-acts{display:flex;gap:8px;margin-top:12px}
+.xh-sbtn{flex:0 0 auto;min-height:42px;padding:6px 18px;border-radius:999px;cursor:pointer;
+  touch-action:manipulation;font-family:var(--sans);font-weight:700;font-size:14px;
+  color:var(--sea2);background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
+.xh-sbtn:active{transform:translateY(1px)}
 .xh-scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
 .xh-gchip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;cursor:pointer;
   touch-action:manipulation;text-align:left;padding:12px 14px;border-radius:14px;
@@ -415,6 +448,13 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .xh-sprite img{display:block;width:auto;height:clamp(130px,24vh,210px);image-rendering:pixelated;
   filter:drop-shadow(0 6px 12px rgba(12,30,48,.25))}
 .xh-sprite:hover img{filter:drop-shadow(0 8px 16px rgba(12,30,48,.32)) brightness(1.04)}
+/* 英文选词: the English prompt IS the question, so it carries the weight the
+   sprite carries elsewhere. The sprite is withheld until the answer lands — it
+   still occupies no space while hidden, so the options do not jump when it
+   appears (the board grows downward, the options keep their place). */
+.xh-enq{font-family:var(--serif);font-weight:900;font-size:clamp(24px,4.4vw,34px);
+  line-height:1.25;color:var(--sea3);margin:6px 0 14px;word-break:break-word}
+.xh-sprite.hidden{display:none}
 /* spec §5.4: the reward for a correct answer was a border colour change */
 .xh-sprite.pop img{animation:xhPop .45s cubic-bezier(.34,1.56,.64,1)}
 @keyframes xhPop{0%{transform:scale(1)}35%{transform:scale(1.16) rotate(-3deg)}100%{transform:scale(1)}}
@@ -670,7 +710,6 @@ body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
   background:rgba(18,33,63,.94);color:#fff;font-size:14px;font-weight:700;
   padding:12px 18px;border-radius:999px;box-shadow:0 8px 22px rgba(6,26,48,.4);max-width:88vw}
 
-
 /* ================= 航海图鉴 (addendum §2) =================
    The dock's collection surface. Earned, never bought — which is exactly what
    the retired campsite scenery lacked. A word not yet met shows as a dark
@@ -736,7 +775,6 @@ body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
   .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
   .prof-prog div{background:rgba(255,255,255,.92)}
 }
-
 
 /* ================= 我的档案 · 我要反馈 · 换头像/换昵称 =================
    ⚠️ COPIED from app.css, not shared. This page never links app.css (see the

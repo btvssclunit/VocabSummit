@@ -142,6 +142,11 @@
     "选择学习方式": "xuǎn zé xué xí fāng shì",
     "学词": "xué cí", "闯关": "chuǎng guān", "出发": "chū fā",
     "词语游乐场": "cí yǔ yóu lè chǎng",
+    "学词方式": "xué cí fāng shì", "英文选词": "yīng wén xuǎn cí",
+    /* 看图学词 had no entry while every other mode name did — invisible until the
+       学词 tab held two cards side by side and only one carried its 拼音. */
+    "看图学词": "kàn tú xué cí",
+    "全选": "quán xuǎn", "清空": "qīng kōng",
     "航海图鉴": "háng hǎi tú jiàn", "码头风云榜": "mǎ tóu fēng yún bǎng",
     "我的海滩": "wǒ de hǎi tān", "海滩小铺": "hǎi tān xiǎo pù",
     "船只 · 一艘一艘往上换": "chuán zhī · yī sōu yī sōu wǎng shàng huàn",
@@ -440,25 +445,38 @@
     WORDS.forEach(function (w) { if (!seen[w.组别]) { seen[w.组别] = 1; out.push(w.组别); } });
     return out;
   }
+  /* store.scope: null = every group (the fresh-profile default), otherwise EXACTLY
+     the listed groups — and an empty list really is empty (owner 2026-08-16).
+     ⚠️ It used to silently fall back to「all」whenever the list emptied, and
+     toggleScope refused to remove the last chip. That made 清空 impossible: the
+     student pressed clear and the dock either ignored them or quietly re-selected
+     everything. Empty is a legitimate half-second on the way to「just 食物」, so it
+     is allowed and shown honestly (未选 · 0 词); startRound is what says no. */
   function scopeNames() {
     var all = allGroupNames();
     if (!store.scope) return all.slice();
-    var ok = store.scope.filter(function (g) { return all.indexOf(g) >= 0; });
-    return ok.length ? ok : all.slice();          // never let the scope be empty
+    return store.scope.filter(function (g) { return all.indexOf(g) >= 0; });
   }
   function scopedWords() {
     var sel = {}; scopeNames().forEach(function (g) { sel[g] = 1; });
     return WORDS.filter(function (w) { return sel[w.组别]; });
   }
+  /* ⚠️ NEVER join the group names (owner 2026-08-16). The pill is nowrap and
+     flex:none, so 「日常用品 · 动物 · 37 词」 ate the header and wrapped
+     「学习范围 · 可多选」 onto three lines on a phone. A count says the same thing
+     in two characters — the chips below already show WHICH groups. */
   function scopeLabel() {
-    var n = scopeNames();
-    return n.length === allGroupNames().length ? "全部" : n.join(" · ");
+    var n = scopeNames().length, all = allGroupNames().length;
+    if (!n) return "未选";
+    if (n === all) return "全部";
+    if (n === 1) return scopeNames()[0];
+    return n + " 组";
   }
+  function setScope(list) { store.scope = list; save(); }
   function toggleScope(g) {
     var cur = scopeNames(), i = cur.indexOf(g);
-    if (i >= 0) { if (cur.length === 1) return; cur.splice(i, 1); }   // never empty
-    else cur.push(g);
-    store.scope = cur; save();
+    if (i >= 0) cur.splice(i, 1); else cur.push(g);
+    setScope(cur);
   }
 
   function groups() {
@@ -480,8 +498,17 @@
      else here asks a beginner to pick the right word out of four before anyone
      has told them what any of them are. The flashcard deals with that, so it
      leads the list and every other mode reads as「now check yourself」. */
+  /* ⚠️ `learn: true` places a mode in the ② 学词 tab; everything else is 闯关.
+     看图学词 (id "learn") is the flashcard walk and is special-cased in startRound;
+     every other mode, including 英文选词, runs the ordinary 5-question round. */
   var MODES = [
     { id: "learn", icon: "📖", zh: "看图学词", en: "Learn the words", learn: true },
+    /* 英文选词 — the plain meaning→词语 MCQ the rest of the platform has (owner
+       2026-08-16: 学词 was flashcards and nothing else). Every other dock mode is
+       picture- or sound-led, so this is the only one that makes the student read
+       the characters. English prompt because it is the only meaning a beginner
+       here can read — and it is TEXT ONLY: English is never spoken, anywhere. */
+    { id: "enmcq", icon: "🔤", zh: "英文选词", en: "English → word", learn: true },
     { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word" },
     { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture" },
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
@@ -558,6 +585,15 @@
        store.scopeOpen is KEPT — saved profiles carry it, and the phone uses it. */
     h += '<div class="xh-scopewrap' + (store.scopeOpen ? "" : " sc-closed") + '">';
     {
+      /* 全选 / 清空 — the mountain's 复习范围 has had these since day one and the
+         dock did not, so「选全部」meant six taps and「只要食物」meant five (owner
+         2026-08-16). 清空 really empties: 出发 then explains, rather than the dock
+         silently re-selecting everything behind the student's back. */
+      h += '<div class="xh-scope-acts">' +
+        '<button class="xh-sbtn" id="xhScopeAll">全选' + xhPy("全选") +
+          '<span class="xh-en">All</span></button>' +
+        '<button class="xh-sbtn" id="xhScopeNone">清空' + xhPy("清空") +
+          '<span class="xh-en">Clear</span></button></div>';
       h += '<div class="xh-scope">';
       groups().forEach(function (b) {
         var on = sel.indexOf(b.组别) >= 0;
@@ -569,9 +605,17 @@
     }
     h += "</div></div>";
 
+    /* ⚠️ The four destination tiles moved OUT of the left rail (owner 2026-08-16:
+       「the left side is too long and the right side too empty」). At >=900px the
+       rail held hero + scope + four tiles (~1000px) while the right column ended
+       at ~455px. They are built here, next to the code that computes their
+       numbers, and emitted at the BOTTOM OF THE RIGHT COLUMN as a 2-up grid.
+       On a phone both wrappers are plain blocks, so this also puts the
+       destinations after 出发 in the stack, which is the better reading order. */
+    var tiles = '';
     /* 航海图鉴 tile. 航程 (1 词 = 1 海里) is the dock's own distance metric and is
        deliberately NOT 海拔 — nothing crosses the waterline. */
-    h += '<button class="xh-tile" id="xhLog">' +
+    tiles += '<button class="xh-tile" id="xhLog">' +
       '<img class="xh-tile-art" src="art/xh/xh_atlas_cover.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
       '<span class="xh-tile-txt"><b>航海图鉴</b>' + xhPy("航海图鉴") +
@@ -580,7 +624,7 @@
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
-    h += '<button class="xh-tile slim" id="xhBadges">' +
+    tiles += '<button class="xh-tile slim" id="xhBadges">' +
       '<span class="xh-tile-ic">🎖️</span>' +
       '<span class="xh-tile-txt"><b>航海徽</b>' + xhPy("航海徽") +
       '<span class="xh-en">your badges</span>' +
@@ -588,7 +632,7 @@
         SAIL_BADGES.length + '</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
-    h += '<button class="xh-tile slim" id="xhBeach">' +
+    tiles += '<button class="xh-tile slim" id="xhBeach">' +
       '<span class="xh-tile-ic">🏖️</span>' +
       '<span class="xh-tile-txt"><b>我的海滩</b>' + xhPy("我的海滩") +
       '<span class="xh-en">your berth and the shop</span>' +
@@ -596,7 +640,7 @@
         esc(BOATS[(store.boat || 1) - 1].zh) + '</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
-    h += '<button class="xh-tile slim" id="xhBoards">' +
+    tiles += '<button class="xh-tile slim" id="xhBoards">' +
       '<span class="xh-tile-ic">🏆</span>' +
       '<span class="xh-tile-txt"><b>码头风云榜</b>' + xhPy("码头风云榜") +
       '<span class="xh-en">the dock boards</span>' +
@@ -626,9 +670,11 @@
       store.mode = tabModes[0].id; save();     // keep the selection inside the visible tab
     }
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
-      (store.tab === "learn" ? "看图学词" : "词语游乐场") +
-      xhPy(store.tab === "learn" ? "看图学词" : "词语游乐场") +
-      ' <span class="xh-en">' + (store.tab === "learn" ? "study the pictures" : "pick a game") +
+      /* ⚠️ 学词方式, not 看图学词: the 学词 tab holds TWO modes now (owner 2026-08-16),
+         so naming the section after the first card read as a duplicate label. */
+      (store.tab === "learn" ? "学词方式" : "词语游乐场") +
+      xhPy(store.tab === "learn" ? "学词方式" : "词语游乐场") +
+      ' <span class="xh-en">' + (store.tab === "learn" ? "how to study" : "pick a game") +
       "</span></div>";
     h += '<div class="xh-modes">';
     tabModes.forEach(function (m) {
@@ -652,7 +698,9 @@
       h += "</div>";
     }
     h += '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") + '<span class="xh-en">start</span></button>';
-    h += "</div></div>";   // close ③ board, close .xh-col-r
+    h += "</div>";                                   // close ③ board
+    h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below 出发
+    h += "</div>";                                   // close .xh-col-r
     view().innerHTML = h;
 
     document.getElementById("xhLog").onclick = function () { renderLog(); };
@@ -665,6 +713,10 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-gchip"), function (el) {
       el.onclick = function () { toggleScope(el.getAttribute("data-g")); renderMenu(); };
     });
+    document.getElementById("xhScopeAll").onclick = function () {
+      setScope(allGroupNames()); renderMenu();
+    };
+    document.getElementById("xhScopeNone").onclick = function () { setScope([]); renderMenu(); };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-tab"), function (el) {
       el.onclick = function () { store.tab = el.getAttribute("data-t"); save(); renderMenu(); };
     });
@@ -674,7 +726,12 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-size"), function (el) {
       el.onclick = function () { store.matchN = parseInt(el.getAttribute("data-n"), 10); save(); renderMenu(); };
     });
-    document.getElementById("xhGoRound").onclick = function () { startRound(scopeLabel()); };
+    /* an empty 学习范围 is allowed as a state but obviously not as a round: say so
+       instead of doing nothing (the dock's own 提示 style, not a browser alert) */
+    document.getElementById("xhGoRound").onclick = function () {
+      if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
+      startRound(scopeLabel());
+    };
   }
 
   /* ================= 五枚航海徽 (SPEC_XH_dock_economy_and_TTS §「五枚航海徽」) ====
@@ -1207,6 +1264,7 @@
       return renderLearn();
     }
     if (state.i >= state.seq.length) return renderResult();
+    if (state.mode === "enmcq") return renderEnMcq();
     if (state.mode === "listen") return renderListen();
     if (state.mode === "type") return renderType();
     if (state.mode === "match") return renderMatch();
@@ -1243,7 +1301,10 @@
      the pinyin from memory. A repeat after a miss still earns, at half, because
      the tier's whole premise is that a wrong answer costs nothing.
      Retune freely: they are four numbers and a multiplier. */
-  var SAIL_PTS = { pic: 2, listen: 3, match: 3, type: 4, learn: 0 };
+  /* 英文选词 sits with 看图识词 at 2: both are 4-option recognition. It reads
+     characters rather than pictures, but a wrong tap costs nothing in either, so
+     the effort is comparable. */
+  var SAIL_PTS = { pic: 2, enmcq: 2, listen: 3, match: 3, type: 4, learn: 0 };
   function awardSail(mode, firstTry) {
     var base = SAIL_PTS[mode] || 0;
     if (!base) return 0;                      // 看图学词 asks nothing, so earns nothing
@@ -1257,7 +1318,7 @@
      "never converts" rule but gives no numbers (same situation as the camp's
      GEAR prices and LINGLU_BASE). One dial, retune freely after real use.
      Typing pays double because it is the only production mode here. */
-  var SHELL_PTS = { pic: 1, listen: 1, match: 1, type: 2, learn: 0 };
+  var SHELL_PTS = { pic: 1, enmcq: 1, listen: 1, match: 1, type: 2, learn: 0 };
   function awardShells(mode, firstTry) {
     var base = SHELL_PTS[mode] || 0;
     if (!base) return 0;
@@ -1381,6 +1442,53 @@
         var hint = document.getElementById("xhHint");
         hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
         advance();
+      };
+    });
+  }
+
+  /* 英文选词 — meaning → 词语, the platform's traditional MCQ shape (owner
+     2026-08-16). The picture is deliberately WITHHELD until the answer lands:
+     showing it would turn this back into 看图识词 and the point is to read the
+     characters. It arrives as the reward, together with the 拼音 and the reading.
+     ⚠️ The prompt is English and therefore SILENT — the Chinese-only TTS rule is
+     absolute. Every OPTION carries its own 🔊 (sibling button, never nested), so
+     listening around the options reveals nothing. */
+  function renderEnMcq() {
+    var w = state.seq[state.i];
+    stat(w).shown++; save();
+    state.firstTry = true;
+    var opts = shuffle(distractors(w).concat([w]));
+    var h = bar() + '<div class="xh-board xh-stage">' +
+      '<div class="xh-enq">' + esc(w.英文释义) + '</div>' +
+      '<span class="xh-sprite hidden" id="xhSprite">' + img(w) + "</span>" +
+      '<div class="xh-hint" id="xhHint"></div><div class="xh-opts">';
+    opts.forEach(function (o) {
+      h += '<div class="xh-optrow"><button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
+        esc(o.词语) + "</span>" + '<span class="xh-py">' + esc(o.拼音) + "</span>" + "</button>" +
+        '<button class="xh-otts" data-w="' + esc(o.词语) + '" title="朗读" aria-label="朗读 ' +
+        esc(o.词语) + '">🔊</button></div>';
+    });
+    view().innerHTML = h + "</div></div>";
+    wireQuit();
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-otts"), function (el) {
+      el.onclick = function () { speak(el.getAttribute("data-w")); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (el) {
+      el.onclick = function () {
+        if (el.disabled) return;
+        if (el.getAttribute("data-w") !== w.词语) {      // wrong costs nothing, as everywhere here
+          noteWrong(w, el.getAttribute("data-w"));
+          el.classList.add("wrong"); el.disabled = true;
+          return;
+        }
+        el.classList.add("right");
+        Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
+        var sp = document.getElementById("xhSprite");
+        sp.classList.remove("hidden"); sp.classList.add("pop");
+        noteRight(w);
+        var hint = document.getElementById("xhHint");
+        hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+        advance(1400);                                   // a beat longer: the picture only appears now
       };
     });
   }
