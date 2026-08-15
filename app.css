@@ -106,6 +106,9 @@ img{max-width:100%}
   border-radius:999px;padding:8px 18px;box-shadow:0 4px 12px rgba(23,58,90,.25);transition:transform .12s;
   position:relative;touch-action:manipulation}
 .tts:active{transform:scale(.95)}
+/* label + its 拼音/English glosses stack as one flex item */
+.tts-lab{display:inline-block;text-align:left;line-height:1.25}
+.tts-lab .pylab,.tts-lab .enlab{color:rgba(255,255,255,.86)}
 .tts.sm{font-size:12.5px;padding:5px 13px}
 /* invisible hit-area padding: keeps the visual pill size, widens what the finger hits */
 .tts::after{content:"";position:absolute;inset:-8px}
@@ -205,6 +208,14 @@ body.en-aid .streak .enlab.i,body.en-aid .rail-pts .enlab.i,body.en-aid .comp-la
 .study{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
 .rail .mode-name{font-family:var(--serif);font-weight:900;font-size:24px;letter-spacing:.1em;margin-bottom:2px}
 .rail .mode-desc{font-size:13px;color:var(--ink-soft);margin-bottom:12px;line-height:1.6}
+/* one instruction LINE plus its 拼音/English glosses (mdLine) */
+.md-line+.md-line{margin-top:5px}
+/* 词雨 best-score line: label+value together, glosses beneath each item */
+.rain-best{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:flex-start}
+.rb-item{display:inline-block}
+.md-line .pylab,.md-line .enlab{margin-top:1px}
+/* the q-tag pill wraps to fit its glosses instead of clipping them */
+.q-tag .pylab,.q-tag .enlab{letter-spacing:.06em;text-transform:none}
 .prog-big{font-family:var(--serif);font-size:32px;color:var(--gold-deep);font-weight:900}
 .prog-big small{font-size:15px;color:var(--ink-soft);font-weight:400}
 .prog-track{height:8px;border-radius:99px;background:#D8E4EC;overflow:hidden;margin:8px 0 14px}
@@ -230,7 +241,7 @@ body.en-aid .streak .enlab.i,body.en-aid .rail-pts .enlab.i,body.en-aid .comp-la
 
 .q-card{background:var(--card);border:1px solid var(--card-line);border-radius:18px;
   padding:24px 26px;box-shadow:0 10px 26px rgba(23,58,90,.14);margin-bottom:16px}
-.q-tag{display:inline-block;font-size:11.5px;letter-spacing:.22em;background:#FDF3DC;border-radius:999px;padding:3px 13px;color:#8A6A2E;margin-bottom:12px}
+.q-tag{display:inline-block;font-size:11.5px;letter-spacing:.22em;background:#FDF3DC;border-radius:18px;padding:4px 13px;color:#8A6A2E;margin-bottom:12px}
 .q-text{font-size:24px;line-height:1.85}
 .q-text u{text-decoration:none;border-bottom:3px solid var(--gold);padding:0 26px}
 /* D2b 拼音辅助 · 句子/释义注音。<rt> needs vertical headroom or the reading
@@ -924,8 +935,12 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
    follows the column count so 4-wide does not squeeze the tiles */
 .asm-chips{display:grid;grid-template-columns:repeat(var(--asm-cols,3),minmax(0,1fr));gap:9px;
   width:min(96%,calc(var(--asm-cols,3) * 104px));margin:0 auto}
-.asm-chip{height:56px;border:1.5px solid var(--card-line);border-radius:12px;background:#fff;
-  font-family:var(--serif);font-weight:700;font-size:25px;color:var(--ink);cursor:pointer}
+.asm-chip{min-height:56px;padding:4px 2px;border:1.5px solid var(--card-line);border-radius:12px;background:#fff;
+  font-family:var(--serif);font-weight:700;font-size:25px;color:var(--ink);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+/* 拼音 under a tile: sans, small, never big enough to compete with the character */
+.asm-py{font-family:var(--sans);font-weight:600;font-size:11px;letter-spacing:.02em;
+  color:var(--ink-soft);margin-top:2px}
 .asm-chip.used{opacity:.28;pointer-events:none;background:#EAF2F8}
 .asm-chip.shake{animation:shake .3s}
 

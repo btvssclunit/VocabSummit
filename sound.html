@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音效诊断 · Vocab Summit sound diagnostic</title>
+<style>
+  body{font-family:"Noto Sans SC",system-ui,sans-serif;margin:0;padding:18px;color:#243B4A;background:#EAF3FA}
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:15px;margin:22px 0 8px}
+  .hint{font-size:13px;color:#5A7080;line-height:1.7;margin-bottom:14px}
+  .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px}
+  button{border:1.5px solid #B9CEDD;border-radius:8px;padding:10px 16px;background:#fff;cursor:pointer;
+    font-size:15px;margin:0 8px 8px 0;min-height:44px}
+  button.play{background:#E3A63C;border-color:#E3A63C;color:#3A2A08;font-weight:700}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 9px;border-bottom:1px solid #E7EFF6;text-align:left}
+  th{width:44%;color:#5A7080;font-weight:600}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .ok{color:#1F6B3A;font-weight:700}
+  .bad{color:#A3341F;font-weight:700}
+  #log{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;
+    background:#132C3F;color:#CFE6F5;border-radius:10px;padding:12px;min-height:120px}
+</style>
+</head>
+<body>
+<h1>🔔 音效诊断 sound diagnostic</h1>
+<div class="hint">
+  这一页用来查「答对了却没有声音」。<b>请在出问题的那台设备、那个浏览器上打开</b>，
+  从上到下按一遍，然后把下方黑框里的文字截图给老师。<br>
+  ⚠️ 先确认：iPad 侧面的<b>静音开关没有打开</b>，音量不是最小 —— 静音开关会掐掉网页音效，
+  但<b>不会</b>影响朗读（TTS），所以「能朗读却没有音效」很可能就是它。
+</div>
+
+<div class="card">
+  <h2>1. 现在的状态</h2>
+  <table id="state"></table>
+  <div class="hint" style="margin:10px 0 0">
+    <b>时钟是否在走</b>是关键：如果 <code>currentTime</code> 过了 400 毫秒还是原地不动，
+    那么这个 AudioContext 根本没有在出声，排再多音符也听不见。
+  </div>
+</div>
+
+<div class="card">
+  <h2>2. 逐项测试</h2>
+  <button class="play" id="b1">① 播放答对音效</button>
+  <button id="b2">② 只朗读（TTS）</button>
+  <button id="b3">③ 先朗读，再播放音效</button>
+  <button id="b4">④ 重建 AudioContext 再播放</button>
+  <div class="hint" style="margin:6px 0 0">
+    ① 有声音 = 音效本身没问题。<br>
+    ② 有声音 = 朗读正常。<br>
+    ③ <b>这一项最关键</b>：如果 ① 有声、③ 没声，就是朗读抢走了音频通道（Safari 的已知行为）。<br>
+    ④ 如果 ③ 没声而 ④ 有声，说明「重建」这条自愈路径是有效的。
+  </div>
+</div>
+
+<div class="card">
+  <h2>3. 记录</h2>
+  <div id="log">（还没有测试）</div>
+  <button id="copy" style="margin-top:10px">复制这段文字</button>
+</div>
+
+<script>
+(function () {
+  var logEl = document.getElementById("log"), lines = [];
+  function log(s) {
+    lines.push(s);
+    logEl.textContent = lines.join("\n");
+  }
+  log("UA: " + navigator.userAgent);
+  log("---");
+
+  var ctx = null, born = 0;
+  function build() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { log("✗ 这个浏览器没有 Web Audio API"); return null; }
+    var c;
+    try { c = new AC(); } catch (e) { log("✗ 无法建立 AudioContext: " + e.message); return null; }
+    born = Date.now();
+    try {                                     // silent keep-alive, same as the app
+      var src = c.createBufferSource(), g = c.createGain();
+      src.buffer = c.createBuffer(1, 1, c.sampleRate);
+      src.loop = true; g.gain.value = 0;
+      src.connect(g); g.connect(c.destination); src.start(0);
+    } catch (e) {}
+    log("建立 AudioContext → state=" + c.state + " sampleRate=" + c.sampleRate);
+    return c;
+  }
+  function get() { if (!ctx) ctx = build(); return ctx; }
+
+  /* the app's own sfxOk, note for note */
+  function playChime(c) {
+    function t(freq, start, dur, type, gain) {
+      var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start;
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    }
+    t(660, 0, 0.10, "triangle", 0.20);
+    t(880, 0.08, 0.10, "triangle", 0.20);
+    t(1175, 0.16, 0.24, "triangle", 0.24);
+    t(1760, 0.16, 0.18, "sine", 0.08);
+  }
+
+  /* Does the context actually RENDER? currentTime only advances while audio is
+     being produced, so a frozen clock is proof that nothing will be heard —
+     regardless of how many notes were scheduled. */
+  function clockCheck(c, label) {
+    var t0 = c.currentTime;
+    setTimeout(function () {
+      var moved = c.currentTime - t0;
+      log((moved > 0.05 ? "✓ " : "✗ ") + label + "：时钟" +
+          (moved > 0.05 ? "在走" : "停住了") +
+          " (+" + moved.toFixed(3) + "s, state=" + c.state + ")");
+      render();
+    }, 400);
+  }
+
+  function attempt(label) {
+    var c = get(); if (!c) return;
+    log("— " + label + " — state=" + c.state);
+    if (c.state !== "running" && c.resume) {
+      var settled = false;
+      try {
+        var p = c.resume();
+        if (p && p.then) p.then(function () { settled = true; log("  resume() 成功 → " + c.state); },
+                                function (e) { settled = true; log("  resume() 被拒绝"); });
+      } catch (e) { log("  resume() 抛错: " + e.message); }
+      setTimeout(function () {
+        if (!settled) log("  ⚠️ resume() 200ms 内没有回应（Safari 上通常表示音频通道被占用）");
+      }, 200);
+    }
+    playChime(c);
+    clockCheck(c, label);
+  }
+
+  document.getElementById("b1").onclick = function () { attempt("① 音效"); };
+
+  document.getElementById("b2").onclick = function () {
+    if (!window.speechSynthesis) { log("✗ 没有 speechSynthesis"); return; }
+    var u = new SpeechSynthesisUtterance("你好");
+    u.lang = "zh-CN";
+    u.onend = function () { log("✓ ② 朗读结束"); render(); };
+    u.onerror = function () { log("✗ ② 朗读出错"); };
+    speechSynthesis.cancel();
+    setTimeout(function () { speechSynthesis.speak(u); }, 50);
+    log("— ② 朗读 —");
+  };
+
+  document.getElementById("b3").onclick = function () {
+    if (!window.speechSynthesis) { log("✗ 没有 speechSynthesis"); return; }
+    get();
+    var u = new SpeechSynthesisUtterance("你好");
+    u.lang = "zh-CN";
+    u.onend = function () {
+      log("  朗读结束，200ms 后播放音效…");
+      setTimeout(function () { attempt("③ 朗读之后的音效"); }, 200);
+    };
+    speechSynthesis.cancel();
+    setTimeout(function () { speechSynthesis.speak(u); }, 50);
+    log("— ③ 先朗读，再音效 —");
+  };
+
+  document.getElementById("b4").onclick = function () {
+    if (ctx && ctx.close) { try { ctx.close(); } catch (e) {} }
+    ctx = null;
+    log("— ④ 丢掉旧的，重建 —");
+    attempt("④ 重建后的音效");
+  };
+
+  document.getElementById("copy").onclick = function () {
+    var t = lines.join("\n");
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { alert("已复制"); },
+                                                                  function () { alert("复制失败，请手动截图"); });
+    else alert("请手动截图");
+  };
+
+  function row(k, v, cls) {
+    return "<tr><th>" + k + "</th><td" + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</td></tr>";
+  }
+  function render() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    var h = "";
+    h += row("Web Audio 支持", AC ? "有" : "没有", AC ? "ok" : "bad");
+    h += row("speechSynthesis 支持", window.speechSynthesis ? "有" : "没有",
+             window.speechSynthesis ? "ok" : "bad");
+    if (ctx) {
+      h += row("AudioContext state", "<code>" + ctx.state + "</code>",
+               ctx.state === "running" ? "ok" : "bad");
+      h += row("currentTime", ctx.currentTime.toFixed(3) + " s");
+      h += row("建立于", ((Date.now() - born) / 1000).toFixed(1) + " 秒前");
+    } else {
+      h += row("AudioContext", "还没有建立（请先按上面的按钮）");
+    }
+    h += row("正在朗读", window.speechSynthesis && speechSynthesis.speaking ? "是" : "否");
+    document.getElementById("state").innerHTML = h;
+  }
+  render();
+  setInterval(render, 500);
+})();
+</script>
+</body>
+</html>

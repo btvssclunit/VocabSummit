@@ -155,6 +155,10 @@
       u.lang = (_zhVoice && _zhVoice.lang) || "zh-CN";
       if (_zhVoice) u.voice = _zhVoice;
       u.rate = 0.9;
+      /* hand the audio session back to WebAudio when the word has been read,
+         or the next correct-answer chime is silent on Safari (see the audio
+         section's note on the shared audio session) */
+      u.onend = reviveAudio; u.onerror = reviveAudio;
       speechSynthesis.cancel();
       setTimeout(function () { speechSynthesis.speak(u); }, 50); // ChromeOS guard
     };
@@ -165,37 +169,97 @@
     speak(String(sentence).replace(/_{2,}|＿+/g, "，"));
   }
 
-  /* ---------- sound effects (Web Audio, synthesized, no files) ---------- */
-  var _actx = null;
+  /* ---------- sound effects (Web Audio, synthesized, no files) ----------
+     ⚠️ READ THIS BEFORE TOUCHING ANYTHING HERE. Apple platforms give the page ONE
+     shared audio session, and speechSynthesis takes it. This app speaks after
+     almost every answer, so on Safari the AudioContext is repeatedly pushed into
+     WebKit's own "interrupted" state — a third state that is neither "running"
+     nor "suspended". Two consequences, both of which produced the 2026-08-15
+     bug report "TTS works but there is still no correct-answer sound":
+       1. An INTERRUPTED context renders nothing, so every scheduled note is
+          dropped silently. No error, no warning.
+       2. resume() on an interrupted context returns a promise that may NEVER
+          settle. The previous fix waited on exactly that promise before playing,
+          so the chime was not late — it never happened at all.
+     So: never make playback wait on resume() alone, and never assume a context
+     that worked once still works. */
+  var _actx = null, _keepAlive = null, _ctxBorn = 0, _rebuilds = 0;
+  function buildCtx() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    var c;
+    try { c = new AC(); } catch (e) { return null; }
+    _ctxBorn = Date.now();
+    /* Silent looping source. An audio session with something playing in it is far
+       less likely to be torn down or handed to speech, which is what keeps the
+       chime working for a whole round instead of only the first tap. Gain is a
+       hard 0, so it is inaudible and costs one sample per loop. */
+    try {
+      var src = c.createBufferSource(), g0 = c.createGain();
+      src.buffer = c.createBuffer(1, 1, c.sampleRate);
+      src.loop = true; g0.gain.value = 0;
+      src.connect(g0); g0.connect(c.destination); src.start(0);
+      _keepAlive = src;
+    } catch (e) {}
+    return c;
+  }
   function actx() {
-    if (!_actx) {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) _actx = new AC();
+    if (!_actx) _actx = buildCtx();
+    if (_actx && _actx.state !== "running" && _actx.resume) {
+      try { _actx.resume(); } catch (e) {}
     }
-    if (_actx && _actx.state === "suspended") _actx.resume();
     return _actx;
+  }
+  /* Throw a wedged context away and build a fresh one. A context is born running
+     when the audio session is free, so this is the only reliable recovery from
+     "interrupted" — resume() cannot be trusted to get us out. Rate-limited so a
+     genuinely broken device cannot spin up contexts on every answer (browsers cap
+     how many a page may create, and exhausting that would kill audio for good). */
+  var MAX_REBUILDS = 8;
+  function rebuildCtx() {
+    /* Browsers cap how many AudioContexts a page may create (historically 6 in
+       Chrome). A device that genuinely cannot play audio would otherwise burn
+       through that cap and lose sound permanently, so stop trying after a few. */
+    if (_rebuilds >= MAX_REBUILDS) return _actx;
+    if (Date.now() - _ctxBorn < 1000) return _actx;
+    _rebuilds++;
+    var old = _actx;
+    _actx = null; _keepAlive = null;
+    if (old && old.close) { try { old.close(); } catch (e) {} }
+    return (_actx = buildCtx());
+  }
+  function playTone(c, freq, start, dur, type, gain) {
+    var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start;
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain || 0.12, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
   }
   function tone(freq, start, dur, type, gain) {
     var c = actx(); if (!c) return;
-    /* ⚠️ resume() is ASYNC. Scheduling straight after it — which is what this did
-       until 2026-08-15 — timestamps the notes against a clock that is still
-       frozen, and the browser drops them the moment it starts running. That is
-       silent failure, and it happens exactly when a context has been suspended:
-       tab backgrounded, device asleep, iOS interruption. Wait for the resume. */
-    if (c.state !== "running" && c.resume) {
-      var p; try { p = c.resume(); } catch (e) { p = null; }
-      if (p && p.then) { p.then(play, function () {}); return; }
+    if (c.state === "running") return playTone(c, freq, start, dur, type, gain);
+    var played = false;
+    function go(cc) {
+      if (played || !cc || cc.state !== "running") return;
+      played = true;
+      playTone(cc, freq, start, dur, type, gain);
     }
-    play();
-    function play() {
-      var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start;
-      o.type = type || "sine"; o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(gain || 0.12, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-      o.connect(g); g.connect(c.destination);
-      o.start(t0); o.stop(t0 + dur + 0.05);
-    }
+    /* Ask nicely, but do NOT return here waiting on the answer (see the note
+       above — that promise can hang forever on Safari). */
+    try {
+      var p = c.resume();
+      if (p && p.then) p.then(function () { go(c); }, function () {});
+    } catch (e) {}
+    /* ...and if it has not come back by the next frame or two, rebuild and play
+       on the new context. 120ms is under the threshold where a reward sound stops
+       feeling attached to the tap that earned it. */
+    setTimeout(function () {
+      if (played) return;
+      if (c.state === "running") return go(c);
+      go(rebuildCtx());
+    }, 120);
   }
   /* Rising 3-note reward chime + a sparkle on top. Louder and on triangle waves
      since 2026-08-15 (owner: the correct-answer sound was not landing): a 0.12
@@ -219,21 +283,41 @@
      be primed inside a gesture again, and every chime after that is silent. */
   var _spoken0 = false;
   document.addEventListener("pointerdown", function () {
-    actx();                                   // creates it, and resumes if suspended
+    var c = actx();                           // creates it, and resumes if not running
+    /* A context still not running by the time the tap is over is wedged; a tap is
+       the best moment we will ever get to replace it, since a fresh one is born
+       running. */
+    if (c && c.state !== "running") setTimeout(function () {
+      if (_actx && _actx.state !== "running") rebuildCtx();
+    }, 200);
     if (_spoken0) return;
     _spoken0 = true;
     try {
       if (window.speechSynthesis && !speechSynthesis.speaking) {
         var u = new SpeechSynthesisUtterance(" ");
-        u.volume = 0; speechSynthesis.speak(u);
+        u.volume = 0;
+        /* ⚠️ This priming utterance is what unlocks speech on iOS — but starting
+           speech is also what takes the audio session away from WebAudio, so the
+           context must be revived once it finishes. Same hook as every real
+           utterance below. */
+        u.onend = reviveAudio; u.onerror = reviveAudio;
+        speechSynthesis.speak(u);
       }
     } catch (e) {}
   });
+  /* Speech has finished with the audio session: take it back. Without this the
+     FIRST spoken word silences every chime for the rest of the round on Safari. */
+  function reviveAudio() {
+    if (!_actx) return;
+    if (_actx.state === "running") return;
+    try { _actx.resume(); } catch (e) {}
+    setTimeout(function () {
+      if (_actx && _actx.state !== "running") rebuildCtx();
+    }, 150);
+  }
   /* coming back to the tab leaves the context suspended on most mobile browsers */
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && _actx && _actx.state === "suspended") {
-      try { _actx.resume(); } catch (e) {}
-    }
+    if (!document.hidden) reviveAudio();
   });
 
   /* ---------- local store (device only) ---------- */
@@ -1257,14 +1341,16 @@
     var mode = store.pkMode || "cloze", dur = store.pkDur || 300;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">⚔️ 同伴挑战 · PK对决' + pyl("同伴挑战 · PK对决") + enli("同伴挑战 · PK对决") + '</div>' +
-      '<div class="mode-desc">和朋友比一比：同一套题，限时内谁答对得多谁赢。' +
-      '答对的词照样计入「已掌握」，但对决<b>不计历练值、不计灵露</b>，纯粹为了好玩。<br>' +
-      '2 至 ' + 8 + ' 人。开局后不能中途加入，掉线的人可以用房间号回来。</div>' +
-      '<div class="pk-scope">出题范围：<b>' + pool.length + '</b> 词' +
-      '<span class="pk-scope-note">用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。</span></div>' +
+      '<div class="mode-desc">' + mdLine("和朋友比一比：同一套题，限时内谁答对得多谁赢。") +
+        mdLine("答对的词照样计入「已掌握」，也照常累积历练值和灵露。") +
+        mdLine("2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。") + '</div>' +
+      '<div class="pk-scope"><span class="rb-item">出题范围：<b>' + pool.length + '</b> 词' +
+      pyl("出题范围") + enl("出题范围") + '</span>' +
+      '<span class="pk-scope-note">' + mdLine("用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。") + '</span></div>' +
       '<div class="diff-label">' + stepNo(1) + '题型' + pyl("题型") + enl("题型") + '</div><div class="diff" id="pkMode">' +
       PK_MODES.map(function (m) {
-        return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k + '">' + m.label + '</button>';
+        return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k +
+          '"><span>' + m.label + labGloss(m.label) + '</span></button>';
       }).join("") + '</div>' +
       '<div class="diff-label">' + stepNo(2) + '时长' + pyl("时长") + enl("时长") + '</div>' +
       qtySlider("pkDur", PK_DUR_SECS, dur, pkDurFmt) +
@@ -1356,8 +1442,11 @@
     if (comps.length > 1) {
       html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块' + pyl("板块") + enli("板块") + '</span>' +
         comps.map(function (c) {
+          /* the five 板块 names are a fixed, navigational set (they filter the
+             scope), so they gloss like any other chip. A stream that ever ships
+             a new 板块 simply gets no gloss until a line is added. */
           return '<button class="comp-chip' + (compIsOn(c) ? " on" : "") + '" data-comp="' + esc(c) + '">' +
-            esc(c) + '</button>';
+            esc(c) + pyl(c) + enli(c) + '</button>';
         }).join("") + '</div>';
     }
     var byLevel = {};
@@ -2243,7 +2332,7 @@
     }
     view().innerHTML = '<div class="study">' +
       railHtml(state, "词语闪卡", esc(w.level) + " · " + esc(w.unit),
-        '<button class="tts sm rail-tts" id="ttsW">🔊 点读词语</button>') +
+        ttsBtnHtml("ttsW", "点读词语", "tts sm rail-tts")) +
       '<div class="stage"><div class="flash-stage">' +
       '<button class="arrow" id="prev">‹</button>' +
       '<div class="flashcard" id="fc">' + inner + '</div>' +
@@ -2306,7 +2395,7 @@
      after ⭐⭐⭐⭐ would read as the hardest setting, which it is not. */
   function diffLadder() {
     var out = (STREAM === "g1" || STREAM === "g2")
-      ? [{ k: "pinyin", stars: "⌨️", label: "打拼音 · 一成历练值" }].concat(DIFF_OPTS)
+      ? [{ k: "pinyin", stars: "⌨️", label: "打拼音 · 10% 历练值" }].concat(DIFF_OPTS)
       : DIFF_OPTS.slice();
     return out;
   }
@@ -2315,6 +2404,16 @@
     var l = diffLadder();
     for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i].stars + " " + l[i].label;
     return k;
+  }
+  /* 挑战难度 tiers are named choices, so the slider readout glosses them like a
+     button. Keyed on the LABEL only — the stars carry no Chinese to annotate.
+     Quantity sliders (题数/字块数量/时长) stay bare: their readouts are numbers,
+     and a two-line readout would reintroduce the height jitter the slider
+     rebuild removed. */
+  function diffGloss(k) {
+    var l = diffLadder();
+    for (var i = 0; i < l.length; i++) if (l[i].k === k) return pyl(l[i].label) + enl(l[i].label);
+    return "";
   }
   /* pinyin comparison for the practice-only 打拼音 mode: strip tone marks
      (NFD + combining removal), fold ü/v→u, drop spaces, lowercase. So the
@@ -2332,7 +2431,7 @@
     var keys = diffKeys(), cur = store.diff;
     if (keys.indexOf(cur) === -1) cur = keys[0];
     return '<div class="diff-label">' + (stepN ? stepNo(stepN) : "") + '挑战难度' + pyl("挑战难度") + enl("挑战难度") + '</div>' +
-      qtySlider("diffSel", keys, cur, diffFmt) + pyAidToggleHtml();
+      qtySlider("diffSel", keys, cur, diffFmt, diffGloss) + pyAidToggleHtml();
   }
   /* one wiring helper for BOTH sites the ladder appears at (config screen and the
      mid-round rail), so they can never drift apart */
@@ -2341,7 +2440,7 @@
       store.diff = k; saveStore();
       clearTimeout(_diffT);
       _diffT = setTimeout(after, 260);
-    });
+    }, diffGloss);
   }
   /* 拼音辅助 (D1): student-toggled, default off. Shown wherever options are
      answered (cloze MCQ rail + 攀山竞速 pre-start). Reveals pronunciation only,
@@ -2398,7 +2497,10 @@
      student can flip it mid-question with nothing else changing on screen
      (and, unlike 拼音辅助, no chance of redrawing anything).
      ================================================================ */
-  function enAidAvailable() { return STREAM === "g1" || STREAM === "g2"; }
+  /* Owner 2026-08-15: widened from G1/G2 to G1/G2/G3 — same set as 拼音辅助, so
+     the two aids now appear and disappear together instead of a G3 student
+     getting pinyin but no English. HCL still emits neither, by design. */
+  function enAidAvailable() { return pyAidAvailable(); }
   function enAidOn() { return !!(store.enAid && enAidAvailable()); }
   function applyEnAid() { document.body.classList.toggle("en-aid", enAidOn()); }
   /* Shell labels only. Keep this list SHORT and navigational: it is a
@@ -2472,7 +2574,68 @@
     "同伴挑战 · PK对决": "Duel a friend",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王": "Badge wall",
     "掌握里程碑": "Milestones",
-    "对战徽章": "Battle medals"
+    "对战徽章": "Battle medals",
+    /* ---- 出题方式 / 挑战难度 tiers (owner 2026-08-15) ----
+       These are named CHOICES, so they carry a gloss like any other button.
+       ⚠️ 一成历练值 was reworded to 「10% 历练值」 on the same request: 一成 is a
+       register a G1 reader will not have met, and the English gloss the owner
+       asked for ("10% XP") only lines up if the Chinese says 10% too. */
+    "释义": "Meaning", "英文": "English", "填空": "Fill in the blank",
+    "生活空间": "Everyday life", "核心": "Core", "巩固": "Practice more",
+    "进阶": "Advanced", "文化站": "Culture stop",
+    "拼音 · 10% 历练值": "Pinyin · 10% XP",
+    "打拼音 · 10% 历练值": "Type pinyin · 10% XP",
+    "两个选项": "Two choices", "三个选项": "Three choices", "四个选项": "Four choices",
+    "打字输入": "Type the word",
+    /* ---- question instructions (the q-tag banner over every question) ---- */
+    "按顺序点出词语的字。": "Tap the characters in order.",
+    "看释义，拼出词语": "Read the meaning, build the word",
+    "看英文，拼出词语": "Read the English, build the word",
+    "看句子，拼出空格里的词语": "Read the sentence, build the missing word",
+    "看拼音，拼出词语（10% 历练值）": "Read the pinyin, build the word (10% XP)",
+    "读句子，填出空格里的词语": "Read the sentence, fill in the blank",
+    "读句子，打出空格里的词语": "Read the sentence, type the missing word",
+    "读句子，打出空格里词语的拼音（不用声调，10% 历练值）":
+      "Type the pinyin of the missing word, no tone marks (10% XP)",
+    "选出最适当的词语填入空格": "Choose the best word for the blank",
+    "看释义，选出词语": "Read the meaning, choose the word",
+    "看英文，选出词语": "Read the English, choose the word",
+    "看英译，选出词语": "Read the English, choose the word",
+    /* ---- in-round buttons ---- */
+    "朗读句子": "Read the sentence aloud", "朗读释义": "Read the meaning aloud",
+    "点读词语": "Read the word aloud",
+    "提示：显示拼音": "Hint: show the pinyin", "提示：显示词语": "Hint: show the word",
+    "在词语下方显示拼音": "Show pinyin under each word",
+    "一次拼对！": "Perfect on the first try!",
+    "完成！（中途点错过）": "Done — but you tapped a wrong tile on the way.",
+    /* ---- config-screen instructions ---- */
+    "答对可累积历练值；填空挑战答对还会提升海拔。":
+      "Correct answers earn XP. Fill in the blank also raises your altitude.",
+    "登山冲刺：答对就向上攀登！": "Climb race: every correct answer takes you higher!",
+    "第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。":
+      "A new word you get right for the first time raises your altitude for good (1 word = 1 metre). Words you have not mastered come first.",
+    "我的海拔": "My altitude", "个人纪录": "Personal best",
+    "词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！":
+      "Words fall like rain. Type one before it lands and it turns into dew in your jar!",
+    "字数越多、接得越高、连击越长，得分越高。":
+      "Longer words, caught higher, with a longer combo, all score more.",
+    "接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。":
+      "Every word you catch becomes dew. Spend it on gear at 我的词山 · 你的营地.",
+    "雨势会越下越急 —— 每一局都从最慢开始。":
+      "The rain gets faster as you play, and every round starts at the slowest.",
+    "本机最高分": "Best on this device", "生命": "Lives",
+    "猜一个范围内的四字词语。": "Guess a four-character word from your units.",
+    "🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字":
+      "🟩 right character, right place · 🟨 right character, wrong place · ⬜ not in the word",
+    "和朋友比一比：同一套题，限时内谁答对得多谁赢。":
+      "Race a friend: same questions, whoever gets the most right in the time wins.",
+    "答对的词照样计入「已掌握」，也照常累积历练值和灵露。":
+      "Words you get right still count as mastered, and still earn XP and dew.",
+    "2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。":
+      "2 to 8 players. Nobody can join once it starts; if you drop out, use the room code to come back.",
+    "出题范围": "Word pool",
+    "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
+      "Uses the units you picked on the 修行 page, the same as your own revision. To change it, go back a page."
   };
   /* 拼音 for the INTERFACE (owner 2026-08-14: "students who are weak can't read
      this and can get overwhelmed"). Same contract as EN_LAB — navigation and
@@ -2512,7 +2675,64 @@
     "同伴挑战 · PK对决": "tóng bàn tiǎo zhàn · PK duì jué",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王":
       "chéng jiù qiáng · bǎn kuài zhāng → dān yuán zhāng → nián jí zhāng → dǐng jí cí wáng",
-    "掌握里程碑": "zhǎng wò lǐ chéng bēi", "对战徽章": "duì zhàn huī zhāng"
+    "掌握里程碑": "zhǎng wò lǐ chéng bēi", "对战徽章": "duì zhàn huī zhāng",
+    /* ---- 出题方式 / 挑战难度 tiers ---- */
+    "释义": "shì yì", "英文": "yīng wén", "填空": "tián kòng",
+    "生活空间": "shēng huó kōng jiān", "核心": "hé xīn", "巩固": "gǒng gù",
+    "进阶": "jìn jiē", "文化站": "wén huà zhàn",
+    "拼音 · 10% 历练值": "pīn yīn · 10% lì liàn zhí",
+    "打拼音 · 10% 历练值": "dǎ pīn yīn · 10% lì liàn zhí",
+    "两个选项": "liǎng gè xuǎn xiàng", "三个选项": "sān gè xuǎn xiàng",
+    "四个选项": "sì gè xuǎn xiàng", "打字输入": "dǎ zì shū rù",
+    /* ---- question instructions ---- */
+    "按顺序点出词语的字。": "àn shùn xù diǎn chū cí yǔ de zì",
+    "看释义，拼出词语": "kàn shì yì，pīn chū cí yǔ",
+    "看英文，拼出词语": "kàn yīng wén，pīn chū cí yǔ",
+    "看句子，拼出空格里的词语": "kàn jù zi，pīn chū kòng gé lǐ de cí yǔ",
+    "看拼音，拼出词语（10% 历练值）": "kàn pīn yīn，pīn chū cí yǔ（10% lì liàn zhí）",
+    "读句子，填出空格里的词语": "dú jù zi，tián chū kòng gé lǐ de cí yǔ",
+    "读句子，打出空格里的词语": "dú jù zi，dǎ chū kòng gé lǐ de cí yǔ",
+    "读句子，打出空格里词语的拼音（不用声调，10% 历练值）":
+      "dú jù zi，dǎ chū kòng gé lǐ cí yǔ de pīn yīn（bù yòng shēng diào，10% lì liàn zhí）",
+    "选出最适当的词语填入空格": "xuǎn chū zuì shì dàng de cí yǔ tián rù kòng gé",
+    "看释义，选出词语": "kàn shì yì，xuǎn chū cí yǔ",
+    "看英文，选出词语": "kàn yīng wén，xuǎn chū cí yǔ",
+    "看英译，选出词语": "kàn yīng yì，xuǎn chū cí yǔ",
+    /* ---- in-round buttons ---- */
+    "朗读句子": "lǎng dú jù zi", "朗读释义": "lǎng dú shì yì", "点读词语": "diǎn dú cí yǔ",
+    "提示：显示拼音": "tí shì：xiǎn shì pīn yīn", "提示：显示词语": "tí shì：xiǎn shì cí yǔ",
+    "在词语下方显示拼音": "zài cí yǔ xià fāng xiǎn shì pīn yīn",
+    "一次拼对！": "yī cì pīn duì", "完成！（中途点错过）": "wán chéng（zhōng tú diǎn cuò guò）",
+    /* ---- config-screen instructions ---- */
+    "答对可累积历练值；填空挑战答对还会提升海拔。":
+      "dá duì kě lěi jī lì liàn zhí；tián kòng tiǎo zhàn dá duì hái huì tí shēng hǎi bá",
+    "登山冲刺：答对就向上攀登！": "dēng shān chōng cì：dá duì jiù xiàng shàng pān dēng",
+    "第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。":
+      "dì yī cì dá duì de xīn cí huì yǒng jiǔ tí shēng nǐ de hǎi bá（1 cí = 1 mǐ）。" +
+      "yōu xiān chū xiàn nǐ hái méi zhǎng wò de cí",
+    "我的海拔": "wǒ de hǎi bá", "个人纪录": "gè rén jì lù",
+    "词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！":
+      "cí yǔ huà zuò líng yǔ suí fēng ér luò，chèn tā luò dì qián dǎ chū，huà wéi líng lù shōu jìn bǎo gāng",
+    "字数越多、接得越高、连击越长，得分越高。":
+      "zì shù yuè duō、jiē de yuè gāo、lián jī yuè cháng，dé fēn yuè gāo",
+    "接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。":
+      "jiē zhù de cí dōu huì huà chéng líng lù，kě zài「wǒ de cí shān · nǐ de yíng dì」duì huàn zhuāng bèi",
+    "雨势会越下越急 —— 每一局都从最慢开始。":
+      "yǔ shì huì yuè xià yuè jí —— měi yī jú dōu cóng zuì màn kāi shǐ",
+    "本机最高分": "běn jī zuì gāo fēn", "生命": "shēng mìng",
+    "猜一个范围内的四字词语。": "cāi yī gè fàn wéi nèi de sì zì cí yǔ",
+    "🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字":
+      "zì duì wèi zhì duì · zì duì wèi zhì bù duì · méi yǒu zhè gè zì",
+    "和朋友比一比：同一套题，限时内谁答对得多谁赢。":
+      "hé péng yǒu bǐ yī bǐ：tóng yī tào tí，xiàn shí nèi shuí dá duì dé duō shuí yíng",
+    "答对的词照样计入「已掌握」，也照常累积历练值和灵露。":
+      "dá duì de cí zhào yàng jì rù「yǐ zhǎng wò」，yě zhào cháng lěi jī lì liàn zhí hé líng lù",
+    "2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。":
+      "2 zhì 8 rén。kāi jú hòu bù néng zhōng tú jiā rù，diào xiàn de rén kě yǐ yòng fáng jiān hào huí lái",
+    "出题范围": "chū tí fàn wéi",
+    "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
+      "yòng nǐ zài「xiū xíng」yè xuǎn de fù xí fàn wéi，hé zì jǐ fù xí shí yī yàng。" +
+      "yào gǎi jiù huí shàng yī yè xuǎn dān yuán"
   };
   function pyl(key) {
     if (!pyAidAvailable()) return "";
@@ -2532,6 +2752,58 @@
     if (!enAidAvailable()) return "";
     var t = EN_LAB[key];
     return t ? '<span class="enlab i">' + esc(t) + '</span>' : "";
+  }
+  /* One INSTRUCTION line: the Chinese, then its 拼音 and English underneath.
+     The key IS the visible line, which is what keeps the PY_LAB/EN_LAB audit
+     honest — never gloss a line with a key that says something else.
+     Multi-sentence descriptions are passed one line per call rather than joined
+     with <br>, so each line's gloss sits directly under the line it explains. */
+  function mdLine(zh, pre) {
+    return '<div class="md-line">' + (pre || "") + zh + pyl(zh) + enl(zh) + '</div>';
+  }
+  /* The banner over a question ("看句子，拼出空格里的词语"). Same gloss contract. */
+  function qTag(zh) {
+    return '<span class="q-tag">' + zh + pyl(zh) + enl(zh) + '</span>';
+  }
+  /* A mode chip's label carries a leading emoji ("✍️ 填空"); the gloss key must
+     be the Chinese the student can actually see, or the annotation describes a
+     phrase that is not on screen (the 拼音辅助 / 拼音 mismatch the owner caught).
+     Deriving it here means a chip can never drift from its key. */
+  function labKey(label) { return String(label).replace(/^[^一-鿿A-Za-z0-9]+/, "").trim(); }
+  function labGloss(label) { var k = labKey(label); return pyl(k) + enl(k); }
+  /* A 🔊 button whose Chinese label carries both glosses. */
+  function ttsBtnHtml(id, zh, cls) {
+    /* .tts is an inline-flex row, so the glosses must live inside ONE child or
+       they line up beside the label instead of stacking under it. */
+    return '<button class="' + (cls || "tts") + '" id="' + id + '">🔊 <span class="tts-lab">' +
+      zh + pyl(zh) + enl(zh) + '</span></button>';
+  }
+  /* Per-CHARACTER 拼音 for the 组词挑战 tiles (owner 2026-08-15: pinyin support
+     must reach the single characters too — but NOT English, which would be
+     meaningless on a lone character).
+     Built once from this stream's own word list by walking every word whose
+     syllable count matches its character count. ⚠️ A character that is read more
+     than one way anywhere in the data gets NO pinyin rather than a guess: a
+     tile is one character with no context, so there is nothing to disambiguate
+     a polyphone with, and a wrong reading taught confidently is worse than none
+     (same reasoning as the TTS "never pass pinyin to the engine" rule). */
+  var _charPy = null;
+  function charPy(c) {
+    if (!_charPy) {
+      var seen = {};
+      WORDS.forEach(function (w) {
+        var chars = String(w.w || ""), syl = String(w.py || "").split(/\s+/).filter(Boolean);
+        if (!chars || syl.length !== chars.length) return;
+        for (var i = 0; i < chars.length; i++) {
+          var ch = chars.charAt(i);
+          if (!CJK_RE.test(ch)) continue;
+          if (seen[ch] === undefined) seen[ch] = syl[i];
+          else if (seen[ch] !== syl[i]) seen[ch] = null;   // polyphone: say nothing
+        }
+      });
+      _charPy = seen;
+    }
+    return _charPy[c] || "";
   }
   /* 决定一 · 发现方式: the control is an ICON pill (中/EN), never a Chinese
      word — a student who cannot read the interface must still be able to find
@@ -2726,17 +2998,17 @@
     var pyMode = store.diff === "pinyin";
     var typing = store.diff === "type" || pyMode;
     var html = '<div class="study">' +
-      railHtml(state, "填空挑战", "读句子，填出空格里的词语", diffSelector()) +
+      railHtml(state, "填空挑战", mdLine("读句子，填出空格里的词语"), diffSelector()) +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">' + (pyMode ? "读句子，打出空格里词语的拼音（不用声调，历练值一成）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") + '</span>' +
+      qTag(pyMode ? "读句子，打出空格里词语的拼音（不用声调，10% 历练值）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") +
       '<div class="q-text' + qCls(qtext) + '">' + qtext + '</div>' +
-      '<div class="q-foot"><button class="tts" id="ttsS">🔊 朗读句子</button></div></div>';
+      '<div class="q-foot">' + ttsBtnHtml("ttsS", "朗读句子") + '</div></div>';
 
     if (typing) {
       html += '<div class="answer-row">' +
         '<input class="answer-input" id="ans" autocomplete="off" placeholder="' + (pyMode ? "输入拼音（不用声调）…" : "输入词语…") + '">' +
         '<button class="check-btn" id="chk">检查' + pyl("检查") + enli("检查") + '</button></div>' +
-        '<button class="hint-btn" id="hint">' + (pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
+        '<button class="hint-btn" id="hint">' + (function (h) { return h + pyl(h) + enl(h); })(pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
     } else {
       var n = parseInt(store.diff, 10);
       var opts = clozeOpts(state, w, n);
@@ -2863,12 +3135,12 @@
     var qprompt = isZh ? qHtml(prompt, w.zhPy) : esc(prompt);
     var opts = shuffle([w].concat(distractorsFor(w, state.pool || scopedWords(), 3)));
     view().innerHTML = '<div class="study">' +
-      railHtml(state, isZh ? "华文解释" : "英文翻译", isZh ? "看释义，选出词语" : "看英译，选出词语") +
+      railHtml(state, isZh ? "华文解释" : "英文翻译", mdLine(isZh ? "看释义，选出词语" : "看英译，选出词语")) +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">' + (isZh ? "看释义，选出词语" : "看英文，选出词语") + '</span>' +
+      qTag(isZh ? "看释义，选出词语" : "看英文，选出词语") +
       /* 英文翻译 prompts are English — nothing to annotate */
       '<div class="q-text mcq' + qCls(qprompt) + '">' + qprompt + '</div>' +
-      (isZh ? '<div class="q-foot"><button class="tts" id="ttsP">🔊 朗读释义</button></div>' : "") +
+      (isZh ? '<div class="q-foot">' + ttsBtnHtml("ttsP", "朗读释义") + '</div>' : "") +
       '</div>' +
       '<div class="opts n4" id="opts">' +
       opts.map(function (o, idx) {
@@ -3077,11 +3349,11 @@
      Only genuine quantities become sliders. 题型 and 挑战难度 stay as labelled
      tiles: they are named choices, not amounts, and a slider would hide their
      names behind a handle position. */
-  function qtySlider(id, values, cur, fmt) {
+  function qtySlider(id, values, cur, fmt, gloss) {
     var i = values.indexOf(cur); if (i === -1) i = 0;
     /* ⚠️ The readout sits ABOVE the track, never beside it. In the first version
        it was a flex sibling of the range, so the track LENGTH changed with the
-       label's width — 「⭐ 两个选项」 and 「⌨️ 打拼音 · 一成历练值」 are wildly
+       label's width — 「⭐ 两个选项」 and 「⌨️ 打拼音 · 10% 历练值」 are wildly
        different widths, and the bar visibly grew and shrank as you dragged. The
        track is now always full width and only the text above it changes.
        Ticks are drawn per step so the stops are visible without end labels
@@ -3089,19 +3361,21 @@
     var ticks = "";
     for (var k = 0; k < values.length; k++) ticks += '<i></i>';
     return '<div class="qty">' +
-      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b>' +
+      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + (gloss ? gloss(cur) : "") + '</b>' +
       '<div class="qty-track">' +
       '<div class="qty-ticks" aria-hidden="true">' + ticks + '</div>' +
       '<input type="range" class="qty-range" id="' + id + '" min="0" max="' + (values.length - 1) +
       '" step="1" value="' + i + '" aria-label="数量"></div></div>';
   }
   /* onPick fires on every move (input), so the readout tracks the thumb live. */
-  function wireQtySlider(id, values, fmt, onPick) {
+  function wireQtySlider(id, values, fmt, onPick, gloss) {
     var el = document.getElementById(id); if (!el) return;
     var out = document.getElementById(id + "Val");
     el.oninput = function () {
       var v = values[parseInt(el.value, 10)];
-      if (out) out.textContent = fmt(v);
+      /* innerHTML, not textContent: the readout for a NAMED tier carries its
+         拼音/English gloss, and textContent would wipe it on the first drag. */
+      if (out) out.innerHTML = esc(fmt(v)) + (gloss ? gloss(v) : "");
       onPick(v);
     };
   }
@@ -3112,11 +3386,12 @@
     var cur = QUIZ_MODES.filter(function (x) { return x.k === m; })[0] || QUIZ_MODES[0];
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">✍️ 学习挑战' + pyl("学习挑战") + enli("学习挑战") + '</div>' +
-      '<div class="mode-desc">' + esc(cur.desc) + '<br>答对可累积历练值；填空挑战答对还会提升海拔。</div>' +
+      '<div class="mode-desc">' + mdLine(cur.desc) +
+        mdLine("答对可累积历练值；填空挑战答对还会提升海拔。") + '</div>' +
       '<div class="diff-label">' + stepNo(1) + '题型' + pyl("题型") + enl("题型") + '</div><div class="diff" id="qmodeSel">' +
       QUIZ_MODES.map(function (x) {
         return '<button class="dopt' + (x.k === m ? " on" : "") + '" data-m="' + x.k + '">' +
-          '<span>' + x.label + pyl(x.zh) + enl(x.zh) + '</span></button>';
+          '<span>' + x.label + labGloss(x.label) + '</span></button>';
       }).join("") + '</div>' +
       '<div class="diff-label">' + stepNo(2) + '每次题数' + pyl("每次题数") + enl("每次题数") + '</div>' +
       qtySlider("qlenSel", QUIZ_LENS, store.quizLen, function (n) { return n + " 题"; }) +
@@ -3141,10 +3416,19 @@
     var best = store.best.rain || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">\ud83c\udf27\ufe0f 词雨灵露' + pyl("词雨灵露") + enli("词雨灵露") + '</div>' +
-      '<div class="mode-desc">词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！<br>字数越多、接得越高、连击越长，得分越高。' + campLingluIcon() + ' 接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。<br>雨势会越下越急 —— 每一局都从最慢开始。</div>' +
+      '<div class="mode-desc">' + mdLine("词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！") +
+        mdLine("字数越多、接得越高、连击越长，得分越高。") +
+        mdLine("接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。", campLingluIcon() + " ") +
+        mdLine("雨势会越下越急 —— 每一局都从最慢开始。") + '</div>' +
       '<div class="diff-label">拼音辅助' + pyl("拼音辅助") + enl("拼音辅助") + '</div><div class="diff">' +
-      '<button class="dopt on" id="pySel">在词语下方显示拼音</button></div>' +
-      '<div class="rain-best">本机最高分：<b>' + best + '</b> · \u2764\ufe0f 生命 ' + RAIN_LIVES + '</div>' +
+      '<button class="dopt on" id="pySel"><span>在词语下方显示拼音' +
+      pyl("在词语下方显示拼音") + enl("在词语下方显示拼音") + '</span></button></div>' +
+      /* each label keeps its own value ON the same line, with the glosses under the
+   whole item — otherwise the block gloss splits 「本机最高分」 from its number */
+      '<div class="rain-best"><span class="rb-item">本机最高分：<b>' + best + '</b>' +
+      pyl("本机最高分") + enl("本机最高分") + '</span>' +
+      '<span class="rb-item">\u2764\ufe0f 生命 ' + RAIN_LIVES +
+      pyl("生命") + enl("生命") + '</span></div>' +
       '<div class="nav-row"><button class="nav-btn" id="back">\u2039 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
       '<button class="nav-btn primary" id="go">开始游戏 \u203a' + pyl("开始游戏") + enli("开始游戏") + '</button></div></div>';
     var showPy = true;
@@ -3439,7 +3723,8 @@
     var streak = store.best.handle || 0;
     var html = '<div class="study"><div class="rail card">' +
       '<div class="mode-name">🀄 词语汉兜' + pyl("词语汉兜") + enli("词语汉兜") + '</div>' +
-      '<div class="mode-desc">猜一个范围内的四字词语。<br>🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字</div>' +
+      '<div class="mode-desc">' + mdLine("猜一个范围内的四字词语。") +
+        mdLine("🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字") + '</div>' +
       '<div class="prog-big">' + state.rows.length + ' <small>/ 6 次</small></div>' +
       '<div class="streak">连胜' + pyl("连胜") + enli("连胜") + ' <b>' + streak + '</b> 🏮</div>' +
       handleHintHtml(state) + '</div>' +
@@ -3549,13 +3834,14 @@
     { k: "def", label: "释义" },
     { k: "en", label: "英文" },
     { k: "cloze", label: "填空" },
-    { k: "py", label: "拼音·一成历练值" }
+    { k: "py", label: "拼音 · 10% 历练值" }
   ];
   function asmPromptSelector() {
     var cur = store.asmPrompt || "def";
     var html = '<div class="diff-label">出题方式' + pyl("出题方式") + enl("出题方式") + '</div><div class="diff">';
     ASM_PROMPTS.forEach(function (p) {
-      html += '<button class="dopt' + (cur === p.k ? " on" : "") + '" data-ap="' + p.k + '">' + p.label + '</button>';
+      html += '<button class="dopt' + (cur === p.k ? " on" : "") + '" data-ap="' + p.k + '"><span>' +
+        p.label + pyl(p.label) + enl(p.label) + '</span></button>';
     });
     return html + '</div>';
   }
@@ -3608,6 +3894,17 @@
     }
     return state._chipArr[n];
   }
+  /* 拼音 under a tile. ⚠️ Never in the 拼音 prompt mode: there the prompt IS the
+     answer's pinyin, so annotated tiles would turn the round into syllable
+     matching and the character-recognition step — the whole point of 组词挑战 —
+     would disappear. Every other prompt mode is safe: the characters are already
+     on screen, so a reading adds no information about which ones are the answer
+     (all tiles are annotated, decoys included). */
+  function chipPyHtml(c, pm) {
+    if (pm === "py" || !optPy()) return "";
+    var p = charPy(c);
+    return p ? '<span class="asm-py">' + esc(p) + '</span>' : "";
+  }
   function renderAssemble(state) {
     setFbCtx("组词挑战", state.seq[state.i]);
     setTopbar("home", "");
@@ -3622,27 +3919,38 @@
     if (pm === "cloze" && !(w.cloze && w.cloze.indexOf("__") !== -1)) pm = "def";
     if (pm === "en" && !w.en) pm = "def";
     var noScore = (pm === "py");
-    var promptTag, promptHtml, ttsBtn = "", ttsFn = null;
-    if (pm === "en") { promptTag = "看英文，拼出词语"; promptHtml = esc(w.en); }
-    else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; promptHtml = esc(w.cloze).replace(/_{2,}/g, "<u></u>"); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读句子</button>'; ttsFn = function () { speakCloze(w.cloze); }; }
-    else if (pm === "py") { promptTag = "看拼音，拼出词语（历练值一成）"; promptHtml = esc(w.py); }
-    else { promptTag = "看释义，拼出词语"; promptHtml = esc(w.zh); ttsBtn = '<button class="tts" id="asmTts">🔊 朗读释义</button>'; ttsFn = function () { speak(w.zh); }; }
+    var promptTag, ttsBtn = "", ttsFn = null;
+    /* The prompt is quiz CONTENT, so it takes ruby 拼音 like every other mode's
+       question does (this screen was the one that never did) and no English.
+       Recomputed on demand so the 拼音 toggle can repaint it in place. */
+    function promptBody() {
+      if (pm === "en") return esc(w.en);
+      if (pm === "py") return esc(w.py);
+      if (pm === "cloze") return qHtml(w.cloze, w.clozePy).replace(/_{2,}/g, "<u></u>");
+      return qHtml(w.zh, w.zhPy);
+    }
+    if (pm === "en") { promptTag = "看英文，拼出词语"; }
+    else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读句子"); ttsFn = function () { speakCloze(w.cloze); }; }
+    else if (pm === "py") { promptTag = "看拼音，拼出词语（10% 历练值）"; }
+    else { promptTag = "看释义，拼出词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读释义"); ttsFn = function () { speak(w.zh); }; }
+    var promptHtml = promptBody();
 
     var html = '<div class="study"><div class="rail card">' +
       '<div class="mode-name">🧩 组词挑战' + pyl("组词挑战") + enli("组词挑战") + '</div>' +
-      '<div class="mode-desc">按顺序点出词语的字。</div>' +
+      '<div class="mode-desc">' + mdLine("按顺序点出词语的字。") + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
       asmPromptSelector() + asmSizeSelector() + '</div>' +
       '<div class="stage"><div class="q-card">' +
-      '<span class="q-tag">' + promptTag + '</span>' +
-      '<div class="q-text mcq">' + promptHtml + '</div>' +
+      qTag(promptTag) +
+      '<div class="q-text mcq' + qCls(promptHtml) + '">' + promptHtml + '</div>' +
       '<div class="q-foot">' + ttsBtn + '</div></div>' +
       '<div class="asm-slots" id="asmSlots">' +
       target.map(function () { return '<div class="asm-slot"></div>'; }).join("") + '</div>' +
       '<div class="asm-chips" id="asmChips" style="--asm-cols:' + asmCols(chips.length) + '">' +
       chips.map(function (c, i) {
-        return '<button class="asm-chip" data-c="' + esc(c) + '" data-i="' + i + '">' + esc(c) + '</button>';
+        return '<button class="asm-chip" data-c="' + esc(c) + '" data-i="' + i + '">' +
+          esc(c) + chipPyHtml(c, pm) + '</button>';
       }).join("") + '</div>' +
       '<div class="feedback" id="asmFb"></div>' +
       '<div class="nav-row" id="asmNextRow" style="display:none">' +
@@ -3662,6 +3970,18 @@
       _asmSizeT = setTimeout(function () { renderAssemble(state); }, 260);
     });
     if (ttsFn && document.getElementById("asmTts")) document.getElementById("asmTts").onclick = ttsFn;
+    /* Repaint the pinyin in place rather than re-rendering: a re-render would
+       empty the slots a student has already filled, and (as everywhere else on
+       this screen) it must never redraw the tiles themselves. */
+    wirePyAidToggle(function () {
+      var q = view().querySelector(".q-text.mcq");
+      if (q) { q.innerHTML = promptBody(); q.className = "q-text mcq" + qCls(q.innerHTML); }
+      Array.prototype.forEach.call(view().querySelectorAll(".asm-chip"), function (b) {
+        var old = b.querySelector(".asm-py");
+        if (old) b.removeChild(old);
+        b.insertAdjacentHTML("beforeend", chipPyHtml(b.getAttribute("data-c"), pm));
+      });
+    });
     var nextIdx = 0, wrongThis = false, done = false;
     var slots = view().querySelectorAll(".asm-slot");
     Array.prototype.forEach.call(view().querySelectorAll(".asm-chip"), function (chip) {
@@ -3690,7 +4010,8 @@
             sfxOk();
             var fb = document.getElementById("asmFb");
             fb.className = "feedback show " + (wrongThis ? "bad" : "ok");
-            fb.innerHTML = (wrongThis ? "✔ 完成！（中途点错过）" : "✔ 一次拼对！") +
+            var fbZh = wrongThis ? "完成！（中途点错过）" : "一次拼对！";
+            fb.innerHTML = "✔ " + fbZh + pyl(fbZh) + enl(fbZh) +
               "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" +
               '<button class="tts sm" id="asmSay" style="margin-left:8px">🔊</button>';
             document.getElementById("asmSay").onclick = function () { speak(w.w); };
@@ -3813,14 +4134,14 @@
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">⛰️ 攀山竞速' + pyl("攀山竞速") + enli("攀山竞速") + '</div>' +
-      '<div class="mode-desc">登山冲刺：答对就向上攀登！<br>' +
-      '第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。</div>' +
-      '<div class="sprint-stats"><span>我的海拔 <b>' + altitudeNow() + ' 米</b></span>' +
-      '<span>个人纪录 <b>' + best + ' 题</b></span></div>' +
+      '<div class="mode-desc">' + mdLine("登山冲刺：答对就向上攀登！") +
+        mdLine("第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。") + '</div>' +
+      '<div class="sprint-stats"><span>我的海拔' + pyl("我的海拔") + enli("我的海拔") + ' <b>' + altitudeNow() + ' 米</b></span>' +
+      '<span>个人纪录' + pyl("个人纪录") + enli("个人纪录") + ' <b>' + best + ' 题</b></span></div>' +
       '<div class="diff-label">' + stepNo(1) + '题目类型' + pyl("题目类型") + enl("题目类型") + '</div><div class="diff" id="modeSel">' +
       SPRINT_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === store.sprintMode ? " on" : "") + '" data-m="' + m.k + '">' +
-          '<span>' + m.label + pyl(m.zh) + enl(m.zh) + '</span></button>';
+          '<span>' + m.label + labGloss(m.label) + '</span></button>';
       }).join("") + '</div>' +
       '<div class="diff-label">' + stepNo(2) + '冲刺时长' + pyl("冲刺时长") + enl("冲刺时长") + '</div>' +
       qtySlider("secSel", SPRINT_OPTS, store.sprintSecs, secFmt) +
