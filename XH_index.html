@@ -10,8 +10,16 @@
      STANDALONE on purpose: it loads xh.css / xh.js only, never app.css/app.js,
      and shares no storage with g1/g2/g3/hcl. See the header comment in xh.js.
      Exactly one berth is built (看图识词). The pinyin berths (声母 韵母 四声
-     拼读 出海测验) are designed but explicitly out of scope for this slice. -->
-<link rel="stylesheet" href="xh.css?v=20260815k">
+     拼读 出海测验) are designed but explicitly out of scope for this slice.
+
+     ⚠️ The ONE shared thing (owner 2026-08-15): identity. firebase-init.js +
+     profile.js + nickname.js are loaded so the topbar carries the student's real
+     nickname and avatar and opens the same 我的档案 panel as a stream page —
+     being a different person at the dock than on the mountain would be worse
+     than any duplication. app.css is still NEVER loaded; the handful of rules
+     those two files need are copied into xh.css. Progress stays sealed: nothing
+     here reads or writes ws2_*. -->
+<link rel="stylesheet" href="xh.css?v=20260815n">
 </head>
 <body>
 
@@ -21,10 +29,17 @@
     <h1>启航码头</h1>
     <div class="lv">学海启航 · 零基础 · Start here</div>
   </div>
+  <div class="xh-tools" id="xhTools"></div>
 </div>
 
 <div class="xh-wrap" id="xhView"></div>
 
-<script src="xh.js?v=20260815k"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-init.js?v=20260815n"></script>
+<script src="profile.js?v=20260815n"></script>
+<script src="nickname.js?v=20260815n"></script>
+<script src="xh.js?v=20260815n"></script>
 </body>
 </html>

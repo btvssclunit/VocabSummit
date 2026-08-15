@@ -7,29 +7,44 @@
    Spec §5 diagnosed the page as reading flat, and named the cause: a
    photographic-looking sea behind pixel-art sprites, with the question in a
    plain white rounded rectangle. Every other surface on the platform pairs
-   pixel art with pixel art. So the backdrop is now an actual harbour built from
-   the sea map's own pixel assets, and the question sits on a wooden signboard
-   rather than a card.
-   ⚠️ The spec asks for PURPOSE-DRAWN harbour art (moored 帆船, crates, rope,
-   gulls). That does not exist yet and is an art task. This composes the dock
-   and sea we already ship, which at least puts 码头 in the same world as the
-   landing map — it is not the full §5.1. */
+   pixel art with pixel art. So the question sits on a wooden signboard rather
+   than a card, and the backdrop is the harbour.
+   ✅ 2026-08-15: the purpose-drawn harbour art the spec asked for is here
+   (art/seamap/harbour_bg.png + @2x) and replaces the sea_tile + dock_jetty
+   composite. That is the §5.1 fix; the earlier「not the full §5.1」note is done.
+
+   ⚠️ ONE exception to「app.css is never loaded here」: it still is not, but the
+   page now loads profile.js + nickname.js for identity, and the rules their
+   markup needs are COPIED into the block at the bottom of this file. */
 :root{
   --sky1:#DFEDF7;--sky2:#BAD6E8;--sun:#F5C443;
   --sea1:#2E6391;--sea2:#1F4A70;--sea3:#12213F;
-  --ink:#243B4A;--ink-soft:#5A7387;--gold:#E3A63C;--gold-lt:#F5C443;
+  --ink:#243B4A;--ink-soft:#5A7387;--gold:#E3A63C;--gold-lt:#F5C443;--gold-deep:#B7791F;
   --wood:#8A5A32;--wood-lt:#B4794A;--wood-dk:#5C3A1E;
+  --bad:#B44A3C;
+  /* the glass tokens the copied 我的档案 panel styles at the bottom of this file
+     depend on — same values as app.css :root */
+  --glass:rgba(255,255,255,.60);--glass-strong:rgba(255,255,255,.72);
+  --glass-soft:rgba(255,255,255,.40);
+  --glass-line:rgba(255,255,255,.65);
+  --glass-lift:0 10px 34px rgba(23,58,90,.20);
+  --glass-blur:saturate(165%) blur(20px);
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.30);
   --serif:"Noto Serif SC",serif;--sans:"Noto Sans SC",sans-serif;
 }
 *{box-sizing:border-box}
+/* 2026-08-15: the composed sea_tile + dock_jetty backdrop is replaced by the
+   purpose-drawn harbour (addendum §1 — this IS the §5.1 fix). Anchored
+   center BOTTOM on purpose: the artwork keeps its upper two-thirds calm for the
+   question panels and puts the decking, crates and moored boat in the lower
+   third, which should stay visible rather than be cropped away. */
 body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
-  background:#12213F url("art/seamap/sea_tile.png") left top/cover no-repeat fixed;
+  background:#12213F url("art/seamap/harbour_bg.png") center bottom/cover no-repeat fixed;
+  background-image:-webkit-image-set(url("art/seamap/harbour_bg.png") 1x,
+    url("art/seamap/harbour_bg@2x.png") 2x);
+  background-image:image-set(url("art/seamap/harbour_bg.png") 1x,
+    url("art/seamap/harbour_bg@2x.png") 2x);
   image-rendering:pixelated}
-/* the dock itself, bled into the bottom-left corner exactly as on the sea map,
-   so arriving here reads as stepping off the boat at the same jetty */
-body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560px);
-  aspect-ratio:600/652;background:url("art/seamap/dock_jetty.png") left bottom/contain no-repeat;
-  image-rendering:pixelated;pointer-events:none;z-index:0;opacity:.95}
 .xh-wrap,.xh-top{image-rendering:auto;position:relative;z-index:1}
 
 .xh-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
@@ -38,24 +53,61 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-back{flex:none;text-decoration:none;font-weight:700;font-size:14px;color:var(--sea2);
   background:rgba(255,255,255,.8);border:2px solid #B9CEDD;border-radius:999px;
   padding:7px 14px;touch-action:manipulation}
-.xh-top h1{margin:0;font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em}
-.xh-top .lv{font-size:12px;color:var(--ink-soft);font-weight:700}
+/* the title block must be allowed to SHRINK, or the three topbar controls push
+   the subline into a three-line wrap on a phone and the bar grows to 98px */
+.xh-top>div:not(.xh-tools){min-width:0;flex:1}
+.xh-top h1{margin:0;font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em;
+  white-space:nowrap}
+.xh-top .lv{font-size:12px;color:var(--ink-soft);font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 顶栏右侧：拼音 / 中EN / 我的档案 (owner 2026-08-15) ----------
+   Same three controls a stream page carries, so a student who starts here and
+   later opens G1 finds them in the same corner. Sized to the platform's own
+   42px finger target. */
+.xh-tools{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.xh-tg{display:inline-flex;align-items:center;gap:6px;flex:none;height:42px;padding:0 14px;
+  border:1px solid #B9CEDD;border-radius:999px;background:rgba(255,255,255,.8);
+  color:var(--sea2);font-family:var(--sans);cursor:pointer;touch-action:manipulation}
+.xh-tg .xh-tg-ic{font-family:var(--serif);font-weight:800;font-size:17px}
+.xh-tg .xh-tg-lab{font-size:13px;font-weight:700;opacity:.7}
+.xh-tg.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;
+  box-shadow:0 2px 10px rgba(227,166,60,.4)}
+.xh-tg.on .xh-tg-lab{opacity:1}
+.xh-tg:active{transform:translateY(1px)}
+.xh-prof{display:inline-flex;align-items:center;gap:8px;flex:none;height:42px;padding:4px 14px 4px 5px;
+  border:1px solid #B9CEDD;border-radius:999px;background:rgba(255,255,255,.8);
+  cursor:pointer;touch-action:manipulation;max-width:min(42vw,220px)}
+.xh-prof:active{transform:translateY(1px)}
+.xh-av{width:32px;height:32px;border-radius:50%;flex:none;overflow:hidden;
+  border:2px solid var(--gold);background:#F1F6FB;display:flex;align-items:center;
+  justify-content:center;font-size:16px}
+.xh-av img{width:100%;height:100%;object-fit:contain;display:block}
+.xh-nick{font-family:var(--serif);font-weight:700;font-size:13.5px;color:var(--sea2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:560px){
+  .xh-tg{padding:0 11px}
+  .xh-tg .xh-tg-lab{display:none}
+  .xh-nick{display:none}
+  .xh-prof{padding:4px 5px}
+}
 
 .xh-wrap{max-width:900px;margin:0 auto;padding:16px 14px 60px}
 
-/* the signboard: a plank face with a darker frame and two rope-coloured pegs.
-   Diegetic for a dock, and it stops every screen being a white rectangle. */
-.xh-board{position:relative;margin-bottom:16px;padding:18px 18px 20px;border-radius:10px;
-  background:
-    repeating-linear-gradient(180deg,rgba(0,0,0,.045) 0 2px,transparent 2px 46px),
-    linear-gradient(180deg,#FBF3E4 0%,#F3E6D0 100%);
-  border:5px solid var(--wood);
-  box-shadow:0 0 0 3px var(--wood-dk),0 12px 26px rgba(6,26,48,.45),
-    inset 0 2px 0 rgba(255,255,255,.7)}
-.xh-board::before,.xh-board::after{content:"";position:absolute;top:9px;width:11px;height:11px;
-  border-radius:50%;background:radial-gradient(circle at 35% 35%,#C9A25F,#7A5426)}
-.xh-board::before{left:11px}
-.xh-board::after{right:11px}
+/* ⚠️ PANELS ARE GLASS, not wooden signboards (PATCH_liquid_glass, 2026-08-15).
+   SPEC §5.2's「frame it in something diegetic」was a SPEC ERROR: xh.css followed
+   it exactly and the result read as a different app beside the G2 arena. Every
+   other surface on the platform is liquid glass, so this is the .card recipe from
+   app.css, copied (this file duplicates by design — same as teacher.html).
+   Wood survives as ACCENT only: the rule line under a section head and the
+   signboard plate behind the question sprite. It is never a panel fill again.
+   Rule going forward: the dock may have its own SCENERY, never its own CHROME. */
+.xh-board{position:relative;margin-bottom:16px;padding:18px 18px 20px;border-radius:18px;
+  background:linear-gradient(150deg,rgba(255,255,255,.74),rgba(255,255,255,.56) 46%,
+    rgba(232,243,251,.60));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);
+  box-shadow:var(--glass-lift),var(--glass-edge)}
 
 .xh-berth-title{font-family:var(--serif);font-weight:900;font-size:24px;letter-spacing:.03em}
 .xh-sub{margin-top:6px;font-size:14.5px;color:var(--ink-soft);line-height:1.7}
@@ -64,40 +116,114 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 /* English gloss. This tier defaults it ON — a learner who lands on
    characters-only sees nothing they can read. It covers UI chrome and 英文释义
    ONLY, never the answer options: the learner must still connect image to 词语. */
-.xh-en{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
-.xh-py{display:block;font-size:13px;font-weight:600;color:var(--sea1)}
-.xh-sec{font-family:var(--serif);font-weight:900;font-size:17px;margin-bottom:10px}
+/* ⚠️ Both aids are CSS-GATED, never re-rendered. The spans are always in the
+   markup and body.xh-py-on / body.xh-en-on reveal them, so the topbar pills are
+   one class flip. That is not just speed: renderPic() draws fresh distractors on
+   every render and the answer is the only option that survives a redraw, so a
+   toggle that re-rendered would leak the answer to anyone who flipped it twice.
+   .xh-always opts a span out of the gate (the 拼音 shown after a miss in
+   拼音打字, which is the point of the miss). */
+.xh-en,.xh-py{display:none}
+body.xh-en-on .xh-en{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+body.xh-py-on .xh-py,.xh-py.xh-always{display:block;font-size:13px;font-weight:600;color:var(--sea1)}
+.xh-sec{font-family:var(--serif);font-weight:900;font-size:17px;margin-bottom:10px;
+  padding-bottom:7px;border-bottom:2px solid rgba(138,90,50,.28)}
 
-.xh-toggles{display:flex;gap:10px;margin-top:14px}
-.xh-tg{cursor:pointer;touch-action:manipulation;font-family:var(--sans);font-size:14px;
-  font-weight:700;padding:10px 18px;border-radius:999px;border:2px solid #C6B291;
-  background:rgba(255,255,255,.75);color:var(--ink-soft)}
-.xh-tg.on{background:var(--gold-lt);border-color:var(--gold);color:#4A3305;
-  box-shadow:0 3px 0 0 rgba(160,110,20,.5)}
+/* ---------- hero + stats + entry tile (PATCH_liquid_glass, the five gaps) ----------
+   The dock used to open with a text panel while every stream page opens with
+   art, a title overlay and a progress chip. */
+.xh-hero{position:relative;overflow:hidden;border-radius:18px;margin-bottom:14px;
+  border:1px solid var(--glass-line);box-shadow:var(--glass-lift);background:var(--sea1);
+  min-height:190px;display:flex;align-items:flex-end}
+.xh-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  object-position:center 62%;image-rendering:pixelated}
+/* the scrim is what keeps the title legible over whatever part of the art the
+   crop lands on — the same trick the landing couplet uses */
+.xh-hero::after{content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,rgba(10,28,48,.64) 0%,rgba(10,28,48,.30) 54%,rgba(10,28,48,0) 80%),
+    linear-gradient(180deg,rgba(10,28,48,.06) 0%,rgba(10,28,48,.42) 52%,rgba(10,28,48,.76) 100%)}
+.xh-hero-in{position:relative;z-index:1;width:100%;padding:16px 18px 14px;color:#fff}
+.xh-hero-t{font-family:var(--serif);font-weight:900;font-size:27px;letter-spacing:.04em;
+  text-shadow:0 2px 6px rgba(6,20,40,.75)}
+.xh-hero-sub{font-size:13.5px;font-weight:700;margin-top:2px;color:#DCEBF7;
+  text-shadow:0 1px 4px rgba(6,20,40,.7)}
+.xh-hero-sub .xh-en{color:#E4F0F9;text-shadow:0 1px 5px rgba(6,20,40,.95)}
+.xh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.xh-stat{background:rgba(12,32,54,.42);border:1px solid rgba(255,255,255,.28);
+  border-radius:12px;padding:8px 10px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.xh-stat b{display:block;font-family:var(--serif);font-weight:900;font-size:22px;color:var(--gold-lt);
+  line-height:1.2}
+.xh-stat b i{font-style:normal;font-family:var(--sans);font-size:11.5px;font-weight:700;
+  color:#E6F0F8;margin-left:3px}
+.xh-stat>span{display:block;font-size:11.5px;font-weight:700;color:#EAF3FA}
+.xh-stat .xh-en{color:#C8DDEE;font-size:10.5px}
+
+/* 动线编号 */
+.xh-step{display:inline-block;margin-right:7px;font-family:var(--serif);font-weight:900;
+  color:var(--gold-deep)}
+.xh-subsec{font-weight:700;font-size:14px;color:var(--sea2);margin:14px 0 8px}
+
+/* entry tile — the arena's tiles are what make it read as a place, not a menu */
+.xh-tile{display:flex;align-items:stretch;gap:0;width:100%;margin-bottom:14px;padding:0;
+  border-radius:16px;overflow:hidden;cursor:pointer;touch-action:manipulation;text-align:left;
+  font-family:var(--sans);color:var(--ink);border:1px solid var(--glass-line);
+  background:linear-gradient(150deg,rgba(255,255,255,.74),rgba(255,255,255,.56) 46%,
+    rgba(232,243,251,.60));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-lift),var(--glass-edge)}
+.xh-tile:active{transform:translateY(1px)}
+.xh-tile-art{flex:none;width:86px;object-fit:cover;image-rendering:pixelated;align-self:stretch}
+.xh-tile-txt{flex:1;min-width:0;padding:12px 14px}
+.xh-tile-txt b{font-family:var(--serif);font-size:18px;font-weight:900;display:block}
+.xh-bar{display:block;height:8px;border-radius:999px;margin:9px 0 5px;overflow:hidden;
+  background:rgba(31,74,112,.16)}
+.xh-bar i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--gold-lt),var(--gold))}
+.xh-tile-n{display:block;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+.xh-tile-go{align-self:center;flex:none;padding:0 16px;font-size:24px;color:var(--gold-deep)}
+@media (max-width:560px){
+  .xh-hero-t{font-size:22px}
+  .xh-stat b{font-size:19px}
+  .xh-tile-art{width:64px}
+}
+
+
+
+
+
+
+
 
 .xh-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .xh-mode{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  touch-action:manipulation;padding:13px 10px;border-radius:12px;border:3px solid var(--wood);
-  background:linear-gradient(180deg,#FBF3E4,#EEDFC5);font-family:var(--sans);
-  box-shadow:0 4px 0 0 var(--wood-dk)}
+  touch-action:manipulation;padding:13px 10px;border-radius:14px;
+  border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-family:var(--sans);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
 .xh-mode b{font-size:15.5px}
 .xh-mi{font-size:24px;line-height:1.1}
-.xh-mode.on{background:linear-gradient(180deg,#FFE9A8,#F5C443);border-color:#A9752A}
-.xh-mode:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--wood-dk)}
+.xh-mode.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.55);color:#3A2A08;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
+.xh-mode:active{transform:translateY(1px)}
 
 .xh-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .xh-block{display:flex;flex-direction:column;align-items:flex-start;gap:3px;cursor:pointer;
-  touch-action:manipulation;text-align:left;padding:12px 14px;border-radius:10px;
-  border:2px solid #C6B291;background:rgba(255,255,255,.8);font-family:var(--sans)}
-.xh-block:hover{border-color:var(--gold);background:#FFFBF0}
+  touch-action:manipulation;text-align:left;padding:12px 14px;border-radius:14px;
+  border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-family:var(--sans);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
+.xh-block:hover{border-color:var(--gold)}
 .xh-block b{font-size:16px}
 .xh-block span{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
 
 /* ---- round chrome: the jetty progress rail (spec §5.3) ---- */
 .xh-round-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .xh-quit{flex:none;cursor:pointer;touch-action:manipulation;font-size:14px;font-weight:700;
-  color:#5C3A1E;background:rgba(255,255,255,.9);border:2px solid var(--wood);
-  border-radius:999px;padding:7px 14px}
+  color:var(--sea2);background:var(--glass-strong);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border-radius:999px;padding:7px 14px;box-shadow:var(--glass-edge)}
 .xh-jetty{position:relative;flex:1;min-width:0;height:34px;display:flex;align-items:center}
 .xh-jetty-line{position:absolute;left:0;right:0;top:22px;height:7px;border-radius:3px;
   background:repeating-linear-gradient(90deg,var(--wood) 0 12px,var(--wood-lt) 12px 15px);
@@ -111,7 +237,15 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
   background:rgba(18,33,63,.6);border-radius:999px;padding:6px 12px}
 
 /* ---- question ---- */
+/* the signboard survives HERE and only here: the plate the question sprite sits
+   on. Diegetic texture belongs to the content, the interface belongs to the
+   platform (PATCH_liquid_glass). */
 .xh-stage{text-align:center}
+.xh-stage .xh-sprite{border-radius:14px;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.05) 0 2px,transparent 2px 44px),
+    linear-gradient(180deg,#FBF3E4,#EBD9BB);
+  border:4px solid var(--wood);box-shadow:0 0 0 2px var(--wood-dk),0 6px 16px rgba(6,26,48,.3);
+  padding:12px 20px}
 .xh-sprite{display:block;margin:0 auto;border:0;background:none;cursor:pointer;
   touch-action:manipulation;padding:6px}
 .xh-sprite img{display:block;width:auto;height:clamp(130px,24vh,210px);image-rendering:pixelated;
@@ -123,21 +257,25 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 
 .xh-play{display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
   touch-action:manipulation;font-family:var(--sans);font-weight:800;font-size:20px;
-  padding:20px 34px;border-radius:14px;border:3px solid var(--wood);
-  background:linear-gradient(180deg,#FBF3E4,#EEDFC5);box-shadow:0 4px 0 0 var(--wood-dk)}
-.xh-play:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--wood-dk)}
+  padding:20px 34px;border-radius:16px;border:1px solid var(--glass-line);color:var(--ink);
+  background:var(--glass-strong);-webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);box-shadow:var(--glass-edge),0 4px 16px rgba(23,58,90,.18)}
+.xh-play:active{transform:translateY(1px)}
 .xh-play span{font-size:14px}
 
 .xh-hint{min-height:30px;margin:6px 0 2px;opacity:0;transition:opacity .18s}
 .xh-hint.show{opacity:1}
 .xh-hint b{font-family:var(--serif);font-size:22px;font-weight:900}
-.xh-hint .xh-py,.xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
+body.xh-py-on .xh-hint .xh-py,.xh-hint .xh-py.xh-always,
+body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
 
 .xh-opts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
 .xh-opt{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  touch-action:manipulation;padding:15px 10px;border-radius:12px;border:3px solid var(--wood);
-  background:linear-gradient(180deg,#fff,#F6EEDE);font-family:var(--sans);min-height:72px;
-  box-shadow:0 4px 0 0 rgba(92,58,30,.45);transition:transform .1s}
+  touch-action:manipulation;padding:15px 10px;border-radius:14px;
+  border:1px solid rgba(150,185,212,.45);color:var(--ink);
+  background:linear-gradient(180deg,#fff,#F2F7FC);font-family:var(--sans);min-height:72px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 3px 12px rgba(23,58,90,.14);
+  transition:transform .1s}
 .xh-opt:hover:not(:disabled){transform:translateY(-2px)}
 .xh-word{font-family:var(--serif);font-weight:900;font-size:clamp(22px,3.4vw,30px);line-height:1.2}
 .xh-opt.right{border-color:#3F8F5A;background:#E9F7EE}
@@ -146,18 +284,82 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 
 /* 听音识图: options are pictures */
 .xh-pics{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
-.xh-pic{cursor:pointer;touch-action:manipulation;padding:10px;border-radius:12px;
-  border:3px solid var(--wood);background:linear-gradient(180deg,#fff,#F6EEDE);
-  box-shadow:0 4px 0 0 rgba(92,58,30,.45)}
+.xh-pic{cursor:pointer;touch-action:manipulation;padding:10px;border-radius:14px;
+  border:1px solid rgba(150,185,212,.45);background:linear-gradient(180deg,#fff,#F2F7FC);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 3px 12px rgba(23,58,90,.14)}
 .xh-pic img{display:block;margin:0 auto;height:clamp(74px,14vh,120px);width:auto;image-rendering:pixelated}
 .xh-pic.right{border-color:#3F8F5A;background:#E9F7EE}
 .xh-pic.wrong{border-color:#C4553F;background:#FBEDEA;opacity:.7}
+
+/* ---------- 码头风云榜 ---------- */
+.xh-lb-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.xh-lb-tabs.sm{margin-top:-2px}
+.xh-lb-tab,.xh-lb-scope{cursor:pointer;touch-action:manipulation;font-family:var(--sans);
+  font-size:14px;font-weight:700;padding:9px 16px;border-radius:999px;
+  border:1px solid var(--glass-line);background:var(--glass);color:#3A5A70;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
+.xh-lb-scope{font-size:13px;padding:7px 14px}
+.xh-lb-tab.on,.xh-lb-scope.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.5);color:#3A2A08}
+.xh-lb-me{font-size:14px;font-weight:700;color:var(--sea2);margin:4px 0 10px}
+.xh-lb-me b{font-family:var(--serif);font-size:22px;color:var(--gold-deep);margin:0 3px}
+.xh-lb-list{display:flex;flex-direction:column;gap:6px}
+.xh-lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;
+  background:rgba(255,255,255,.5);border:1px solid rgba(150,185,212,.35)}
+.xh-lb-row.me{background:linear-gradient(180deg,rgba(255,244,220,.9),rgba(255,236,196,.85));
+  border-color:var(--gold)}
+.xh-lb-rank{flex:none;width:26px;font-family:var(--serif);font-weight:900;color:var(--gold-deep)}
+.xh-lb-nick{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xh-lb-v{flex:none;font-family:var(--serif);font-weight:900;font-size:18px;color:var(--sea2)}
+.xh-lb-msg{padding:14px 4px;font-size:14px;font-weight:700;color:var(--ink-soft)}
+.xh-lb-note{margin-top:12px;font-size:12px;color:var(--ink-soft)}
+/* the boards tile has no cover art, so it uses an icon slot instead */
+.xh-tile.slim .xh-tile-ic{flex:none;display:flex;align-items:center;justify-content:center;
+  width:70px;font-size:28px;background:rgba(31,74,112,.10)}
+
+/* ---------- 词海垂钓 (addendum §5) ----------
+   ⚠️ This water panel is deliberately a DARK surface, not a glass card:
+   dock_ripple / dock_splash are white line art and are invisible on anything
+   light. Scenery may be diegetic; the input below it stays platform chrome. */
+.xh-sea{position:relative;height:clamp(190px,32vh,280px);margin:2px 0 4px;border-radius:14px;
+  overflow:hidden;background:
+    linear-gradient(180deg,#9FD3E8 0%,#5FA9CC 26%,#2E6391 58%,#173A5A 100%)}
+/* surface line: the catch breaks it on the way up */
+.xh-sea::after{content:"";position:absolute;left:0;right:0;top:26%;height:3px;
+  background:rgba(255,255,255,.5);box-shadow:0 3px 10px rgba(255,255,255,.25)}
+/* explicit aspect-ratios (from data/dock_manifest.csv) so these reserve their
+   box before decode — with width:auto alone a not-yet-decoded sprite lays out at
+   zero width and never reflows in some engines */
+.xh-rod{position:absolute;left:8px;top:6px;height:44%;aspect-ratio:211/256;image-rendering:pixelated;
+  opacity:.95;pointer-events:none}
+.xh-creel{position:absolute;right:10px;bottom:8px;height:31%;aspect-ratio:256/208;image-rendering:pixelated;
+  filter:drop-shadow(0 3px 6px rgba(6,26,48,.5));pointer-events:none}
+.xh-catch{position:absolute;left:50%;top:34%;transform:translate(-50%,0);border:0;background:none;
+  padding:4px;cursor:pointer;touch-action:manipulation;
+  animation:xhRise .9s cubic-bezier(.22,1,.36,1);
+  transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .5s}
+.xh-catch img{display:block;height:clamp(84px,15vh,140px);width:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 6px 12px rgba(6,26,48,.45))}
+@keyframes xhRise{from{transform:translate(-50%,120%);opacity:.15}to{transform:translate(-50%,0);opacity:1}}
+/* miss: it slips under and comes back. Nothing is lost — that is the tier's rule. */
+.xh-catch.dive{transform:translate(-50%,130%);opacity:.2}
+/* catch: it arcs into the creel */
+.xh-catch.land{transform:translate(calc(-50% + 34%),64%) scale(.42);opacity:0}
+.xh-fx{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);width:min(62%,240px);
+  image-rendering:pixelated;opacity:0;pointer-events:none;transition:opacity .18s}
+.xh-fx.show{opacity:.95}
+.xh-fx.splash{top:26%}
+.xh-fx.ripple{top:52%;width:min(48%,190px)}
+@media (prefers-reduced-motion:reduce){
+  .xh-catch{animation:none;transition:none}
+}
 
 /* 拼音打字 */
 .xh-typerow{display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap}
 .xh-input{flex:1 1 240px;max-width:360px;font-family:var(--sans);font-size:22px;font-weight:700;
   text-align:center;letter-spacing:.06em;padding:12px 14px;border-radius:10px;
-  border:3px solid var(--wood);background:#fff;color:var(--ink)}
+  border:1px solid rgba(150,185,212,.5);background:rgba(255,255,255,.9);color:var(--ink);
+  box-shadow:inset 0 1px 3px rgba(23,58,90,.1)}
 .xh-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,67,.5)}
 .xh-input.wrong{animation:xhShake .35s}
 @keyframes xhShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
@@ -175,7 +377,7 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-lend.bad{fill:#C4553F}
 .xh-col{display:flex;flex-direction:column;gap:10px}
 .xh-mitem{position:relative;z-index:1;cursor:pointer;touch-action:manipulation;padding:8px;border-radius:10px;
-  border:3px solid var(--wood);background:linear-gradient(180deg,#fff,#F6EEDE);
+  border:1px solid rgba(150,185,212,.45);background:linear-gradient(180deg,#fff,#F2F7FC);
   display:flex;align-items:center;justify-content:center;min-height:66px}
 .xh-mpic img{height:52px;width:auto;image-rendering:pixelated;display:block}
 /* the row is a centring flexbox, so the 拼音 span would sit jammed against the
@@ -198,7 +400,7 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-sizes{display:flex;gap:10px;flex-wrap:wrap}
 .xh-size{flex:1 1 90px;display:flex;flex-direction:column;align-items:center;gap:1px;
   cursor:pointer;touch-action:manipulation;padding:9px 12px;border-radius:12px;
-  border:3px solid var(--wood);background:linear-gradient(180deg,#fff,#F6EEDE);color:var(--ink)}
+  border:1px solid rgba(150,185,212,.45);background:linear-gradient(180deg,#fff,#F2F7FC);color:var(--ink)}
 .xh-size b{font-family:var(--serif);font-size:22px;line-height:1.1}
 .xh-size span{font-size:11.5px;font-weight:700;color:var(--ink-soft)}
 .xh-size.on{background:linear-gradient(180deg,#FFE9A8,#F5C443);border-color:#A9752A}
@@ -209,8 +411,8 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-sprite.big img{height:clamp(160px,32vh,280px)}
 .xh-card-word{margin:14px 0 4px}
 .xh-card-word b{display:block;font-family:var(--serif);font-size:clamp(30px,5vw,44px);font-weight:900;color:var(--ink)}
-.xh-card-word .xh-py{display:block;font-size:19px;margin-top:2px}
-.xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
+body.xh-py-on .xh-card-word .xh-py{display:block;font-size:19px;margin-top:2px}
+body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
 .xh-say{padding:9px 20px;font-size:14.5px;margin-top:6px}
 .xh-cardnav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 
@@ -238,10 +440,45 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
   background:rgba(18,33,63,.94);color:#fff;font-size:14px;font-weight:700;
   padding:12px 18px;border-radius:999px;box-shadow:0 8px 22px rgba(6,26,48,.4);max-width:88vw}
 
+
+/* ================= 航海图鉴 (addendum §2) =================
+   The dock's collection surface. Earned, never bought — which is exactly what
+   the retired campsite scenery lacked. A word not yet met shows as a dark
+   SILHOUETTE of its own sprite rather than an empty slot, so the learner can
+   see the shape of what is still out there. */
+.xh-log-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.xh-log-sail{font-family:var(--serif);font-weight:900;font-size:15px;color:var(--sea2);
+  background:rgba(255,255,255,.7);border:2px solid #C6B291;border-radius:999px;padding:6px 14px}
+.xh-log-sail b{font-size:21px;color:#A9752A;margin-right:2px}
+.xh-log-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.xh-log-page{cursor:pointer;touch-action:manipulation;font-family:var(--sans);font-size:14px;
+  font-weight:700;padding:9px 15px;border-radius:999px;border:1px solid var(--glass-line);
+  background:var(--glass);color:#3A5A70;box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
+.xh-log-page.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.5);color:#3A2A08}
+.xh-log-stamp{display:inline-block;margin-left:8px;font-family:var(--serif);font-weight:900;
+  font-size:13px;color:#B33A2B;border:2px solid #B33A2B;border-radius:8px;padding:3px 9px;
+  transform:rotate(-6deg);background:rgba(255,255,255,.6)}
+.xh-log-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
+.xh-log-cell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px 12px;
+  border-radius:14px;border:1px solid rgba(150,185,212,.4);background:rgba(255,255,255,.55);
+  cursor:pointer;touch-action:manipulation;font-family:var(--sans);color:var(--ink);text-align:center}
+.xh-log-cell img{width:74px;height:74px;object-fit:contain;image-rendering:pixelated}
+.xh-log-cell b{font-family:var(--serif);font-size:16px;font-weight:900}
+.xh-log-cell .xh-py,.xh-log-cell .xh-en{font-size:11.5px;line-height:1.35}
+.xh-log-cell.got{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,244,220,.75))}
+/* section head inside a chapter (only drawn when a chapter has more than one) */
+.xh-log-sec{font-family:var(--serif);font-weight:900;font-size:14.5px;color:var(--sea2);
+  margin:14px 0 8px;padding-left:10px;border-left:4px solid rgba(138,90,50,.45)}
+/* silhouette: the sprite's own alpha, filled black. Reads as a gap in the
+   collection while still showing the shape. */
+.xh-log-cell.miss img{filter:brightness(0) opacity(.42)}
+.xh-log-cell.miss b{color:#8A98A6;letter-spacing:.24em}
+.xh-log-cell.miss{cursor:default}
+
 @media (max-width:560px){
   .xh-opts{grid-template-columns:1fr}
   .xh-berth-title{font-size:20px}
-  body::before{width:70vw;opacity:.8}
 }
 @media (prefers-reduced-motion:reduce){
   .xh-sprite.pop img,.xh-input.wrong,.xh-mitem.shake{animation:none}
@@ -249,4 +486,109 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 }
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
   .xh-top{background:rgba(255,255,255,.97)}
+  .pop-card{background:rgba(255,255,255,.97)}
+  .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
+  .prof-prog div{background:rgba(255,255,255,.92)}
+}
+
+
+/* ================= 我的档案 · 我要反馈 · 换头像/换昵称 =================
+   ⚠️ COPIED from app.css, not shared. This page never links app.css (see the
+   header of this file and of xh.js), but it DOES load profile.js + nickname.js
+   so a student is the same person at the dock as on the mountain — identity is
+   the one thing that crosses, progress is not. These are the rules those two
+   files' markup needs, lifted verbatim.
+   If a panel ever renders unstyled here, the rule for its class is missing from
+   this block — copy it across rather than linking app.css. */
+.nav-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.nav-btn{flex:1 1 116px;border:1px solid var(--glass-line);border-radius:13px;padding:13px;font-size:15px; background:rgba(255,255,255,.62);color:#3A5A70; -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px); box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12);touch-action:manipulation}
+.nav-btn.primary{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.55);color:#3A2A08;font-weight:700; box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
+.nav-btn:disabled{opacity:.5;cursor:default}
+.fb-ctx{margin:8px 0 2px;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.6; background:rgba(255,247,228,.85);border:1px solid rgba(227,166,60,.5);color:#6B4A05}
+.fb-ctx b{font-weight:800}
+.fb-ta{min-height:110px}
+.pop-overlay{position:fixed;inset:0;z-index:60;background:rgba(23,45,66,.42); -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px); display:flex;align-items:center;justify-content:center;padding:18px}
+.pop-card{background:linear-gradient(150deg,rgba(255,255,255,.95),rgba(255,255,255,.90) 46%,rgba(232,243,251,.93)); -webkit-backdrop-filter:saturate(170%) blur(26px);backdrop-filter:saturate(170%) blur(26px); border:1px solid var(--glass-line);border-radius:20px;max-width:520px;width:100%;max-height:86vh; overflow:auto;padding:22px 24px; box-shadow:0 18px 50px rgba(12,30,48,.34),var(--glass-edge)}
+.pop-title{font-family:var(--serif);font-weight:900;font-size:20px;color:var(--ink);margin-bottom:10px}
+.pop-body{font-size:14.5px;line-height:1.8;color:#41576A}
+.pop-note{font-size:12.5px;color:var(--ink-soft)}
+.pop-label{font-size:12.5px;font-weight:700;color:#3A5A70;margin:10px 0 6px;letter-spacing:.06em}
+.code-ta{width:100%;box-sizing:border-box;height:74px;border:1px solid var(--glass-line);border-radius:11px; padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink); background:rgba(255,255,255,.5);box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
+.code-link{display:inline-flex;align-items:center;gap:4px; background:#FDF6E4;border:2px solid var(--gold,#D9A72B);border-radius:8px; color:#5C4009;font-size:15px;font-weight:700;letter-spacing:.02em; text-decoration:none;cursor:pointer;padding:6px 12px;margin-top:4px; box-shadow:0 2px 0 0 #B8821A}
+.code-link:active{transform:translateY(1px);box-shadow:none}
+.np-roles{display:flex;gap:8px;margin-bottom:2px}
+.np-role{flex:1;border:1.5px solid #B9CEDD;border-radius:12px;padding:10px 4px;font-size:14px;font-weight:700; color:var(--ink-soft);background:#fff;cursor:pointer}
+.np-role.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
+.np-select{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px; padding:0 11px;font-size:15px;color:var(--ink);background:rgba(255,255,255,.55); box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
+.np-search{width:100%;box-sizing:border-box;height:42px;margin:8px 0;border:1px solid var(--glass-line); border-radius:11px;padding:0 12px;font-size:15px;color:var(--ink);background:rgba(255,255,255,.72); box-shadow:inset 0 1px 3px rgba(23,58,90,.08);-webkit-appearance:none}
+.np-name-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:8px 0 14px}
+.np-name{font-size:19px;font-weight:700;color:var(--ink)}
+.np-roll{border:1px solid rgba(183,121,31,.5);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700; color:#3A2A08;background:linear-gradient(180deg,#EEBC5E,var(--gold));cursor:pointer;touch-action:manipulation; box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 2px 8px rgba(227,166,60,.32)}
+.np-roll:active{transform:translateY(1px)}
+.np-manual{text-align:center;margin-top:10px}
+.np-manual button{border:0;background:none;padding:6px 10px;cursor:pointer;touch-action:manipulation; font-family:var(--sans);font-size:13px;font-weight:600;color:#4E6273;text-decoration:underline}
+.np-manual button:hover{color:var(--ink)}
+.pop-card.prof-wide{max-width:880px;padding:20px 22px}
+.prof-grid{display:block}
+.prof-col{display:block}
+.prof-sec{margin-top:12px}
+.prof-col>.prof-sec:first-child{margin-top:0}
+.prof-sec:first-child{margin-top:2px}
+.prof-nick{font-family:var(--serif);font-weight:900;font-size:23px;color:var(--ink)}
+.prof-head{display:flex;align-items:center;gap:14px}
+.prof-x{position:sticky;top:0;float:right;z-index:2;margin:-2px -4px 0 0; width:34px;height:34px;border-radius:50%;border:1px solid var(--glass-line); background:rgba(255,255,255,.72);color:#3A5A70;font-size:15px;line-height:1;cursor:pointer; -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur); box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.18);touch-action:manipulation}
+.prof-x:hover{background:rgba(255,255,255,.9);color:var(--bad,#B44A3C)}
+.prof-x:active{transform:translateY(1px)}
+.prof-head-txt{min-width:0;flex:1}
+.prof-head-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.5;word-break:break-word}
+.prof-head-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
+.prof-avatar.lg{width:66px;height:66px}
+.prof-more>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#3A5A70; letter-spacing:.05em;padding:8px 0;list-style:none}
+.prof-more>summary::-webkit-details-marker{display:none}
+.prof-more>summary::after{content:" ›";display:inline-block;transition:transform .15s}
+.prof-more[open]>summary::after{transform:rotate(90deg)}
+.prof-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prof-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
+.prof-chip{border:1px solid var(--glass-line);border-radius:999px;padding:7px 15px;font-size:13.5px; background:rgba(255,255,255,.6);color:#3A5A70;cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.1)}
+.prof-chip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.5); color:#3A2A08;font-weight:700;box-shadow:0 3px 12px rgba(227,166,60,.4)}
+.prof-input{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px; padding:0 12px;font-size:15px;font-family:inherit;color:var(--ink);background:rgba(255,255,255,.55); box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
+.prof-prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
+.prof-prog div{background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:13px; padding:9px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.prof-prog b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold-deep);font-weight:800;line-height:1.25}
+.prof-prog span{font-size:11.5px;color:var(--ink-soft)}
+.prof-uid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all; background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:10px;padding:9px 12px;color:var(--ink)}
+.prof-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold); background:#F1F6FB;cursor:pointer;flex:none;padding:0;overflow:hidden}
+.prof-avatar img{width:100%;height:100%;object-fit:contain;display:block}
+.avatar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:14px;margin-top:10px}
+.avatar-cell{display:flex;flex-direction:column;align-items:center;gap:5px}
+.avatar-cell-label{font-size:10.5px;text-align:center;color:var(--ink-soft);line-height:1.3}
+.avatar-thumb{width:64px;height:64px;border-radius:50%;border:3px solid transparent;padding:0; background:#F1F6FB;cursor:pointer;overflow:hidden;box-shadow:0 2px 8px rgba(23,58,90,.15)}
+.avatar-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.avatar-thumb.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,166,60,.35)}
+/* the save / restore / feedback status line — hidden until it has something to say */
+.feedback{margin-top:14px;font-size:16px;border-radius:14px;padding:13px 17px;display:none;line-height:1.7}
+.feedback.show{display:block}
+.feedback.ok{background:#E8F3EC;color:#25513A;border:1px solid #BFDCCB}
+.feedback.bad{background:#F9ECE9;color:#7A3228;border:1px solid #E3C0B8}
+.pop-card.av-info{max-width:400px;text-align:center}
+.av-info-img{width:180px;height:180px;margin:2px auto 0;border-radius:50%;overflow:hidden; background:radial-gradient(circle at 50% 42%,#FFFFFF 0%,#EAF2F9 72%,#DCE8F3 100%); border:3px solid var(--gold);box-shadow:0 6px 20px rgba(23,58,90,.2)}
+.av-info-img img{width:100%;height:100%;object-fit:contain;display:block}
+.av-info-name{font-family:var(--serif);font-size:21px;font-weight:700;color:var(--sea3);margin-top:12px}
+.av-info-bio{font-size:13.5px;line-height:1.85;color:var(--ink);margin-top:8px;text-align:left}
+@media (max-width:420px){
+  .av-info-img{width:136px;height:136px}
+  .av-info-name{font-size:19px}
+  .av-info-bio{font-size:13px;line-height:1.75}
+}
+.chip-wrap{max-height:38vh;overflow:auto;margin-top:10px;-webkit-overflow-scrolling:touch}
+.wchip{display:inline-block;margin:3px;padding:5px 11px;border-radius:999px;font-size:13px; cursor:pointer;user-select:none}
+.wchip.got{background:linear-gradient(180deg,#F5C443,#D99A1B);color:#4A3305;font-weight:600; border:1.5px solid #B8821A}
+.wchip.not{background:transparent;border:1.5px dashed #A8B4C0;color:#6B7885}
+
+/* two REAL columns above 900px, copied with app.css's own reasoning: as four
+   grid cells the row heights coupled and half the panel sat empty */
+@media(min-width:900px){
+  .prof-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);gap:20px;align-items:start}
+  .prof-col>.prof-sec{margin-top:14px}
+  .prof-col>.prof-sec:first-child{margin-top:0}
 }

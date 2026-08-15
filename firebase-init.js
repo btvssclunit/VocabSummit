@@ -137,6 +137,49 @@
       });
     },
 
+    /* ---------- dockScores/{uid} : 启航码头 boards ----------
+       A SEPARATE collection from scores/{uid} by design: 航程 / 航海值 must never
+       merge with 海拔 / 历练值, and separate documents make an accidental join
+       impossible rather than merely discouraged. Written only for
+       category === "student" (xh.js gates it), and holds nothing but the
+       nickname, school and the two dock figures.
+       entry = { nickname, school, avatarId, sailed, pts } */
+    saveDock: function (entry) {
+      whenReady(function () {
+        if (!_uid) return;
+        db.collection("dockScores").doc(_uid).set({
+          nickname: entry.nickname || "",
+          school: entry.school || "",
+          avatarId: entry.avatarId || "",
+          sailed: entry.sailed || 0,
+          pts: entry.pts || 0,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).catch(function (e) { console.error("saveDock failed:", e); });
+      });
+    },
+
+    /* top rows by "sailed" or "pts"; cb(array|null), each {uid,nickname,school,avatarId,sailed,pts}.
+       ⚠️ 校内 filtering is done CLIENT-SIDE on this set rather than with a
+       where(school)+orderBy query, which would need a composite index the owner
+       would have to create by hand. At dock scale (one pre-G1 tier) fetching the
+       top 60 and filtering is cheaper than that operational step. If the dock
+       ever grows past a few hundred students, the 校内 board will start missing
+       people and THEN it needs the composite index. */
+    topDock: function (field, cb) {
+      whenReady(function () {
+        var f = (field === "pts") ? "pts" : "sailed";
+        db.collection("dockScores").orderBy(f, "desc").limit(60).get().then(function (qs) {
+          var rows = [];
+          qs.forEach(function (doc) {
+            var d = doc.data() || {};
+            rows.push({ uid: doc.id, nickname: d.nickname || "", school: d.school || "",
+                        avatarId: d.avatarId || "", sailed: d.sailed || 0, pts: d.pts || 0 });
+          });
+          cb(rows);
+        }).catch(function (e) { console.error("topDock failed:", e); cb(null); });
+      });
+    },
+
     /* ---------- scores/{uid} : the leaderboard model (LEADERBOARD_DESIGN §6.2) ----------
        One doc per anonymous uid; each stream is a map field. Holds ONLY
        leaderboard-relevant figures (no per-word progress, no PII beyond the

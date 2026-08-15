@@ -494,6 +494,12 @@
     if (already && already.nickname) reveal(already);
   }
 
+  /* The picker is exported so pages other than the landing can offer 换昵称
+     without a second copy of it. 启航码头 (XH_index.html) is the first such page.
+     initLandingGate() below returns immediately when the landing markup is
+     absent, so loading this file elsewhere costs nothing. */
+  window.WSNickname = { picker: renderNicknamePicker };
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initLandingGate);
   } else {

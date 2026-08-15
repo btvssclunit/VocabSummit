@@ -32,6 +32,16 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // 启航码头 (dock) boards. A SEPARATE collection from scores/{uid} on purpose:
+    // 航程 / 航海值 must never merge with 海拔 / 历练值, and keeping them in
+    // different documents makes an accidental join impossible rather than merely
+    // discouraged. Same shape of rule: any signed-in user reads, you write only
+    // your own row.
+    match /dockScores/{uid} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // restore log: students append their own rows, never read/edit/delete them.
     match /restoreLog/{logId} {
       allow create: if request.auth != null
