@@ -3383,6 +3383,9 @@
   var SPRINT_RANKED_SECS = 90;
   var SPRINT_WRONG_PENALTY_MS = 3000;
   var RAIN_LIVES = 5;   // G-2: was 3 (students asked for more)
+  /* how fast the runner chases the lowest word, px/s. Fast enough to look eager,
+     slow enough that it visibly lags a drop on the far side — tuning dial. */
+  var RAIN_RUN_SPD = 300;
   /* ---------- 学习挑战 config (§2.1) ----------
      One entry for the three question-answering modes. Everything that used to be
      laid flat on the home page (题数) plus what used to be buried in the study
@@ -3511,6 +3514,7 @@
          moves it into the right column. Absent entirely in solo play. */
       (roomCode ? '<div class="rain-code" id="rCode">房间号 <b>' + esc(roomCode) + '</b></div>' : "") +
       '<div class="rain-area" id="rArea"><div class="rain-fx"></div><div class="rain-sea"></div>' +
+      '<div class="rain-runner" id="rRunner"></div>' +
       '<div class="rain-barrel" id="rBarrel"><div class="rain-water" id="rWater"></div>' +
       '<div class="rain-drops" id="rDrops">✨ 0</div></div></div>' +
       '<div class="rain-right">' +
@@ -3600,6 +3604,52 @@
       live.push({ el: el, w: w, x: x, y: -el.offsetHeight, sway: 14 + Math.random() * 26, phase: Math.random() * 6.28 });
       el.style.transform = "translate(" + x + "px,-40px)";
     }
+    /* ---------- 接雨的角色 (owner 2026-08-16) ----------
+       The student's avatar runs along the sea line chasing whatever is closest to
+       landing, and celebrates on every catch. Same 6-frame sheets 攀山竞速 and the
+       dock's angler use (art/sprite/avatar) — ⚠️ never art/avatar/*.png (square,
+       faces LEFT) or art/camp/pet_*.png.
+       Drawn as a DOM background-position sprite rather than on a canvas, because
+       词雨 is a DOM field; 600% wide sheet, one frame per 20% step.
+       ⚠️ Cell width is per creature, so aspect-ratio is written once the sheet
+       decodes — never transcribed. No avatar, or a 404, simply means no runner. */
+    var runEl = document.getElementById("rRunner");
+    var runSheet = avatarSheet();
+    var runX = null, runCel = 0;
+    if (runEl && runSheet) {
+      runEl.style.backgroundImage = "url('" + runSheet.src + "')";
+      var runFit = function () {
+        if (runSheet.naturalWidth) {
+          runEl.style.aspectRatio = (runSheet.naturalWidth / 6) + " / " + runSheet.naturalHeight;
+        }
+      };
+      if (runSheet.complete) runFit(); else runSheet.addEventListener("load", runFit);
+    } else if (runEl) {
+      runEl.style.display = "none";
+    }
+    function stepRunner(dt, t) {
+      if (!runEl || !runSheet || !runSheet.naturalWidth) return;
+      var W = area.clientWidth, rw = runEl.offsetWidth || 60;
+      if (runX == null) runX = W / 2;
+      /* chase the LOWEST word — the one about to be lost. That reads as urgency
+         and, unlike chasing the newest, keeps the runner where the danger is. */
+      var target = null, lowest = -1e9;
+      for (var i = 0; i < live.length; i++) {
+        if (live[i].y > lowest) { lowest = live[i].y; target = live[i].x + live[i].el.offsetWidth / 2; }
+      }
+      var dest = target == null ? W / 2 : Math.max(rw / 2, Math.min(W - rw / 2, target));
+      var dx = dest - runX;
+      var mv = (dx < 0 ? -1 : 1) * Math.min(Math.abs(dx), RAIN_RUN_SPD * dt);
+      runX += mv;
+      var moving = Math.abs(dx) > 3;
+      runCel = Math.max(0, runCel - dt);
+      var f = runCel > 0 ? 5 : (moving ? 1 + (Math.floor(t / 140) % 2) : 0);
+      runEl.style.backgroundPositionX = (f * 20) + "%";
+      /* the sheets face RIGHT, so running left is a mirror */
+      runEl.style.transform = "translateX(" + Math.round(runX - rw / 2) + "px)" +
+        (moving && mv < 0 ? " scaleX(-1)" : "");
+    }
+
     function step(t) {
       if (!area.isConnected) { cancelAnimationFrame(raf); return; }
       if (!running) { lastT = t; raf = requestAnimationFrame(step); return; }
@@ -3630,6 +3680,7 @@
           if (lives <= 0) return gameOver();
         }
       }
+      stepRunner(dt, t);
       raf = requestAnimationFrame(step);
     }
     function fire() {
@@ -3661,6 +3712,7 @@
         toast("\ud83c\udf0a 第 " + wave + " 波来了！");
       }
       sfxOk();
+      runCel = 0.75;              // celebrate frame + hop on every catch
       collectToBarrel(o);
       live.splice(hit, 1);
       document.getElementById("rDrops").textContent = "✨ " + dew;
