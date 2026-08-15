@@ -220,7 +220,10 @@ Phase: login-free public test build.
   **Every hint starts unbought.** The delivered code carried a G2 branch handing out 首字声母 free,
   left over from when 汉兜 was a G2/G3/HCL mode; owner confirmed 2026-08-15 that **汉兜 stays
   G3/HCL-only**, so that branch is deleted rather than left as unreachable code.
-- 组词挑战 (G2): character-assembly game (slots + chips).
+- 组词挑战 (**all four streams** since 2026-08-15): character-assembly game (slots + chips).
+  Target words are **2–8 characters**; 9+ entries (whole proverbs) and anything containing
+  punctuation are excluded — see the 2026-08-15 expansion section for why. Board size scales with
+  the target length on top of the student's 字块数量 slider (max 24).
 - 攀山竞速: vertically-scrolling tiling rock wall (climb-wall-tile.png) with a zigzag climber
   (redesigned 2026-08-10; was a waypoint path). Answering correctly scrolls the wall and the
   climber zigzags up one hold column per step. Timer 60/90/120s (remembered per device); combo
@@ -837,7 +840,8 @@ a still-enrolled student. Owner has not decided; do not implement cleanup withou
   now [0.546,0.382] [0.489,0.319] [0.541,0.255] [0.516,0.191] [0.519,0.128] [0.555,0.064]. Verified by
   rendering the full polyline over the image.
 - **1.5 营地图标:** .mtn2-pin.t-base 33px → 46px + an invisible ::before inset:-5px hit ring (~56px).
-- **3.1 模式配置:** 词语汉兜 is now G3/HCL only, 组词挑战 is now G1/G2 (G1 has 370 eligible 2–4 char
+- **3.1 模式配置:** 词语汉兜 is now G3/HCL only, 组词挑战 is now G1/G2 (⚠️ **组词挑战 was reopened to
+  all four streams on 2026-08-15** — see that section; 汉兜 stays G3/HCL) (G1 has 370 eligible 2–4 char
   words, well over the 10 minimum). CAMP_MODES `only`/`not` replaced with a single `only: [...]`
   whitelist and the filter updated to match. G1 defaults asmPrompt to "py" (拼音) rather than 释义.
 - 1.6/1.7 (sprint 音效按钮误触 / 意外缩放) were NOT fixed as described — they are the same root cause the
@@ -3406,3 +3410,60 @@ Owner 给的 `汉兜重设计_2026-08-15_v2/` 里**已经带了实现**（`app.j
 删掉 G2 分支后复测：G3 三个 chip 全是待购、12 行、`0 / 12 次`、卡片 title 已是十二次机会；
 G2 闯关页仍然只有 词雨 / 攀山竞速 / 组词挑战，没有汉兜。
 ⚠️ 未在真设备上验：12×4 在真手机上用手指打字时的手感（交付文档自己也把这条列为未决）。
+
+## 组词挑战扩展至 G3 / HCL · 2026-08-15 (DESIGN_迭代规划_组词挑战扩展G3HCL_20260815.md)
+
+设计文档的 §0 提醒得对：它是照着 `main` 上**没有滑杆**的旧版写的，而仓库里早就是
+2026-08-14 加了「字块数量」滑杆的版本。所以下面按**目标行为**实作，不是照它的 diff 改。
+
+### §3 的「重复字丢失」bug —— 复现不了，当前代码是对的
+文档要求先修再扩展。**先测了，测不出来。** `asmChips()` 用的是 `w.w.split("")`（保留重复字），
+干扰字只排除目标里出现过的字，然后 `target.concat(decoys)` —— 重复字天然带着。
+实测：G2 抽到 **小心翼翼**（两个「翼」）与 **孜孜不倦**（两个「孜」），字块池里都是两块，
+两题都能拼完；本轮最后那张 HCL 截图里的 **干一行爱一行** 更是**同时有两个「一」和两个「行」**。
+- ⚠️ **对 owner 截图的解释（推测，但很可能）**：`.asm-chip.used{opacity:.28}` —— 点掉第一个「一」
+  之后那块会淡到 28%，在截图里几乎看不见，于是「池子里只有一个一」。字其实还在，另一块是满不透明的。
+  如果这确实困扰学生，那要改的是**已用字块的视觉**（比如打叉而不是淡出），不是取字逻辑。
+
+### §2.1 词池 2–8 字
+9 字以上（整句谚语）按文档排除：排列空间爆炸（9! = 362,880），逐字点选也不再是「检索记忆」。
+⚠️ **我另外排除了带标点的条目**：放宽到 8 字后混进来「吃一堑，长一智」「刀子嘴,豆腐心」这类半句谚语
+（四个 stream 加起来只有 4 条），逗号会变成一块可点的字块、还会进干扰池，点它什么也学不到。
+同一个道理，只是短一点的引信。
+
+### §2.2 干扰字随字数增长（⚠️ 规则是我定的）
+固定总数会**反向**：16 块时 2 字词有 14 个干扰字，7 字成语只有 9 个 —— 越长越好猜，正是文档要修的。
+文档给了建议表但**不知道滑杆存在**，并明说要我把两者调和。做法：**把滑杆读成「两字词要几块」，
+每多一个字加两块**（一块是那个字本身，一块是多出来的干扰字），封顶 24，下限 `字数+2`（至少两个干扰字，
+否则滑杆 6 撞上 8 字词就会把答案原样摆出来）。滑杆停在 12 时正好复现文档的表
+（2字 12 · 4字 16 · 5字 18 · 6字 20），而特意把滑杆调到 6 的弱读者仍然得到小板面。
+实测（滑杆 9 默认）：2字→9 · 3字→11 · 4字→13 · 6字→17 · 7字→19；滑杆 24 时 7字→24（封顶）。
+
+### §2.3 / §2.4 滑杆上限 24 · 排版
+`ASM_SIZES` 6/9/12/16 → **6/9/12/16/20/24**，下限与步进不动。
+`asmCols()` 重写：原来只在 3–5 列里找**整除**，24 块能找到 4 列，但 22 块会一路退到 **2 列 × 11 行**。
+现在在 3–6 列里挑最接近 √n、且**最后一行不是孤零零一块**的方案（整除有加权）。
+实测：24→5 列（4×5+4）· 19→4 列（4+4+4+4+3）· 17→5 列（5+5+5+2）· 13→5 列，全都没有孤块。
+手机（≤560px）字块 ≥20 时切成**固定 4 列 + 46vh 滚动**（`.asm-chips.many`）：375px 下每块
+**68×56**，远高于 44px 热区底线 —— 字块变多时第一个不能牺牲的就是这个。
+答案格 `.asm-slots` 加了 `flex-wrap`，8 字词在手机上换行而不是溢出。
+滑杆读数显示学生自己的设置；本题实际块数不同时，下面补一行「本题 N 块（M 字词语）」，
+免得标签和屏幕对不上。
+
+### §2.5 开放范围
+`CAMP_MODES` 的 `only: ["g1","g2"]` 去掉，首页卡片的 `STREAM === "g1" || STREAM === "g2"` 闸门去掉，
+四个 stream 都能玩。按文档 §2.5 **没有加按年级的默认值分支** —— 字数分档本身已经隐含年级差异
+（HCL 长词天然多）。
+⚠️ 顺带的后果：**G1 现在也会抽到 5–7 字词**（G1 里只有 6 条）。文档没有为 G1 设上限，
+如果实测发现太难，改 `startAssemble` 的 filter 加一条 stream 判断即可 —— 但那会推翻 §2.5 的
+「不要按年级分支」，请 owner 定。
+
+### 验证
+离屏 WKWebView + 免 firebase 的测试页（见汉兜那一节）。G1/G2/G3/HCL 四个 stream 各跑完整回合：
+G1 10 题全解（含 3 字）· G2 10 题全解（含一题 7 字 → 19 块 4 列）· G3 组词卡已出现、2字→9块、
+4字→13块并显示「本题 13 块」· HCL 把复习范围收到 中一·单元六 后抽到 6 字与 7 字，
+分别 17 块 / 19 块，全部拼得出来。手机 375px：24 块 → 4 列 + 滚动、无横向溢出、6 个答案格不换行。
+`app.js` 解析通过（JavaScriptCore；这台机器没有 node，文档 §4.7 说的 `node --check` 用它代替），
+`app.css` 括号 882/882。Cache-bust `20260815q` → **`20260815r`**。
+⚠️ 未做（文档 §5 明确排除）：9 字以上进造句类模式、成语接龙、Match Up、Maze Chase。
+⚠️ 未在真设备上验：手机上 24 块滚动网格用手指连点的手感。

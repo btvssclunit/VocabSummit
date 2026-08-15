@@ -1485,7 +1485,7 @@
       html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("词语游乐场") + enl("词语游乐场") + '</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
-        ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
+        camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") +
         ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 十二次机会") : "") + '</div>';
     } else {
       /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
@@ -3877,10 +3877,24 @@
      Show the definition, tap the word's characters in order among
      decoys. Playground game: does not mark mastery.
      ================================================================== */
+  /* §2.1: 2–8 characters. NINE AND OVER IS EXCLUDED ON PURPOSE — those entries
+     are whole proverbs (「路遥知马力，日久见人心」), where the permutation space
+     explodes (9! = 362,880) and tapping character by character stops being
+     retrieval practice and becomes a copying exercise. That content wants a
+     sentence-building mode, not this one. */
+  var ASM_MIN_LEN = 2, ASM_MAX_LEN = 8;
+  /* ⚠️ Also drop anything with internal punctuation. Widening to 8 characters let
+     in a handful of half-proverbs (「吃一堑，长一智」「刀子嘴,豆腐心」— 4 entries
+     across all four streams), and a comma has no business being a tappable tile:
+     it would sit in the decoy pool too, and tapping it teaches nothing. Same
+     reasoning as the 9-character exclusion, just a shorter fuse. */
+  var ASM_PUNCT = /[，,、。．：:；;！!？?（）()“”"'’‘—…·\s]/;
   function startAssemble() {
-    var pool = scopedWords().filter(function (w) { return w.w.length >= 2 && w.w.length <= 4; });
+    var pool = scopedWords().filter(function (w) {
+      return w.w.length >= ASM_MIN_LEN && w.w.length <= ASM_MAX_LEN && !ASM_PUNCT.test(w.w);
+    });
     if (pool.length < 10) {
-      alert("所选范围内适合组词挑战的词语不足（需要至少 10 个 2–4 字词语）。请扩大复习范围。");
+      alert("所选范围内适合组词挑战的词语不足（需要至少 10 个 2–8 字词语）。请扩大复习范围。");
       return;
     }
     var charSet = {};
@@ -3912,15 +3926,38 @@
      differ a lot here — a weak reader drowns in 16 chips, a strong one finds 6
      trivial — so the count is theirs to pick, and it INCLUDES the answer's own
      characters, which is how the doc phrased it. */
-  var ASM_SIZES = [6, 9, 12, 16];
+  var ASM_SIZES = [6, 9, 12, 16, 20, 24];
+  var ASM_MAX_CHIPS = 24;
   function asmChipCount() {
     var n = store.asmChips || 9;
     return ASM_SIZES.indexOf(n) === -1 ? 9 : n;
   }
+  /* §2.2 — the decoy count must RISE with the target length, not stay flat.
+     A fixed total does the opposite of what it looks like: at 16 chips a 2-character
+     word carries 14 decoys and a 7-character idiom only 9, so the longest words
+     came out the easiest, exactly backwards for opening the mode to G3/HCL.
+
+     ⚠️ The rule is MINE. The doc gives a table of suggested totals but predates the
+     字块数量 slider (owner 2026-08-14) and says to reconcile the two. So the slider
+     is read as「how many chips for a TWO-character word」and every extra character
+     adds two: one for itself, one more decoy. At the slider's 12 that reproduces the
+     doc's table almost exactly (2字 12 · 4字 16 · 5字 18 · 6字 20), while a student
+     who deliberately set 6 because 16 overwhelms them still gets a smaller board.
+     Floored at len+2 so there are always at least two decoys — without it a slider
+     of 6 against an 8-character word would lay out the answer and nothing else. */
+  function asmChipsFor(targetLen) {
+    var n = asmChipCount() + (targetLen - 2) * 2;
+    return Math.max(targetLen + 2, Math.min(ASM_MAX_CHIPS, n));
+  }
   function asmChipFmt(n) { return n + " 块"; }
-  function asmSizeSelector() {
+  function asmSizeSelector(w) {
+    var eff = w ? asmChipsFor(w.w.length) : asmChipCount();
+    /* the readout shows the student's own setting; when a long word pushes the
+       board past it, say so rather than letting the label contradict the screen */
+    var note = (w && eff !== asmChipCount())
+      ? '<div class="asm-eff">本题 ' + eff + ' 块（' + w.w.length + ' 字词语）</div>' : "";
     return '<div class="diff-label">字块数量' + pyl("字块数量") + enl("字块数量") + '</div>' +
-      qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt);
+      qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt) + note;
   }
   /* Column count for the chip grid: always a FULL rectangle, never a row with one
      orphan tile (owner 2026-08-14 — 16 chips at 3 columns gave 5 rows plus a
@@ -3930,12 +3967,15 @@
      Capped at 5 so a chip never gets too narrow to tap. */
   function asmCols(n) {
     if (n <= 3) return n || 1;
-    var start = Math.min(5, Math.ceil(Math.sqrt(n)));
-    for (var d = 0; d <= 3; d++) {
-      if (start - d >= 2 && n % (start - d) === 0) return start - d;
-      if (start + d <= 5 && n % (start + d) === 0) return start + d;
+    var best = null;
+    for (var cols = 3; cols <= 6; cols++) {
+      var rows = Math.ceil(n / cols), last = n - (rows - 1) * cols;
+      if (rows < 2) continue;
+      if (last === 1) continue;                 // never a single orphan tile
+      var score = Math.abs(cols - Math.sqrt(n)) - (n % cols === 0 ? 0.75 : 0);
+      if (!best || score < best.score) best = { cols: cols, score: score };
     }
-    return start;
+    return best ? best.cols : Math.min(5, Math.ceil(Math.sqrt(n)));
   }
   /* Draw the decoy pool ONCE per question and slice it, exactly as clozeOpts does
      for 填空挑战 — otherwise toggling 出题方式 or 字块数量 redraws the decoys while
@@ -3973,7 +4013,7 @@
     setTopbar("home", "");
     var w = state.seq[state.i];
     var target = w.w.split("");
-    var chips = asmChips(state, w, asmChipCount());
+    var chips = asmChips(state, w, asmChipsFor(w.w.length));
 
     /* prompt mode: def(释义) | en(英文) | cloze(填空) | py(拼音, practice-only).
        Per-word fallback to 释义 when the chosen field is missing. Chinese-only
@@ -4003,14 +4043,15 @@
       '<div class="mode-desc">' + mdLine("按顺序点出词语的字。") + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
-      asmPromptSelector() + asmSizeSelector() + '</div>' +
+      asmPromptSelector() + asmSizeSelector(w) + '</div>' +
       '<div class="stage"><div class="q-card">' +
       qTag(promptTag) +
       '<div class="q-text mcq' + qCls(promptHtml) + '">' + promptHtml + '</div>' +
       '<div class="q-foot">' + ttsBtn + '</div></div>' +
       '<div class="asm-slots" id="asmSlots">' +
       target.map(function () { return '<div class="asm-slot"></div>'; }).join("") + '</div>' +
-      '<div class="asm-chips" id="asmChips" style="--asm-cols:' + asmCols(chips.length) + '">' +
+      '<div class="asm-chips' + (chips.length >= 20 ? " many" : "") +
+        '" id="asmChips" style="--asm-cols:' + asmCols(chips.length) + '">' +
       chips.map(function (c, i) {
         return '<button class="asm-chip" data-c="' + esc(c) + '" data-i="' + i + '">' +
           esc(c) + chipPyHtml(c, pm) + '</button>';
@@ -4820,7 +4861,7 @@
     { mode: "enmcq", label: "🌐 英文翻译" },
     { mode: "rain", label: "🌧️ 词雨灵露" },
     { mode: "sprint", label: "⛰️ 攀山竞速" },
-    { mode: "assemble", label: "🧩 组词挑战", only: ["g1", "g2"] },
+    { mode: "assemble", label: "🧩 组词挑战" },   // all four streams since 2026-08-15
     { mode: "handle", label: "🀄 词语汉兜", only: ["g3", "hcl"] }
   ];
   function launchMode(mode) {
