@@ -727,7 +727,15 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* the way out to the four-step manual picker. Deliberately quiet — a plain
    underlined line under the primary button — because the rolled name is now the
    default path and this is the exception. */
-.np-manual{text-align:center;margin-top:10px}
+/* 换设备找回 (owner 2026-08-16). The link sits beside 我要自己选昵称 rather than
+   above the name: a returning student is the minority case, and putting a code box
+   in front of everyone else would be a barrier on the very screen the dice-first
+   redesign existed to remove. */
+.np-manual{text-align:center;margin-top:10px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.np-restored{background:rgba(62,125,87,.12);border:1px solid rgba(62,125,87,.4);
+  border-radius:10px;padding:8px 11px;color:#2E5F42;margin-bottom:4px}
+.np-code-err{background:rgba(180,74,60,.10);border:1px solid rgba(180,74,60,.4);
+  border-radius:10px;padding:8px 11px;color:#8E3527;margin-top:8px}
 .np-manual button{border:0;background:none;padding:6px 10px;cursor:pointer;touch-action:manipulation;
   font-family:var(--sans);font-size:13px;font-weight:600;color:#4E6273;text-decoration:underline}
 .np-manual button:hover{color:var(--ink)}

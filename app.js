@@ -5498,7 +5498,10 @@
     var _bvss = "百德中学 Bukit View Secondary School";
     var _cs = opts.currentSchool || "";
     var _csKnown = _cs && window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(_cs);
-    var st = { step: "confirm", descCat: null, desc: null, nounCat: null, noun: null,
+    /* set when the student claims a 进度码 on a new device: {code, stream,
+       streamLabel, n, nick}. It OVERRIDES the rolled name — see nickOf(). */
+    var st = { step: "confirm", restored: null, codeErr: "", codeVal: "",
+      descCat: null, desc: null, nounCat: null, noun: null,
       role: opts.currentRole || "student",
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
@@ -5511,6 +5514,13 @@
        the first screen — 换一个 re-rolls, and 我要自己选昵称 at the bottom opens the
        manual flow for anyone who wants it. Nothing is saved until 确认. */
     rollNick();
+    /* the confirmed nickname: a claimed code's owner wins over the dice, because
+       the whole point is to land back on the identity the old progress is under.
+       ⚠️ A restored nickname is ONE string — it does not split into 描述词·名词 —
+       so every site that used to concatenate st.desc/st.noun goes through here. */
+    function nickOf() {
+      return st.restored && st.restored.nick ? st.restored.nick : (st.desc + "·" + st.noun);
+    }
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -5573,8 +5583,16 @@
           '<div class="pop-body">选一个具体的名词：</div>' +
           chipGrid(NOUN_CATS[st.nounCat]) +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
+      } else if (st.step === "restore") {
+        html = '<div class="pop-title">🔄 用进度码找回</div>' +
+          '<div class="pop-note">换了新设备的话，把旧设备「我的档案」里的进度码贴进来，' +
+          '就能用回原来的昵称，进度也会一起恢复。</div>' +
+          '<textarea id="npCode" class="code-ta" placeholder="把进度码贴在这里…">' + esc(st.codeVal || "") + '</textarea>' +
+          (st.codeErr ? '<div class="pop-note np-code-err">' + esc(st.codeErr) + '</div>' : "") +
+          '<div class="nav-row"><button class="nav-btn" id="npCodeBack">‹ 返回</button>' +
+          '<button class="nav-btn primary" id="npCodeGo">找回</button></div>' + closeBtn;
       } else if (st.step === "confirm") {
-        var nickname = st.desc + "·" + st.noun;
+        var nickname = nickOf();
         var role = st.role || "student";
         var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"], ["public", "🌏 公众人士"]];
         var sel = st.schoolSel || _bvss;
@@ -5596,9 +5614,16 @@
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
-        html = '<div class="pop-title">🎉 你的昵称</div>' +
+        html = '<div class="pop-title">' + (st.restored ? "🔄 找回你的昵称" : "🎉 你的昵称") + '</div>' +
           '<div class="np-name-row"><span class="np-name">' + esc(nickname) + '</span>' +
-          '<button class="np-roll" id="npRoll">🎲 换一个</button></div>' +
+          (st.restored
+            ? '<button class="np-roll" id="npDrop">用新昵称</button>'
+            : '<button class="np-roll" id="npRoll">🎲 换一个</button>') + '</div>' +
+          (st.restored
+            ? '<div class="pop-note np-restored">✅ 进度码有效：' + esc(st.restored.streamLabel) +
+              '，已掌握 ' + (st.restored.mastered === null ? "?" : st.restored.mastered) +
+              ' 个词语。进入该科目时会问你要不要恢复。</div>'
+            : "") +
           '<div class="pop-label">你的身份 I am a…</div>' +
           '<div class="np-roles">' + roleBtns.map(function (r) {
             return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
@@ -5606,7 +5631,9 @@
           '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
           detailHtml +
           '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认</button></div>' +
-          '<div class="np-manual"><button id="npManual">我要自己选昵称</button></div>' + closeBtn;
+          '<div class="np-manual"><button id="npManual">我要自己选昵称</button>' +
+          (st.restored ? "" : '<button id="npRestore">换了设备？用进度码找回</button>') +
+          '</div>' + closeBtn;
       }
       card.innerHTML = html;
 
@@ -5633,11 +5660,37 @@
           el.onclick = function () { st.noun = el.getAttribute("data-v"); st.step = "confirm"; renderStep(); };
         });
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
+      } else if (st.step === "restore") {
+        document.getElementById("npCodeBack").onclick = function () {
+          st.codeErr = ""; st.step = "confirm"; renderStep();
+        };
+        document.getElementById("npCodeGo").onclick = function () {
+          var v = (document.getElementById("npCode") || {}).value || "";
+          st.codeVal = v;
+          var peek = window.WSProfile && window.WSProfile.peekCode
+            ? window.WSProfile.peekCode(v) : { err: "暂时无法核对进度码，请稍后再试。" };
+          if (peek.err) { st.codeErr = peek.err; renderStep(); return; }
+          /* VS1 predates nickname binding, so it can prove the subject but not who
+             it belongs to — there is no name to adopt, which is the whole feature */
+          if (!peek.nick) {
+            st.codeErr = "这是旧版进度码，里面没有昵称。请先取个昵称，进入科目后再用它恢复进度。";
+            renderStep(); return;
+          }
+          st.restored = peek;
+          st.codeErr = ""; st.step = "confirm"; renderStep();
+        };
       } else if (st.step === "confirm") {
         Array.prototype.forEach.call(card.querySelectorAll(".np-role"), function (b) {
           b.onclick = function () { st.role = b.getAttribute("data-r"); renderStep(); };
         });
-        document.getElementById("npRoll").onclick = function () { rollNick(); renderStep(); };
+        var rollEl = document.getElementById("npRoll");
+        if (rollEl) rollEl.onclick = function () { rollNick(); renderStep(); };
+        var dropEl = document.getElementById("npDrop");
+        if (dropEl) dropEl.onclick = function () {
+          st.restored = null; st.codeVal = ""; rollNick(); renderStep();
+        };
+        var restEl = document.getElementById("npRestore");
+        if (restEl) restEl.onclick = function () { st.step = "restore"; renderStep(); };
         var selEl = document.getElementById("npSchool");
         if (selEl && window.SG_SCHOOLS) {
           window.SG_SCHOOLS.wireSearch(document.getElementById("npSchoolQ"), selEl, function (v, q) {
@@ -5658,16 +5711,21 @@
           var role = st.role || "student";
           var profile;
           if (role === "public") {
-            profile = { nickname: st.desc + "·" + st.noun, category: role, school: "",
+            profile = { nickname: nickOf(), category: role, school: "",
               heardFrom: ((document.getElementById("npHeard") || {}).value || "").trim() };
           } else {
             var school = st.schoolSel === "other"
               ? ((document.getElementById("npSchoolOther") || {}).value || "").trim()
               : st.schoolSel;
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
-            profile = { nickname: st.desc + "·" + st.noun, category: role, school: school };
+            profile = { nickname: nickOf(), category: role, school: school };
           }
           saveProfileLocal(profile);   // WSProfile.save merges onto prev (keeps mtlClass/classHistory)
+          /* hand the code to the stream page: this file cannot decode the bitmask
+             (no word order here), and commitProgress must stay the only writer */
+          if (st.restored && window.WSProfile && window.WSProfile.setPendingCode) {
+            window.WSProfile.setPendingCode(st.codeVal, st.restored.stream);
+          }
           ov.remove();
           onDone(profile);
         };
@@ -5883,6 +5941,7 @@
             opened = true;
             if (cloud) { mergeCloudProgress(cloud); applyAmbience(); }
             renderHome();
+            applyPendingCode();   // before the class nudge: restoring is the reason they are here
             promptClassIfDue();
           }
           if (!(window.WSCloud && window.WSCloud.isAvailable())) { open(null); return; }
@@ -5901,6 +5960,52 @@
           if (window.WSProfile && window.WSProfile.maybePromptClassUpdate) {
             window.WSProfile.maybePromptClassUpdate(openProfilePanel);
           }
+        }
+        /* ---------- 换设备：认领过的进度码在这里落地 (owner 2026-08-16) ----------
+           The nickname picker can only PEEK at a code (the landing page has no word
+           order, so it cannot turn the bitmask into ids). It parks the code and the
+           stream page finishes the job here — through decodeProgress + the same
+           confirm/snapshot/undo path 我的档案 uses, because commitProgress must stay
+           the only writer.
+           ⚠️ Runs AFTER the cloud merge, so the union is code ∪ cloud ∪ local, and
+           it is only ever offered ONCE: takePendingCode reads-and-clears, so a
+           dismissed dialog does not nag on the next open. */
+        function applyPendingCode() {
+          if (!(window.WSProfile && window.WSProfile.takePendingCode)) return;
+          var pend = window.WSProfile.takePendingCode(STREAM);
+          if (!pend || !pend.code) return;
+          var plan = decodeProgress(pend.code);
+          if (plan.err) { toast("进度码无法使用：" + plan.err); return; }
+          // the picker adopted the code's nickname, so a mismatch here means the
+          // student changed it afterwards — their call, so just proceed
+          var ids = plan.addIds || [];
+          var have = 0;
+          ids.forEach(function (id) { if (store.mastered[id]) have++; });
+          var gain = ids.length - have;
+          var mine = Object.keys(store.mastered).length;
+          /* popOverlay + two nav buttons — app.js's own confirm pattern.
+             profile.js has confirmDialog() but it is NOT exported here (see 营地). */
+          var ov = popOverlay(
+            '<div class="pop-title">🔄 恢复你的进度？</div>' +
+            '<div class="pop-body">进度码里有 <b>' + ids.length + '</b> 个已掌握的词语，' +
+            '你现在有 <b>' + mine + '</b> 个。<br>恢复后会合并成 <b>' + (mine + gain) +
+            '</b> 个 — <b>只增不减</b>。</div>' +
+            '<div class="nav-row"><button class="nav-btn" id="pcNo">以后再说</button>' +
+            '<button class="nav-btn primary" id="pcYes">恢复</button></div>');
+          document.getElementById("pcNo").onclick = function () { ov.remove(); };
+          document.getElementById("pcYes").onclick = function () {
+            ov.remove();
+            // snapshot -> log -> commit, the same order 我的档案 uses, so 撤销恢复 works
+            try { sessionStorage.setItem("ws2_" + STREAM + "_prerestore", JSON.stringify(store)); } catch (e) {}
+            if (window.WSCloud && window.WSCloud.logRestore) {
+              window.WSCloud.logRestore({ stream: STREAM, n: ids.length,
+                codeNick: plan.codeNick || "", matched: true, via: "newDevice" });
+            }
+            var res = commitProgress(plan);
+            applyAmbience();
+            renderHome();
+            toast("已恢复 " + res.added + " 个词语");
+          };
         }
         var profile = loadProfile();
         if (!profile) {

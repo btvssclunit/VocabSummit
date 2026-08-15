@@ -529,6 +529,103 @@
 
   function registerCodeProvider(fn) { _provider = fn || null; }
 
+  /* ================= 进度码 · 换设备时的「先认领身份」 (owner 2026-08-16) ========
+     A student on a new device gets a NEW anonymous uid, so the cloud merge cannot
+     find them — the 进度码 is the only way back. But the nickname picker runs
+     BEFORE any of that, and rolling a fresh name there is exactly what strands the
+     old progress under an identity nobody will type again.
+
+     ⚠️ This file still does not DECODE a code — decoding needs the stream's word
+     order to turn the bitmask into ids, and the landing page has no word data.
+     peekCode() only reads the envelope: it verifies the checksum and pulls out the
+     stream, the word count and the owner's nickname. That is enough to (a) prove
+     the code is genuine, (b) adopt the right nickname, and (c) hand the real
+     restore to the stream page, where commitProgress — the ONLY writer — still
+     does it behind the existing confirm / snapshot / undo / logRestore path.
+
+     ⚠️ fnv1a and b64urlToUtf8 are duplicated from app.js on purpose. They are the
+     wire format: changing either would invalidate every code ever issued, so they
+     can never drift. Do NOT "share" them by importing app.js — this file is loaded
+     on the landing page, where app.js is not. */
+  function _fnv1a(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h.toString(36);
+  }
+  function _b64urlToUtf8(b) {
+    try {
+      var t = String(b).replace(/-/g, "+").replace(/_/g, "/");
+      while (t.length % 4) t += "=";
+      return decodeURIComponent(escape(atob(t)));
+    } catch (e) { return ""; }
+  }
+  var STREAM_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
+                       g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文" };
+  /* How many words the code says are mastered. ⚠️ The `n` field is the stream's
+     TOTAL word count (it exists to validate the bitmask length), NOT progress —
+     showing it to the student would claim they had mastered the whole subject.
+     The real figure is the number of set bits, which needs no word list: just
+     popcount the bitmask, ignoring padding past n. */
+  function _countBits(b64, n) {
+    var t = String(b64 || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (t.length % 4) t += "=";
+    var bin;
+    try { bin = atob(t); } catch (e) { return null; }
+    var c = 0, max = n || bin.length * 8;
+    for (var i = 0; i < bin.length; i++) {
+      var v = bin.charCodeAt(i);
+      for (var b = 0; b < 8; b++) {
+        if ((i * 8 + b) >= max) break;
+        if (v & (1 << b)) c++;
+      }
+    }
+    return c;
+  }
+  /* PURE. Returns {stream, streamLabel, n, nick, legacy} or {err}. Never writes. */
+  function peekCode(code) {
+    var p = String(code || "").trim().split(".");
+    if (p[0] === "VS2") {
+      if (p.length !== 7) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (_fnv1a(p.slice(0, 6).join(".")) !== p[6]) {
+        return { err: "进度码不完整或已损坏，请重新复制一次。" };
+      }
+      if (!STREAM_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
+      var tot = parseInt(p[2], 10) || 0;
+      return { stream: p[1], streamLabel: STREAM_LABEL[p[1]], n: tot,
+               mastered: _countBits(p[3], tot),
+               nick: _b64urlToUtf8(p[5]), legacy: false };
+    }
+    if (p[0] === "VS1") {
+      // VS1 carries no nickname, so it can prove the subject but not the identity
+      if (p.length !== 5) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (!STREAM_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
+      var tot1 = parseInt(p[2], 10) || 0;
+      return { stream: p[1], streamLabel: STREAM_LABEL[p[1]], n: tot1,
+               mastered: _countBits(p[3], tot1), nick: "", legacy: true };
+    }
+    return { err: "进度码格式不正确，请检查是否完整复制。" };
+  }
+  /* Handoff to the stream page. One pending code at a time: a student with codes
+     for several subjects restores the rest from 我的档案, which already does it. */
+  var PENDING_KEY = "ws_pending_code";
+  function setPendingCode(code, stream) {
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify({ code: code, stream: stream })); }
+    catch (e) {}
+  }
+  /* read-and-clear: a pending code must never be offered twice, whether the
+     student accepts it or dismisses the dialog */
+  function takePendingCode(stream) {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); } catch (e) {}
+    if (!raw || (stream && raw.stream !== stream)) return null;
+    try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+    return raw;
+  }
+
+
   /* ---------- the 我的档案 overlay ---------- */
   function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
@@ -1300,6 +1397,9 @@
     uid: uid,
     open: open,
     registerCodeProvider: registerCodeProvider,
+    peekCode: peekCode,
+    setPendingCode: setPendingCode,
+    takePendingCode: takePendingCode,
     maybePromptClassUpdate: maybePromptClassUpdate,
     openAvatarPicker: openAvatarPicker,
     openAvatarInfo: openAvatarInfo,
