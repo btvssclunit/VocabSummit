@@ -83,6 +83,15 @@
        move, and that distinction is the honest one. No composite score, ever —
        same reason 海拔 and 历练值 stay apart on the mountain. */
     if (typeof s.sail !== "number") s.sail = 0;
+    /* ---------- 我的海滩 (SPEC_XH_berth_layout.md, owner 2026-08-16) ----------
+       贝壳 is the dock's spendable currency. ⚠️ SEALED AT THE WATERLINE (economy
+       spec §0): it never converts to 灵露 in either direction, and nothing on the
+       mountain can be bought with it. Keeping it in ws_xh — a store app.js never
+       reads — is what makes that structural rather than a rule to remember. */
+    if (typeof s.shells !== "number") s.shells = 0;
+    if (!s.owned || typeof s.owned !== "object") s.owned = {};   // purchased item keys
+    if (!s.berth || typeof s.berth !== "object") s.berth = {};    // slot -> item key
+    if (s.boat !== 2 && s.boat !== 3) s.boat = 1;                 // 舢板 is free
     if (s.lbScope !== "all") s.lbScope = "school";
     if (s.lbTab !== "pts") s.lbTab = "sailed";
     return s;
@@ -466,6 +475,14 @@
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
+    h += '<button class="xh-tile slim" id="xhBeach">' +
+      '<span class="xh-tile-ic">🏖️</span>' +
+      '<span class="xh-tile-txt"><b>我的海滩</b>' +
+      '<span class="xh-en">your berth and the shop</span>' +
+      '<span class="xh-tile-n">' + (store.shells || 0) + ' 贝壳 · ' +
+        esc(BOATS[(store.boat || 1) - 1].zh) + '</span></span>' +
+      '<span class="xh-tile-go">›</span></button>';
+
     h += '<button class="xh-tile slim" id="xhBoards">' +
       '<span class="xh-tile-ic">🏆</span>' +
       '<span class="xh-tile-txt"><b>码头风云榜</b>' +
@@ -540,6 +557,7 @@
 
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
+    document.getElementById("xhBeach").onclick = renderBeach;
     document.getElementById("xhScopeT").onclick = function () {
       store.scopeOpen = !store.scopeOpen; save(); renderMenu();
     };
@@ -556,6 +574,191 @@
       el.onclick = function () { store.matchN = parseInt(el.getAttribute("data-n"), 10); save(); renderMenu(); };
     });
     document.getElementById("xhGoRound").onclick = function () { startRound(scopeLabel()); };
+  }
+
+  /* ================= 我的海滩 · 泊位 (SPEC_XH_berth_layout.md) =================
+     The dock's 营地. Same mechanism as the campsite in app.js, with sea names —
+     but two deliberate differences, both from the spec:
+       · FIXED SLOTS, not free placement. The camp earned dragging; the dock has
+         not yet. Five hook points, one item each, swappable any time.
+       · The BOAT is not a slot. It is the dwelling-tier chain's equivalent: one
+         vessel, UPGRADED rather than swapped, and the tier shows here, on the
+         round rail and on the 图鉴 cover from a single purchase.
+
+     ⚠️ EVERY COORDINATE BELOW IS FROM THE SPEC, measured against dock_bg.png
+     (1672x941 — the same dimensions as art/camp/camp_bg.png, which is why the
+     camp's stage CSS transfers unchanged):
+       sand line (top of placeable ground)  by 62%
+       reserved: centre vista cx 35-65 above by 62 · jetty cx 78-100 · palms cx 0-10
+     cx = centre-x %, by = bottom-y % from the bottom, w = width % of the stage.
+     Re-measure if the backdrop is ever redrawn. */
+  var BERTH_SLOTS = [
+    { k: "shore_left",  zh: "岸左", en: "Left shore",  cx: 18, by: 8,  w: 9 },
+    { k: "shore_right", zh: "岸右", en: "Right shore", cx: 70, by: 8,  w: 9 },
+    /* ⚠️ by 6, NOT the spec's 12. The spec's 木桩 slot assumes something to hang
+       from, but there is no painted post at cx 30 — composited against the real
+       backdrop, a lantern at by 12 hangs in mid-air with a visible gap under it.
+       All three candidates here (提灯/铜钟/玻璃浮球) read fine resting on the sand. */
+    { k: "post",        zh: "木桩", en: "Post",        cx: 30, by: 6,  w: 7 },
+    { k: "sand",        zh: "沙地", en: "Sand",        cx: 50, by: 5,  w: 8 },
+    /* above the sand line on purpose: a gull belongs in the air, and this is the
+       one slot that reads against sea rather than sand (spec) */
+    { k: "sky",         zh: "空中", en: "Sky",         cx: 62, by: 46, w: 6 }
+  ];
+  /* ⚠️ PRICES ARE MINE. The spec fixes the catalogue and the currency but gives no
+     numbers — same situation as the camp's GEAR list. They sit on one ladder so
+     nothing costs more than the top boat. Single numbers, retune freely. */
+  var BERTH_ITEMS = [
+    { k: "crate",      slot: "shore_left",  zh: "木箱",   en: "Crate",        img: "dock_crate",      price: 25 },
+    { k: "barrel",     slot: "shore_left",  zh: "木桶",   en: "Barrel",       img: "dock_barrel",     price: 30 },
+    { k: "baskets",    slot: "shore_left",  zh: "鱼篓堆", en: "Baskets",      img: "dock_baskets",    price: 45 },
+    { k: "bucket",     slot: "shore_right", zh: "水桶",   en: "Bucket",       img: "dock_bucket",     price: 25 },
+    { k: "rope",       slot: "shore_right", zh: "缆绳",   en: "Coiled rope",  img: "dock_rope",       price: 30 },
+    { k: "oars",       slot: "shore_right", zh: "船桨",   en: "Oars",         img: "dock_oars",       price: 40 },
+    { k: "creel",      slot: "shore_right", zh: "满鱼篓", en: "Full creel",   img: "dock_creel_full", price: 55 },
+    { k: "lantern",    slot: "post",        zh: "提灯",   en: "Lantern",      img: "dock_lantern",    price: 35 },
+    { k: "bell",       slot: "post",        zh: "铜钟",   en: "Bell",         img: "dock_bell",       price: 50 },
+    { k: "glassfloat", slot: "post",        zh: "玻璃浮球", en: "Glass float", img: "dock_glassfloat", price: 60 },
+    { k: "shells",     slot: "sand",        zh: "贝壳堆", en: "Shells",       img: "dock_shells",     price: 20 },
+    { k: "plant",      slot: "sand",        zh: "海边植物", en: "Shore plant", img: "dock_plant",     price: 35 },
+    { k: "cat",        slot: "sand",        zh: "码头猫", en: "Dock cat",     img: "dock_cat",        price: 70 },
+    { k: "flags",      slot: "sky",         zh: "彩旗",   en: "Bunting",      img: "dock_flags",      price: 30 },
+    { k: "gull",       slot: "sky",         zh: "海鸥",   en: "Gull",         img: "dock_gull",       price: 45 }
+  ];
+  /* 舢板 is free, exactly as the tent is. Tiers UPGRADE — buying 帆船 needs 渔船
+     first, and there is no downgrade (same contract as the camp's dwelling). */
+  var BOATS = [
+    { t: 1, zh: "舢板", en: "Sampan",  price: 0 },
+    { t: 2, zh: "渔船", en: "Fishing boat", price: 120 },
+    { t: 3, zh: "帆船", en: "Sailing junk", price: 300 }
+  ];
+  function itemByKey(k) {
+    for (var i = 0; i < BERTH_ITEMS.length; i++) if (BERTH_ITEMS[i].k === k) return BERTH_ITEMS[i];
+    return null;
+  }
+  function ownsItem(k) { return !!store.owned[k]; }
+  function equipItem(it) {
+    /* one item per slot: equipping replaces whatever was there, and the previous
+       item stays OWNED so swapping back is free */
+    store.berth[it.slot] = it.k; save();
+  }
+  function beachSprite(img, cx, by, w, extra) {
+    return '<img class="beach-item' + (extra ? " " + extra : "") + '" src="art/xh/' + img +
+      '.png' + ASSET_V + '" alt="" style="left:' + cx + '%;bottom:' + by + '%;width:' + w + '%" ' +
+      "onerror=\"this.style.display='none'\">";
+  }
+  function shellIcon() {
+    return '<img class="shell-icon" src="art/xh/dock_shell.png' + ASSET_V + '" alt="贝壳" ' +
+      "onerror=\"this.replaceWith(document.createTextNode('🐚'))\">";
+  }
+
+  function renderBeach() {
+    state = null;
+    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+      '<span class="xh-block-tag">我的海滩</span></div>';
+    h += '<div class="xh-board"><div class="beach-head">' +
+      '<div class="xh-berth-title">🏖️ 我的海滩<span class="xh-en">Your berth</span></div>' +
+      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' +
+      '<span class="xh-en">shells</span></span></div>';
+    h += '<div class="beach-stage">' +
+      '<img class="beach-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
+        "onerror=\"this.style.display='none'\">";
+    /* the moored boat: spec puts it at cx 88 / by 30 / w 26, broadside because the
+       painted jetty runs left-to-right. ⚠️ ALL THREE TIERS SHARE ONE SCALE so the
+       boat does not jump size when upgraded — do not re-normalise per sprite. */
+    h += beachSprite("boat_t" + (store.boat || 1) + "_broadside", 88, 30, 26, "beach-boat");
+    BERTH_SLOTS.forEach(function (sl) {
+      var it = itemByKey(store.berth[sl.k]);
+      if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
+    });
+    h += "</div>";
+    h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' +
+      '<span class="xh-en">shop</span></button></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+    document.getElementById("beachShop").onclick = renderBeachShop;
+  }
+
+  function renderBeachShop() {
+    state = null;
+    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+      '<span class="xh-block-tag">海滩小铺</span></div>';
+    h += '<div class="xh-board"><div class="beach-head">' +
+      '<div class="xh-berth-title">🛒 海滩小铺<span class="xh-en">Beach shop</span></div>' +
+      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' +
+      '<span class="xh-en">shells</span></span></div>' +
+      '<div class="xh-log-sub">答对题目就能捡到贝壳。每个位置只能摆一样，随时可以换。' +
+      '<span class="xh-en">Answer questions to find shells. One item per spot, swap any time.</span></div>';
+
+    /* boats first: it is the one thing that shows up in three places at once */
+    h += '<div class="xh-log-sec">船只 · 一艘一艘往上换<span class="xh-en">Your boat — upgraded, not swapped</span></div>';
+    h += '<div class="beach-shelf">';
+    BOATS.forEach(function (b) {
+      var owned = (store.boat || 1) >= b.t;
+      var prev = b.t > 1 && (store.boat || 1) < b.t - 1;      // must climb in order
+      var afford = (store.shells || 0) >= b.price;
+      h += '<div class="beach-card' + (owned ? " owned" : "") + '">' +
+        '<img src="art/xh/boat_t' + b.t + '_broadside.png' + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\">" +
+        '<b>' + esc(b.zh) + '</b><span class="xh-en">' + esc(b.en) + '</span>' +
+        (owned ? '<span class="beach-tag on">已拥有</span>'
+               : prev ? '<span class="beach-tag">先换上' + esc(BOATS[b.t - 2].zh) + '</span>'
+               : '<button class="beach-buy" data-boat="' + b.t + '"' + (afford ? "" : " disabled") +
+                 '>' + shellIcon() + b.price + '</button>') +
+        '</div>';
+    });
+    h += '</div>';
+
+    BERTH_SLOTS.forEach(function (sl) {
+      h += '<div class="xh-log-sec">' + esc(sl.zh) + '<span class="xh-en">' + esc(sl.en) + '</span></div>';
+      h += '<div class="beach-shelf">';
+      BERTH_ITEMS.filter(function (it) { return it.slot === sl.k; }).forEach(function (it) {
+        var owned = ownsItem(it.k), on = store.berth[sl.k] === it.k;
+        var afford = (store.shells || 0) >= it.price;
+        h += '<div class="beach-card' + (on ? " on" : owned ? " owned" : "") + '">' +
+          '<img src="art/xh/' + it.img + '.png' + ASSET_V + '" alt="" ' +
+            "onerror=\"this.style.display='none'\">" +
+          '<b>' + esc(it.zh) + '</b><span class="xh-en">' + esc(it.en) + '</span>' +
+          (on ? '<span class="beach-tag on">摆着</span>'
+              : owned ? '<button class="beach-buy own" data-eq="' + it.k + '">摆上</button>'
+              : '<button class="beach-buy" data-buy="' + it.k + '"' + (afford ? "" : " disabled") +
+                (afford ? "" : ' title="贝壳不够，再去答几题"') + '>' + shellIcon() + it.price + '</button>') +
+          '</div>';
+      });
+      h += '</div>';
+    });
+    h += '<div class="beach-acts"><button class="xh-btn" id="beachBack">‹ 回海滩' +
+      '<span class="xh-en">back to the beach</span></button></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+    document.getElementById("beachBack").onclick = renderBeach;
+    Array.prototype.forEach.call(view().querySelectorAll("[data-buy]"), function (el) {
+      el.onclick = function () {
+        var it = itemByKey(el.getAttribute("data-buy"));
+        if (!it || ownsItem(it.k) || (store.shells || 0) < it.price) return;
+        store.shells -= it.price;          // deduct FIRST, then record, then equip
+        store.owned[it.k] = 1;
+        equipItem(it);                     // a new purchase goes straight on display
+        save(); sfxOk(); renderBeachShop();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll("[data-eq]"), function (el) {
+      el.onclick = function () {
+        var it = itemByKey(el.getAttribute("data-eq"));
+        if (!it || !ownsItem(it.k)) return;
+        equipItem(it); renderBeachShop();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll("[data-boat]"), function (el) {
+      el.onclick = function () {
+        var t = parseInt(el.getAttribute("data-boat"), 10);
+        var b = BOATS[t - 1];
+        if (!b || (store.boat || 1) >= t || (store.boat || 1) < t - 1) return;
+        if ((store.shells || 0) < b.price) return;
+        store.shells -= b.price; store.boat = t;
+        save(); sfxOk(); renderBeachShop();
+      };
+    });
   }
 
   /* ---------- 航海图鉴 (addendum §2) ----------
@@ -876,9 +1079,24 @@
     return n;
   }
 
+  /* 贝壳 — spendable, and deliberately scarcer than 航海值 so a purchase means
+     something. ⚠️ The rates are MINE: the spec fixes the currency and the
+     "never converts" rule but gives no numbers (same situation as the camp's
+     GEAR prices and LINGLU_BASE). One dial, retune freely after real use.
+     Typing pays double because it is the only production mode here. */
+  var SHELL_PTS = { pic: 1, listen: 1, match: 1, type: 2, learn: 0 };
+  function awardShells(mode, firstTry) {
+    var base = SHELL_PTS[mode] || 0;
+    if (!base) return 0;
+    var n = firstTry ? base : Math.max(1, Math.round(base * 0.5));
+    store.shells += n;
+    return n;
+  }
+
   function noteRight(w) {
     if (state.firstTry) state.correct++;
     awardSail(state.mode, state.firstTry);
+    awardShells(state.mode, state.firstTry);
     store.done[w.词语] = true;
     save();
     pushDock();
