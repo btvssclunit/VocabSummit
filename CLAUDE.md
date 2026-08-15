@@ -29,10 +29,12 @@ NOT apply here; never copy code or design assumptions between the two without ch
 asked for it on 2026-08-14: 83 files at repo root (61 of them PNGs) made the GitHub file list
 unreadable. Code and entry points stay at root; assets and data moved down:
 
-    /                 index.html · G1/G2/G3/HCL_index.html · teacher.html · voices.html
+    /                 index.html · G1/G2/G3/HCL_index.html · XH_index.html
+                      teacher.html · voices.html · sound.html
                       app.js · app.css · arena.js · profile.js · nickname.js · firebase-init.js
+                      xh.js · xh.css                    ← 学海启航 码头, standalone
                       CLAUDE.md · README.md · firestore.rules · .gitignore
-    data/             g1/g2/g3/hcl.json · id_registry.json
+    data/             g1/g2/g3/hcl.json · id_registry.json · xh_mvp.json
     art/bg/           landing_hero_bg · hero_bg · study_bg · rain_bg · sprint_bg · mountain_bg
                       · climb-wall-tile · bg-01..05
     art/badge/        badge_shkj/hx/gg/jj/whz            ← A层 里程碑 (1092px, 不透明白底)
@@ -42,6 +44,10 @@ unreadable. Code and entry points stay at root; assets and data moved down:
     art/camp/         camp_bg · tent · gear_* (11) · deco_* (10) · pet_* (4) · linglu
     art/item/         consumable_* (7) · powerup_* (3)   ← 2026-08-14, system NOT built
     art/sprite/       sprite_g1/g2/g3/hcl_raw · tileset_raw   (8-bit art awaiting processing)
+    art/seamap/       sea_tile · dock_jetty · island_g1/g2/g3/hcl · boat_* (5)
+                                                        ← 2026-08-15 航海选择页
+    art/mountain/     mtn_g1/g2/g3/hcl                  ← 2026-08-15 per-stream 我的词山
+    art/xh/           xh_*.png (142)                    ← 看图识词 sprites
     archived_art/     the 13 garden-era PNGs cut by the 便携化 pass
     docs/             HANDOFF_*.md
 
@@ -2832,3 +2838,139 @@ Owner: 「the badges should arrange left to right - bronze, silver, gold, ultima
 铜/银/金/称号，8 张图 naturalWidth 全为 320（无破图），称号格进度 4/5 与 0/5 正确，
 点开铜牌详情卡仍写「拿到第 **3** 名」（名次映射没坏），零控制台错误。测试数据已清除。
 Cache-bust `20260815c` → **`20260815d`**。
+
+## 航海选择页 · 海图选科目 · 2026-08-15 (DESIGN_迭代规划_航海选择页 v5)
+
+首页进入后的四张 `.lp-card` 换成一张**海图**：四座海岛 + 左下角的启航码头，点岛屿会开船
+过去再跳转。`index.html` + `app.css` + `nickname.js`，**`.lp-cards` 原样留在 DOM 里当回退**
+（`nickname.js` 优先用 `#lpSea`，找不到才显示旧卡片）。落地页的 logo/对联/进入按钮一个字没动。
+
+### 坐标全部住在 CSS 里 —— 这条是硬性的
+每座岛的 `--cx/--by/--w/--tx/--ty` 都写在 `app.css` 的 `.i-*` 类上，**index.html 里一个内联
+坐标都不许有**。第一版把它们写成了 `style="--w:23vw"`，结果**竖屏 media query 永远覆盖不了**
+—— 内联自定义属性的优先级高于任何样式表规则，包括 media query。竖屏布局当时是「静默失效」的，
+渲染出来只是岛变得很小，不报任何错。
+
+### 尺寸表达难度，不表达距离（v5 文档的原话，别「修正」它）
+G1 最小 → G2 → G3 → HCL 最大；**远近**由垂直位置和美术自带的雾霾承担。所以 G3/HCL 位置更高
+**同时**画得更大，这是故意反透视的。owner 2026-08-15 另外定了：**G3 与 HCL 位置对调**、
+**G1 再大一点**（21vw → 24vw）、**G3 再高一点**（by 44.4% → 48%）给 HCL 让出空间。
+
+### 航线是手工定的，不是算出来的
+四个停泊点 `--tx/--ty` 以及船头朝向（`data-boat`）都是**逐条手写**的，并且**整条弧线**都验证过
+不压到任何陆地（不只是端点——中点抬升 3.5vh 也算在内）。改了任何一座岛的位置，或者改了那个
+抬升值，都要重新验一遍。四条固定航线不值得写寻路算法。
+五张船 sprite 靠 `scaleX(-1)` 覆盖八个方向（船身左右对称）。
+
+### 船的动画（两次踩坑，都别再踩回去）
+- **动的是 transform，不是 left/bottom。** 第一版动 left/bottom，每帧触发一次完整 layout，
+  owner 实机反馈「janky」。现在 `nickname.js` 在点击时算出像素位移写进 `--dx/--dy`，
+  keyframes 只动 transform。⚠️ keyframes 里的 transform 写成两段 translate 串联，
+  **前一段是元素自身的居中补偿，每一帧都必须带上**，漏了船会瞬移半个身位。
+- **⚠️ bfcache 复位是必须的。** owner 实机报告「进了科目页再回来，整个海图瘫痪」，以及
+  「第一次点过之后就再也开不了船」。同一个原因：浏览器用 **back/forward cache** 还原页面，
+  JS 状态原封不动 —— `busy` 还是 true，船还带着 `animation-fill-mode:forwards` 停在目的地。
+  现在 `pageshow`（**不是 load**，load 在 bfcache 还原时根本不触发）会把船复位。
+  另外**同一个 class 重复添加不会重启 CSS 动画**，remove → 读 `offsetWidth` 强制回流 → add，
+  少了中间那步第二次航行不会动。
+
+### 码头要沉到画面外一点
+`.i-dock` 的 `--by` 是**负的（-6%）**。原本是 0，贴着视口下沿，于是 `:hover` 那 6px 抬升
+会把整块陆地提起来、露出下面一条空白海面（owner 截图报告）。沉下去 6% 就有了余量。
+码头没有可放牌子的滩地，它的铭牌单独定位在屋子旁的沙地上（`.i-dock .sea-label`）。
+
+### 竖屏
+同一张图重新配比，**没有回退到旧卡片**。但竖屏时四座岛是纵向堆叠的，从码头到远岛没有可走的
+水道，所以 `nickname.js` **竖屏直接跳过航行动画**（`skipSail()`，和 reduced-motion 同一个出口）
+—— 这正是设计文档说的「航线会压到陆地时就别画这条航线」。
+⚠️ **网页无法锁定横屏**（Screen Orientation API 要求全屏或已安装应用，本项目两者都没有），
+而且 CLAUDE.md 本身就禁止锁定方向。所以竖屏只给一个可关掉的「转成横屏」提示，绝不拦人。
+
+### 美术管线：磁红去背 + **半透明反混合**
+11 张图都是 `#FF00FF` 底。硬边 sprite 照旧用 min(R,B)−G signature 斜坡处理，但**山顶的雾/云
+不行**——那是薄薄一层白画**在磁红上面**，底色透出来，像素本身就是粉的。阈值法只能二选一：
+留着粉，或者整片切掉。owner 2026-08-15 报告「云雾里还有残留的洋红」。
+正确解法是**反混合**：已知底色 M=(255,0,255)，且假设前景在洋红轴上接近中性
+（(F.r+F.b)/2 ≈ F.g，白雾成立，沙地岩石植被也够接近），则 d=(C.r+C.b)/2−C.g 就是 (1−a)·255，
+于是 a = 1−d/255，F = (C−(1−a)M)/a。
+- ⚠️ `min(R,B)−G ≤ 5` 的像素**一律不碰**，这就是**红旗能活下来**的原因：HCL 宝塔上的红旗
+  蓝通道很低，根本没有洋红 signature。
+- ⚠️ 中途过冲了两次，两个夹逼都要保留：(a) `fg` 不得超过 `max(fr,fb)+8`，否则最薄的雾丝会
+  变成青绿色（把粉色错误镜像了一遍）；(b) alpha 越低越往灰色靠（a<0.5 时线性拉向自身亮度），
+  因为除以一个很小的 alpha 会把舍入误差放大成假色相。
+- 验证方式是**逐像素审计**：11 张图 `alpha>40 且 signature>12` 的像素数全部为 **0**。
+- 调色板量化到 256 色（FASTOCTREE —— 只有它保 alpha），2.6MB → 716KB；`sea_tile.png`
+  **保持 1536×1024 原尺寸不缩**，缩它正是 TROUBLESHOOTING 文档里「水面比岛屿糊」的病根。
+
+## 我的词山 · 每个科目自己的山 · 2026-08-15 (owner)
+
+`startMountain()` 和首页那张卡片都改用**本科目自己的岛**（`art/mountain/mtn_*.png`，1100px），
+不再是四科共用的 `art/bg/mountain_bg.png`（该文件现已无人引用，**保留不删**，和退役的营地
+地貌同一处理）。学生在海图上选的那座岛，和他进去爬的那座山，现在是同一座。
+- `.mtn2-stage` 用 `--ar` 接收该 sprite 的宽高比（`startMountain` 内联写入），岛铺满整个 stage，
+  于是钉子的坐标就是 sprite 坐标。⚠️ 宽度写成 `min(96vw, calc(70vh * var(--ar)))` ——
+  aspect-ratio 已经指定时再加 `max-width` 会把画面**压扁**而不是缩小。
+- 背景是 `art/seamap/sea_tile.png`，和海图同一片海。
+
+### ⚠️ 山路是**肉眼描的**，三种自动方法全部失败（换美术前先读这段）
+`MTN_PATHS[STREAM]` 十五个点，从山脚到山顶小屋，是对着百分比网格一个个点出来的。试过并失败的：
+1. **逐行取最亮暖色段** → 跟着左侧被阳光照亮的**草地**跑了，因为草比小路更暖也更宽；
+2. **从山顶往下的贪心连续行走** → 在之字形拐弯处甩出去掉进树林，一旦离开就再也回不来；
+3. **代价图 + Dijkstra 最短路** → 直接抄近道穿过草坡，因为草的代价和小路差不多，而之字形绕远。
+根本原因：**这套美术里小路和受光草地是同一种暖棕色**，颜色上不可分；只要不可分，路径搜索就
+永远会选近路。**换了山的美术就重新肉眼描，并把折线画回图上确认**，别再指望颜色检测。
+（给 owner 的建议已同步：小路改成**灰色石阶**这类不同色系、**只留一条**主路、**不要被树遮断**；
+或者随手在副本上用亮粉色涂一遍路线给我读，那份副本不入库。）
+
+## 学海启航 · 启航码头 · 看图识词 MVP · 2026-08-15 (SPEC_XH_看图识词_MVP.md)
+
+海图左下角的码头现在通向 `XH_index.html`：**零基础学生**的 pre-G1 层，本次只造**一个泊位**
+「看图识词」——看图，从四个词语里选对的。拼音泊位（声母/韵母/四声/拼读/出海测验）明确不在本
+切片范围内。
+
+### 刻意独立
+`XH_index.html` 只加载 `xh.css` + `xh.js`，**从不加载 app.css / app.js**，也不和四个科目共享
+任何存储（自己的 `ws_xh` 一个键）。理由写在 `xh.js` 头部：这一层**把平台的显示默认值反过来**
+（拼音和 English 在这里默认**开**，四个科目里默认关），完全在 灵露/历练值/海拔 经济之外，
+而且它未经验证——将来如果要撤掉，必须能整块拿走而不碰四个科目依赖的任何东西。
+TTS 那一套是**复制**过去的，不是共享的，同样出于这个理由（评分选音色、cancel 后 50ms、
+只念汉字永不念拼音、英文释义绝不送进 TTS）。
+
+### 干扰项是这个模式成不成立的关键（spec §4）
+- **Band 1**（没答对过）：干扰项来自**不同**组别 —— 第一次见面光看图就能选对，先学会怎么玩。
+- **Band 2**（答对过一次即晋级）：干扰项来自**同一**组别 —— 必须真的认识这个词。
+- ⚠️ **黑名单是对「整个选项集」的约束，不只是对答案的约束。** 第一版只排除了答案的黑名单
+  同伴，实测 120 题里有 **6 题**出现两个互相难辨的干扰项同时在场（早上 vs 中午）。现在候选项
+  是逐个准入的，和**已入选的任何一项**冲突就拒绝。
+- 实测：Band 1 干扰项同组别占比 **0%**（160 题），Band 2 **91%**（另 160 题，其余 9% 是小组别
+  凑不够三个时从组外补位），黑名单违规 **0**，无重复选项，答案永远在场。
+
+### 其他实现决定
+- **答错零代价**：标红、留在原题、可以再选。不扣分、不掉命、不计任何东西。这是学生第一次接触
+  一套他读不懂的文字，错一下必须不痛不痒。
+- 答对才发 TTS，图片可点重听（学生读不出汉字，**声音是内容的一半**）。
+- ⚠️ **spec §5 说「每轮十题，取自同一个单元板块」，但 17 个板块里有 6 个不足十词**（买东西和
+  求助各只有 1 个词）。照字面做会产生一题一轮。现在：板块仍是学生选的单位、也是轮次的名字，
+  **不足十题时从同一单元补齐**。
+- 每轮开始时**预加载该轮全部 sprite**：每题换 `img.src`，没解码的图会空一拍，而这里**图就是题干**。
+- 142 张 sprite 量化到 128 色：**9.8MB → 1.37MB**（平均 9.6KB）。
+- 只存 `done`（答对过的词），localStorage。**没有 Firestore、没有登录、没有排行榜**，
+  也**不接入** 灵露/历练值/海拔 —— spec §5 明确要求在真学生试用之前不要挂进共享计分系统。
+
+## 验证方法：离屏 WebKit 渲染器（本次新增，以后先试这个）
+
+Browser pane 这次又拒绝了 127.0.0.1 和 localhost，机器上没有 Node、没有 Chrome。
+解决办法是用 **`/usr/bin/swift` 写一个 60 行的离屏 WKWebView**（`shot.swift`，在 scratchpad 里）：
+加载本地 URL → 执行任意 JS → `takeSnapshot` 出 PNG。**引擎和 owner 的 Safari 完全一致**，
+所以既能量 `getBoundingClientRect`，也能真的**看见**页面。本次几乎所有结论都出自它。
+- 配套用一个 **no-store** 的 `http.server`（普通的 SimpleHTTPRequestHandler 会发 Last-Modified，
+  于是拿到旧文件，白白 debug）。
+- ⚠️ **离屏 webview 里 `setTimeout` 会被严重节流。** 靠定时器推进的流程（看图识词每题之间
+  1150ms 的过场）在这里几乎走不动 —— 这是测试环境的限制，不是应用的 bug，别照着它改代码。
+  因此 **看图识词的结算页至今没有在浏览器里跑到过**，其余每一条路径都跑过了。
+
+## Cache-bust · 2026-08-15
+
+本批全部资产版本号推到 **`20260815h`**（六处：`index.html` + 四个科目页 + `teacher.html` 的
+`ASSET_V`）。`XH_index.html` 是新页，自带同一版本号；`xh.js` 读自己的 `?v=` 传给
+`data/xh_mvp.json` 和 sprite，和 app.js/arena.js 同一套办法。

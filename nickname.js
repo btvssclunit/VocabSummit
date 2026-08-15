@@ -261,21 +261,55 @@
       return false;
     }
 
+    /* Put the boat back at its berth, ready to sail again.
+       This is what fixes the two worst bugs reported on the first real run:
+       every voyage after the first did nothing, and coming BACK from a stream
+       page left the map completely dead. Both are the same cause — the page is
+       restored from the back/forward cache with all JS state intact, so `busy`
+       was still true from the voyage that navigated away, and the boat was
+       still parked at its destination under animation-fill-mode:forwards. */
+    function resetBoat() {
+      busy = false;
+      if (!boat) return;
+      boat.classList.remove("sailing");
+      boat.style.removeProperty("--dx");
+      boat.style.removeProperty("--dy");
+      boat.className = "sea-boat h-away_diag";
+      boat.querySelector("img").src = "art/seamap/boat_away_diag.png";
+    }
+    // pageshow fires on a normal load AND on a bfcache restore (persisted:true),
+    // which a plain load/DOMContentLoaded listener would miss entirely.
+    window.addEventListener("pageshow", resetBoat);
+
     function sail(isle) {
       var go = isle.getAttribute("data-go");
       if (!go || busy) return;   // one voyage at a time; ignore double-taps
       busy = true;
       var cs = getComputedStyle(isle);
-      var tx = cs.getPropertyValue("--tx").trim();
-      var ty = cs.getPropertyValue("--ty").trim();
-      if (!boat || !tx || !ty || skipSail()) { location.href = go; return; }
+      var tx = parseFloat(cs.getPropertyValue("--tx"));
+      var ty = parseFloat(cs.getPropertyValue("--ty"));
+      if (!boat || isNaN(tx) || isNaN(ty) || skipSail()) { location.href = go; return; }
+
+      // the voyage is animated as a transform, so hand the CSS a pixel delta
+      // from where the boat actually is to where it should moor
+      var r = boat.getBoundingClientRect();
+      var fromX = r.left + r.width / 2;
+      var fromY = r.top + r.height / 2;
+      var toX = tx / 100 * window.innerWidth;
+      var toY = window.innerHeight - ty / 100 * window.innerHeight;
 
       var h = (isle.getAttribute("data-boat") || "away_diag").split(" ");
       boat.className = "sea-boat h-" + h[0] + (h[1] === "flip" ? " flip" : "");
       boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
-      boat.style.setProperty("--tx", tx);
-      boat.style.setProperty("--ty", ty);
+      boat.style.setProperty("--dx", (toX - fromX).toFixed(1) + "px");
+      boat.style.setProperty("--dy", (toY - fromY).toFixed(1) + "px");
+      // re-adding a class that is already applied does NOT restart a CSS
+      // animation; reading offsetWidth between the remove and the add forces the
+      // reflow that does. Without this the second voyage never moves.
+      boat.classList.remove("sailing");
+      void boat.offsetWidth;
       boat.classList.add("sailing");
+
       // navigate the moment it moors: no confirmation, no toast, no pause.
       var done = false;
       function arrive() { if (!done) { done = true; location.href = go; } }

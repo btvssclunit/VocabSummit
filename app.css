@@ -1213,19 +1213,23 @@ body.lp-sea-on .lp-foot{display:none}
 
 /* ---- landscape positions (tuned against composite_test_v5 at 1600x900) ---- */
 .i-g2  {--cx:20.6%; --by:50%;   --w:20vw;    --tx:18%; --ty:39%}
-.i-g3  {--cx:55%;   --by:44.4%; --w:26.9vw;  --tx:55%; --ty:33%}
+.i-g3  {--cx:55%;   --by:48%;   --w:26.9vw;  --tx:55%; --ty:35%}
 .i-hcl {--cx:80.6%; --by:26.7%; --w:31.25vw; --tx:65%; --ty:37%}
-.i-g1  {--cx:43.1%; --by:7.8%;  --w:21vw;    --tx:30%; --ty:12%}
+.i-g1  {--cx:43.1%; --by:7.8%;  --w:24vw;    --tx:29%; --ty:12%}
 /* the dock is drawn to run off the left and bottom frame edges, so it is
-   anchored flush into the corner and allowed to bleed. Inset it and the cut
-   coastline reads as a floating slab. */
-.i-dock{--cx:12.5%; --by:0%;    --w:25vw;    --tx:26%; --ty:20%}
+   anchored into the corner and allowed to bleed. Inset it and the cut coastline
+   reads as a floating slab.
+   --by is NEGATIVE on purpose: at 0 the sprite's bottom edge sat exactly on the
+   viewport edge, so the shared :hover lift raised the whole landmass and opened
+   a strip of bare water underneath it. Sitting 6% below the frame means the
+   lift has slack to move into and nothing is ever revealed. */
+.i-dock{--cx:12.5%; --by:-6%;   --w:25vw;    --tx:26%; --ty:20%}
 /* the dock has no flat ring to label, and its waterline is off-screen, so its
    plaque is placed on the sand beside the house instead. */
-.i-dock .sea-label{left:44%;bottom:21%}
+.i-dock .sea-label{left:44%;bottom:26%}
 
-.sea-boat{position:absolute;left:var(--hx,27.8%);bottom:var(--hy,23.3%);width:var(--bw,4.4vw);
-  transform:translate(-50%,50%);pointer-events:none;z-index:3}
+.sea-boat{position:absolute;left:var(--hx,27.8%);bottom:var(--hy,17.3%);width:var(--bw,4.4vw);
+  transform:translate(-50%,50%);pointer-events:none;z-index:3;will-change:transform}
 .sea-boat img{display:block;width:100%;height:auto;image-rendering:pixelated;
   filter:drop-shadow(0 3px 6px rgba(6,26,48,.35));
   animation:seaBob 1.6s ease-in-out infinite}
@@ -1236,18 +1240,21 @@ body.lp-sea-on .lp-foot{display:none}
 .sea-boat.h-broadside{--bw:5.6vw}
 .sea-boat.flip img{transform:scaleX(-1)}
 @keyframes seaBob{0%,100%{translate:0 0}50%{translate:0 -2px}}
-/* the voyage. Position is driven by a keyframes animation reading custom
-   properties, NOT by a transition on a transform attribute — that combination
-   silently fails to animate in some webviews (it broke the prototype).
-   var() inside @keyframes resolves per element, so one rule serves all routes.
+/* the voyage. Animates TRANSFORM, not left/bottom: animating the offsets meant
+   a full layout pass every frame, which is what made the sail visibly janky on
+   a real machine. --dx/--dy are set in pixels by nickname.js at click time, so
+   this stays on the compositor.
+   Note the transform is authored as two chained translates. The first repeats
+   the element's own centring; leave it in every keyframe or the boat jumps by
+   half its size the instant the animation starts.
    The midpoint lifts so the track arcs instead of running dead straight; that
    lift is part of the route and was included when the arcs were checked for
    land crossings, so changing it means re-checking them. */
 @keyframes seaSail{
-  0%  {left:var(--hx,27.8%);bottom:var(--hy,23.3%)}
-  50% {left:calc((var(--hx,27.8%) + var(--tx)) / 2);
-       bottom:calc((var(--hy,23.3%) + var(--ty)) / 2 + 3.5%)}
-  100%{left:var(--tx);bottom:var(--ty)}}
+  0%  {transform:translate(-50%,50%) translate(0,0)}
+  50% {transform:translate(-50%,50%)
+       translate(calc(var(--dx,0px) / 2), calc(var(--dy,0px) / 2 - 3.5vh))}
+  100%{transform:translate(-50%,50%) translate(var(--dx,0px),var(--dy,0px))}}
 .sea-boat.sailing{animation:seaSail 1.1s ease-in-out forwards}
 .sea-boat.sailing img{animation:none}
 
