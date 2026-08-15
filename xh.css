@@ -94,6 +94,52 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
 
 .xh-wrap{max-width:900px;margin:0 auto;padding:16px 14px 60px}
 
+/* ---------- 单屏布局 (DESIGN_迭代规划_启航码头布局_2026-08-16) ----------
+   The dock was the only main screen still a single scrolling column, so on a
+   classroom Chromebook in landscape 出发 — the control every round depends on —
+   sat below the fold on first paint. This mirrors the mountain's split at
+   app.css's .home-grid rather than inventing a second system.
+   Below 900px, and in portrait at any width, nothing changes: the two wrappers
+   are plain blocks and the source order IS the phone stack. */
+.xh-col-l>*:last-child,.xh-col-r>*:last-child{margin-bottom:0}
+@media (min-width:900px){
+  /* ⚠️ clamp, not the doc's flat 400px. At 1024x768 a fixed 400px rail is 39% of
+     the width, which squeezed the right column to 562px — the mode cards wrapped to
+     two rows and 出发 fell 115px below the fold, failing acceptance §6.2. The rail
+     gives width back on narrow screens and still hits 400px from ~1330px up. */
+  .xh-wrap{max-width:1240px;display:grid;
+    grid-template-columns:clamp(320px,30%,400px) minmax(0,1fr);
+    gap:20px;align-items:start}
+  /* ⚠️ minmax(0,1fr), never 1fr. A grid child defaults to min-width:auto and
+     refuses to shrink below its content — the same trap that shipped broken on
+     .prof-grid and .rain-right. Third time is not the charm. */
+  .xh-col-l{position:sticky;top:78px}
+  /* the scope is always open here: three groups in a 400px rail gain nothing from
+     collapsing and cost a tap before every round */
+  .xh-col-l .xh-scopewrap.sc-closed{display:block}
+  .xh-col-l .xh-caret{display:none}
+  .xh-sec-t{cursor:default}
+  /* 图鉴 cover art is the single biggest vertical consumer in a 400px rail, so it
+     drops to a leading icon. The full-art version stays on phones, where it is a
+     good affordance. */
+  .xh-col-l .xh-tile-art{width:44px;height:auto;flex:none;border-radius:8px}
+  /* ⚠️ Acceptance §6.1: 出发 must be above the fold at 1366x768 on FIRST PAINT.
+     Measured at 796px against a 768 viewport before this block — the right column
+     was 28px too tall, so the padding comes down here and only here. Re-measure
+     if anything is added to the right column. */
+  .xh-col-r .xh-board{padding:14px 16px 15px;margin-bottom:12px}
+  /* ⚠️ 132px, not the base 150px. At 1024 the right column is ~642px and the base
+     track fits only 3 cards, so the four 闯关 modes wrapped to two rows and pushed
+     出发 below the fold again. 132 fits all four on one row from 900px up. */
+  .xh-col-r .xh-modes{margin-bottom:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+  .xh-col-r .xh-tab{padding:12px 12px}
+  .xh-col-r .xh-go{padding:12px 18px}
+  .xh-col-r .xh-sec{margin-bottom:8px;padding-bottom:6px}
+}
+@media (max-width:899px){
+  .xh-scopewrap.sc-closed{display:none}
+}
+
 /* ⚠️ PANELS ARE GLASS, not wooden signboards (PATCH_liquid_glass, 2026-08-15).
    SPEC §5.2's「frame it in something diegetic」was a SPEC ERROR: xh.css followed
    it exactly and the result read as a different app beside the G2 arena. Every
@@ -154,12 +200,15 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
    crop lands on — the same trick the landing couplet uses */
 .xh-hero::after{content:"";position:absolute;inset:0;
   background:
-    linear-gradient(90deg,rgba(10,28,48,.64) 0%,rgba(10,28,48,.30) 54%,rgba(10,28,48,0) 80%),
-    linear-gradient(180deg,rgba(10,28,48,.06) 0%,rgba(10,28,48,.42) 52%,rgba(10,28,48,.76) 100%)}
+    linear-gradient(90deg,rgba(10,28,48,.74) 0%,rgba(10,28,48,.44) 54%,rgba(10,28,48,.08) 80%),
+    linear-gradient(180deg,rgba(10,28,48,.10) 0%,rgba(10,28,48,.52) 52%,rgba(10,28,48,.80) 100%)}
+/* the sub sits on the artwork's brightest band, so it needs its own lift on top of
+   the scrim above — the English line was washing out entirely */
+.xh-hero-sub{text-shadow:0 1px 6px rgba(6,20,40,.95),0 0 2px rgba(6,20,40,.8)}
 .xh-hero-in{position:relative;z-index:1;width:100%;padding:16px 18px 14px;color:#fff}
 .xh-hero-t{font-family:var(--serif);font-weight:900;font-size:27px;letter-spacing:.04em;
   text-shadow:0 2px 6px rgba(6,20,40,.75)}
-.xh-hero-sub{font-size:13.5px;font-weight:700;margin-top:2px;color:#DCEBF7;
+.xh-hero-sub{font-size:13.5px;font-weight:700;margin-top:2px;margin-bottom:2px;color:#DCEBF7;
   text-shadow:0 1px 4px rgba(6,20,40,.7)}
 .xh-hero-sub .xh-en{color:#E4F0F9;text-shadow:0 1px 5px rgba(6,20,40,.95)}
 .xh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
@@ -267,7 +316,8 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .xh-sec-t{display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;
   background:none;border:0;border-bottom:2px solid rgba(138,90,50,.28);color:var(--ink);
   touch-action:manipulation;padding:0 0 7px}
-.xh-sec-t .xh-sum{margin-left:auto;font-family:var(--sans);font-size:13px;font-weight:700;
+.xh-sec-lab{flex:1 1 auto;min-width:0}
+.xh-sec-t .xh-sum{flex:none;margin-left:auto;font-family:var(--sans);font-size:13px;font-weight:700;
   color:var(--sea2);background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
   border-radius:999px;padding:4px 11px;white-space:nowrap}
 .xh-caret{font-size:14px;color:var(--sea2);flex:none}

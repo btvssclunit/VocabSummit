@@ -525,7 +525,11 @@
     var st = sailStats();
     var pct = st.all ? Math.round(st.met / st.all * 100) : 0;
 
-    var h = '<div class="xh-hero">' +
+    /* ⚠️ TWO COLUMNS at >=900px (DESIGN_迭代规划_启航码头布局). The blocks are
+       WRAPPED, never reordered, so the phone stack falls out of source order for
+       free and the ①②③ numerals stay correct in both layouts. */
+    var h = '<div class="xh-col-l">';
+    h += '<div class="xh-hero">' +
       '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
       '<div class="xh-hero-in">' +
@@ -537,6 +541,32 @@
           statCell(st.acc === null ? "—" : st.acc + "%", "", "一次答对", "first-try correct") +
           statCell(st.full + " / " + st.groups, "", "集齐的组", "chapters complete") +
         "</div></div></div>";
+
+    var sel = scopeNames(), selWords = scopedWords();
+    /* ⚠️ the label AND its glosses must live in ONE flex item. xhPy/xh-en are
+       display:block, so left loose they each became a flex sibling of the summary
+       pill and squeezed 「学习范围 · 可多选」 into three wrapped lines. */
+    h += '<div class="xh-board"><button class="xh-sec xh-sec-t" id="xhScopeT">' + stepNo(1) +
+      '<span class="xh-sec-lab">学习范围 · 可多选' + xhPy("学习范围 · 可多选") +
+      '<span class="xh-en">what to study</span></span>' +
+      '<span class="xh-sum">' + esc(scopeLabel()) + " · " + selWords.length + ' 词</span>' +
+      '<span class="xh-caret">' + (store.scopeOpen ? "▾" : "▸") + "</span></button>";
+    /* ⚠️ ALWAYS emitted now. At >=900px it is always visible (a rail with three
+       groups gains nothing from collapsing and costs a tap before every round);
+       below 900px .sc-closed hides it and the caret still toggles.
+       store.scopeOpen is KEPT — saved profiles carry it, and the phone uses it. */
+    h += '<div class="xh-scopewrap' + (store.scopeOpen ? "" : " sc-closed") + '">';
+    {
+      h += '<div class="xh-scope">';
+      groups().forEach(function (b) {
+        var on = sel.indexOf(b.组别) >= 0;
+        h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
+          ' aria-pressed="' + (on ? "true" : "false") + '">' +
+          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + "<span>" + b.done + " / " + b.n + "</span></button>";
+      });
+      h += "</div>";
+    }
+    h += "</div></div>";
 
     /* 航海图鉴 tile. 航程 (1 词 = 1 海里) is the dock's own distance metric and is
        deliberately NOT 海拔 — nothing crosses the waterline. */
@@ -570,23 +600,9 @@
        two main buttons and a toggleable scope — so scope is now a persistent
        setting at the top, the two buttons pick the kind of activity, and the mode
        cards below are only the ones that belong to the chosen kind. */
-    var sel = scopeNames(), selWords = scopedWords();
-    h += '<div class="xh-board"><button class="xh-sec xh-sec-t" id="xhScopeT">' + stepNo(1) +
-      '学习范围 · 可多选' + xhPy("学习范围 · 可多选") + ' <span class="xh-en">what to study</span>' +
-      '<span class="xh-sum">' + esc(scopeLabel()) + " · " + selWords.length + ' 词</span>' +
-      '<span class="xh-caret">' + (store.scopeOpen ? "▾" : "▸") + "</span></button>";
-    if (store.scopeOpen) {
-      h += '<div class="xh-scope">';
-      groups().forEach(function (b) {
-        var on = sel.indexOf(b.组别) >= 0;
-        h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
-          ' aria-pressed="' + (on ? "true" : "false") + '">' +
-          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + "<span>" + b.done + " / " + b.n + "</span></button>";
-      });
-      h += "</div>";
-    }
     h += "</div>";
 
+    h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
       '选择学习方式' + xhPy("选择学习方式") + ' <span class="xh-en">learn or play</span></div>' +
       '<div class="xh-tabs">' +
@@ -627,7 +643,7 @@
       h += "</div>";
     }
     h += '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") + '<span class="xh-en">start</span></button>';
-    h += "</div>";
+    h += "</div></div>";   // close ③ board, close .xh-col-r
     view().innerHTML = h;
 
     document.getElementById("xhLog").onclick = function () { renderLog(); };
