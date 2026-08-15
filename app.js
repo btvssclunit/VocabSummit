@@ -1486,7 +1486,7 @@
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
         camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
         ((STREAM === "g1" || STREAM === "g2") ? camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") : "") +
-        ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 六次机会") : "") + '</div>';
+        ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 十二次机会") : "") + '</div>';
     } else {
       /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
          「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
@@ -3697,7 +3697,7 @@
      · 声母 hint capped at the FIRST character only — never stacks to 4
      · three independent one-time hints: 声母(首字) · 词性 · 释义
      · hints cost 灵露 only — 历练值/海拔 are never spendable
-     · G2 starts with 声母 already free; G3/HCL start with nothing
+     · every hint starts unbought (the old G2 freebie is gone — G3/HCL only)
      · 释义 auto-reveals free after HANDLE_DEF_SAFETY_ROW failed guesses so a
        stuck student always has a floor, without front-loading the answer
      ================================================================== */
@@ -3711,9 +3711,13 @@
       return;
     }
     var answer = pool[Math.floor(Math.random() * pool.length)];
+    /* Every hint starts unbought. There used to be a G2 branch here handing out
+       首字声母 free, carried over from when 汉兜 was a G2/G3/HCL mode; 汉兜 has
+       been G3/HCL-only since 2026-08-13, so it was unreachable code. Owner
+       confirmed 2026-08-15: 汉兜 stays G3/HCL, the branch goes. */
     var state = {
       answer: answer, rows: [], done: false,
-      hints: { sm: STREAM === "g2", pos: false, def: false }
+      hints: { sm: false, pos: false, def: false }
     };
     renderHandle(state);
   }

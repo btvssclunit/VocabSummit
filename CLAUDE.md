@@ -217,9 +217,9 @@ Phase: login-free public test build.
   low-information and only bites when the POS is a rare one) · 释义. All three cost **灵露 only**
   (3 / 5 / 15 — tunable) and never 历练值: mastery points are earned, never spendable. 释义
   auto-reveals FREE after 4 failed guesses so a stuck student always has a floor.
-  ⚠️ The code also gives **G2** a free starting 声母 — that branch is currently **unreachable**,
-  because 汉兜 has been G3/HCL-only since 2026-08-13. Harmless and correct if G2 ever gets the mode
-  back, but do not read it as「G2 students get a free hint today」. Owner to confirm which is intended.
+  **Every hint starts unbought.** The delivered code carried a G2 branch handing out 首字声母 free,
+  left over from when 汉兜 was a G2/G3/HCL mode; owner confirmed 2026-08-15 that **汉兜 stays
+  G3/HCL-only**, so that branch is deleted rather than left as unreachable code.
 - 组词挑战 (G2): character-assembly game (slots + chips).
 - 攀山竞速: vertically-scrolling tiling rock wall (climb-wall-tile.png) with a zigzag climber
   (redesigned 2026-08-10; was a waypoint path). Answering correctly scrolls the wall and the
@@ -3379,12 +3379,14 @@ Owner 给的 `汉兜重设计_2026-08-15_v2/` 里**已经带了实现**（`app.j
    GitHub Pages 每个文件各自老化，学生可能新 CSS 配旧 JS 跑十分钟，那时旧 JS 还在发那一行声母。
    三行死样式比十分钟的裸露布局便宜。**下一次发布可以删掉。**
 
-### ⚠️ G2 那条分支现在是死代码
-`hints.sm = STREAM === "g2"`（G2 免费送首字声母）—— 但**汉兜自 2026-08-13 起就只对 G3/HCL 开放**，
-G2 的闯关页根本没有这张卡（实测：G2 只有 词雨 / 攀山竞速 / 组词挑战）。设计文档里那句
-「G2 免费起始已解锁」和它引用的 G2 成语统计，都像是基于更早的模式配置写的。
-代码留着无害，但 owner 要决定的是：**汉兜要不要回到 G2**。要就改 `CAMP_MODES` 的 `only` 白名单；
-不要就把这条分支删掉。**没有替 owner 改可用性。**
+### G2 分支已删除（owner 2026-08-15 定案）
+交付版有 `hints.sm = STREAM === "g2"`（G2 免费送首字声母），但**汉兜自 2026-08-13 起只对 G3/HCL
+开放**，G2 的闯关页根本没有这张卡（实测：G2 只有 词雨 / 攀山竞速 / 组词挑战）。设计文档里那句
+「G2 免费起始已解锁」和它引用的 G2 成语统计，都是基于更早的模式配置写的。
+**Owner 决定：汉兜维持 G3/HCL，分支删掉**（留着不可达的代码只会让下一个人以为 G2 学生有免费提示）。
+现在三个提示一律从「未购买」开始。`CAMP_MODES` 的 `only: ["g3","hcl"]` 与首页卡片的
+`STREAM === "g3" || STREAM === "hcl"` 两处闸门都没有动，本来就是对的。
+顺手修掉一处陈旧文案：首页卡片的 `title` 还写着「六次机会」，已改成「十二次机会」。
 
 ### ⚠️ 三个价格是可调参数
 3 / 5 / 15 灵露是交付文档自己标注的初始值（便宜提示信息量小、贵提示信息量大）。
@@ -3400,5 +3402,7 @@ G2 的闯关页根本没有这张卡（实测：G2 只有 词雨 / 攀山竞速 
 买首字声母扣 3 灵露且**只**显示第一个字的声母、`pts.total` 全程为 0（提示不吃历练值）、
 连打三次错**不**给释义、第四次错**免费**给出释义、赢局 `历练值 = 6 + (12-5) = 13`、连胜 +1、
 钱包 100→120 落盘、买不起时按钮 disabled 且带 title、桌面与 375px 手机都无横向滚动。
-`app.js` 解析通过，`app.css` 括号 878/878。Cache-bust `20260815n` → **`20260815p`**（跳过 o）。
+`app.js` 解析通过，`app.css` 括号 878/878。Cache-bust `20260815n` → **`20260815q`**（跳过 o）。
+删掉 G2 分支后复测：G3 三个 chip 全是待购、12 行、`0 / 12 次`、卡片 title 已是十二次机会；
+G2 闯关页仍然只有 词雨 / 攀山竞速 / 组词挑战，没有汉兜。
 ⚠️ 未在真设备上验：12×4 在真手机上用手指打字时的手感（交付文档自己也把这条列为未决）。
