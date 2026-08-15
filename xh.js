@@ -121,6 +121,67 @@
      rather than a second, dock-only persona. PROGRESS IS STILL SEALED: nothing
      here reads or writes ws2_*, 航程 never becomes 海拔, and the dock's own state
      stays in ws_xh. */
+  /* ---------- 界面拼音 (owner 2026-08-16: 「pinyin toggle doesn't work on pier」) ----
+     It DID work — but only on word content (options, cards, the 拼音 under a 词语).
+     The pier had no interface pinyin at all, so pressing 拼 on the menu, which is
+     where a student first presses it, changed nothing visible. The four streams got
+     full chrome coverage on 2026-08-15 (PY_LAB, 118 entries); this is the dock's.
+
+     ⚠️ SAME CONTRACT AS THE MOUNTAIN, do not relax either half:
+       · the KEY is exactly the Chinese on screen — a key that is a superset or
+         subset annotates a phrase the student cannot see (the 拼音辅助 / 拼音
+         mismatch the owner caught on the streams).
+       · the pinyin is HAND-WRITTEN, never generated. These are fixed strings, so
+         writing them by hand sidesteps every polyphone trap (的 de, 得分 dé, 长 cháng).
+     ⚠️ Scope is navigation and button shell text ONLY. 题干/选项/词语 stay pure
+     Chinese — same immersion logic as the Chinese-only TTS rule. */
+  var XH_PY = {
+    "启航码头": "qǐ háng mǎ tóu",
+    "看图学词 · 零基础起航": "kàn tú xué cí · líng jī chǔ qǐ háng",
+    "学习范围 · 可多选": "xué xí fàn wéi · kě duō xuǎn",
+    "选择学习方式": "xuǎn zé xué xí fāng shì",
+    "学词": "xué cí", "闯关": "chuǎng guān", "出发": "chū fā",
+    "词语游乐场": "cí yǔ yóu lè chǎng",
+    "航海图鉴": "háng hǎi tú jiàn", "码头风云榜": "mǎ tóu fēng yún bǎng",
+    "我的海滩": "wǒ de hǎi tān", "海滩小铺": "hǎi tān xiǎo pù",
+    "船只 · 一艘一艘往上换": "chuán zhī · yī sōu yī sōu wǎng shàng huàn",
+    "回海滩": "huí hǎi tān", "贝壳": "bèi ké", "海里": "hǎi lǐ",
+    "航程": "háng chéng", "一次答对": "yī cì dá duì", "集齐的组": "jí qí de zǔ",
+    "返回": "fǎn huí", "关闭": "guān bì",
+    "看图识词": "kàn tú shí cí", "听音识图": "tīng yīn shí tú",
+    "词海垂钓": "cí hǎi chuí diào", "连线": "lián xiàn",
+    "再听一次": "zài tīng yī cì", "收线": "shōu xiàn", "检查答案": "jiǎn chá dá àn",
+    "上一个": "shàng yī gè", "下一个": "xià yī gè", "学完了": "xué wán le",
+    "开始测验": "kāi shǐ cè yàn", "再来一次": "zài lái yī cì",
+    "再看一次": "zài kàn yī cì", "换一组": "huàn yī zǔ",
+    "再看看这几个": "zài kàn kàn zhè jǐ gè",
+    "全部": "quán bù", "已认得": "yǐ rèn de", "还没认得": "hái méi rèn de",
+    "岸左": "àn zuǒ", "岸右": "àn yòu", "木桩": "mù zhuāng",
+    "沙地": "shā dì", "空中": "kōng zhōng",
+    "动物": "dòng wù", "食物": "shí wù", "日常用品": "rì cháng yòng pǐn",
+    "学校": "xué xiào", "天气与自然": "tiān qì yǔ zì rán", "交通": "jiāo tōng",
+    "陆上动物": "lù shàng dòng wù", "水中与空中": "shuǐ zhōng yǔ kōng zhōng",
+    "熟食": "shú shí", "肉与蛋": "ròu yǔ dàn",
+    "水果与蔬菜": "shuǐ guǒ yǔ shū cài", "饮料": "yǐn liào"
+  };
+  /* the interface gloss. Missing keys return "" — silent by design, same as the
+     mountain's pyl(), which is why the syllable self-check below exists. */
+  function xhPy(zh) {
+    var t = XH_PY[zh];
+    return t ? '<span class="xh-py xh-uipy">' + t + "</span>" : "";
+  }
+  /* dev self-check: one syllable per CJK character, or the annotation drifts off
+     the word it explains. Runs once, logs only when something is wrong. */
+  (function () {
+    var bad = [];
+    for (var k in XH_PY) {
+      var cjk = (k.match(/[\u4e00-\u9fff]/g) || []).length;
+      var syl = XH_PY[k].split(/\s+/).filter(function (t) { return t !== "\u00b7"; }).length;
+      if (cjk !== syl) bad.push(k + " -> " + XH_PY[k] + " (" + cjk + " vs " + syl + ")");
+    }
+    if (bad.length && window.console) console.warn("XH_PY syllable mismatch:", bad);
+  })();
+
   function applyAids() {
     document.body.classList.toggle("xh-py-on", !!store.py);
     document.body.classList.toggle("xh-en-on", !!store.en);
@@ -312,7 +373,20 @@
      be answered by category alone (an animal picture against three household
      objects), which taught nothing. 动物 may draw freely across 陆上 and 水中 —
      猫 against 鲨鱼 is still a real question. */
-  var BLACKLIST = [["椅子", "桌子"]];   // the only collision left in this scope
+  /* ⚠️ NEVER in the same option set. From XH_v3_blacklist.csv (SPEC_XH_vocab_v3 §4).
+     ⚠️ 椅子/桌子 was REMOVED from this list on 2026-08-16: the owner compared the two
+     sprites directly and the chair's tall upright back reads clearly against the
+     table's flat empty top. It was a precaution, never a measured collision — and
+     store.stats[].confused will catch it if the precaution was right after all.
+     That instrumentation is how this list is maintained from here (spec §8). */
+  var BLACKLIST = [
+    ["包子", "饺子"],   // both pale steamed dough on a plate
+    ["猪肉", "牛肉"],   // both slabs of red-pink meat
+    ["汤", "面"],       // both bowls of soup-like food
+    ["茶", "咖啡"],     // both cups with steam
+    ["同学", "朋友"],   // both drawn as two figures
+    ["车", "德士"]      // both side-view cars; the taxi differs only by its roof sign
+  ];
   function mates(text) {
     var out = {};
     BLACKLIST.forEach(function (set) {
@@ -434,7 +508,7 @@
   }
   function statCell(n, unit, zh, en) {
     return '<div class="xh-stat"><b>' + n + (unit ? "<i>" + unit + "</i>" : "") + "</b>" +
-      "<span>" + zh + '<span class="xh-en">' + en + "</span></span></div>";
+      "<span>" + zh + xhPy(zh) + '<span class="xh-en">' + en + "</span></span></div>";
   }
 
   /* ---------- menu ---------- */
@@ -456,7 +530,7 @@
         "onerror=\"this.style.display='none'\">" +
       '<div class="xh-hero-in">' +
         '<div class="xh-hero-t">启航码头</div>' +
-        '<div class="xh-hero-sub">看图学词 · 零基础起航' +
+        '<div class="xh-hero-sub">看图学词 · 零基础起航' + xhPy("看图学词 · 零基础起航") +
         '<span class="xh-en">Start here. Pictures first, characters second.</span></div>' +
         '<div class="xh-stats">' +
           statCell(st.met, "海里", "航程", "words met") +
@@ -469,7 +543,7 @@
     h += '<button class="xh-tile" id="xhLog">' +
       '<img class="xh-tile-art" src="art/xh/xh_atlas_cover.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
-      '<span class="xh-tile-txt"><b>航海图鉴</b>' +
+      '<span class="xh-tile-txt"><b>航海图鉴</b>' + xhPy("航海图鉴") +
       '<span class="xh-en">the words you have met</span>' +
       '<span class="xh-bar"><i style="width:' + pct + '%"></i></span>' +
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
@@ -477,7 +551,7 @@
 
     h += '<button class="xh-tile slim" id="xhBeach">' +
       '<span class="xh-tile-ic">🏖️</span>' +
-      '<span class="xh-tile-txt"><b>我的海滩</b>' +
+      '<span class="xh-tile-txt"><b>我的海滩</b>' + xhPy("我的海滩") +
       '<span class="xh-en">your berth and the shop</span>' +
       '<span class="xh-tile-n">' + (store.shells || 0) + ' 贝壳 · ' +
         esc(BOATS[(store.boat || 1) - 1].zh) + '</span></span>' +
@@ -485,7 +559,7 @@
 
     h += '<button class="xh-tile slim" id="xhBoards">' +
       '<span class="xh-tile-ic">🏆</span>' +
-      '<span class="xh-tile-txt"><b>码头风云榜</b>' +
+      '<span class="xh-tile-txt"><b>码头风云榜</b>' + xhPy("码头风云榜") +
       '<span class="xh-en">the dock boards</span>' +
       '<span class="xh-tile-n">航海值 ' + (store.sail || 0) + " · 航程 " + st.met + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
@@ -498,7 +572,7 @@
        cards below are only the ones that belong to the chosen kind. */
     var sel = scopeNames(), selWords = scopedWords();
     h += '<div class="xh-board"><button class="xh-sec xh-sec-t" id="xhScopeT">' + stepNo(1) +
-      '学习范围 · 可多选 <span class="xh-en">what to study</span>' +
+      '学习范围 · 可多选' + xhPy("学习范围 · 可多选") + ' <span class="xh-en">what to study</span>' +
       '<span class="xh-sum">' + esc(scopeLabel()) + " · " + selWords.length + ' 词</span>' +
       '<span class="xh-caret">' + (store.scopeOpen ? "▾" : "▸") + "</span></button>";
     if (store.scopeOpen) {
@@ -507,19 +581,19 @@
         var on = sel.indexOf(b.组别) >= 0;
         h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' +
-          "<b>" + esc(b.组别) + "</b><span>" + b.done + " / " + b.n + "</span></button>";
+          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + "<span>" + b.done + " / " + b.n + "</span></button>";
       });
       h += "</div>";
     }
     h += "</div>";
 
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
-      '选择学习方式 <span class="xh-en">learn or play</span></div>' +
+      '选择学习方式' + xhPy("选择学习方式") + ' <span class="xh-en">learn or play</span></div>' +
       '<div class="xh-tabs">' +
       '<button class="xh-tab' + (store.tab === "learn" ? " on" : "") + '" data-t="learn">' +
-        '<span class="xh-mi">📖</span><b>学词</b><span class="xh-en">Learn</span></button>' +
+        '<span class="xh-mi">📖</span><b>学词</b>' + xhPy("学词") + '<span class="xh-en">Learn</span></button>' +
       '<button class="xh-tab' + (store.tab === "play" ? " on" : "") + '" data-t="play">' +
-        '<span class="xh-mi">🎮</span><b>闯关</b><span class="xh-en">Play</span></button>' +
+        '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") + '<span class="xh-en">Play</span></button>' +
       "</div></div>";
 
     var tabModes = MODES.filter(function (m) { return !!m.learn === (store.tab === "learn"); });
@@ -528,12 +602,13 @@
     }
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
       (store.tab === "learn" ? "看图学词" : "词语游乐场") +
+      xhPy(store.tab === "learn" ? "看图学词" : "词语游乐场") +
       ' <span class="xh-en">' + (store.tab === "learn" ? "study the pictures" : "pick a game") +
       "</span></div>";
     h += '<div class="xh-modes">';
     tabModes.forEach(function (m) {
       h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
-        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" +
+        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
         '<span class="xh-en">' + m.en + "</span>" + "</button>";
     });
     h += "</div>";
@@ -551,7 +626,7 @@
       });
       h += "</div>";
     }
-    h += '<button class="xh-go" id="xhGoRound">出发 ›<span class="xh-en">start</span></button>';
+    h += '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") + '<span class="xh-en">start</span></button>';
     h += "</div>";
     view().innerHTML = h;
 
@@ -657,8 +732,8 @@
     var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">我的海滩</span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
-      '<div class="xh-berth-title">🏖️ 我的海滩<span class="xh-en">Your berth</span></div>' +
-      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' +
+      '<div class="xh-berth-title">🏖️ 我的海滩' + xhPy("我的海滩") + '<span class="xh-en">Your berth</span></div>' +
+      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
       '<span class="xh-en">shells</span></span></div>';
     h += '<div class="beach-stage">' +
       '<img class="beach-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
@@ -672,7 +747,7 @@
       if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
     });
     h += "</div>";
-    h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' +
+    h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' + xhPy("海滩小铺") +
       '<span class="xh-en">shop</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();
@@ -684,14 +759,14 @@
     var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">海滩小铺</span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
-      '<div class="xh-berth-title">🛒 海滩小铺<span class="xh-en">Beach shop</span></div>' +
-      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' +
+      '<div class="xh-berth-title">🛒 海滩小铺' + xhPy("海滩小铺") + '<span class="xh-en">Beach shop</span></div>' +
+      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
       '<span class="xh-en">shells</span></span></div>' +
       '<div class="xh-log-sub">答对题目就能捡到贝壳。每个位置只能摆一样，随时可以换。' +
       '<span class="xh-en">Answer questions to find shells. One item per spot, swap any time.</span></div>';
 
     /* boats first: it is the one thing that shows up in three places at once */
-    h += '<div class="xh-log-sec">船只 · 一艘一艘往上换<span class="xh-en">Your boat — upgraded, not swapped</span></div>';
+    h += '<div class="xh-log-sec">船只 · 一艘一艘往上换' + xhPy("船只 · 一艘一艘往上换") + '<span class="xh-en">Your boat — upgraded, not swapped</span></div>';
     h += '<div class="beach-shelf">';
     BOATS.forEach(function (b) {
       var owned = (store.boat || 1) >= b.t;
@@ -700,7 +775,7 @@
       h += '<div class="beach-card' + (owned ? " owned" : "") + '">' +
         '<img src="art/xh/boat_t' + b.t + '_broadside.png' + ASSET_V + '" alt="" ' +
           "onerror=\"this.style.display='none'\">" +
-        '<b>' + esc(b.zh) + '</b><span class="xh-en">' + esc(b.en) + '</span>' +
+        '<b>' + esc(b.zh) + '</b>' + xhPy(b.zh) + '<span class="xh-en">' + esc(b.en) + '</span>' +
         (owned ? '<span class="beach-tag on">已拥有</span>'
                : prev ? '<span class="beach-tag">先换上' + esc(BOATS[b.t - 2].zh) + '</span>'
                : '<button class="beach-buy" data-boat="' + b.t + '"' + (afford ? "" : " disabled") +
@@ -710,7 +785,7 @@
     h += '</div>';
 
     BERTH_SLOTS.forEach(function (sl) {
-      h += '<div class="xh-log-sec">' + esc(sl.zh) + '<span class="xh-en">' + esc(sl.en) + '</span></div>';
+      h += '<div class="xh-log-sec">' + esc(sl.zh) + xhPy(sl.zh) + '<span class="xh-en">' + esc(sl.en) + '</span></div>';
       h += '<div class="beach-shelf">';
       BERTH_ITEMS.filter(function (it) { return it.slot === sl.k; }).forEach(function (it) {
         var owned = ownsItem(it.k), on = store.berth[sl.k] === it.k;
@@ -718,7 +793,7 @@
         h += '<div class="beach-card' + (on ? " on" : owned ? " owned" : "") + '">' +
           '<img src="art/xh/' + it.img + '.png' + ASSET_V + '" alt="" ' +
             "onerror=\"this.style.display='none'\">" +
-          '<b>' + esc(it.zh) + '</b><span class="xh-en">' + esc(it.en) + '</span>' +
+          '<b>' + esc(it.zh) + '</b>' + xhPy(it.zh) + '<span class="xh-en">' + esc(it.en) + '</span>' +
           (on ? '<span class="beach-tag on">摆着</span>'
               : owned ? '<button class="beach-buy own" data-eq="' + it.k + '">摆上</button>'
               : '<button class="beach-buy" data-buy="' + it.k + '"' + (afford ? "" : " disabled") +
@@ -727,7 +802,7 @@
       });
       h += '</div>';
     });
-    h += '<div class="beach-acts"><button class="xh-btn" id="beachBack">‹ 回海滩' +
+    h += '<div class="beach-acts"><button class="xh-btn" id="beachBack">‹ 回海滩' + xhPy("回海滩") +
       '<span class="xh-en">back to the beach</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();
@@ -829,8 +904,8 @@
     var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">航海图鉴</span></div>' +
       '<div class="xh-board"><div class="xh-log-head">' +
-      '<div class="xh-berth-title">🧭 航海图鉴<span class="xh-en">Your word log</span></div>' +
-      '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" +
+      '<div class="xh-berth-title">🧭 航海图鉴' + xhPy("航海图鉴") + '<span class="xh-en">Your word log</span></div>' +
+      '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" + xhPy("海里") +
       '<span class="xh-en">words met</span></span></div>' +
       '<div class="xh-log-pages">';
     pages.forEach(function (p) {
@@ -840,7 +915,7 @@
     });
     h += "</div></div>";
 
-    h += '<div class="xh-board"><div class="xh-sec">' + esc(cur.组别) +
+    h += '<div class="xh-board"><div class="xh-sec">' + esc(cur.组别) + xhPy(cur.组别) +
       (got === cur.words.length ? '<span class="xh-log-stamp">全部集齐</span>' : "") +
       '<span class="xh-en">tap any word to open it as a flashcard</span></div>';
     h += '<div class="xh-log-sub">点任何一个词语都能打开图卡，还没认得的也可以先看。' +
@@ -849,17 +924,17 @@
               ["miss", "还没认得", cur.words.length - got]];
     h += '<div class="xh-log-filters">' + fc.map(function (c) {
       return '<button class="xh-log-chip' + (f === c[0] ? " on" : "") + '" data-f="' + c[0] + '">' +
-        c[1] + " " + c[2] + "</button>";
+        c[1] + " " + c[2] + xhPy(c[1]) + "</button>";
     }).join("") + "</div>";
     h += '<div class="xh-log-act"><button class="xh-btn" id="xhLogLearn"' +
-      (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' +
+      (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' + xhPy("看图学词") +
       '<span class="xh-en">study these</span></button></div>';
     if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。</div>';
     cur.secs.forEach(function (sec) {
       if (!cur.byS[sec].filter(keep).length) return;   // hide a section the filter emptied
       // a one-section chapter (日常用品) needs no divider — the chapter title
       // already says it, and an identical subtitle underneath reads as a bug
-      if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + "</div>";
+      if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + xhPy(sec) + "</div>";
       h += '<div class="xh-log-grid">';
       cur.byS[sec].filter(keep).forEach(function (w) {
         var have = !!store.done[w.词语];
@@ -915,7 +990,7 @@
 
     function tabBtn(id, zh, en) {
       return '<button class="xh-lb-tab' + (tab === id ? " on" : "") + '" data-t="' + id + '">' +
-        zh + '<span class="xh-en">' + en + "</span></button>";
+        zh + xhPy(zh) + '<span class="xh-en">' + en + "</span></button>";
     }
     function scopeBtn(id, zh, en) {
       return '<button class="xh-lb-scope' + (scope === id ? " on" : "") + '" data-s="' + id + '">' +
@@ -924,7 +999,7 @@
     view().innerHTML =
       '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">码头风云榜</span></div>' +
-      '<div class="xh-board"><div class="xh-sec">🏆 码头风云榜' +
+      '<div class="xh-board"><div class="xh-sec">🏆 码头风云榜' + xhPy("码头风云榜") +
       '<span class="xh-en">the dock boards</span></div>' +
       '<div class="xh-lb-tabs">' + tabBtn("sailed", "识词数", "words met") +
         tabBtn("pts", "航海值", "effort") + "</div>" +
@@ -1000,8 +1075,30 @@
       // sample, and a stable order means the second visit is the same lesson
       seq = pool.slice();
     } else {
-      seq = shuffle(pool.slice()).slice(0,
-        Math.min(mode === "match" ? (store.matchN || 5) : ROUND_N, pool.length));
+      /* SPEC_XH_vocab_v3 §6: with groups now 7-32 words, a flat draw from 食物 (32)
+         gives a round with no theme. When the scope is a SINGLE 组别 that has real
+         子类 subdivisions, draw the round from ONE 子类 so it hangs together.
+         ⚠️ THE DISTRACTOR POOL IS UNTOUCHED — distractors() still draws from the
+         answer's whole 组别. Narrowing them to the 子类 would turn a fruit question
+         into a fruit-only quiz and defeat the point (§6, and PATCH_category_hierarchy). */
+      var need = mode === "match" ? (store.matchN || 5) : ROUND_N;
+      var draw = pool;
+      var gs = {}; pool.forEach(function (w) { gs[w.组别] = 1; });
+      if (Object.keys(gs).length === 1) {
+        var bySub = {}, subs = [];
+        pool.forEach(function (w) {
+          if (!bySub[w.子类]) { bySub[w.子类] = []; subs.push(w.子类); }
+          bySub[w.子类].push(w);
+        });
+        /* ⚠️ only 子类 that can FILL the round are eligible. Picking one that is too
+           small (饮料 has 4 words, a 连线 board wants 5+) and then falling back to
+           the whole group produced a mixed round — the exact thing §6 asks us to
+           avoid. Excluding it up front means the small 子类 is simply never the
+           theme, rather than being the cause of an unthemed round. */
+        var big = subs.filter(function (k) { return bySub[k].length >= need; });
+        if (big.length) draw = bySub[big[Math.floor(Math.random() * big.length)]];
+      }
+      seq = shuffle(draw.slice()).slice(0, Math.min(need, draw.length));
     }
     if (!seq.length) return;
     state = { grp: sub || scopeLabel(), mode: mode, seq: seq, i: 0, correct: 0,
@@ -1137,7 +1234,7 @@
       '<div class="xh-card-word"><b>' + esc(w.词语) + "</b>" +
       '<span class="xh-py">' + esc(w.拼音) + "</span>" +
       '<span class="xh-en">' + esc(w.英文释义) + "</span>" + "</div>" +
-      '<button class="xh-btn xh-say" id="xhSay">🔊 再听一次' +
+      '<button class="xh-btn xh-say" id="xhSay">🔊 再听一次' + xhPy("再听一次") +
       ' <span class="xh-en">hear it again</span>' + "</button>" +
       '<div class="xh-cardnav">' +
       '<button class="xh-btn ghost" id="xhPrev"' + (state.i ? "" : " disabled") + '>‹ 上一个</button>' +
@@ -1220,7 +1317,7 @@
     state.firstTry = true;
     var opts = shuffle(distractors(w).concat([w]));
     var h = bar() + '<div class="xh-board xh-stage">' +
-      '<button class="xh-play" id="xhPlay">🔊 <span>再听一次</span>' +
+      '<button class="xh-play" id="xhPlay">🔊 <span>再听一次</span>' + xhPy("再听一次") +
       '<span class="xh-en">tap to hear it again</span>' + "</button>" +
       '<div class="xh-hint" id="xhHint"></div><div class="xh-pics">';
     opts.forEach(function (o) {
@@ -1331,7 +1428,7 @@
       '<div class="xh-typerow">' +
       '<input class="xh-input" id="xhIn" type="text" autocomplete="off" autocapitalize="off" ' +
       'autocorrect="off" spellcheck="false" placeholder="用拼音打出来 · type the pinyin">' +
-      '<button class="xh-btn" id="xhGo">收线' +
+      '<button class="xh-btn" id="xhGo">收线' + xhPy("收线") +
       '<span class="xh-en">reel it in</span></button></div>' +
       '<div class="xh-hint" id="xhHint"></div></div>';
     wireQuit();
@@ -1450,7 +1547,7 @@
         esc(w.词语) + '">🔊</button></div>';
     });
     h += '</div></div><div class="xh-matchfoot"><span class="xh-mhint" id="xhMHint"></span>' +
-      '<button class="xh-btn" id="xhCheck" disabled>检查答案' +
+      '<button class="xh-btn" id="xhCheck" disabled>检查答案' + xhPy("检查答案") +
       ' <span class="xh-en">check</span>' + "</button></div></div>";
     view().innerHTML = h;
     wireQuit();
@@ -1600,9 +1697,9 @@
   function renderResult() {
     var h = '<div class="xh-board xh-result"><div class="xh-berth-title">🎉 这一轮完成了</div>' +
       '<div class="xh-score"><b>' + state.correct + "</b> / " + state.seq.length +
-      " 一次答对" + ' <span class="xh-en">correct first try</span>' + "</div>";
+      " 一次答对" + xhPy("一次答对") + ' <span class="xh-en">correct first try</span>' + "</div>";
     if (state.missed.length) {
-      h += '<div class="xh-review"><div class="xh-review-h">再看看这几个' +
+      h += '<div class="xh-review"><div class="xh-review-h">再看看这几个' + xhPy("再看看这几个") +
         ' <span class="xh-en">worth another look</span>' + "</div><div class=\"xh-review-list\">";
       state.missed.forEach(function (w) {
         h += '<button class="xh-review-item" data-w="' + esc(w.词语) + '">' + img(w) +
@@ -1626,7 +1723,7 @@
   applyAids();     // before the first paint, so neither aid flashes in or out
   renderTop();     // topbar works even if the word list never arrives
 
-  fetch("data/xh_mvp2.json" + ASSET_V)
+  fetch("data/xh_v3.json" + ASSET_V)
     .then(function (r) { return r.json(); })
     .then(function (rows) {
       WORDS = rows;

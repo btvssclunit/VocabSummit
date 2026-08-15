@@ -129,6 +129,16 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
    override this to a light colour further down — do not "simplify" them away. */
 body.xh-en-on .xh-en{display:block;font-size:12.5px;font-weight:600;color:#46596A}
 body.xh-py-on .xh-py,.xh-py.xh-always{display:block;font-size:13px;font-weight:600;color:var(--sea1)}
+/* interface pinyin (owner 2026-08-16). Smaller and quieter than the word 拼音 —
+   it annotates a button, not the thing being learned. Same contrast floor as the
+   streams' .pylab (#6A5A21 on a glass card = 5.95:1). */
+body.xh-py-on .xh-uipy{display:block;font-size:11.5px;font-weight:600;color:#6A5A21;
+  line-height:1.35;letter-spacing:.01em}
+/* on the gold-selected chips and the dark hero the light-card colour vanishes */
+body.xh-py-on .xh-tab.on .xh-uipy,body.xh-py-on .xh-mode.on .xh-uipy,
+body.xh-py-on .xh-gchip.on .xh-uipy,body.xh-py-on .xh-log-chip.on .xh-uipy,
+body.xh-py-on .xh-lb-tab.on .xh-uipy,body.xh-py-on .xh-go .xh-uipy{color:#553F06}
+body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .xh-sec{font-family:var(--serif);font-weight:900;font-size:17px;margin-bottom:10px;
   padding-bottom:7px;border-bottom:2px solid rgba(138,90,50,.28)}
 
