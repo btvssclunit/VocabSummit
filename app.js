@@ -2639,7 +2639,11 @@
       "2 to 8 players. Nobody can join once it starts; if you drop out, use the room code to come back.",
     "出题范围": "Word pool",
     "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
-      "Uses the units you picked on the 修行 page, the same as your own revision. To change it, go back a page."
+      "Uses the units you picked on the 修行 page, the same as your own revision. To change it, go back a page.",
+    /* ---- 汉兜 hint redesign (owner 2026-08-15): the old progressive-声母
+       button had no label text of its own (just bare letters), so this pair
+       is genuinely new shell text, not a reuse. */
+    "首字声母": "First sound", "词性": "Word type"
   };
   /* 拼音 for the INTERFACE (owner 2026-08-14: "students who are weak can't read
      this and can get overwhelmed"). Same contract as EN_LAB — navigation and
@@ -2736,7 +2740,9 @@
     "出题范围": "chū tí fàn wéi",
     "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
       "yòng nǐ zài「xiū xíng」yè xuǎn de fù xí fàn wéi，hé zì jǐ fù xí shí yī yàng。" +
-      "yào gǎi jiù huí shàng yī yè xuǎn dān yuán"
+      "yào gǎi jiù huí shàng yī yè xuǎn dān yuán",
+    /* ---- 汉兜 hint redesign (owner 2026-08-15) ---- */
+    "首字声母": "shǒu zì shēng mǔ", "词性": "cí xìng"
   };
   function pyl(key) {
     if (!pyAidAvailable()) return "";
@@ -3681,10 +3687,23 @@
 
   /* ==================================================================
      词语汉兜 · four-character word guessing (G2/G3/HCL)
-     Wordle rules at the character level: 6 guesses, green = right
+     Wordle rules at the character level: 12 guesses, green = right
      character right position, amber = in the word elsewhere, grey =
      not in the word. Answer pool = 4-character words in scope.
+     HINT_REDESIGN_2026-08-15 (owner-approved): the old progressive-声母
+     button let students stack all four 声母 + 释义 and reconstruct the
+     answer without ever using the grading. Replaced with:
+     · 12 guesses instead of 6, rows numbered
+     · 声母 hint capped at the FIRST character only — never stacks to 4
+     · three independent one-time hints: 声母(首字) · 词性 · 释义
+     · hints cost 灵露 only — 历练值/海拔 are never spendable
+     · G2 starts with 声母 already free; G3/HCL start with nothing
+     · 释义 auto-reveals free after HANDLE_DEF_SAFETY_ROW failed guesses so a
+       stuck student always has a floor, without front-loading the answer
      ================================================================== */
+  var HANDLE_MAX_ROWS = 12;
+  var HANDLE_HINT_COST = { sm: 3, pos: 5, def: 15 };
+  var HANDLE_DEF_SAFETY_ROW = 4;
   function startHandle() {
     var pool = scopedWords().filter(function (w) { return w.w.length === 4; });
     if (pool.length < 8) {
@@ -3692,9 +3711,10 @@
       return;
     }
     var answer = pool[Math.floor(Math.random() * pool.length)];
-    /* starting hints: G2 = all four 声母 · G3 = 首字声母 · HCL = none */
-    var startHints = STREAM === "g2" ? 4 : (STREAM === "g3" ? 1 : 0);
-    var state = { answer: answer, rows: [], done: false, hintN: startHints, showDef: false };
+    var state = {
+      answer: answer, rows: [], done: false,
+      hints: { sm: STREAM === "g2", pos: false, def: false }
+    };
     renderHandle(state);
   }
   function pyInitials(py) {
@@ -3704,10 +3724,32 @@
     });
   }
   function handleHintHtml(state) {
-    /* 声母 chips live above the grid now; the rail only carries 释义 */
-    var defOn = state.showDef || (!state.done && state.rows.length >= 2);
-    if (!defOn) return "";
+    /* 释义, once bought or auto-revealed by the safety net, gets its own
+       line in the rail (too long to live inside a chip) */
+    if (!state.hints.def) return "";
     return '<div class="handle-hints"><div class="hint-line">释义提示：' + esc(state.answer.zh) + '</div></div>';
+  }
+  function handleHintBarHtml(state) {
+    var a = state.answer;
+    var ini0 = pyInitials(a.py)[0];
+    function chip(key, label, shortVal) {
+      var got = state.hints[key];
+      var labelHtml = esc(label) + pyl(label) + enli(label);
+      if (got) return '<div class="handle-hintchip got">' + labelHtml + (shortVal ? "：" + esc(shortVal) : " ✓") + '</div>';
+      if (state.done) return '<div class="handle-hintchip off">' + labelHtml + '</div>';
+      var cost = HANDLE_HINT_COST[key];
+      var afford = store.lingLu >= cost;
+      /* a disabled button with no reason reads as broken, so the unaffordable
+         state says what is missing rather than just greying out */
+      return '<button class="handle-hintchip buy" data-hint="' + key + '"' +
+        (afford ? "" : ' disabled title="灵露不够，去词雨灵露赚一些"') + '>' +
+        labelHtml + ' · ' + cost + campLingluIcon() + '</button>';
+    }
+    return '<div class="handle-hintbar">' +
+      chip("sm", "首字声母", ini0) +
+      chip("pos", "词性", a.pos || "") +
+      chip("def", "释义", "") +
+      '</div>';
   }
   function gradeGuess(guess, answer) {
     var res = ["absent", "absent", "absent", "absent"];
@@ -3729,20 +3771,12 @@
       '<div class="mode-name">🀄 词语汉兜' + pyl("词语汉兜") + enli("词语汉兜") + '</div>' +
       '<div class="mode-desc">' + mdLine("猜一个范围内的四字词语。") +
         mdLine("🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字") + '</div>' +
-      '<div class="prog-big">' + state.rows.length + ' <small>/ 6 次</small></div>' +
+      '<div class="prog-big">' + state.rows.length + ' <small>/ ' + HANDLE_MAX_ROWS + ' 次</small></div>' +
       '<div class="streak">连胜' + pyl("连胜") + enli("连胜") + ' <b>' + streak + '</b> 🏮</div>' +
       handleHintHtml(state) + '</div>' +
-      '<div class="stage">';
-    var ini = pyInitials(state.answer.py);
-    html += '<div class="handle-hintrow">';
-    for (var hc = 0; hc < 4; hc++) {
-      html += (hc < state.hintN)
-        ? '<div class="handle-hint">' + esc(ini[hc]) + '</div>'
-        : '<div class="handle-hint off">?</div>';
-    }
-    html += '</div><div class="handle-grid">';
-    for (var r = 0; r < 6; r++) {
-      html += '<div class="handle-row">';
+      '<div class="stage">' + handleHintBarHtml(state) + '<div class="handle-grid">';
+    for (var r = 0; r < HANDLE_MAX_ROWS; r++) {
+      html += '<div class="handle-row"><span class="handle-rownum">' + (r + 1) + '</span>';
       var row = state.rows[r];
       for (var c = 0; c < 4; c++) {
         if (row) html += '<div class="handle-tile ' + row.res[c] + '">' + esc(row.g[c]) + '</div>';
@@ -3752,10 +3786,8 @@
     }
     html += '</div>';
     if (!state.done) {
-      var hintsLeft = state.hintN < 4 || !state.showDef;
       html += '<div class="answer-row handle-input">' +
         '<input class="answer-input" id="hAns" autocomplete="off" maxlength="4" placeholder="输入四字词语…">' +
-        '<button class="nav-btn" id="hHint"' + (hintsLeft ? "" : " disabled") + '>💡 提示' + pyl("提示") + enli("提示") + '</button>' +
         '<button class="check-btn" id="hChk">猜！</button></div>' +
         '<div class="feedback" id="hFb"></div>';
     } else {
@@ -3767,12 +3799,35 @@
     }
     html += '</div></div>';
     view().innerHTML = html;
+    /* The grid is a scroller now that it holds 12 rows, so a late row can sit
+       below the fold on a phone. Scroll ONLY far enough to bring the row just
+       played into view — never to the bottom, which would push the played rows
+       off the top and leave a student staring at nine empty ones. */
+    var hGrid = view().querySelector(".handle-grid");
+    if (hGrid && state.rows.length) {
+      var lastRow = hGrid.children[state.rows.length - 1];
+      if (lastRow) {
+        var need = lastRow.offsetTop + lastRow.offsetHeight - hGrid.clientHeight;
+        if (need > hGrid.scrollTop) hGrid.scrollTop = need;
+      }
+    }
     if (state.done) {
       speak(state.answer.w);
       document.getElementById("hAgain").onclick = startHandle;
       document.getElementById("hHome").onclick = renderHome;
       return;
     }
+    Array.prototype.forEach.call(view().querySelectorAll(".handle-hintchip.buy"), function (btn) {
+      btn.onclick = function () {
+        var key = btn.getAttribute("data-hint"), cost = HANDLE_HINT_COST[key];
+        if (state.hints[key] || store.lingLu < cost) return;
+        store.lingLu -= cost;
+        state.hints[key] = true;
+        saveStore();
+        tone(523, 0, 0.1);
+        renderHandle(state);
+      };
+    });
     var input = document.getElementById("hAns");
     var composing = false;
     input.focus();
@@ -3788,28 +3843,28 @@
       if (val === state.answer.w) {
         state.done = true; state.won = true;
         store.best.handle = (store.best.handle || 0) + 1; saveStore();
-        /* 汉兜 solved: base 6 + 1 per unused guess (LEADERBOARD_DESIGN §2) */
-        scoreCorrect(state.answer, 6 + Math.max(0, 6 - state.rows.length), 1, 0, !!store.mastered[state.answer.id]);
+        /* ⚠️ 灵露 FIRST, then 历练值 — scoreCorrect→bankPts is what calls
+           saveStore(), so an award made after it stays in memory only and is
+           lost if the student closes the tab on the win screen. Measured: a win
+           left the wallet unchanged on disk. Same order as 填空挑战. */
         awardLingLu(state.answer, "handle");
+        /* 汉兜 solved: base 6 + 1 per unused guess out of 12 (HINT_REDESIGN_2026-08-15) */
+        scoreCorrect(state.answer, 6 + Math.max(0, HANDLE_MAX_ROWS - state.rows.length), 1, 0, !!store.mastered[state.answer.id]);
         sfxBadge();
-      } else if (state.rows.length >= 6) {
+      } else if (state.rows.length >= HANDLE_MAX_ROWS) {
         state.done = true; state.won = false;
         store.best.handle = 0; saveStore();
         sfxBad();
-      } else { sfxOk(); }
+      } else {
+        if (!state.hints.def && state.rows.length >= HANDLE_DEF_SAFETY_ROW) state.hints.def = true;
+        sfxOk();
+      }
       renderHandle(state);
     }
     input.addEventListener("compositionstart", function () { composing = true; });
     input.addEventListener("compositionend", function () { composing = false; });
     input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !composing) submit(); });
     document.getElementById("hChk").onclick = submit;
-    var hb = document.getElementById("hHint");
-    if (hb) hb.onclick = function () {
-      /* progressive: reveal the next 声母, then the 释义 */
-      if (state.hintN < 4) state.hintN++;
-      else state.showDef = true;
-      tone(523, 0, 0.1); renderHandle(state);
-    };
   }
 
 

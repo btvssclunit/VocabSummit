@@ -207,10 +207,19 @@ Phase: login-free public test build.
   limited to ≤4-character words with an empty-pool guard), IME typing input (compositionend-aware
   Enter), speed 慢/中/快, pinyin toggle, 3 lives, waves every 10 clears,
   score = 字数×10×combo + altitude bonus, personal best in localStorage only. Keep the 词雨 name (谐音).
-- 词语汉兜 (G2/G3/HCL only): 4-character word Wordle, 6 guesses, character-level grading
-  (exact/present/absent, duplicate-aware), pool = 4-char words in scope (min 8), win streak tracked.
-  Progressive hints: G2 shows all four 声母 from the start; G3/HCL show the first character's 声母
-  only; all levels reveal 释义 after 2 wrong guesses.
+- 词语汉兜 (**G3/HCL only** since 2026-08-13): 4-character word Wordle, **12 guesses, rows numbered**,
+  character-level grading (exact/present/absent, duplicate-aware), pool = 4-char words in scope
+  (min 8), win streak tracked. **HINT_REDESIGN_2026-08-15** (owner-approved) replaced the old
+  progressive-声母 button, which let a student stack all four 声母 + 释义 and reconstruct the answer
+  without ever using the 🟩🟨⬜ grading — i.e. the game's actual mechanic was bypassable. Now three
+  independent one-time hints: 首字声母 (**capped at the FIRST character, never stacks to four**) ·
+  词性 (from the existing `pos` field; ~90% of 4-char words are 成语, so it is usually
+  low-information and only bites when the POS is a rare one) · 释义. All three cost **灵露 only**
+  (3 / 5 / 15 — tunable) and never 历练值: mastery points are earned, never spendable. 释义
+  auto-reveals FREE after 4 failed guesses so a stuck student always has a floor.
+  ⚠️ The code also gives **G2** a free starting 声母 — that branch is currently **unreachable**,
+  because 汉兜 has been G3/HCL-only since 2026-08-13. Harmless and correct if G2 ever gets the mode
+  back, but do not read it as「G2 students get a free hint today」. Owner to confirm which is intended.
 - 组词挑战 (G2): character-assembly game (slots + chips).
 - 攀山竞速: vertically-scrolling tiling rock wall (climb-wall-tile.png) with a zigzag climber
   (redesigned 2026-08-10; was a waypoint path). Answering correctly scrolls the wall and the
@@ -449,7 +458,7 @@ combined ranked total):
 历练值 scoring (app.js, the 历练值 section near the top of the IIFE):
 - final = round(base × attemptDecay × streakMultiplier) (min 1) + firstMasteryBonus.
 - base per mode/tier: cloze ⭐2/⭐⭐3/⭐⭐⭐5/⭐⭐⭐⭐8 · 华文解释 3 · 英文翻译 2 · 组词一次拼对 3 ·
-  攀山竞速每题 2 · 汉兜 6+1/未用次数 · 词雨 & 闪卡 0.
+  攀山竞速每题 2 · 汉兜 6+1/未用次数（HINT_REDESIGN_2026-08-15：12 次起算，最大加成 5→11） · 词雨 & 闪卡 0.
 - attemptDecay 1.0/0.40/0.15 (1st/2nd/3rd+ try) · streakMultiplier ×1/×1.2/×1.5/×1.8/×2.0 at
   连对 0-2/3-4/5-7/8-11/12+ (uses the count ENTERING the question; resets on any wrong answer).
 - firstMasteryBonus +10 once per word ever (the moment 海拔 rises), guarded by store.pts.masteryAwarded.
@@ -3341,3 +3350,55 @@ Cache-bust `20260815m` → **`20260815n`**（七处）。
 **五枚航海徽**（美术在交接包里，未入库）· 消耗品（文档明确说没有赌注就不要做）。
 `art/seamap/boat_*.png` 的一级舢板**没有替换**——那会改到落地海图的船，属于船只三级那一步。
 交接包的四条 owner 待决也仍然开着（硬闸拼音泊位 / 垂钓赌注 / 榜单范围已答 / 靠岸的船长头像）。
+
+## 词语汉兜提示重设计 · 2026-08-15 (owner 交付实现 + 两处修正)
+
+Owner 给的 `汉兜重设计_2026-08-15_v2/` 里**已经带了实现**（`app.js` / `app.css`）。核对过：
+那份 `app.js` 与仓库当时的 `app.js` 只差 104 行，全部落在 handle 区块和 EN_LAB/PY_LAB 两张表里，
+`app.css` 只差一处 hunk —— 也就是说它确实是基于**当前**代码改的，不是旧快照，直接采用不会
+把别的东西回退。（附带的 4 个 `*_index.html` **没有采用**：那几个文件与仓库只差 cache-bust 字符串，
+它们停在 `20260815l`，会把版本号倒退。）设计与决定见 `DESIGN_迭代规划_汉兜重设计_2026-08-15.md`。
+
+### 上线的机制
+6 次 → **12 次，每行带行号**；提示从「渐进式揭示四个声母」改成**三个各买一次的独立提示**：
+首字声母（**只揭第一个字，永远不会堆到四个**）/ 词性 / 释义，**只花灵露，绝不花历练值**
+（掌握值是赚来的，不能买 —— 这是已锁的原则）；答错 4 次后**免费**给出释义作保底。
+计分公式没变，只是「未用次数」上限从 5 变成 11：`6 + max(0, 12 - 已用行数)`。
+
+### 我在采用时改的三处（都是实测发现的）
+1. ⚠️ **赢局的灵露没有落盘（既有 bug，不是这次改出来的）。** 顺序是
+   `saveStore() → scoreCorrect() → awardLingLu()`，而**真正写盘的是 `scoreCorrect` 里的
+   `bankPts`**，所以奖励只留在内存里，学生赢完直接关标签页就没了。实测：赢一局钱包在
+   localStorage 里纹丝不动。**改成先 `awardLingLu` 再 `scoreCorrect`**（和填空挑战同一个顺序），
+   实测 100 → 120 正常落盘。以后在任何模式里加奖励，记住「写盘的是 bankPts」。
+2. **12 行的滚动条会把已经打过的行顶出去。** 交付版在每次渲染后 `scrollTop = scrollHeight`，
+   于是开局打两行、屏幕上却是九个空格。改成**只在最新一行掉到可视区下方时才滚，而且只滚刚好够**
+   —— 实测桌面全程 `scrollTop:0`（第 1 行始终可见），手机打到第 10 行时才滚，且第 10 行可见。
+3. **买不起的提示按钮只是变灰**，没有说为什么。加了 `title`「灵露不够，去词雨灵露赚一些」。
+   另外把 `.handle-hintrow` / `.handle-hint` 两条旧样式**留了下来**（交付版的注释说留了，实际删了）：
+   GitHub Pages 每个文件各自老化，学生可能新 CSS 配旧 JS 跑十分钟，那时旧 JS 还在发那一行声母。
+   三行死样式比十分钟的裸露布局便宜。**下一次发布可以删掉。**
+
+### ⚠️ G2 那条分支现在是死代码
+`hints.sm = STREAM === "g2"`（G2 免费送首字声母）—— 但**汉兜自 2026-08-13 起就只对 G3/HCL 开放**，
+G2 的闯关页根本没有这张卡（实测：G2 只有 词雨 / 攀山竞速 / 组词挑战）。设计文档里那句
+「G2 免费起始已解锁」和它引用的 G2 成语统计，都像是基于更早的模式配置写的。
+代码留着无害，但 owner 要决定的是：**汉兜要不要回到 G2**。要就改 `CAMP_MODES` 的 `only` 白名单；
+不要就把这条分支删掉。**没有替 owner 改可用性。**
+
+### ⚠️ 三个价格是可调参数
+3 / 5 / 15 灵露是交付文档自己标注的初始值（便宜提示信息量小、贵提示信息量大）。
+真实使用后若学生「从不买」或「秒买秒用」，动 `HANDLE_HINT_COST` 一处即可；
+保底行数 `HANDLE_DEF_SAFETY_ROW = 4`、行数 `HANDLE_MAX_ROWS = 12` 同理。
+
+### 验证（真浏览器）
+离屏 WKWebView + no-store server。⚠️ **四个科目页在离屏环境里会一直停在「正在装载词库」** ——
+云端回调不返回，而 6 秒兜底靠 `setTimeout`，离屏被节流。绕法：在 scratchpad 里搭一个
+**不加载 firebase 的测试页**（`window.WSCloud` 为 undefined，`boot()` 就直接开门），
+用符号链接指向仓库的 app.js/app.css/data/art。**这一招以后测四个科目页都能用。**
+实测通过：12 行 + 行号 1–12、`0 / 12 次`、旧的 💡 提示按钮已消失、三个提示 chip 在 G3 全是待购、
+买首字声母扣 3 灵露且**只**显示第一个字的声母、`pts.total` 全程为 0（提示不吃历练值）、
+连打三次错**不**给释义、第四次错**免费**给出释义、赢局 `历练值 = 6 + (12-5) = 13`、连胜 +1、
+钱包 100→120 落盘、买不起时按钮 disabled 且带 title、桌面与 375px 手机都无横向滚动。
+`app.js` 解析通过，`app.css` 括号 878/878。Cache-bust `20260815n` → **`20260815p`**（跳过 o）。
+⚠️ 未在真设备上验：12×4 在真手机上用手指打字时的手感（交付文档自己也把这条列为未决）。
