@@ -5097,9 +5097,9 @@
     g1: [[0.315,0.815],[0.292,0.755],[0.268,0.690],[0.290,0.640],[0.345,0.605],
          [0.410,0.585],[0.470,0.560],[0.520,0.520],[0.556,0.475],[0.552,0.425],
          [0.530,0.380],[0.512,0.335],[0.503,0.290],[0.500,0.245],[0.500,0.205]],
-    g2: [[0.500,0.790],[0.455,0.705],[0.385,0.660],[0.310,0.630],[0.395,0.585],
-         [0.485,0.535],[0.575,0.480],[0.500,0.435],[0.440,0.400],[0.510,0.355],
-         [0.570,0.325],[0.520,0.280],[0.495,0.240],[0.505,0.205],[0.512,0.170]],
+    g2: [[0.497,0.863],[0.554,0.794],[0.511,0.721],[0.442,0.669],[0.395,0.625],
+         [0.479,0.601],[0.434,0.538],[0.503,0.508],[0.534,0.451],[0.516,0.389],
+         [0.471,0.333],[0.538,0.286],[0.487,0.234],[0.516,0.178],[0.496,0.102]],
     g3: [[0.480,0.790],[0.485,0.730],[0.495,0.670],[0.505,0.610],[0.505,0.550],
          [0.500,0.490],[0.495,0.440],[0.487,0.390],[0.480,0.340],[0.472,0.290],
          [0.465,0.240],[0.462,0.190],[0.462,0.145],[0.463,0.100],[0.465,0.060]],
@@ -5159,11 +5159,16 @@
     pins.forEach(function (m, i) {
       var frac = m.t === "base" ? meFrac : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
       var p = mtnPathAt(frac);
-      var cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "");
-      html += '<button class="' + cls + '" data-i="' + i + '" title="' +
-        esc(m.t === "base" ? (markLabel(m) + " · 你在这里") : markLabel(m)) +
+      var lab = m.t === "base" ? (markLabel(m) + " · 你在这里") : markLabel(m);
+      /* the name rides above the pin and appears on hover/keyboard focus, so a
+         student can read the map without opening every popover. Pins near the
+         top of the frame flip their label underneath instead — .mtn2-stage
+         clips its overflow, so a label above them would be cut in half. */
+      var cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "") +
+        (p.y < 0.13 ? " lbl-below" : "");
+      html += '<button class="' + cls + '" data-i="' + i + '" title="' + esc(lab) +
         '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%">' +
-        mtnPinIcon(m) + '</button>';
+        mtnPinIcon(m) + '<span class="mtn2-name">' + esc(lab) + '</span></button>';
     });
     html += '</div>';   // .mtn2-stage
     html += '<div class="mtn2-hud">' +

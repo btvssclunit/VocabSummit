@@ -1495,6 +1495,22 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
 .mtn2-pin:hover{transform:translate(-50%,-50%) scale(1.2);z-index:5}
 .mtn2-pin.t-unit.done{background:var(--gold);border-color:#fff}
 .mtn2-pin.t-level{width:30px;height:30px;font-size:16px;background:rgba(20,36,58,.72);border-color:var(--gold)}
+/* landmark name on hover / keyboard focus (owner 2026-08-15). The native title
+   tooltip is still there for slow-hover and screen readers, but it takes about
+   a second to appear and never shows on the camp, so the map read as a row of
+   anonymous dots. Light plaque + dark ink, the same treatment .ach-hint and the
+   HUD use, because these sit directly on bright painted art. */
+.mtn2-name{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) scale(.84);
+  white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;
+  font-family:var(--sans);font-size:14px;font-weight:800;color:var(--ink);
+  background:rgba(255,255,255,.93);border:2px solid var(--gold);border-radius:999px;
+  padding:5px 13px;box-shadow:0 4px 12px rgba(6,26,48,.4)}
+/* scale(.84) cancels the pin's own 1.2x hover scale, so the label stays the
+   same size however big the pin under it is */
+.mtn2-pin.lbl-below .mtn2-name{bottom:auto;top:calc(100% + 9px)}
+.mtn2-pin:hover .mtn2-name,.mtn2-pin:focus-visible .mtn2-name{opacity:1}
+.mtn2-pin:hover,.mtn2-pin:focus-visible{z-index:20}
+@media (prefers-reduced-motion:reduce){.mtn2-name{transition:none}}
 /* 你的营地 = the 你在这里 marker: it climbs with the student, so it is the one
    pin that must read at a glance. Bigger than every other pin, gold-ringed, with
    a breathing halo and a slow float. z-index above the other pins so it always

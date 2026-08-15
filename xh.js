@@ -1,23 +1,29 @@
-/* 学海启航 · 启航码头 — 看图识词 MVP
-   Spec: SPEC_XH_看图识词_MVP.md (2026-08-15)
+/* 学海启航 · 启航码头 — MVP v2
+   Spec: SPEC_XH_MVP_v2.md (2026-08-15), which supersedes the 看图识词 v1 spec.
 
    DELIBERATELY STANDALONE. This never loads app.js/app.css and shares no state
    with g1/g2/g3/hcl. The reasons are in the spec: this tier inverts the
-   platform's display defaults (拼音 and English default ON here, OFF there),
-   it is outside the 灵露 / 历练值 / 海拔 economy entirely, and it is unproven —
-   a mode that later gets pulled must be removable without touching anything the
-   four streams depend on. The only thing copied across is the TTS stack, and
-   that is copied rather than shared for the same reason.
+   platform's display defaults (拼音 and English default ON here, OFF there), it
+   is outside the 灵露 / 历练值 / 海拔 economy entirely, and it is unproven — a
+   mode that later gets pulled must be removable without touching anything the
+   four streams depend on. The TTS stack is COPIED from app.js rather than
+   shared, for the same reason.
+
+   ⚠️ SCOPE IS 36 WORDS, NOT 142 (spec §1). Sheets 07/09/10 were extracted with a
+   proximity merge that joined the wrong pairs, so every assignment after the
+   merge point shifted by one and 36 sprites show the wrong word. Only sheets
+   01/02/06 — 动物 and 日常用品 — matched counts without a merge and have been
+   verified file by file. The other sprites were removed from the repo rather
+   than left sitting unreferenced; they are in git history when re-extracted.
+   Standing rule: a matching count is not evidence of correct mapping.
 
    Storage is one localStorage key, ws_xh. No Firestore, no login, no leaderboard. */
 (function () {
   "use strict";
 
   var STORE_KEY = "ws_xh";
-  var ROUND_N = 10;
+  var ROUND_N = 5;      // spec §6: five, not ten — 日常用品 only holds 12 words
 
-  /* the cache-bust version off our own <script src>, so a data or sprite update
-     can never be served stale beside new code (same trick as app.js/arena.js) */
   var ASSET_V = (function () {
     try {
       var m = (document.currentScript && document.currentScript.src || "").match(/\?v=[^&]+/);
@@ -26,7 +32,6 @@
   })();
 
   var WORDS = [];
-  var BY_TEXT = {};
   var store = load();
   var state = null;
 
@@ -36,34 +41,45 @@
     });
   }
   function view() { return document.getElementById("xhView"); }
+  function img(w, cls) {
+    return '<img class="' + (cls || "") + '" src="art/xh/' + esc(w.图档) + ASSET_V + '" alt="">';
+  }
 
-  /* ---------- store ----------
-     `done` is the Band 1 -> Band 2 promotion record AND the only progress this
-     mode keeps: a word the student has answered correctly at least once. */
+  /* ---------- store ---------- */
   function load() {
     var s = {};
     try { s = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { s = {}; }
     if (typeof s.py !== "boolean") s.py = true;   // both default ON: the point of
     if (typeof s.en !== "boolean") s.en = true;   // this tier (spec, display toggles)
     if (!s.done || typeof s.done !== "object") s.done = {};
+    /* spec §7 — instrumentation, built in from the start because it is nearly
+       free now and is the single most valuable output of the MVP: which sprites
+       get misread, and what they get confused with. Read it off a test device
+       with localStorage.getItem("ws_xh").
+       stats[词语] = { shown, wrong, confused: { chosenWord: n } } */
+    if (!s.stats || typeof s.stats !== "object") s.stats = {};
     return s;
   }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
   }
+  function stat(w) {
+    var k = w.词语;
+    if (!store.stats[k]) store.stats[k] = { shown: 0, wrong: 0, confused: {} };
+    return store.stats[k];
+  }
 
-  /* ---------- TTS ----------
+  /* ---------- audio ----------
      Chinese only, and hanzi only — never pass 拼音 to the engine, it is read as
-     toneless English. Voices are SCORED rather than taking the first zh-*: managed
-     Chromebooks ship eSpeak-NG, which reports zh but speaks toneless Mandarin and
-     is ordered first. cancel() then speak() in the same tick is silently dropped
-     on ChromeOS and Samsung, hence the 50ms guard. Ported verbatim from app.js. */
+     toneless English. Voices are SCORED rather than taking the first zh-*:
+     managed Chromebooks ship eSpeak-NG, which reports zh but speaks toneless
+     Mandarin and is ordered first. cancel() then speak() in the same tick is
+     silently dropped on ChromeOS and Samsung, hence the 50ms guard. */
   var _zhVoice = null, _warnedNoZh = false;
   function scoreVoice(v) {
     var lang = (v.lang || "").toLowerCase(), name = v.name || "";
     var isZhLang = lang.indexOf("zh") === 0 || lang.indexOf("cmn") === 0;
-    var nameZh = /普通话|中文|chinese|mandarin/i.test(name);
-    if (!isZhLang && !nameZh) return -1000;
+    if (!isZhLang && !/普通话|中文|chinese|mandarin/i.test(name)) return -1000;
     var s = 0;
     if (lang === "zh-cn" || lang === "zh_cn") s += 40;
     else if (lang.indexOf("zh") === 0) s += 20;
@@ -76,11 +92,10 @@
   }
   function loadVoiceCache() {
     if (!window.speechSynthesis) return;
-    var vs = speechSynthesis.getVoices() || [], best = null, bestScore = -1000;
+    var vs = speechSynthesis.getVoices() || [], best = null, bs = -1000;
     for (var i = 0; i < vs.length; i++) {
       var sc = scoreVoice(vs[i]);
-      if (sc <= -1000) continue;
-      if (sc > bestScore) { bestScore = sc; best = vs[i]; }
+      if (sc > -1000 && sc > bs) { bs = sc; best = vs[i]; }
     }
     _zhVoice = best;
   }
@@ -100,11 +115,58 @@
       u.lang = (_zhVoice && _zhVoice.lang) || "zh-CN";
       if (_zhVoice) u.voice = _zhVoice;
       u.rate = 0.85;                                        // slower: absolute beginners
+      u.onend = revive; u.onerror = revive;
       speechSynthesis.cancel();
       setTimeout(function () { speechSynthesis.speak(u); }, 50);
     };
-    if (!(speechSynthesis.getVoices() || []).length) { setTimeout(go, 200); } else { go(); }
+    if (!(speechSynthesis.getVoices() || []).length) setTimeout(go, 200); else go();
   }
+
+  /* Wooden knock (correct) and rope creak (wrong), synthesized — spec §5.5.
+     ⚠️ Apple platforms give the page ONE audio session and speechSynthesis takes
+     it, pushing the context into WebKit's "interrupted" state where it renders
+     nothing and resume() may never settle. Same defence app.js arrived at: never
+     wait on resume alone, and rebuild the context if it will not run. */
+  var _ac = null, _acFails = 0;
+  function ac() {
+    var C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    if (!_ac) { try { _ac = new C(); } catch (e) { return null; } }
+    return _ac;
+  }
+  function revive() {
+    var c = _ac;
+    if (c && c.state !== "running" && c.resume) { try { c.resume(); } catch (e) {} }
+  }
+  function blip(freqs, type, vol, dur) {
+    var c = ac();
+    if (!c) return;
+    function play() {
+      var t0 = c.currentTime;
+      freqs.forEach(function (f, i) {
+        var o = c.createOscillator(), g = c.createGain();
+        o.type = type; o.frequency.value = f;
+        g.gain.setValueAtTime(vol, t0 + i * 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.05 + dur);
+        o.connect(g); g.connect(c.destination);
+        o.start(t0 + i * 0.05); o.stop(t0 + i * 0.05 + dur);
+      });
+    }
+    if (c.state === "running") { play(); return; }
+    try { c.resume(); } catch (e) {}
+    setTimeout(function () {
+      if (_ac && _ac.state !== "running" && _acFails < 6) {
+        _acFails++;
+        try { _ac.close(); } catch (e) {}
+        _ac = null;
+        if (!ac()) return;
+      }
+      play();
+    }, 120);
+  }
+  function sfxOk() { blip([420, 640], "triangle", 0.22, 0.13); }   // wooden knock
+  function sfxNo() { blip([150, 110], "sawtooth", 0.10, 0.2); }    // rope creak
+  document.addEventListener("pointerdown", revive);
 
   function toast(msg) {
     var t = document.createElement("div");
@@ -114,23 +176,14 @@
     setTimeout(function () { t.remove(); }, 3200);
   }
 
-  /* ---------- distractor selection (spec §4) ----------
-     Not "pick three at random". Band 1 draws from DIFFERENT 组别 so a first
-     encounter is winnable from the picture alone and teaches the interface;
-     Band 2 draws from the SAME 组别 so the student must actually know the word
-     rather than the category. A word is in Band 2 once answered correctly. */
-  var BLACKLIST = [
-    ["忙", "紧张", "难过"],          // three near-identical yellow faces
-    ["包子", "饺子"],                // both pale steamed dough on a plate
-    ["椅子", "桌子"],                // both brown wooden furniture
-    ["猪肉", "牛肉"],                // both slabs of red-pink meat
-    ["饭", "米饭"],                  // near-identical bowls, near-identical meanings
-    ["早上", "中午", "下午", "晚上", "太阳", "月亮"],   // all sun-or-sky images
-    ["车", "德士"],                  // taxi differs only by its roof sign
-    ["哥哥", "弟弟"],                // same figure at different ages
-    ["姐姐", "妹妹"]
-  ];
-  function blacklistMates(text) {
+  /* ---------- distractors (spec §3, CHANGED from v1) ----------
+     All distractors come from the SAME 组别 as the answer, always. The old
+     Band 1 / Band 2 progression is gone: cross-group distractors let a question
+     be answered by category alone (an animal picture against three household
+     objects), which taught nothing. 动物 may draw freely across 陆上 and 水中 —
+     猫 against 鲨鱼 is still a real question. */
+  var BLACKLIST = [["椅子", "桌子"]];   // the only collision left in this scope
+  function mates(text) {
     var out = {};
     BLACKLIST.forEach(function (set) {
       if (set.indexOf(text) >= 0) set.forEach(function (t) { if (t !== text) out[t] = true; });
@@ -144,206 +197,360 @@
     }
     return a;
   }
-  function distractors(w) {
-    var band2 = !!store.done[w.词语];
-    function pool(sameGroup) {
-      return WORDS.filter(function (o) {
-        if (o.词语 === w.词语) return false;
-        return sameGroup ? o.组别 === w.组别 : o.组别 !== w.组别;
-      });
+  function distractors(w, n) {
+    n = n || 3;
+    var picked = [], banned = mates(w.词语);
+    var pool = shuffle(WORDS.filter(function (o) {
+      return o.词语 !== w.词语 && o.组别 === w.组别;
+    }));
+    // admitted one at a time: the blacklist is a rule about the whole option
+    // set, not just about the answer
+    for (var i = 0; i < pool.length && picked.length < n; i++) {
+      if (banned[pool[i].词语]) continue;
+      picked.push(pool[i]);
+      var m = mates(pool[i].词语);
+      for (var t in m) banned[t] = true;
     }
-    /* The blacklist is a rule about the OPTION SET, not about the answer: 早上
-       against 中午 is just as unanswerable from the art when neither is the
-       correct one. So candidates are admitted one at a time and rejected if
-       they collide with anything already in the set, the answer included.
-       (Filtering only the answer's mates up front left ~5% of sets holding two
-       confusable distractors — measured, not assumed.) */
-    var picked = [];
-    var banned = blacklistMates(w.词语);
-    function admit(list) {
-      for (var i = 0; i < list.length && picked.length < 3; i++) {
-        var o = list[i];
-        if (banned[o.词语] || picked.indexOf(o) >= 0) continue;
-        picked.push(o);
-        var mates = blacklistMates(o.词语);
-        for (var t in mates) banned[t] = true;
-      }
-    }
-    admit(shuffle(pool(band2).slice()));
-    // a small 组别 cannot fill a Band 2 set on its own; top up from outside it
-    if (picked.length < 3) admit(shuffle(pool(!band2).slice()));
     return picked;
   }
 
-  /* ---------- round building ----------
-     Spec §5 asks for ten questions from one 单元板块 so the round has a theme.
-     Six of the seventeen 板块 hold fewer than ten words (买东西 and 求助 hold
-     one), so a strict reading would produce one-question rounds. The 板块 is
-     still what the student picks and what the round is named after; a short one
-     is topped up from its own 单元, which is the nearest thing thematically. */
-  function buildRound(block) {
-    var inBlock = WORDS.filter(function (w) { return w.单元板块 === block.板块 && w.单元 === block.单元; });
-    var seq = shuffle(inBlock.slice());
-    if (seq.length < ROUND_N) {
-      var rest = shuffle(WORDS.filter(function (w) {
-        return w.单元 === block.单元 && seq.indexOf(w) < 0;
-      }));
-      seq = seq.concat(rest);
-    }
-    return seq.slice(0, Math.min(ROUND_N, seq.length));
-  }
-
-  function blocks() {
+  function subcats() {
     var seen = {}, out = [];
     WORDS.forEach(function (w) {
-      var k = w.单元 + "|" + w.单元板块;
-      if (!seen[k]) {
-        seen[k] = { 单元: w.单元, 板块: w.单元板块, 主题: w.单元主题, n: 0, done: 0 };
-        out.push(seen[k]);
+      if (!seen[w.子类]) {
+        seen[w.子类] = { 子类: w.子类, 组别: w.组别, n: 0, done: 0 };
+        out.push(seen[w.子类]);
       }
-      seen[k].n++;
-      if (store.done[w.词语]) seen[k].done++;
+      seen[w.子类].n++;
+      if (store.done[w.词语]) seen[w.子类].done++;
     });
     return out;
   }
 
-  /* ---------- screens ---------- */
-  function pyHtml(w) { return store.py ? '<span class="xh-py">' + esc(w.拼音) + "</span>" : ""; }
+  /* ---------- modes (spec §4) ---------- */
+  var MODES = [
+    { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word" },
+    { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture" },
+    { id: "type", icon: "⌨️", zh: "拼音打字", en: "Type the pinyin" },
+    { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
+  ];
 
+  /* ---------- menu ---------- */
   function renderMenu() {
     state = null;
     var all = WORDS.length, done = WORDS.filter(function (w) { return store.done[w.词语]; }).length;
-    var h = '<div class="xh-head">' +
-      '<div class="xh-berth-title">🖼️ 看图识词 <span class="xh-en">Picture &amp; word</span></div>' +
-      '<div class="xh-sub">看图，选出正确的词语。' +
-      (store.en ? '<span class="xh-en">Look at the picture, choose the word.</span>' : "") + "</div>" +
-      '<div class="xh-progress"><b>' + done + "</b> / " + all + " 个词语已学过" +
-      (store.en ? ' <span class="xh-en">words learned</span>' : "") + "</div></div>";
-
-    h += '<div class="xh-toggles">' +
+    var h = '<div class="xh-board xh-head">' +
+      '<div class="xh-berth-title">启航码头 · 看图学词</div>' +
+      '<div class="xh-sub">选一个玩法，再选一组词语。' +
+      (store.en ? '<span class="xh-en">Pick a game, then a group of words.</span>' : "") + "</div>" +
+      '<div class="xh-progress"><b>' + done + "</b> / " + all + " 个词语学过了" +
+      (store.en ? ' <span class="xh-en">words learned</span>' : "") + "</div>" +
+      '<div class="xh-toggles">' +
       '<button class="xh-tg' + (store.py ? " on" : "") + '" id="tgPy">拼音 pīn yīn</button>' +
-      '<button class="xh-tg' + (store.en ? " on" : "") + '" id="tgEn">English</button></div>';
+      '<button class="xh-tg' + (store.en ? " on" : "") + '" id="tgEn">English</button></div></div>';
 
-    var byUnit = {};
-    blocks().forEach(function (b) { (byUnit[b.单元] = byUnit[b.单元] || []).push(b); });
-    Object.keys(byUnit).forEach(function (u) {
-      h += '<div class="xh-unit"><div class="xh-unit-h">' + esc(u) +
-        ' <span class="xh-theme">' + esc(byUnit[u][0].主题 || "") + "</span></div><div class=\"xh-blocks\">";
-      byUnit[u].forEach(function (b) {
-        h += '<button class="xh-block" data-u="' + esc(b.单元) + '" data-b="' + esc(b.板块) + '">' +
-          "<b>" + esc(b.板块) + "</b><span>" + b.done + " / " + b.n + "</span></button>";
-      });
-      h += "</div></div>";
+    h += '<div class="xh-modes">';
+    MODES.forEach(function (m) {
+      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
+        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" +
+        (store.en ? '<span class="xh-en">' + m.en + "</span>" : "") + "</button>";
     });
-    view().innerHTML = h;
+    h += "</div>";
 
-    document.getElementById("tgPy").onclick = function () { store.py = !store.py; save(); renderMenu(); };
-    document.getElementById("tgEn").onclick = function () { store.en = !store.en; save(); renderMenu(); };
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-block"), function (el) {
-      el.onclick = function () {
-        startRound({ 单元: el.getAttribute("data-u"), 板块: el.getAttribute("data-b") });
-      };
-    });
-  }
-
-  function startRound(block) {
-    var seq = buildRound(block);
-    if (!seq.length) return;
-    state = { block: block, seq: seq, i: 0, correct: 0, missed: [], firstTry: true };
-    /* warm the whole round's sprites up front. Each question swaps img.src, and
-       an undecoded sprite shows as an empty frame for a beat — the picture IS
-       the question here, so a flicker is not cosmetic. ~10 KB each, ten of them. */
-    seq.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
-    renderQuestion();
-  }
-
-  function renderQuestion() {
-    var w = state.seq[state.i];
-    var opts = shuffle(distractors(w).concat([w]));
-    state.firstTry = true;
-
-    var h = '<div class="xh-round-bar">' +
-      '<button class="xh-quit" id="xhQuit">‹ 返回</button>' +
-      '<span class="xh-count">' + (state.i + 1) + " / " + state.seq.length + "</span>" +
-      '<span class="xh-block-tag">' + esc(state.block.板块) + "</span></div>";
-
-    h += '<div class="xh-stage">' +
-      '<button class="xh-sprite" id="xhSprite" title="点图听读音">' +
-      '<img src="art/xh/' + esc(w.图档) + ASSET_V + '" alt=""></button>' +
-      '<div class="xh-hint" id="xhHint"></div>' +
-      '<div class="xh-opts">';
-    opts.forEach(function (o, i) {
-      h += '<button class="xh-opt" data-i="' + i + '" data-w="' + esc(o.词语) + '">' +
-        '<span class="xh-word">' + esc(o.词语) + "</span>" + pyHtml(o) + "</button>";
+    h += '<div class="xh-board"><div class="xh-sec">选词语组' +
+      (store.en ? ' <span class="xh-en">choose a group</span>' : "") + "</div><div class=\"xh-blocks\">";
+    subcats().forEach(function (b) {
+      h += '<button class="xh-block" data-b="' + esc(b.子类) + '">' +
+        "<b>" + esc(b.子类) + "</b><span>" + b.done + " / " + b.n + "</span></button>";
     });
     h += "</div></div>";
     view().innerHTML = h;
 
-    document.getElementById("xhQuit").onclick = renderMenu;
-    // the sprite is tappable to hear the word again: the learner cannot decode
-    // the characters, so the sound is half the content (spec §3)
-    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
-
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (el) {
-      el.onclick = function () { answer(el, w); };
+    document.getElementById("tgPy").onclick = function () { store.py = !store.py; save(); renderMenu(); };
+    document.getElementById("tgEn").onclick = function () { store.en = !store.en; save(); renderMenu(); };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode"), function (el) {
+      el.onclick = function () { store.mode = el.getAttribute("data-m"); save(); renderMenu(); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-block"), function (el) {
+      el.onclick = function () { startRound(el.getAttribute("data-b")); };
     });
   }
 
-  function answer(el, w) {
-    if (el.classList.contains("wrong") || el.classList.contains("right")) return;
-    var chosen = el.getAttribute("data-w");
-    if (chosen !== w.词语) {
-      /* Wrong: mark the option, keep the question on screen, let them try again.
-         No penalty, no life, no score deduction — this is first contact with a
-         writing system they cannot read, so a wrong tap must cost nothing. */
-      el.classList.add("wrong");
-      el.disabled = true;
-      if (state.firstTry) {
-        state.firstTry = false;
-        if (state.missed.indexOf(w) < 0) state.missed.push(w);
-      }
-      return;
-    }
-    el.classList.add("right");
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
-    speak(w.词语);                                   // never the English (spec §3)
-    if (state.firstTry) state.correct++;
-    store.done[w.词语] = true;                       // promotes this word to Band 2
-    save();
+  function startRound(sub) {
+    var pool = WORDS.filter(function (w) { return w.子类 === sub; });
+    var seq = shuffle(pool.slice()).slice(0, Math.min(ROUND_N, pool.length));
+    if (!seq.length) return;
+    state = { sub: sub, mode: store.mode || "pic", seq: seq, i: 0, correct: 0, missed: [], firstTry: true };
+    // warm the round's sprites: each question swaps the image, and an undecoded
+    // sprite shows as an empty frame for a beat — the picture IS the question
+    var warm = state.mode === "match" ? pool : seq.concat(distractors(seq[0], 3));
+    warm.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
+    render();
+  }
 
-    var hint = document.getElementById("xhHint");
-    hint.className = "xh-hint show";
-    hint.innerHTML = '<b>' + esc(w.词语) + "</b>" +
+  /* jetty progress bar — spec §5.3: a round should feel like a journey, not a
+     counter. The boat advances along the jetty as answers land. */
+  function jetty() {
+    var n = state.seq.length;
+    var frac = n ? state.i / n : 0;
+    return '<div class="xh-jetty"><div class="xh-jetty-line"></div>' +
+      '<img class="xh-jetty-boat" style="left:' + (frac * 100).toFixed(1) + '%" ' +
+      'src="art/seamap/boat_broadside.png' + ASSET_V + '" alt="">' +
+      '<span class="xh-jetty-n">' + (state.i + 1) + " / " + n + "</span></div>";
+  }
+  function bar() {
+    return '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+      jetty() + '<span class="xh-block-tag">' + esc(state.sub) + "</span></div>";
+  }
+
+  function render() {
+    if (state.i >= state.seq.length) return renderResult();
+    if (state.mode === "listen") return renderListen();
+    if (state.mode === "type") return renderType();
+    if (state.mode === "match") return renderMatch();
+    return renderPic();
+  }
+  function wireQuit() {
+    document.getElementById("xhQuit").onclick = renderMenu;
+  }
+  function advance(ms) {
+    setTimeout(function () { state.i++; render(); }, ms || 1150);
+  }
+  function reveal(w) {
+    return '<b>' + esc(w.词语) + "</b>" +
       (store.py ? ' <span class="xh-py">' + esc(w.拼音) + "</span>" : "") +
       (store.en ? ' <span class="xh-en">' + esc(w.英文释义) + "</span>" : "");
+  }
+  /* Wrong answers cost nothing anywhere in this tier: mark it, keep the question
+     up, let them try again. This is first contact with a writing system they
+     cannot read, so a wrong tap must be free. */
+  function noteWrong(w, chosen) {
+    var s = stat(w);
+    if (state.firstTry) {
+      state.firstTry = false;
+      s.wrong++;
+      if (chosen) s.confused[chosen] = (s.confused[chosen] || 0) + 1;
+      if (state.missed.indexOf(w) < 0) state.missed.push(w);
+    }
+    save();
+    sfxNo();
+  }
+  function noteRight(w) {
+    if (state.firstTry) state.correct++;
+    store.done[w.词语] = true;
+    save();
+    sfxOk();
+    speak(w.词语);      // never the English (spec §3 of v1, unchanged)
+  }
 
-    setTimeout(function () {
-      state.i++;
-      if (state.i >= state.seq.length) renderResult(); else renderQuestion();
-    }, 1150);
+  /* 4.1 看图识词 — picture → word */
+  function renderPic() {
+    var w = state.seq[state.i];
+    stat(w).shown++; save();
+    state.firstTry = true;
+    var opts = shuffle(distractors(w).concat([w]));
+    var h = bar() + '<div class="xh-board xh-stage">' +
+      '<button class="xh-sprite" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+      '<div class="xh-hint" id="xhHint"></div><div class="xh-opts">';
+    opts.forEach(function (o) {
+      h += '<button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
+        esc(o.词语) + "</span>" + (store.py ? '<span class="xh-py">' + esc(o.拼音) + "</span>" : "") + "</button>";
+    });
+    view().innerHTML = h + "</div></div>";
+    wireQuit();
+    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (el) {
+      el.onclick = function () {
+        if (el.disabled) return;
+        if (el.getAttribute("data-w") !== w.词语) {
+          noteWrong(w, el.getAttribute("data-w"));
+          el.classList.add("wrong"); el.disabled = true;
+          return;
+        }
+        el.classList.add("right");
+        Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
+        document.getElementById("xhSprite").classList.add("pop");
+        noteRight(w);
+        var hint = document.getElementById("xhHint");
+        hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+        advance();
+      };
+    });
+  }
+
+  /* 4.2 听音识图 — audio → picture. Mode 4.1 with prompt and options swapped;
+     forces listening rather than shape-matching. */
+  function renderListen() {
+    var w = state.seq[state.i];
+    stat(w).shown++; save();
+    state.firstTry = true;
+    var opts = shuffle(distractors(w).concat([w]));
+    var h = bar() + '<div class="xh-board xh-stage">' +
+      '<button class="xh-play" id="xhPlay">🔊 <span>再听一次</span>' +
+      (store.en ? '<span class="xh-en">tap to hear it again</span>' : "") + "</button>" +
+      '<div class="xh-hint" id="xhHint"></div><div class="xh-pics">';
+    opts.forEach(function (o) {
+      h += '<button class="xh-pic" data-w="' + esc(o.词语) + '">' + img(o) + "</button>";
+    });
+    view().innerHTML = h + "</div></div>";
+    wireQuit();
+    speak(w.词语);
+    document.getElementById("xhPlay").onclick = function () { speak(w.词语); };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-pic"), function (el) {
+      el.onclick = function () {
+        if (el.disabled) return;
+        if (el.getAttribute("data-w") !== w.词语) {
+          noteWrong(w, el.getAttribute("data-w"));
+          el.classList.add("wrong"); el.disabled = true;
+          return;
+        }
+        el.classList.add("right");
+        Array.prototype.forEach.call(view().querySelectorAll(".xh-pic"), function (b) { b.disabled = true; });
+        noteRight(w);
+        var hint = document.getElementById("xhHint");
+        hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+        advance();
+      };
+    });
+  }
+
+  /* 4.4 拼音打字 — the only mode that trains production rather than recognition.
+     Learners here cannot type Chinese (no IME, and using one already assumes
+     pinyin), so pinyin itself is the input. */
+  function tonelessPy(s) {
+    // strip tone marks via NFD, fold ü/v to u, drop spaces — so "lao hu",
+    // "laohu" and "lǎo hǔ" all match 老虎. Tones are taught later at 码头;
+    // demanding them here would fail learners for something never taught.
+    return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[üv]/gi, "u").replace(/\s+/g, "").toLowerCase();
+  }
+  function renderType() {
+    var w = state.seq[state.i];
+    stat(w).shown++; save();
+    state.firstTry = true;
+    view().innerHTML = bar() + '<div class="xh-board xh-stage">' +
+      '<button class="xh-sprite" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+      '<div class="xh-typerow">' +
+      '<input class="xh-input" id="xhIn" type="text" autocomplete="off" autocapitalize="off" ' +
+      'autocorrect="off" spellcheck="false" placeholder="用拼音打出来 · type the pinyin">' +
+      '<button class="xh-btn" id="xhGo">检查</button></div>' +
+      '<div class="xh-hint" id="xhHint"></div></div>';
+    wireQuit();
+    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
+    var input = document.getElementById("xhIn");
+    input.focus();
+    var hint = document.getElementById("xhHint");
+
+    function check() {
+      var v = tonelessPy(input.value);
+      if (!v) return;
+      if (v !== tonelessPy(w.拼音)) {
+        noteWrong(w, v);
+        input.classList.add("wrong");
+        setTimeout(function () { input.classList.remove("wrong"); }, 400);
+        // show the pinyin after a miss, then let them retype it (spec §4.4)
+        hint.className = "xh-hint show";
+        hint.innerHTML = '再试一次 <span class="xh-py">' + esc(w.拼音) + "</span>";
+        input.select();
+        return;
+      }
+      input.disabled = true;
+      document.getElementById("xhGo").disabled = true;
+      document.getElementById("xhSprite").classList.add("pop");
+      noteRight(w);
+      hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+      advance(1250);
+    }
+    document.getElementById("xhGo").onclick = check;
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") check();
+    });
+  }
+
+  /* 4.3 连线 — five images down the left, the same five words shuffled down the
+     right. The whole board must be cleared, so it teaches the set rather than
+     one item at a time. */
+  function renderMatch() {
+    var seq = state.seq;
+    state.i = 0;
+    var left = shuffle(seq.slice()), right = shuffle(seq.slice());
+    var pickedL = null, solved = 0;
+    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+      '<span class="xh-block-tag">' + esc(state.sub) + " · 连线</span></div>" +
+      '<div class="xh-board"><div class="xh-match">';
+    h += '<div class="xh-col">';
+    left.forEach(function (w) {
+      h += '<button class="xh-mitem xh-mpic" data-w="' + esc(w.词语) + '">' + img(w) + "</button>";
+    });
+    h += '</div><div class="xh-col">';
+    right.forEach(function (w) {
+      h += '<button class="xh-mitem xh-mword" data-w="' + esc(w.词语) + '"><b>' + esc(w.词语) + "</b>" +
+        (store.py ? '<span class="xh-py">' + esc(w.拼音) + "</span>" : "") + "</button>";
+    });
+    view().innerHTML = h + "</div></div></div>";
+    wireQuit();
+
+    function clearPick() {
+      Array.prototype.forEach.call(view().querySelectorAll(".xh-mpic"), function (b) {
+        b.classList.remove("sel");
+      });
+      pickedL = null;
+    }
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mpic"), function (el) {
+      el.onclick = function () {
+        if (el.classList.contains("ok")) return;
+        clearPick();
+        el.classList.add("sel");
+        pickedL = el;
+        speak(el.getAttribute("data-w"));
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mword"), function (el) {
+      el.onclick = function () {
+        if (el.classList.contains("ok") || !pickedL) return;
+        var want = pickedL.getAttribute("data-w"), got = el.getAttribute("data-w");
+        var w = seq.filter(function (x) { return x.词语 === want; })[0];
+        if (want !== got) {
+          noteWrong(w, got);
+          el.classList.add("shake");
+          setTimeout(function () { el.classList.remove("shake"); }, 400);
+          clearPick();
+          return;
+        }
+        pickedL.classList.add("ok"); pickedL.classList.remove("sel");
+        el.classList.add("ok");
+        pickedL = null;
+        state.correct++;
+        store.done[want] = true; save();
+        sfxOk(); speak(want);
+        solved++;
+        if (solved >= seq.length) {
+          state.i = seq.length;
+          setTimeout(renderResult, 900);
+        }
+      };
+    });
   }
 
   function renderResult() {
-    var h = '<div class="xh-result"><div class="xh-berth-title">🎉 这一轮完成了</div>' +
+    var h = '<div class="xh-board xh-result"><div class="xh-berth-title">🎉 这一轮完成了</div>' +
       '<div class="xh-score"><b>' + state.correct + "</b> / " + state.seq.length +
       " 一次答对" + (store.en ? ' <span class="xh-en">correct first try</span>' : "") + "</div>";
     if (state.missed.length) {
       h += '<div class="xh-review"><div class="xh-review-h">再看看这几个' +
         (store.en ? ' <span class="xh-en">worth another look</span>' : "") + "</div><div class=\"xh-review-list\">";
       state.missed.forEach(function (w) {
-        h += '<button class="xh-review-item" data-w="' + esc(w.词语) + '">' +
-          '<img src="art/xh/' + esc(w.图档) + ASSET_V + '" alt="">' +
-          "<b>" + esc(w.词语) + "</b>" + pyHtml(w) +
+        h += '<button class="xh-review-item" data-w="' + esc(w.词语) + '">' + img(w) +
+          "<b>" + esc(w.词语) + "</b>" +
+          (store.py ? '<span class="xh-py">' + esc(w.拼音) + "</span>" : "") +
           (store.en ? '<span class="xh-en">' + esc(w.英文释义) + "</span>" : "") + "</button>";
       });
       h += "</div></div>";
     }
-    h += '<div class="xh-result-btns">' +
-      '<button class="xh-btn" id="xhAgain">再来一次</button>' +
-      '<button class="xh-btn ghost" id="xhBack">选别的板块</button></div></div>';
+    h += '<div class="xh-result-btns"><button class="xh-btn" id="xhAgain">再来一次</button>' +
+      '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
-
-    document.getElementById("xhAgain").onclick = function () { startRound(state.block); };
+    document.getElementById("xhAgain").onclick = function () { startRound(state.sub); };
     document.getElementById("xhBack").onclick = renderMenu;
     Array.prototype.forEach.call(view().querySelectorAll(".xh-review-item"), function (el) {
       el.onclick = function () { speak(el.getAttribute("data-w")); };
@@ -351,15 +558,15 @@
   }
 
   /* ---------- boot ---------- */
-  fetch("data/xh_mvp.json" + ASSET_V)
+  fetch("data/xh_mvp2.json" + ASSET_V)
     .then(function (r) { return r.json(); })
     .then(function (rows) {
       WORDS = rows;
-      WORDS.forEach(function (w) { BY_TEXT[w.词语] = w; });
+      if (!store.mode) store.mode = "pic";
       renderMenu();
     })
     .catch(function () {
-      view().innerHTML = '<div class="xh-err">词语资料加载失败，请检查网络后重新整理页面。<br>' +
+      view().innerHTML = '<div class="xh-board xh-err">词语资料加载失败，请检查网络后重新整理页面。<br>' +
         '<span class="xh-en">Could not load the word list. Please refresh.</span></div>';
     });
 })();
