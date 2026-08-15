@@ -177,31 +177,64 @@
   }
   function tone(freq, start, dur, type, gain) {
     var c = actx(); if (!c) return;
-    var o = c.createOscillator(), g = c.createGain();
-    o.type = type || "sine"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, c.currentTime + start);
-    g.gain.linearRampToValueAtTime(gain || 0.12, c.currentTime + start + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + start + dur);
-    o.connect(g); g.connect(c.destination);
-    o.start(c.currentTime + start); o.stop(c.currentTime + start + dur + 0.05);
+    /* ⚠️ resume() is ASYNC. Scheduling straight after it — which is what this did
+       until 2026-08-15 — timestamps the notes against a clock that is still
+       frozen, and the browser drops them the moment it starts running. That is
+       silent failure, and it happens exactly when a context has been suspended:
+       tab backgrounded, device asleep, iOS interruption. Wait for the resume. */
+    if (c.state !== "running" && c.resume) {
+      var p; try { p = c.resume(); } catch (e) { p = null; }
+      if (p && p.then) { p.then(play, function () {}); return; }
+    }
+    play();
+    function play() {
+      var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start;
+      o.type = type || "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain || 0.12, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + dur + 0.05);
+    }
   }
-  function sfxOk() { tone(660, 0, 0.10); tone(880, 0.08, 0.10); tone(1175, 0.16, 0.22); }  // rising 3-note reward chime
+  /* Rising 3-note reward chime + a sparkle on top. Louder and on triangle waves
+     since 2026-08-15 (owner: the correct-answer sound was not landing): a 0.12
+     sine is nearly inaudible on a tablet speaker in a full classroom, which reads
+     as "there is no sound" even where the call was firing correctly. */
+  function sfxOk() {
+    tone(660, 0, 0.10, "triangle", 0.20);
+    tone(880, 0.08, 0.10, "triangle", 0.20);
+    tone(1175, 0.16, 0.24, "triangle", 0.24);
+    tone(1760, 0.16, 0.18, "sine", 0.08);
+  }
   function sfxBad() { tone(180, 0, 0.22, "square", 0.07); }
   function sfxBadge() { tone(523, 0, 0.14); tone(659, 0.12, 0.14); tone(784, 0.24, 0.14); tone(1047, 0.36, 0.3); }
   function sfxLife() { tone(240, 0, 0.14, "square", 0.08); tone(180, 0.12, 0.2, "square", 0.08); }
   function sfxThunder() { tone(85, 0, 0.22, "square", 0.05); tone(55, 0.1, 0.34, "square", 0.055); }
   /* 词雨 pixel FX strip (splash 3 · lightning 2 · ripple 2), base64-embedded */
   var RAINFX_MAP = {"sp1": [0, 57, 37, 44], "sp2": [39, 56, 56, 45], "sp3": [97, 62, 52, 39], "bolt1": [151, 8, 26, 93], "bolt2": [179, 0, 40, 101], "rip1": [221, 83, 44, 18], "rip2": [267, 79, 60, 22]};
-  /* iOS/iPadOS unlock: WebAudio + speech must be primed inside a user gesture */
+  /* iOS/iPadOS unlock: WebAudio + speech must be primed inside a user gesture.
+     NOT once-only (it was until 2026-08-15): a context suspended later — the
+     student switches app, the screen sleeps, a call comes in — would then never
+     be primed inside a gesture again, and every chime after that is silent. */
+  var _spoken0 = false;
   document.addEventListener("pointerdown", function () {
-    actx();
+    actx();                                   // creates it, and resumes if suspended
+    if (_spoken0) return;
+    _spoken0 = true;
     try {
       if (window.speechSynthesis && !speechSynthesis.speaking) {
         var u = new SpeechSynthesisUtterance(" ");
         u.volume = 0; speechSynthesis.speak(u);
       }
     } catch (e) {}
-  }, { once: true });
+  });
+  /* coming back to the tab leaves the context suspended on most mobile browsers */
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && _actx && _actx.state === "suspended") {
+      try { _actx.resume(); } catch (e) {}
+    }
+  });
 
   /* ---------- local store (device only) ---------- */
   var STORE_KEY = "ws2_" + STREAM;
@@ -3733,18 +3766,29 @@
      0.586/0.583 and 0.156/0.153, i.e. 3px apart on the source art — and those
      were exactly the "sometimes it jumps horizontally" steps the owner saw.
      Both near-duplicates are dropped; 6 shelves per tile, all clearly separated. */
-  /* Re-traced 2026-08-14 for the taller tile (948×1659, was 1024×1536). Traced by
-     PIXEL SCAN, not by eye: rows whose bright-tan run is ≥120px wide are grouped
-     into components, and y is the MIDDLE of each slab's lit top face (its very
-     top edge would plant the feet behind the slab). 11 shelves, verified by
-     rendering the polyline over the PNG. `x` is the traced slab centre and is
-     now INFORMATIONAL ONLY — movement is strictly vertical (see frame()). */
+  /* Re-traced 2026-08-15 for the owner's final art (887×1774, ratio 2.0, a true lossless PNG).
+     Traced by PIXEL SCAN, then filtered by a SHADOW TEST, which this brighter
+     wall needs: its lit brick tops pass a plain brightness threshold, so a
+     candidate only counts as a shelf if it is 100-160px wide AND the rows ~14px
+     below it are ≥38 luminance DARKER (a real slab casts an underside shadow;
+     a brick top does not, and a fog band is brighter below, not darker).
+     36 raw candidates → 16 shelves, each ≥0.032 apart, every (x, y) verified on
+     slab pixels and eyeballed as markers drawn back onto the art.
+     `x` is the traced slab CENTRE and is load-bearing: the climber jumps to it
+     and lands there (see frame()). Re-trace BOTH numbers together whenever the
+     wall art changes, and re-run the shadow test — the naive scan is not enough
+     on this tile. */
   var SPRINT_LEDGES = [
-    { x: 0.737, y: 0.921 }, { x: 0.369, y: 0.876 }, { x: 0.574, y: 0.774 },
-    { x: 0.291, y: 0.685 }, { x: 0.748, y: 0.598 }, { x: 0.368, y: 0.519 },
-    { x: 0.688, y: 0.445 }, { x: 0.493, y: 0.364 }, { x: 0.272, y: 0.276 },
-    { x: 0.712, y: 0.221 }, { x: 0.418, y: 0.124 }
+    { x: 0.321, y: 0.942 }, { x: 0.631, y: 0.891 }, { x: 0.851, y: 0.810 },
+    { x: 0.366, y: 0.740 }, { x: 0.669, y: 0.691 }, { x: 0.846, y: 0.589 },
+    { x: 0.647, y: 0.499 }, { x: 0.246, y: 0.448 }, { x: 0.781, y: 0.415 },
+    { x: 0.324, y: 0.351 }, { x: 0.634, y: 0.300 }, { x: 0.203, y: 0.255 },
+    { x: 0.855, y: 0.220 }, { x: 0.374, y: 0.149 }, { x: 0.669, y: 0.100 },
+    { x: 0.327, y: 0.045 }
   ];
+
+
+
   /* dev guard: a future re-trace that breaks the invariant should say so loudly
      rather than silently reintroducing sideways hops */
   (function () {
@@ -4018,6 +4062,10 @@
           var tt = Math.floor(gi / NL), li = ((gi % NL) + NL) % NL;
           return (tt + 1 - SPRINT_LEDGES[li].y) * tileH;
         };
+        var ledgeX = function (gi) {            // traced centre of ledge gi, 0..1 of width
+          var li = ((Math.floor(gi) % NL) + NL) % NL;
+          return SPRINT_LEDGES[li].x;
+        };
         var i0 = Math.floor(climbAlt), fstep = climbAlt - i0;
         var curH = ledgeH(i0) + (ledgeH(i0 + 1) - ledgeH(i0)) * fstep;   // camera height
 
@@ -4039,13 +4087,20 @@
           }
         }
 
-        /* strictly VERTICAL movement (owner 2026-08-14): the climber stays on the
-           centre line and only rises, instead of hopping sideways to whichever
-           column the art's next shelf happens to sit in. */
+        /* The climber JUMPS to the column the next shelf actually sits in and lands
+           on it (owner 2026-08-15, reversing the 08-14 centre-line experiment: only
+           3 of the tile's 11 shelves cross the centre, so the other 8 steps rose
+           through bare rock). x interpolates between the two shelves' traced
+           centres while the arc carries it over — so SPRINT_LEDGES.x is load-bearing
+           again and must be re-traced whenever the wall art changes. */
+        var x0 = ledgeX(i0), x1 = ledgeX(i0 + 1);
         var slipX = slipT > 0 ? Math.sin(slipT * 25) * 3.5 : 0;
-        var px = W * 0.5 + slipX;
-        var py = anchorY - Math.sin(fstep * Math.PI) * (tileH * 0.06);   // hop arc between ledges
-        drawClimber(px, py, moving, t / 1000, false);
+        var px = (x0 + (x1 - x0) * fstep) * W + slipX;
+        /* jump arc: taller when the hop is longer, so a wide sideways leap reads as
+           a leap rather than a slide (floor keeps the short hops from looking flat) */
+        var span = Math.min(1, Math.abs(x1 - x0) / 0.35);
+        var py = anchorY - Math.sin(fstep * Math.PI) * (tileH * (0.05 + 0.05 * span));
+        drawClimber(px, py, moving, t / 1000, x1 < x0);
       } else {
         var sky = ctx.createLinearGradient(0, 0, 0, H);
         sky.addColorStop(0, "#3B4A5A"); sky.addColorStop(1, "#6A7A88");
