@@ -866,6 +866,15 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 .avatar-thumb img{width:100%;height:100%;object-fit:contain;display:block}
 .avatar-thumb.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,166,60,.35)}
 .avatar-cell-label{font-size:10.5px;text-align:center;color:var(--ink-soft);line-height:1.3}
+/* 未解锁头像: greyed but still SHOWN (HANDOFF §3.4) — seeing what can be earned is
+   the motivation. The thumb stays a live button; its card explains the condition. */
+.avatar-thumb.locked{position:relative}
+.avatar-thumb.locked img{filter:grayscale(1);opacity:.42}
+.avatar-thumb .av-lock{position:absolute;right:-1px;bottom:-1px;font-size:15px;line-height:1;
+  background:rgba(255,255,255,.92);border-radius:50%;padding:2px 3px;box-shadow:0 1px 4px rgba(23,58,90,.3)}
+/* 兑换价钱 sits on the cell, not one tap deep: the price IS the motivation */
+.av-price{display:block;margin-top:2px;font-size:10.5px;font-weight:700;color:var(--gold-deep)}
+.av-purse{float:right;font-size:13px;font-weight:700;color:var(--gold-deep)}
 /* AvatarInfoCard: the enlarged 简介 card shown before a pick is committed. */
 .pop-card.av-info{max-width:400px;text-align:center}
 .av-info-img{width:180px;height:180px;margin:2px auto 0;border-radius:50%;overflow:hidden;
@@ -874,6 +883,13 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 .av-info-img img{width:100%;height:100%;object-fit:contain;display:block}
 .av-info-name{font-family:var(--serif);font-size:21px;font-weight:700;color:var(--sea3);margin-top:12px}
 .av-info-bio{font-size:13.5px;line-height:1.85;color:var(--ink);margin-top:8px;text-align:left}
+.av-info-img.locked{position:relative;border-color:#B8C6D2}
+.av-info-img.locked img{filter:grayscale(1);opacity:.42}
+.av-info-lockmark{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:44px;line-height:1}
+.av-info-lock{margin-top:8px;font-size:13px;font-weight:700;color:var(--sea3);
+  background:rgba(255,255,255,.72);border:1px solid var(--glass-line);border-radius:999px;
+  padding:6px 12px;display:inline-block}
+.av-info-sub{margin-top:6px;font-size:12.5px;color:var(--ink-soft)}
 @media (max-width:420px){
   .av-info-img{width:136px;height:136px}
   .av-info-name{font-size:19px}

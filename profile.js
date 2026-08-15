@@ -291,23 +291,23 @@
      first, but its list carries the 地支 in the animal's NAME, which the card
      already shows above the bio). */
   var AVATAR_CATALOG = [
-    { id: "pet_gui", file: "art/avatar/avatar_pet_gui.png", category: "pet", label: "瑞兽·龟",
+    { id: "pet_gui", file: "art/avatar/avatar_pet_gui.png", category: "pet", label: "瑞兽·龟", unlock: { gym: "中一" },
       bio: "传统故事里龟是长寿与稳重的象征，背负万物而不急不躁，古人常说「龟寿千年」形容长久安康。" },
-    { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟",
+    { id: "pet_qilin", file: "art/avatar/avatar_pet_qilin.png", category: "pet", label: "瑞兽·麒麟", unlock: { gym: "中二" },
       bio: "古代传说中的仁兽，性情温和，从不伤害任何生灵，只在太平盛世才会出现，象征吉祥美好。" },
-    { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤",
+    { id: "pet_feng", file: "art/avatar/avatar_pet_feng.png", category: "pet", label: "瑞兽·凤", unlock: { gym: "中三" },
       bio: "百鸟之王，象征尊贵、祥瑞与重生，传说凤凰浴火重生，代表不畏艰难、追求更好的自己。" },
-    { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙",
+    { id: "pet_long", file: "art/avatar/avatar_pet_long.png", category: "pet", label: "瑞兽·龙", unlock: { gym: "中四" },
       bio: "华人文化中最具代表性的祥瑞之兽，象征力量、智慧与吉祥，古人相信龙能呼风唤雨。" },
-    { id: "jtw_tangseng", file: "art/avatar/avatar_jtw_tangseng.png", category: "jtw", label: "西游记·唐僧",
+    { id: "jtw_tangseng", file: "art/avatar/avatar_jtw_tangseng.png", category: "jtw", price: 300, label: "西游记·唐僧",
       bio: "法号玄奘，是取经队伍的师父，一心向佛，意志坚定，无论路上多少艰难险阻都不曾放弃西行取经的信念。他心地善良、待人宽厚，是团队精神上的领路人。" },
-    { id: "jtw_sunwukong", file: "art/avatar/avatar_jtw_sunwukong.png", category: "jtw", label: "西游记·孙悟空",
+    { id: "jtw_sunwukong", file: "art/avatar/avatar_jtw_sunwukong.png", category: "jtw", price: 500, label: "西游记·孙悟空",
       bio: "《西游记》里神通广大的齐天大圣，手持金箍棒，一个筋斗云能翻十万八千里。他机智勇敢、爱憎分明，一路降妖伏魔保护师父，是团队里最厉害的守护者，也常常因为冲动闯祸，学着收敛脾气、听取劝告。" },
-    { id: "jtw_zhubajie", file: "art/avatar/avatar_jtw_zhubajie.png", category: "jtw", label: "西游记·猪八戒",
+    { id: "jtw_zhubajie", file: "art/avatar/avatar_jtw_zhubajie.png", category: "jtw", price: 350, label: "西游记·猪八戒",
       bio: "原是天上的天蓬元帅，因犯错被贬下凡投错猪胎，因此人身猪面。他手持九齿钉耙，性格贪吃贪睡、爱耍小聪明，常常闹笑话，但关键时刻仍愿意出力帮忙，为取经路上增添不少趣味。" },
-    { id: "jtw_shaseng", file: "art/avatar/avatar_jtw_shaseng.png", category: "jtw", label: "西游记·沙僧",
+    { id: "jtw_shaseng", file: "art/avatar/avatar_jtw_shaseng.png", category: "jtw", price: 300, label: "西游记·沙僧",
       bio: "原是天宫的卷帘大将，因犯错被贬下凡，在流沙河为妖，后来被唐僧收为徒弟。他手持月牙铲，个性忠厚老实、任劳任怨，一路默默挑担扛物，是团队里最踏实可靠的成员。" },
-    { id: "jtw_bailongma", file: "art/avatar/avatar_jtw_bailongma.png", category: "jtw", label: "西游记·白龙马",
+    { id: "jtw_bailongma", file: "art/avatar/avatar_jtw_bailongma.png", category: "jtw", price: 600, label: "西游记·白龙马", unlock: { pts: true },
       bio: "原是西海龙王的三太子，因犯错被贬，化身白马，驮着唐僧走完取经路。它任劳任怨、默默付出，虽然话不多、戏份少，却是让师徒四人能够顺利前行的重要伙伴。" },
     { id: "zodiac_rat", file: "art/avatar/avatar_zodiac_rat.png", category: "zodiac", label: "生肖·鼠",
       bio: "十二生肖排第 1 位（地支属「子」），为十二生肖之首，机灵敏捷，象征聪明与灵活应变。" },
@@ -339,6 +339,128 @@
   function avatarById(id) {
     for (var i = 0; i < AVATAR_CATALOG.length; i++) if (AVATAR_CATALOG[i].id === id) return AVATAR_CATALOG[i];
     return null;
+  }
+
+  /* ---------- 头像取得 (HANDOFF_可玩头像精灵与解锁机制 v2 §3) ----------
+     THREE routes, one verb per category, deliberately not blurred:
+       12 生肖   免费 — free at registration, no cost and no condition, ever. This
+                        is the category that guarantees every student a real choice
+                        of identity on day one.
+       5 西游记  购买 — bought with 灵露 (price on the catalog row). 白龙马 alone is
+                        dual-gated: 历练值 must also have reached 踏云者.
+       4 神兽    修得 — earned by passing that level's 年度试炼. NEVER purchasable,
+                        at any price: they are the mastery tier.
+
+     DERIVED, NOT STORED (§3.5) — for the two earned conditions. They are recomputed
+     from the stream stores at render time, so no cached copy can drift. The ONE
+     exception is a purchase: 灵露 is spent and gone, so it cannot be recomputed and
+     must be persisted — in the GLOBAL profile (alongside avatarId), never in a
+     per-stream store, or it would evaporate on opening another stream.
+
+     UNION ACROSS STREAMS (§3.5). avatarId is global (ws2_profile) while every
+     condition lives in a per-stream store (ws2_{stream}), so an avatar is unlocked
+     if ANY stream satisfies its condition. Otherwise a 麒麟 earned in G3 would read
+     as locked the moment the student opens G2. Also the only workable rule on the
+     landing page and at 启航码头, where there is no current stream at all.
+
+     ⚠️ PTS_UNLOCK duplicates the THIRD rung (踏云者) of app.js's LADDER. Same
+     standing duplication convention as teacher.html's palette: if LADDER moves,
+     move this too. Each stream is compared against ITS OWN row — never take the
+     highest pts.total and test it against one row. Per-stream because the ladder is
+     tuned to the same fraction of each stream's projected 4-year total; a flat
+     number would be reached fastest by HCL and slowest by G1, penalising exactly
+     the students with the smallest word pool. Considered and rejected — do not
+     "simplify" it to one number. */
+  var PTS_UNLOCK = { g1: 2500, g2: 3100, g3: 3500, hcl: 4200 };
+  var UNLOCK_STREAMS = ["g1", "g2", "g3", "hcl"];
+  function streamStore(k) {
+    try { return JSON.parse(localStorage.getItem("ws2_" + k)) || null; } catch (e) { return null; }
+  }
+  function gymPassedAnywhere(level) {
+    for (var i = 0; i < UNLOCK_STREAMS.length; i++) {
+      var s = streamStore(UNLOCK_STREAMS[i]);
+      if (s && s.gym && s.gym[level]) return true;
+    }
+    return false;
+  }
+  function ptsGateMet() {
+    for (var i = 0; i < UNLOCK_STREAMS.length; i++) {
+      var k = UNLOCK_STREAMS[i], s = streamStore(k), tot = s && s.pts && s.pts.total;
+      if (typeof tot === "number" && tot >= PTS_UNLOCK[k]) return true;
+    }
+    return false;
+  }
+  /* 已购买头像 — the global, persisted half of the model. Buy once, owned in every
+     stream (§3.5). */
+  function ownedAvatars() {
+    var p = load() || {};
+    return Array.isArray(p.avatarsOwned) ? p.avatarsOwned : [];
+  }
+  function walletLingLu() { return (_provider && _provider.wallet) ? _provider.wallet() : null; }
+  /* same icon + ✨ fallback the camp wallet uses; the path is page-root relative, so
+     it resolves on the landing page and at 启航码头 too */
+  function lingLuHtml() { return '<img class="ling-icon" src="art/camp/linglu.png" alt="灵露" onerror="this.outerHTML=\'✨\'">'; }
+
+  /* Returns null when the avatar is available, else a lock descriptor:
+       { why }           the sentence to show
+       { price }         set when the block can be lifted by paying
+       { canBuy }        true when a wallet is reachable AND holds enough 灵露
+       { blocked:"pts" } the 历练值 gate is what is blocking, so the price is moot
+     Never hide a locked avatar (§3.6): seeing what can be earned or bought is the
+     whole motivation. */
+  function avatarLock(id) {
+    var a = avatarById(id);
+    if (!a || (!a.unlock && !a.price)) return null;
+    /* Grandfather whatever the student is already wearing. Two real cases, not
+       hypotheticals: (1) 西游记 avatars were FREE until this shipped, so a student
+       already wearing 孙悟空 must not be asked to buy back what they already have;
+       (2) store.gym only started syncing to the cloud with this change, so an
+       earned 神兽 could otherwise vanish after a device switch. Nothing in the app
+       can un-earn an avatar, so nothing is taken away here either. */
+    var cur = load();
+    if (cur && cur.avatarId === id) return null;
+    /* 神兽: mastery only. Checked before price so no future edit can accidentally
+       make one purchasable. */
+    if (a.unlock && a.unlock.gym) {
+      return gymPassedAnywhere(a.unlock.gym) ? null
+        : { why: "通过「" + a.unlock.gym + " 年度试炼」后解锁" };
+    }
+    if (a.price) {
+      if (ownedAvatars().indexOf(a.id) !== -1) return null;    // bought already
+      /* 白龙马: the 历练值 threshold is the BLOCKING condition, so it is stated first —
+         the price means nothing until it lifts (§3.6). */
+      if (a.unlock && a.unlock.pts && !ptsGateMet()) {
+        var st = _provider && _provider.stream, n = st && PTS_UNLOCK[st];
+        return { blocked: "pts", price: a.price, btn: "🔒 尚未解锁",
+          why: n ? ("历练值达 " + n + "（段位「踏云者」）后可兑换")
+                 : "历练值达到段位「踏云者」后可兑换" };
+      }
+      var have = walletLingLu();
+      /* no wallet in reach: the landing page and 启航码头 have no stream, so there is
+         no wallet to spend from — say where to go, never 「灵露不足」 */
+      if (have == null) return { price: a.price, btn: "🔒 到科目页里兑换", why: "灵露 " + a.price + " · 到科目页里兑换" };
+      if (have < a.price) return { price: a.price, btn: "🔒 灵露不足", why: "灵露 " + a.price + "（还差 " + (a.price - have) + "）" };
+      return { price: a.price, canBuy: true, why: "灵露 " + a.price + " · 立即兑换" };
+    }
+    return null;
+  }
+  function isAvatarUnlocked(id) { return !avatarLock(id); }
+  /* The ONLY writer of avatarsOwned. Deducts from the CURRENT stream's wallet through
+     app.js (which owns the store) and only records the purchase if the deduction
+     actually happened — a purchase that debits but fails to persist is the worst
+     possible bug here, so the order is deduct → verify → persist. */
+  function buyAvatar(id) {
+    var a = avatarById(id);
+    if (!a || !a.price) return false;
+    if (ownedAvatars().indexOf(id) !== -1) return true;
+    var lk = avatarLock(id);
+    if (!lk || !lk.canBuy) return false;
+    if (!(_provider && _provider.spend && _provider.spend(a.price))) return false;
+    var owned = ownedAvatars().slice();
+    owned.push(id);
+    save({ avatarsOwned: owned });
+    if (_provider.onChanged) _provider.onChanged();   // repaint the wallet on the home screen
+    return true;
   }
 
   /* ---------- load / save ---------- */
@@ -981,8 +1103,13 @@
     render();
   }
 
+  /* An avatar the student no longer qualifies for falls back to the plain 👤 rather
+     than rendering a locked one (§3.5). In practice the grandfather clause in
+     avatarLock means a wearer keeps their own avatar, so this only fires for a
+     stale / hand-edited avatarId. */
   function avatarImgHtml(id) {
     var a = id && avatarById(id);
+    if (a && avatarLock(a.id)) a = null;
     return a ? '<img src="' + esc(a.file) + '" alt="">' : '👤';
   }
 
@@ -999,17 +1126,27 @@
     if (!a) { if (opts && opts.onSwitch) opts.onSwitch(); return; }
     opts = opts || {};
     var isCurrent = opts.mode === "current";
+    /* A locked avatar still opens the SAME card — art, name and 简介 all readable —
+       it just cannot be chosen, and says plainly what would unlock it (§3.4). */
+    var lk = isCurrent ? null : avatarLock(a.id);
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
     ov.style.zIndex = "68";
     ov.innerHTML = '<div class="pop-card av-info">' +
-      '<div class="av-info-img"><img src="' + esc(a.file) + '" alt=""></div>' +
+      '<div class="av-info-img' + (lk ? " locked" : "") + '"><img src="' + esc(a.file) + '" alt="">' +
+        (lk ? '<span class="av-info-lockmark">🔒</span>' : "") + '</div>' +
       '<div class="av-info-name">' + esc(a.label) + '</div>' +
+      (lk ? '<div class="av-info-lock">🔒 ' + esc(lk.why) + '</div>' : "") +
+      /* the price is still worth showing while the 历练值 gate blocks it — the student
+         should know what to save up for, not just what to grind for */
+      (lk && lk.blocked === "pts" ? '<div class="av-info-sub">解锁后可用 ' + lingLuHtml() + ' ' + lk.price + ' 兑换</div>' : "") +
       (a.bio ? '<div class="av-info-bio">' + esc(a.bio) + '</div>' : "") +
       '<div class="nav-row" style="margin-top:14px">' +
         '<button class="nav-btn" id="aiBack">' + (isCurrent ? "关闭" : "返回") + '</button>' +
         (opts.onReroll ? '<button class="nav-btn" id="aiRoll">🎲 再抽一次</button>' : "") +
-        '<button class="nav-btn primary" id="aiOk">' + (isCurrent ? "换一个" : "选用这个头像") + '</button>' +
+        (lk && lk.canBuy ? '<button class="nav-btn primary" id="aiBuy">兑换 · ' + lingLuHtml() + ' ' + lk.price + '</button>'
+          : lk ? '<button class="nav-btn" id="aiOk" disabled aria-disabled="true">' + esc(lk.btn || "🔒 尚未解锁") + '</button>'
+            : '<button class="nav-btn primary" id="aiOk">' + (isCurrent ? "换一个" : "选用这个头像") + '</button>') +
       '</div></div>';
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
     document.body.appendChild(ov);
@@ -1017,10 +1154,23 @@
     if (opts.onReroll) {
       ov.querySelector("#aiRoll").onclick = function () { ov.remove(); opts.onReroll(); };
     }
-    ov.querySelector("#aiOk").onclick = function () {
+    if (!lk) ov.querySelector("#aiOk").onclick = function () {
       ov.remove();
       if (isCurrent) { if (opts.onSwitch) opts.onSwitch(); }
       else if (opts.onChoose) opts.onChoose(a.id);
+    };
+    /* 兑换: always behind a confirm that names the price and says plainly that it is
+       permanent and non-refundable — 灵露 spent here cannot come back (§3.6). */
+    if (lk && lk.canBuy) ov.querySelector("#aiBuy").onclick = function () {
+      confirmDialog(
+        '<div class="pop-title">兑换头像</div><div class="pop-body">用 ' + lingLuHtml() + ' <b>' + lk.price +
+        '</b> 兑换「' + esc(a.label) + '」并立刻换上？<br><span class="pop-hint">兑换后永久拥有，四个科目都能用；灵露不退还。</span></div>',
+        "确定兑换",
+        function () {
+          if (!buyAvatar(a.id)) return;                 // wallet moved since the card opened
+          ov.remove();
+          if (opts.onChoose) opts.onChoose(a.id);
+        });
     };
   }
 
@@ -1043,23 +1193,39 @@
           return '<button class="prof-chip' + (activeCat === c ? " on" : "") + '" data-cat="' + c + '">' + (AVATAR_CAT_LABEL[c] || c) + '</button>';
         }).join("");
       var shown = AVATAR_CATALOG.filter(function (a) { return activeCat === "all" || a.category === activeCat; });
+      /* Locked entries are shown greyed with a 🔒, never hidden (§3.4) — seeing what
+         can be earned is the motivation. Tapping one still opens its card, which is
+         where the unlock condition is spelled out. */
       var gridHtml = shown.map(function (a) {
-        return '<div class="avatar-cell"><button class="avatar-thumb' + (a.id === currentId ? " on" : "") + '" data-id="' + a.id + '">' +
-          '<img src="' + esc(a.file) + '" alt=""></button><span class="avatar-cell-label">' + esc(a.label) + '</span></div>';
+        var lk = avatarLock(a.id);
+        /* a purchasable one shows its price right on the cell — the price IS the
+           motivation, and burying it one tap deep hides the whole 灵露 sink */
+        var tag = (lk && lk.price && !lk.blocked) ? '<span class="av-price">' + lingLuHtml() + ' ' + lk.price + '</span>'
+          : (lk && lk.blocked === "pts") ? '<span class="av-price">🔒 历练值</span>' : "";
+        return '<div class="avatar-cell"><button class="avatar-thumb' + (a.id === currentId ? " on" : "") +
+          (lk ? " locked" : "") + '" data-id="' + a.id + '"' + (lk ? ' title="' + esc(lk.why) + '"' : "") + '>' +
+          '<img src="' + esc(a.file) + '" alt="">' + (lk ? '<span class="av-lock">🔒</span>' : "") +
+          '</button><span class="avatar-cell-label">' + esc(a.label) + tag + '</span></div>';
       }).join("");
+      var pickable = shown.filter(function (a) { return !avatarLock(a.id); });
+      var purse = walletLingLu();
       ov.innerHTML = '<div class="pop-card">' +
-        '<div class="pop-title">换头像</div>' +
+        '<div class="pop-title">换头像' +
+          (purse == null ? "" : '<span class="av-purse">' + lingLuHtml() + ' ' + purse + '</span>') + '</div>' +
         '<div class="prof-chips">' + chipsHtml + '</div>' +
         '<div class="avatar-grid">' + (gridHtml || '<div class="pop-note">这个分类还没有头像。</div>') + '</div>' +
         '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">取消</button>' +
-        (shown.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个</button>' : "") + '</div></div>';
+        (pickable.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个</button>' : "") + '</div></div>';
       ov.querySelector("#apClose").onclick = function () { ov.remove(); };
       /* Dice roll: shows the rolled avatar's card with 再抽一次 on it, so the
          student keeps rolling from there and only writes anything on 选用. The
          roll stays inside the current category filter, and never rolls the
          avatar it just showed (a repeat reads as a broken button). */
       function roll(lastId) {
-        var pool = shown.filter(function (a) { return a.id !== lastId; });
+        /* the dice never rolls a locked avatar — a roll that lands on something the
+           student cannot choose reads as a broken button */
+        var pool = pickable.filter(function (a) { return a.id !== lastId; });
+        if (!pool.length) return;
         var pick = pool[Math.floor(Math.random() * pool.length)];
         openAvatarInfo(pick.id, {
           mode: "pick",
@@ -1138,6 +1304,9 @@
     openAvatarPicker: openAvatarPicker,
     openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml,
+    /* app.js asks before drawing the 攀山竞速 sprite; keep the unlock rules in one place */
+    isAvatarUnlocked: isAvatarUnlocked,
+    avatarLock: avatarLock,
     openFeedback: openFeedback
   };
 })();
