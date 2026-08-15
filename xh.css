@@ -289,6 +289,22 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .beach-boat{filter:drop-shadow(0 4px 10px rgba(6,26,48,.4))}
 .beach-acts{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
 
+/* 五枚航海徽. Locked-state treatment matches the mountain's 成就墙: greyscale +
+   reduced opacity via a filter, never a different asset. */
+.sailbadge-wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:12px}
+.sailbadge{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  padding:14px 10px 15px;border-radius:16px;border:1px solid var(--glass-line);
+  background:var(--glass);box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
+.sailbadge img{width:96px;height:96px;object-fit:contain;image-rendering:pixelated;
+  filter:grayscale(1) opacity(.42)}
+.sailbadge.got{border-color:var(--gold);
+  background:linear-gradient(180deg,rgba(255,246,225,.92),rgba(250,232,196,.78))}
+.sailbadge.got img{filter:none}
+.sailbadge b{font-family:var(--serif);font-size:16px;font-weight:900}
+.sailbadge-bar{display:block;width:100%;height:6px;border-radius:99px;background:#D8E4EC;
+  overflow:hidden;margin-top:4px}
+.sailbadge-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-lt))}
+
 .beach-shelf{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:4px}
 .beach-card{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;
   padding:11px 9px 12px;border-radius:14px;border:1px solid var(--glass-line);

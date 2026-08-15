@@ -156,6 +156,7 @@
     "再看一次": "zài kàn yī cì", "换一组": "huàn yī zǔ",
     "再看看这几个": "zài kàn kàn zhè jǐ gè",
     "全部": "quán bù", "已认得": "yǐ rèn de", "还没认得": "hái méi rèn de",
+    "航海徽": "háng hǎi huī",
     "岸左": "àn zuǒ", "岸右": "àn yòu", "木桩": "mù zhuāng",
     "沙地": "shā dì", "空中": "kōng zhōng",
     "动物": "dòng wù", "食物": "shí wù", "日常用品": "rì cháng yòng pǐn",
@@ -579,6 +580,14 @@
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
+    h += '<button class="xh-tile slim" id="xhBadges">' +
+      '<span class="xh-tile-ic">🎖️</span>' +
+      '<span class="xh-tile-txt"><b>航海徽</b>' + xhPy("航海徽") +
+      '<span class="xh-en">your badges</span>' +
+      '<span class="xh-tile-n">' + SAIL_BADGES.filter(sailBadgeGot).length + ' / ' +
+        SAIL_BADGES.length + '</span></span>' +
+      '<span class="xh-tile-go">›</span></button>';
+
     h += '<button class="xh-tile slim" id="xhBeach">' +
       '<span class="xh-tile-ic">🏖️</span>' +
       '<span class="xh-tile-txt"><b>我的海滩</b>' + xhPy("我的海滩") +
@@ -649,6 +658,7 @@
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
     document.getElementById("xhBeach").onclick = renderBeach;
+    document.getElementById("xhBadges").onclick = renderBadges;
     document.getElementById("xhScopeT").onclick = function () {
       store.scopeOpen = !store.scopeOpen; save(); renderMenu();
     };
@@ -665,6 +675,56 @@
       el.onclick = function () { store.matchN = parseInt(el.getAttribute("data-n"), 10); save(); renderMenu(); };
     });
     document.getElementById("xhGoRound").onclick = function () { startRound(scopeLabel()); };
+  }
+
+  /* ================= 五枚航海徽 (SPEC_XH_dock_economy_and_TTS §「五枚航海徽」) ====
+     ⚠️ THE THRESHOLDS ARE LOCKED BY THE SPEC — "lock these now, never redesign".
+     They count 航程 (words met, i.e. store.done), which is exactly what 图鉴 unlocks
+     on, so this screen adds NO storage: it is derived, never recorded.
+     Shell and mother-of-pearl palette so they read as siblings to the mountain's
+     jade-and-lacquer set without colliding with it. ⚠️ They are a SEPARATE family
+     from the mountain's five 里程碑 badges and the eight 对战 medals — never mix the
+     art, and never count them together. */
+  var SAIL_BADGES = [
+    { k: "shell",      zh: "贝壳徽", en: "Shell",      img: "xh_badge_shell",      need: 10 },
+    { k: "coral",      zh: "珊瑚徽", en: "Coral",      img: "xh_badge_coral",      need: 25 },
+    { k: "pearl",      zh: "珍珠徽", en: "Pearl",      img: "xh_badge_pearl",      need: 50 },
+    { k: "compass",    zh: "罗盘徽", en: "Compass",    img: "xh_badge_compass",    need: 100 },
+    /* 灯塔徽 = every word in the tier. Kept as null so it tracks the word list
+       instead of freezing at whatever the count happened to be when this shipped —
+       the tier went 36 -> 100 in a single day. */
+    { k: "lighthouse", zh: "灯塔徽", en: "Lighthouse", img: "xh_badge_lighthouse", need: null }
+  ];
+  function sailBadgeNeed(b) { return b.need === null ? (WORDS.length || 0) : b.need; }
+  function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
+
+  function renderBadges() {
+    state = null;
+    var met = sailStats().met;
+    var got = SAIL_BADGES.filter(sailBadgeGot).length;
+    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回' +
+      xhPy("返回") + '</button><span class="xh-block-tag">航海徽</span></div>';
+    h += '<div class="xh-board"><div class="beach-head">' +
+      '<div class="xh-berth-title">🎖️ 航海徽<span class="xh-en">Your badges</span></div>' +
+      '<span class="beach-purse"><b>' + got + '</b> / ' + SAIL_BADGES.length + '</span></div>' +
+      '<div class="xh-log-sub">认得的词语越多，徽章越多。' +
+      '<span class="xh-en">Badges come from the words you have met.</span></div>';
+    h += '<div class="sailbadge-wall">';
+    SAIL_BADGES.forEach(function (b) {
+      var need = sailBadgeNeed(b), have = met >= need;
+      var pct = need ? Math.min(100, Math.round(met / need * 100)) : 0;
+      h += '<div class="sailbadge' + (have ? " got" : "") + '">' +
+        '<img src="art/xh/badges/' + b.img + '.png' + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\">" +
+        '<b>' + esc(b.zh) + '</b><span class="xh-en">' + esc(b.en) + '</span>' +
+        (have ? '<span class="beach-tag on">已获得</span>'
+              : '<span class="sailbadge-bar"><i style="width:' + pct + '%"></i></span>' +
+                '<span class="beach-tag">' + met + ' / ' + need + ' 海里</span>') +
+        '</div>';
+    });
+    h += '</div></div>';
+    view().innerHTML = h;
+    wireQuit();
   }
 
   /* ================= 我的海滩 · 泊位 (SPEC_XH_berth_layout.md) =================
