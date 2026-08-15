@@ -75,6 +75,10 @@
        or unrecognised list is repaired to "everything" at first use, because a
        scope of nothing would silently produce empty rounds. */
     if (!(s.scope instanceof Array)) s.scope = null;      // null = all groups
+    /* ⚠️ literals, NOT ROUND_SIZES/OPT_TIERS — same trap the 连线 line above warns
+       about: this normaliser runs at module init, before those vars are assigned. */
+    if (s.roundN !== 5 && s.roundN !== 10 && s.roundN !== 15 && s.roundN !== 20) s.roundN = 5;
+    if (s.optsN !== 2 && s.optsN !== 3 && s.optsN !== 4) s.optsN = 4;
     if (s.tab !== "play") s.tab = "learn";
     if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
@@ -143,6 +147,8 @@
     "学词": "xué cí", "闯关": "chuǎng guān", "出发": "chū fā",
     "词语游乐场": "cí yǔ yóu lè chǎng",
     "学词方式": "xué cí fāng shì", "英文选词": "yīng wén xuǎn cí",
+    "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
+    "一次连几组": "yī cì lián jǐ zǔ", "返回码头": "fǎn huí mǎ tóu",
     /* 看图学词 had no entry while every other mode name did — invisible until the
        学词 tab held two cards side by side and only one carried its 拼音. */
     "看图学词": "kàn tú xué cí",
@@ -407,6 +413,13 @@
     }
     return a;
   }
+  /* ③挑战难度 in question terms: how many buttons are on screen. Clamped so a tiny
+     group can never ask for more distractors than it has (the 组别 rule stands —
+     they always come from the answer's own group, never from another). */
+  function optCount() {
+    var n = store.optsN || 4;
+    return Math.max(2, Math.min(n, 4));
+  }
   function distractors(w, n) {
     n = n || 3;
     var picked = [], banned = mates(w.词语);
@@ -508,12 +521,28 @@
        picture- or sound-led, so this is the only one that makes the student read
        the characters. English prompt because it is the only meaning a beginner
        here can read — and it is TEXT ONLY: English is never spoken, anywhere. */
-    { id: "enmcq", icon: "🔤", zh: "英文选词", en: "English → word", learn: true },
-    { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word" },
-    { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture" },
+    { id: "enmcq", icon: "🔤", zh: "英文选词", en: "English → word", learn: true, opts: true },
+    /* 看图识词 and 听音识图 moved OUT of 闯关 into 学词 (owner 2026-08-16). They are
+       four-option questions, not games — the same shape as the mountain's 学习挑战,
+       which is exactly what the owner asked this screen to look like. 闯关 keeps the
+       two that really are games: typing against a rising fish, and the match board. */
+    { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word", learn: true, opts: true },
+    { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture", learn: true, opts: true },
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
     { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
   ];
+  /* `opts:true` = the mode shows the ③挑战难度 slider (how many options are on
+     screen). 看图学词 asks nothing, 词海垂钓 is typed, and 连线's difficulty is its
+     board size — none of them have an option count to set. */
+  function modeById(id) {
+    for (var i = 0; i < MODES.length; i++) if (MODES[i].id === id) return MODES[i];
+    return MODES[0];
+  }
+  var ROUND_SIZES = [5, 10, 15, 20];       // ②每次题数
+  var OPT_TIERS = [2, 3, 4];               // ③挑战难度 — options on screen
+  function optTierLabel(n) {
+    return (n === 2 ? "⭐ " : n === 3 ? "⭐⭐ " : "⭐⭐⭐ ") + n + " 个选项";
+  }
   var MATCH_SIZES = [3, 5, 8];   // 连线 difficulty: pairs on the board at once
 
   /* 动线编号 — the same gold numerals app.js puts on multi-step decision flows.
@@ -542,6 +571,7 @@
   /* ---------- menu ---------- */
   function renderMenu() {
     state = null;
+    view().classList.add("two-col");        // the ONLY screen laid out in two columns
     /* PATCH_liquid_glass listed five structural gaps behind「it looks boring」,
        measured against the G2 arena screen. Four are here: a HERO CARD with art
        instead of an opening text panel, PROGRESSION as real numbers instead of a
@@ -557,9 +587,16 @@
        WRAPPED, never reordered, so the phone stack falls out of source order for
        free and the ①②③ numerals stay correct in both layouts. */
     var h = '<div class="xh-col-l">';
-    h += '<div class="xh-hero">' +
+    /* ⚠️ The hero IS the student's own beach (owner 2026-08-16:「beach should be
+       tucked into the upper-left image like the rest of the mountains」). The four
+       stream pages open on a mini-horizon of the student's own mountain which taps
+       through to it; the dock now does the same — same artwork as 我的海滩, the same
+       boat and the same berth items at the same percentage coordinates, so what is
+       bought is visible from the front page instead of two taps down. */
+    h += '<button class="xh-hero" id="xhHero" title="我的海滩">' +
       '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
+      '<span class="xh-hero-scene">' + beachSpritesHtml() + '</span>' +
       '<div class="xh-hero-in">' +
         '<div class="xh-hero-t">启航码头</div>' +
         '<div class="xh-hero-sub">看图学词 · 零基础起航' + xhPy("看图学词 · 零基础起航") +
@@ -568,7 +605,7 @@
           statCell(st.met, "海里", "航程", "words met") +
           statCell(st.acc === null ? "—" : st.acc + "%", "", "一次答对", "first-try correct") +
           statCell(st.full + " / " + st.groups, "", "集齐的组", "chapters complete") +
-        "</div></div></div>";
+        "</div></div></button>";
 
     var sel = scopeNames(), selWords = scopedWords();
     /* ⚠️ the label AND its glosses must live in ONE flex item. xhPy/xh-en are
@@ -656,53 +693,28 @@
     h += "</div>";
 
     h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
+    /* ⚠️ ② is now NAVIGATION, not a filter (owner 2026-08-16: 「the 出发 buttons are
+       redundant, just land the user in whichever page once they click on the
+       category buttons」). Tapping 学词 or 闯关 opens that kind's own config screen —
+       the same shape as the mountain's 学习挑战 card — instead of revealing a third
+       block and a second start button on this page. store.tab still remembers which
+       one they used last, so the config screen opens on the familiar side. */
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
       '选择学习方式' + xhPy("选择学习方式") + ' <span class="xh-en">learn or play</span></div>' +
       '<div class="xh-tabs">' +
-      '<button class="xh-tab' + (store.tab === "learn" ? " on" : "") + '" data-t="learn">' +
-        '<span class="xh-mi">📖</span><b>学词</b>' + xhPy("学词") + '<span class="xh-en">Learn</span></button>' +
-      '<button class="xh-tab' + (store.tab === "play" ? " on" : "") + '" data-t="play">' +
-        '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") + '<span class="xh-en">Play</span></button>' +
+      '<button class="xh-tab go" data-t="learn">' +
+        '<span class="xh-mi">📖</span><b>学词</b>' + xhPy("学词") +
+        '<span class="xh-en">Learn</span><span class="xh-tab-go">›</span></button>' +
+      '<button class="xh-tab go" data-t="play">' +
+        '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") +
+        '<span class="xh-en">Play</span><span class="xh-tab-go">›</span></button>' +
       "</div></div>";
 
-    var tabModes = MODES.filter(function (m) { return !!m.learn === (store.tab === "learn"); });
-    if (tabModes.length && !tabModes.some(function (m) { return m.id === store.mode; })) {
-      store.mode = tabModes[0].id; save();     // keep the selection inside the visible tab
-    }
-    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
-      /* ⚠️ 学词方式, not 看图学词: the 学词 tab holds TWO modes now (owner 2026-08-16),
-         so naming the section after the first card read as a duplicate label. */
-      (store.tab === "learn" ? "学词方式" : "词语游乐场") +
-      xhPy(store.tab === "learn" ? "学词方式" : "词语游乐场") +
-      ' <span class="xh-en">' + (store.tab === "learn" ? "how to study" : "pick a game") +
-      "</span></div>";
-    h += '<div class="xh-modes">';
-    tabModes.forEach(function (m) {
-      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
-        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
-        '<span class="xh-en">' + m.en + "</span>" + "</button>";
-    });
-    h += "</div>";
-
-    /* 连线 is the one mode whose difficulty the student sets, so its control only
-       appears when 连线 is the chosen mode — a size picker sitting over 看图识词
-       would just be a control that does nothing. It is deliberately NOT numbered:
-       it is a setting on the game just chosen, not a further step. */
-    if (store.mode === "match") {
-      h += '<div class="xh-subsec">一次连几组？' +
-        ' <span class="xh-en">how many pairs at once</span>' + "</div><div class=\"xh-sizes\">";
-      MATCH_SIZES.forEach(function (n) {
-        h += '<button class="xh-size' + (store.matchN === n ? " on" : "") + '" data-n="' + n + '">' +
-          "<b>" + n + "</b><span>" + (n === 3 ? "容易 easy" : n === 5 ? "普通 normal" : "有挑战 hard") + "</span></button>";
-      });
-      h += "</div>";
-    }
-    h += '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") + '<span class="xh-en">start</span></button>';
-    h += "</div>";                                   // close ③ board
-    h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below 出发
+    h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below
     h += "</div>";                                   // close .xh-col-r
     view().innerHTML = h;
 
+    document.getElementById("xhHero").onclick = renderBeach;
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
     document.getElementById("xhBeach").onclick = renderBeach;
@@ -718,19 +730,121 @@
     };
     document.getElementById("xhScopeNone").onclick = function () { setScope([]); renderMenu(); };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-tab"), function (el) {
-      el.onclick = function () { store.tab = el.getAttribute("data-t"); save(); renderMenu(); };
+      el.onclick = function () {
+        /* an empty 学习范围 is allowed as a state but obviously not as a round: say so
+           at the door rather than letting them configure something unstartable */
+        if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
+        store.tab = el.getAttribute("data-t"); save();
+        renderModeConfig(store.tab);
+      };
     });
+  }
+
+  /* ---------- ②学词 / ②闯关 的配置页 (owner 2026-08-16) ----------
+     Deliberately the same three-step card the mountain uses for 学习挑战:
+     ①题型 ②每次题数 ③挑战难度, then one start button. The dock had a flat mode grid
+     with a separate 出发 on the menu; this puts the settings next to the thing they
+     configure and leaves exactly one way to begin.
+     ⚠️ ③ only renders for modes that HAVE an option count (MODES[].opts). For 连线
+     the same slider position means board size, so it is relabelled rather than
+     shown twice — and 看图学词 / 词海垂钓 have no difficulty at all. */
+  function renderModeConfig(kind) {
+    state = null;
+    view().classList.remove("two-col");
+    var isLearn = kind !== "play";
+    var list = MODES.filter(function (m) { return !!m.learn === isLearn; });
+    if (!list.some(function (m) { return m.id === store.mode; })) { store.mode = list[0].id; save(); }
+    var cur = modeById(store.mode);
+    var pool = scopedWords();
+
+    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+      '<span class="xh-block-tag">' + (isLearn ? "学词" : "闯关") + '</span></div>';
+    h += '<div class="xh-board xh-cfg">';
+    h += '<div class="xh-berth-title">' + (isLearn ? "📖 学词" : "🎮 闯关") +
+      xhPy(isLearn ? "学词" : "闯关") +
+      '<span class="xh-en">' + (isLearn ? "Learn the words" : "Play a game") + '</span></div>';
+    h += '<div class="xh-cfg-scope">范围：' + esc(scopeLabel()) + " · " + pool.length + " 词" +
+      '<span class="xh-en">' + pool.length + ' words in scope</span></div>';
+
+    h += '<div class="xh-sec">' + stepNo(1) + '题型' + xhPy("题型") +
+      ' <span class="xh-en">which kind</span></div><div class="xh-modes">';
+    list.forEach(function (m) {
+      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
+        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
+        '<span class="xh-en">' + m.en + "</span></button>";
+    });
+    h += "</div>";
+
+    if (cur.id === "learn") {
+      /* 看图学词 walks the whole group in data order — it is a lesson, not a sample,
+         so a 题数 slider would be a control that does nothing. */
+      h += '<div class="xh-cfg-note">看图学词会把选中的词一张一张看完（' + pool.length + ' 张）。' +
+        '<span class="xh-en">Flashcards run through every word in scope.</span></div>';
+    } else if (cur.id === "match") {
+      h += '<div class="xh-sec">' + stepNo(2) + '一次连几组' + xhPy("一次连几组") +
+        ' <span class="xh-en">pairs on the board</span></div>' +
+        qtySlider("xhMatchN", MATCH_SIZES, store.matchN, function (n) {
+          return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
+        });
+    } else {
+      h += '<div class="xh-sec">' + stepNo(2) + '每次题数' + xhPy("每次题数") +
+        ' <span class="xh-en">questions per round</span></div>' +
+        qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
+      if (cur.opts) {
+        h += '<div class="xh-sec">' + stepNo(3) + '挑战难度' + xhPy("挑战难度") +
+          ' <span class="xh-en">how many choices</span></div>' +
+          qtySlider("xhOptsN", OPT_TIERS, store.optsN, optTierLabel);
+      }
+    }
+
+    /* ONE action. The 返回 in the round bar above already goes back to the dock, and
+       a second back button beside 出发 is the same redundancy the owner cut from the
+       menu (2026-08-16). */
+    h += '<div class="xh-cfg-acts">' +
+      '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") +
+      '<span class="xh-en">start</span></button></div></div>';
+    view().innerHTML = h;
+    wireQuit();
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode"), function (el) {
-      el.onclick = function () { store.mode = el.getAttribute("data-m"); save(); renderMenu(); };
+      el.onclick = function () {
+        store.mode = el.getAttribute("data-m"); save();
+        renderModeConfig(kind);      // re-render: ②/③ differ per mode
+      };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-size"), function (el) {
-      el.onclick = function () { store.matchN = parseInt(el.getAttribute("data-n"), 10); save(); renderMenu(); };
-    });
-    /* an empty 学习范围 is allowed as a state but obviously not as a round: say so
-       instead of doing nothing (the dock's own 提示 style, not a browser alert) */
+    wireQtySlider("xhRoundN", ROUND_SIZES, function (n) { return n + " 题"; },
+      function (n) { store.roundN = n; save(); });
+    wireQtySlider("xhMatchN", MATCH_SIZES, function (n) {
+      return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
+    }, function (n) { store.matchN = n; save(); });
+    wireQtySlider("xhOptsN", OPT_TIERS, optTierLabel, function (n) { store.optsN = n; save(); });
     document.getElementById("xhGoRound").onclick = function () {
       if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
       startRound(scopeLabel());
+    };
+  }
+
+  /* ⚠️ The readout sits ABOVE the track, never beside it — a readout as a flex
+     sibling makes the track grow and shrink as the label's width changes, which is
+     the exact bug the mountain's slider had to fix (CLAUDE.md 2026-08-14). Ticks
+     mark the stops so no end labels are needed. Copied from app.js by design: this
+     file never loads app.js. */
+  function qtySlider(id, values, cur, fmt) {
+    var i = values.indexOf(cur); if (i === -1) i = 0;
+    var ticks = "";
+    for (var k = 0; k < values.length; k++) ticks += "<i></i>";
+    return '<div class="qty">' +
+      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b>' +
+      '<div class="qty-track"><div class="qty-ticks" aria-hidden="true">' + ticks + '</div>' +
+      '<input type="range" class="qty-range" id="' + id + '" min="0" max="' + (values.length - 1) +
+      '" step="1" value="' + i + '" aria-label="选择数量"></div></div>';
+  }
+  function wireQtySlider(id, values, fmt, onPick) {
+    var el = document.getElementById(id); if (!el) return;
+    var out = document.getElementById(id + "Val");
+    el.oninput = function () {
+      var v = values[parseInt(el.value, 10)];
+      if (out) out.textContent = fmt(v);
+      onPick(v);
     };
   }
 
@@ -756,6 +870,7 @@
   function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
 
   function renderBadges() {
+    view().classList.remove("two-col");
     state = null;
     var met = sailStats().met;
     var got = SAIL_BADGES.filter(sailBadgeGot).length;
@@ -860,7 +975,19 @@
       "onerror=\"this.replaceWith(document.createTextNode('🐚'))\">";
   }
 
+  /* the boat + whatever is in each berth slot, as one absolutely-positioned layer.
+     Shared by 我的海滩 and the menu hero so the two can never drift apart. */
+  function beachSpritesHtml() {
+    var h = beachSprite("boat_t" + (store.boat || 1) + "_broadside", 88, 30, 26, "beach-boat");
+    BERTH_SLOTS.forEach(function (sl) {
+      var it = itemByKey(store.berth[sl.k]);
+      if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
+    });
+    return h;
+  }
+
   function renderBeach() {
+    view().classList.remove("two-col");
     state = null;
     var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">我的海滩</span></div>';
@@ -874,11 +1001,7 @@
     /* the moored boat: spec puts it at cx 88 / by 30 / w 26, broadside because the
        painted jetty runs left-to-right. ⚠️ ALL THREE TIERS SHARE ONE SCALE so the
        boat does not jump size when upgraded — do not re-normalise per sprite. */
-    h += beachSprite("boat_t" + (store.boat || 1) + "_broadside", 88, 30, 26, "beach-boat");
-    BERTH_SLOTS.forEach(function (sl) {
-      var it = itemByKey(store.berth[sl.k]);
-      if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
-    });
+    h += beachSpritesHtml();
     h += "</div>";
     h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' + xhPy("海滩小铺") +
       '<span class="xh-en">shop</span></button></div></div>';
@@ -888,6 +1011,7 @@
   }
 
   function renderBeachShop() {
+    view().classList.remove("two-col");
     state = null;
     var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
       '<span class="xh-block-tag">海滩小铺</span></div>';
@@ -1018,6 +1142,7 @@
      current filter. Revealing a locked word gives nothing away — 看图学词 already
      walks every word in the group, met or not. */
   function renderLog(page, filter) {
+    view().classList.remove("two-col");
     state = null;
     var pages = logPages();
     if (!pages.length) return renderMenu();
@@ -1116,6 +1241,7 @@
      stream is not a scope that exists here. 校内 is the meaningful small cohort
      and 跨校 is the whole dock; both are read off the SAME fetched set. */
   function renderBoards() {
+    view().classList.remove("two-col");
     state = null;
     var tab = store.lbTab, scope = store.lbScope;
     var me = profileOf();
@@ -1214,7 +1340,7 @@
          ⚠️ THE DISTRACTOR POOL IS UNTOUCHED — distractors() still draws from the
          answer's whole 组别. Narrowing them to the 子类 would turn a fruit question
          into a fruit-only quiz and defeat the point (§6, and PATCH_category_hierarchy). */
-      var need = mode === "match" ? (store.matchN || 5) : ROUND_N;
+      var need = mode === "match" ? (store.matchN || 5) : (store.roundN || ROUND_N);
       var draw = pool;
       var gs = {}; pool.forEach(function (w) { gs[w.组别] = 1; });
       if (Object.keys(gs).length === 1) {
@@ -1238,7 +1364,7 @@
               missed: [], firstTry: true, pool: pool };
     // warm the round's sprites: each question swaps the image, and an undecoded
     // sprite shows as an empty frame for a beat — the picture IS the question
-    var warm = (mode === "match" || mode === "learn") ? seq : seq.concat(distractors(seq[0], 3));
+    var warm = (mode === "match" || mode === "learn") ? seq : seq.concat(distractors(seq[0], optCount() - 1));
     warm.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
     render();
   }
@@ -1259,6 +1385,7 @@
   }
 
   function render() {
+    view().classList.remove("two-col");     // round screens are a single centred column
     if (state.mode === "learn") {
       if (state.i >= state.seq.length) return renderLearnEnd();
       return renderLearn();
@@ -1387,6 +1514,7 @@
   /* end of the flashcard: the point of it is the round that follows, so the
      primary button starts one on the SAME group rather than returning to a menu */
   function renderLearnEnd() {
+    view().classList.remove("two-col");
     var h = '<div class="xh-board xh-result"><div class="xh-berth-title">📖 这一组看完了</div>' +
       '<div class="xh-score">' + esc(state.grp) + ' · <b>' + state.seq.length + "</b> 个词语" +
       ' <span class="xh-en">words in this group</span>' + "</div>" +
@@ -1406,7 +1534,7 @@
     var w = state.seq[state.i];
     stat(w).shown++; save();
     state.firstTry = true;
-    var opts = shuffle(distractors(w).concat([w]));
+    var opts = shuffle(distractors(w, optCount() - 1).concat([w]));
     /* ⚠️ the picture is the QUESTION here, so it must stay silent (owner 2026-08-16,
        same defect as 连线): speaking it named the answer, and with 拼音 on by default
        the student only had to match the sound to the printed pinyin. The 🔊 lives on
@@ -1457,7 +1585,7 @@
     var w = state.seq[state.i];
     stat(w).shown++; save();
     state.firstTry = true;
-    var opts = shuffle(distractors(w).concat([w]));
+    var opts = shuffle(distractors(w, optCount() - 1).concat([w]));
     var h = bar() + '<div class="xh-board xh-stage">' +
       '<div class="xh-enq">' + esc(w.英文释义) + '</div>' +
       '<span class="xh-sprite hidden" id="xhSprite">' + img(w) + "</span>" +
@@ -1499,7 +1627,7 @@
     var w = state.seq[state.i];
     stat(w).shown++; save();
     state.firstTry = true;
-    var opts = shuffle(distractors(w).concat([w]));
+    var opts = shuffle(distractors(w, optCount() - 1).concat([w]));
     var h = bar() + '<div class="xh-board xh-stage">' +
       '<button class="xh-play" id="xhPlay">🔊 <span>再听一次</span>' + xhPy("再听一次") +
       '<span class="xh-en">tap to hear it again</span>' + "</button>" +
@@ -1879,6 +2007,7 @@
   }
 
   function renderResult() {
+    view().classList.remove("two-col");
     var h = '<div class="xh-board xh-result"><div class="xh-berth-title">🎉 这一轮完成了</div>' +
       '<div class="xh-score"><b>' + state.correct + "</b> / " + state.seq.length +
       " 一次答对" + xhPy("一次答对") + ' <span class="xh-en">correct first try</span>' + "</div>";

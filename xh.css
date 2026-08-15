@@ -107,7 +107,12 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
      the width, which squeezed the right column to 562px — the mode cards wrapped to
      two rows and 出发 fell 115px below the fold, failing acceptance §6.2. The rail
      gives width back on narrow screens and still hits 400px from ~1330px up. */
-  .xh-wrap{max-width:1240px;display:grid;
+  /* ⚠️ .two-col, not .xh-wrap. The grid used to apply to the wrap unconditionally,
+     so EVERY screen was laid out in two columns — 我的海滩 put its 返回 bar in the
+     320px rail and its board in the right column, which is why the beach sat off
+     to the right of the screen (owner 2026-08-16). Only renderMenu adds the class;
+     every other render clears it and gets a normal centred column. */
+  .xh-wrap.two-col{max-width:1240px;display:grid;
     grid-template-columns:clamp(320px,30%,400px) minmax(0,1fr);
     gap:20px;align-items:start}
   /* ⚠️ minmax(0,1fr), never 1fr. A grid child defaults to min-width:auto and
@@ -202,9 +207,19 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 /* ---------- hero + stats + entry tile (PATCH_liquid_glass, the five gaps) ----------
    The dock used to open with a text panel while every stream page opens with
    art, a title overlay and a progress chip. */
+/* ⚠️ It is a <button> now (it opens 我的海滩), so every button default has to be
+   undone — left-aligned text, no padding, inherited font. Without this the title
+   and stats centre themselves and the card stops matching the mountain's
+   mini-horizon it is modelled on. */
 .xh-hero{position:relative;overflow:hidden;border-radius:18px;margin-bottom:14px;
   border:1px solid var(--glass-line);box-shadow:var(--glass-lift);background:var(--sea1);
-  min-height:190px;display:flex;align-items:flex-end}
+  min-height:190px;display:flex;align-items:flex-end;width:100%;padding:0;
+  text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;
+  -webkit-appearance:none;appearance:none}
+.xh-hero:active{transform:translateY(1px)}
+/* the student's boat and berth items, same coordinates as 我的海滩. Under the scrim
+   on purpose: the title has to stay readable, and a dimmed boat still reads. */
+.xh-hero-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
 .xh-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:center 62%;image-rendering:pixelated}
 /* the scrim is what keeps the title legible over whatever part of the art the
@@ -891,3 +906,46 @@ body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
   .prof-col>.prof-sec{margin-top:14px}
   .prof-col>.prof-sec:first-child{margin-top:0}
 }
+
+/* ---------- ②学词 / ②闯关 配置页 (owner 2026-08-16) ----------
+   The dock's version of the mountain's 学习挑战 card: ①题型 ②每次题数 ③挑战难度 and
+   ONE start button. The slider block below is copied from app.css — this file never
+   loads app.css, so the two are duplicated on purpose (same rule as the palette). */
+.xh-cfg{max-width:620px;margin:0 auto}
+.xh-cfg-scope{margin:6px 0 4px;font-size:13.5px;font-weight:700;color:var(--sea2)}
+.xh-cfg-note{margin:4px 0 2px;font-size:13.5px;color:var(--ink-soft);line-height:1.7}
+.xh-cfg-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.xh-cfg-acts .xh-go{flex:1 1 100%;margin-top:0}
+/* 2-up: the 学词 page has four 题型 and auto-fit put them 3 + 1, which reads as a
+   stray card. Two columns also keeps the tap targets wide on a phone. */
+.xh-cfg .xh-modes{grid-template-columns:repeat(2,1fr)}
+/* the ② category buttons navigate now, so they carry a chevron like every other
+   entry on this page */
+.xh-tab.go{position:relative}
+.xh-tab-go{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  font-size:18px;color:var(--sea2);opacity:.6}
+.qty{margin:2px 0 6px}
+.qty-val{display:block;font-family:var(--serif);font-weight:800;font-size:17.5px;
+  color:#8A5A0F;line-height:1.35;margin:0 0 6px;min-height:22px}
+.qty-track{position:relative;padding:9px 0}
+.qty-ticks{position:absolute;left:13px;right:13px;top:50%;transform:translateY(-50%);
+  display:flex;justify-content:space-between;pointer-events:none}
+.qty-ticks i{width:3px;height:3px;border-radius:50%;background:rgba(23,58,90,.3)}
+.qty-range{-webkit-appearance:none;appearance:none;display:block;width:100%;height:26px;
+  background:transparent;cursor:pointer;margin:0}
+.qty-range:focus{outline:none}
+.qty-range:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:8px}
+.qty-range::-webkit-slider-runnable-track{height:8px;border-radius:999px;
+  background:linear-gradient(90deg,rgba(227,166,60,.75),rgba(180,205,225,.7));
+  border:1px solid var(--glass-line)}
+.qty-range::-moz-range-track{height:8px;border-radius:999px;
+  background:linear-gradient(90deg,rgba(227,166,60,.75),rgba(180,205,225,.7));
+  border:1px solid var(--glass-line)}
+/* 30px thumb: the whole control's tap target on a PLD, so it clears the same
+   finger-size bar the 可及性 pass set for the answer buttons */
+.qty-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;
+  margin-top:-12px;border-radius:50%;background:linear-gradient(180deg,#FFF6E0,#F5C443);
+  border:2.5px solid var(--gold-deep);box-shadow:0 3px 10px rgba(23,58,90,.32)}
+.qty-range::-moz-range-thumb{width:30px;height:30px;border-radius:50%;
+  background:linear-gradient(180deg,#FFF6E0,#F5C443);
+  border:2.5px solid var(--gold-deep);box-shadow:0 3px 10px rgba(23,58,90,.32)}
