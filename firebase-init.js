@@ -43,6 +43,20 @@
       _failed = true;
       console.error("Firebase anon sign-in failed:", err);
     });
+    /* ⚠️ A REJECTED sign-in is the easy case. The one that bit us live on
+       2026-08-15 is a sign-in that neither resolves nor rejects, which is what a
+       managed school network does when it blocks Google's identity endpoints:
+       no error is ever thrown, so _failed stayed false, isAvailable() kept
+       answering true, and every queued whenReady callback waited forever. After
+       this deadline the layer reports itself unavailable so callers stop waiting
+       on it. Queued callbacks are deliberately NOT dropped — if auth does land
+       later they still run, and pending writes reach the cloud. */
+    setTimeout(function () {
+      if (!_ready) {
+        _failed = true;
+        console.warn("Firebase auth did not complete in 10s — running local-only.");
+      }
+    }, 10000);
   } catch (e) {
     _failed = true;
     console.error("Firebase init failed:", e);

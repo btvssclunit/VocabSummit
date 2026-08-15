@@ -3061,3 +3061,124 @@ Browser pane 这次又拒绝了 127.0.0.1 和 localhost，机器上没有 Node�
 本批全部资产版本号推到 **`20260815j`**（六处：`index.html` + 四个科目页 + `teacher.html` 的
 `ASSET_V`）。`XH_index.html` 是新页，自带同一版本号；`xh.js` 读自己的 `?v=` 传给
 `data/xh_mvp.json` 和 sprite，和 app.js/arena.js 同一套办法。
+
+## Owner batch, 2026-08-15 (晚) — 装载卡死 · 三座山重描 · 顶峰光环 · 码头学词 · 连线重做
+
+六项，全部**在真浏览器里跑过**（`python3` + no-store handler + 127.0.0.1；本次 Browser pane
+接受了 localhost **而且截图正常**，所以下面是「看到的」，不只是量到的）。
+
+### 1. ⚠️ 全部年级卡在「正在装载词库…」—— 真 bug，最要紧的一条
+Owner 报「G2 卡在 loading」，接着补「**全部**都卡住」。查下来**不是数据问题**：线上四个 JSON 都是
+200、字节数和本地一模一样，我这边打开线上 G2 一切正常。
+
+真正的原因在 `boot()`：`renderHome()` **只在 `WSCloud.getProgress` 的回调里被调用**。于是只要那
+个回调**既不成功也不失败、就是不返回**，页面就永远停在装载文字上 —— 词库其实早就下载好了，
+fetch 的 `.catch` 也永远不会触发（它已经 resolve 了）。而「不返回」正是受管学校网络的典型行为：
+`identitytoolkit.googleapis.com` 被挡住时，`signInAnonymously()` **不抛错**，`onAuthStateChanged`
+也不会带着 user 触发，`_failed` 保持 false → `isAvailable()` 继续说「可用」→ 回调排进
+`_readyCallbacks` 永远等下去。Firestore 的 `get()` 在离线时同理，会一直 pending 而不 reject。
+- **修法（app.js）**：`CLOUD_WAIT_MS = 6000`。云端有 6 秒时间回答，超时就**照常开门**（本地
+  数据本来就够用）。迟到的回答仍然会 merge，但**只有当学生还停在首页时才重绘**
+  （`document.querySelector(".home-grid")`）—— 否则一个 8 秒后到达的回复会把正在答题的学生
+  直接踢出题目。
+- **修法（firebase-init.js）**：10 秒内没 ready 就把 `_failed` 置真，让 `isAvailable()` 说实话。
+  **故意不清空 `_readyCallbacks`** —— 万一网络后来通了，排队的写入照样送出去。
+- 验证：临时页面注入一个「自称可用但永不回调」的 WSCloud，**旧逻辑永远停在装载文字，新逻辑
+  6 秒后进首页**；再让它 8.5 秒后才回答，实测迟到的 3 个 mastered id 正常并入 localStorage 且首页
+  重绘。
+- ⚠️ 给 owner 的一句话：这条**不需要改 Firestore 规则、也不是部署错误**，纯客户端修复。学生只要
+  拿到新的 `?v=20260815k` 就好了。
+
+### 2. G1 / G3 / HCL 山路重描（owner 在原图上用洋红涂了线）
+和 2026-08-15 早些时候 G2 的做法一样：**owner 涂线 → 脚本提取**，不再肉眼描。
+- 三张图是**贴进对话**的，所以从 `~/.claude/projects/…/<session>.jsonl` 里把 base64 解出来
+  （这一招前面记过，这次又用上了）。⚠️ 贴图会被转成 **webp** 有损副本 —— 描一条粗线够用，
+  但要用容差判色，别指望精确 RGB。
+- 提取：从四角 flood-fill 出背景洋红，**剩下的洋红就是涂的线**。
+  ⚠️ **两个新坑，都是这次踩到的**：
+  (a) **亭子/楼阁的空隙会漏出背景洋红**（G1 的亭子四面通透），那些洋红被岛体包住，也会被判成
+      「内部洋红」。所以吸收相邻分块时**必须要求它在 y 方向严格延伸当前笔画**，而不是只看间距 —— 
+      第一版按间距吸收，把 G3 山体上两块洋红杂点当成线，整条路径被往左拉歪。
+  (b) HCL 的线被前景遮断成 3 段，**要按 y 相邻 + x 接近**合并回来。
+- 15 个点按弧长重采样，**再把折线画回原图肉眼复核**（三张全部贴合painted stairway）。
+- 坐标映射：截图里的岛 alpha bbox ↔ 仓库 sprite 的 bbox。三张宽高比对得上（g3 1.2232 vs
+  1.2249、hcl 1.1733 vs 1.1727、g1 1.6491 vs 1.6296）。
+
+### 3. 顶峰不再被挡：`MTN_CROWN` 空心光环
+Owner：「the feature on the top of the mountain should not be blocked」。以前 🏯 pin 就摁在建筑上。
+- 新 `MTN_CROWN[stream] = {x,y,r}`，**和 MTN_PATHS 同一套 sprite 分数**，`r` 是**宽度**的比例。
+  四个值是**量出来的**：逐行扫 alpha 的 x 跨度，找出建筑自己的 bbox（屋檐最宽那几行），再取中心
+  与半径。⚠️ 不要用眼睛在网格图上估 —— 第一版就是这么估的，圆心偏低，屋顶被切。
+- 渲染：`.mtn2-pin.t-summit` 变成 `width:<r*200>%` + `aspect-ratio:1` + 透明底 + 金边，
+  **不带任何字符**（`mtnPinIcon` 对 summit 返回空字符串）。仍然是 `<button>`，点开的还是原来的
+  顶峰弹窗，hover 名牌照旧（自动翻到下方）。
+- 「pulsing and glowing」拆成两层：按钮自己跑 `mtnCrownGlow`（只动 box-shadow），
+  **尺寸脉冲放在 `::after` 的第二个圈**上。⚠️ 不能把 scale 加在按钮上 —— 名牌是它的子元素，
+  会跟着一起抖，而 `.mtn2-name` 的 `scale(.84)` 本来就是为了抵消按钮的 hover 缩放。
+- `prefers-reduced-motion` 下两个动画都停。
+
+### 4. 岛缩小、周围留海（同一条 owner 要求）
+新增 `.mtn2-isle` 包住 `<img>` 和所有 pin，**占 stage 宽度的 84%**、居中、保持自己的宽高比。
+因为 stage 本来就用同一个 `--ar`，**一个数字就得到四边等宽的海面**。pin 是它的子元素，所以
+**MTN_PATHS / MTN_CROWN 一个数都不用改**；这圈海同时也是光环和顶部名牌**溢出去的地方**
+（stage 是 `overflow:hidden`，没有这圈留白光环会被切）。
+⚠️ **这三个数字是一组，改一个要一起算**：isle 宽度百分比、`MTN_CROWN.g1.r`、光环 box-shadow 的
+外扩量。G1 的亭子紧贴 sprite 顶边，是四座里唯一会被 stage 边缘切到的：实测 84% + `r:.066` 时
+光环顶端距 stage 顶 27px，而脉冲最大时的外扩约 28px —— 已经是刚好够用。把光环调亮调大之前，
+先把 isle 缩小。
+
+### 5. 航海图：G1 的船停在山脚，不再停在山顶
+Owner：「the boat sailing to G1 needs to land at the foot of the mountain」。
+原因很具体：所有泊位都是「从岛心朝**画面中心**走到 alpha 边界」算出来的，而 **G1 在画面下方**，
+于是那一步是**往上走**，泊位落在岛的**上缘**、正好挨着画好的亭子。
+- 新泊位改成沿**已描出的山路**取：`MTN_PATHS.g1[0]`（沙滩上的登山口）往外走到岸线再退 1.6vw。
+  横屏 `--tx:48.2%; --ty:8.3%`，竖屏 `--tx:53%; --ty:19.2%`（⚠️ 竖屏必须自己写一份，见既有注释）。
+- **20 条航线重验**：判据是「不得压到**第三座**岛」（终点岛贴岸是设计本意，不算冲突）——
+  新旧泊位都是 0 冲突。验证脚本是在浏览器里把每张岛 sprite 画进 canvas 采 alpha，再按
+  `nickname.js` 同一套二次贝塞尔公式采样 200 点。
+
+### 6. 昵称：掷骰改成默认（owner）
+「make the roll dice option the default to reduce barriers to entry, and at the bottom a smaller line
+that says 我要自己选昵称」。
+- 选择器现在**一进来就是掷好的名字**（`st.step` 初始为 `"confirm"`，并在 `st` 之后立刻 `rollNick()`；
+  `rollNick` 是函数声明，会提升，所以放在这里安全）。原来的四步 大类→描述词→名词大类→名词
+  是**进门前的四个决定**，对新生就是门槛。
+- 确认页底部新增一行小字链接 `我要自己选昵称`（`.np-manual`）→ 进原来的四步流程；
+  原来的「‹ 重新选择」按钮删掉（同一件事有两个入口只会让人犹豫）。四步走完照样回到确认页。
+- ⚠️ **两份选择器（`app.js` + `nickname.js`）必须一模一样** —— 本次六处改动两边都改了。
+
+### 7. 启航码头：📖 看图学词（flashcard）
+Owner：「needs a flashcard option for the users to learn the words before getting tested」。
+- 新模式排在**第一个**，其余四个玩法读起来才是「现在自测」。
+- 走**整组**词（不是 5 个抽样）、**按数据原序**（第二次进来还是同一课），大图 + 词 + 拼音 + 英文 +
+  自动朗读 + 🔊再听 + 上一个/下一个。
+- ⚠️ **故意不写 `store.done`**：菜单上的「学过了」计的是学生真的答过的词。看一眼卡片不算，
+  否则可以全程不答题就把整个码头刷完。
+- 看完的结算页主按钮是**「🖼️ 开始测验」**（同一组直接开一轮看图识词）—— 这个模式存在的意义
+  就是后面那一轮。
+
+### 8. 启航码头：连线重做（owner 三条）
+「show an actual line running across to join · feedback at the end when users match up all the options ·
+toggle to choose how many items to display at once」。
+- **真的画线**：`.xh-match` 里加一层 SVG（`#xhLinks`），每对连线画一条绳索色直线 + 两端圆点；
+  选中一边后还有一条**跟着手指/鼠标的虚线**。两列之间拉开一条 `clamp(48px,12vw,140px)` 的通道给绳子。
+  连接**按词语文本存**（不是元素引用），所以 resize、sprite 迟到解码后重算都不会丢线；
+  resize 监听器**自己检测 SVG 还在不在**，不在就自摘（innerHTML 整片替换时没有别的拆卸时机）。
+- **判分挪到最后**：连的时候一律绳索棕，**不提示对错**；点了一个已连的项目就解开重连；
+  全部连满才点亮「检查答案」。以前是连一对就立刻变绿/抖动 —— 那是「四选一 + 即时确认」，
+  比「先想清楚整盘再交卷」容易得多。
+  判错的线变红，**1.2 秒后自动拆掉**让学生重连（这一层「答错零代价」的规矩不变）；
+  **只有第一次检查计分**，`state.correct` 和 `stats.confused` 都取第一次的结果。
+- **难度 = 一次连几组**：`store.matchN` ∈ {3,5,8}，菜单上**只在选中「连线」时**才出现
+  （一个对当前玩法无效的控件就是噪音）。组里词不够时按组大小截断。
+- 实测：连线/解开/满盘启用检查/检查前一个绿的都没有/1 对 2 错 → 红线 → 自动拆掉 → 重连全对 →
+  结算「1 / 3 一次答对」+ 2 个复习项 + `confused` 记下 床↔雨伞。手机 375px 下无横向滚动。
+
+### 验证与部署
+真浏览器 1600×900 / 1280×860 / 375×812：四座山的路径与光环（G1/G2/G3/HCL 逐一截图核对）、
+顶峰光环可点且弹窗正确、名牌翻到下方、航海图 G1 泊位（横屏与竖屏各量一次）、昵称掷骰→重掷→
+手动四步→确认落盘、码头 flashcard 全流程 + 结算跳测验、连线全流程 + 手机版式。
+六个 JS 全部 parse（JavaScriptCore），CSS 括号 app 871/871 · xh 138/138。
+Cache-bust `20260815j` → **`20260815k`**（七处：`index.html` + 四个科目页 + `XH_index.html` +
+`teacher.html` 的 `ASSET_V`）。
+⚠️ 仍未在真设备上跑过：iPad 上用手指连线的手感、以及顶峰光环的 box-shadow 动画在 Chromebook 上的开销。

@@ -5094,21 +5094,37 @@
     hcl: { src: "art/mountain/mtn_hcl.png", ar: 1100 / 938 }
   };
   var MTN_PATHS = {
-    g1: [[0.315,0.815],[0.292,0.755],[0.268,0.690],[0.290,0.640],[0.345,0.605],
-         [0.410,0.585],[0.470,0.560],[0.520,0.520],[0.556,0.475],[0.552,0.425],
-         [0.530,0.380],[0.512,0.335],[0.503,0.290],[0.500,0.245],[0.500,0.205]],
+    g1: [[0.318,0.809],[0.356,0.767],[0.364,0.718],[0.334,0.673],[0.363,0.626],
+         [0.407,0.591],[0.454,0.560],[0.507,0.540],[0.534,0.494],[0.513,0.443],
+         [0.496,0.392],[0.521,0.342],[0.513,0.288],[0.479,0.242],[0.486,0.187]],
     g2: [[0.497,0.863],[0.554,0.794],[0.511,0.721],[0.442,0.669],[0.395,0.625],
          [0.479,0.601],[0.434,0.538],[0.503,0.508],[0.534,0.451],[0.516,0.389],
          [0.471,0.333],[0.538,0.286],[0.487,0.234],[0.516,0.178],[0.496,0.102]],
-    g3: [[0.480,0.790],[0.485,0.730],[0.495,0.670],[0.505,0.610],[0.505,0.550],
-         [0.500,0.490],[0.495,0.440],[0.487,0.390],[0.480,0.340],[0.472,0.290],
-         [0.465,0.240],[0.462,0.190],[0.462,0.145],[0.463,0.100],[0.465,0.060]],
-    hcl:[[0.470,0.800],[0.480,0.740],[0.500,0.680],[0.505,0.620],[0.510,0.560],
-         [0.505,0.500],[0.500,0.450],[0.510,0.400],[0.525,0.350],[0.535,0.300],
-         [0.545,0.260],[0.530,0.210],[0.515,0.160],[0.505,0.110],[0.500,0.070]]
+    g3: [[0.470,0.781],[0.496,0.731],[0.506,0.682],[0.526,0.629],[0.494,0.588],
+         [0.468,0.540],[0.493,0.487],[0.512,0.435],[0.474,0.392],[0.488,0.340],
+         [0.494,0.292],[0.466,0.252],[0.498,0.205],[0.468,0.159],[0.493,0.107]],
+    hcl:[[0.413,0.925],[0.459,0.877],[0.484,0.815],[0.491,0.748],[0.499,0.685],
+         [0.494,0.622],[0.531,0.569],[0.499,0.511],[0.509,0.450],[0.548,0.409],
+         [0.561,0.345],[0.539,0.283],[0.504,0.230],[0.527,0.169],[0.499,0.110]]
+  };
+  /* 顶峰 crown: the ring that encircles each island's summit building, in the
+     SAME sprite fractions as MTN_PATHS (r is a fraction of sprite WIDTH). The
+     summit used to be a 🏯 pin dropped on the peak, which sat squarely on top of
+     the pavilion and hid the one thing a student climbs towards. It is now a
+     hollow ring drawn AROUND the building — measured off each sprite, roof eave
+     to roof eave, so nothing is covered. Re-measure if the art changes. */
+  var MTN_CROWN = {
+    /* g1's pavilion sits hard against the top of its sprite, so its ring is the
+       one the stage edge can clip: keep r tight to the roof eaves (half-width is
+       0.063 of the sprite) rather than giving it a generous margin like the rest */
+    g1:  { x: 0.515,  y: 0.070,  r: 0.066 },
+    g2:  { x: 0.504,  y: 0.078,  r: 0.082 },
+    g3:  { x: 0.5105, y: 0.0525, r: 0.062 },
+    hcl: { x: 0.521,  y: 0.085,  r: 0.082 }
   };
   var MTN_SKIN = MTN_ART[STREAM] || MTN_ART.g1;
   var MTN_PATH = MTN_PATHS[STREAM] || MTN_PATHS.g1;
+  var MTN_TOP  = MTN_CROWN[STREAM] || MTN_CROWN.g1;
   function mtnPathAt(frac) {
     var n = MTN_PATH.length - 1;
     var s = Math.max(0, Math.min(n - 0.0001, frac * n));
@@ -5121,7 +5137,9 @@
        positioning and its hover scale (animating the button's transform would
        fight both). */
     if (m.t === "base") return '<span class="mtn2-tent">⛺</span>';
-    if (m.t === "summit") return "🏯";
+    /* summit draws as a hollow ring AROUND the building (see MTN_CROWN), so it
+       carries no glyph — an emoji here would cover the art the ring frames. */
+    if (m.t === "summit") return "";
     if (m.t === "level") return store.gym[m.level] ? petFor(m.level).emoji : "🚩";
     return "";   // unit: a plain dot (gold when its badge is earned)
   }
@@ -5153,24 +5171,35 @@
        Only the RENDERED position changed — buildMarks still records the camp at
        alt 0, so goals, zone boundaries and markDone are all untouched. */
     var meFrac = Math.min(1, alt / totalAlt);
+    /* .mtn2-isle sits INSIDE the stage at 86% of its width, so the island floats
+       on open sea instead of running edge to edge (owner 2026-08-15). The margin
+       is what lets the summit ring, and any pin label, sit outside the coastline
+       without being clipped by the stage. Pins are children of the isle, so every
+       fraction in MTN_PATHS / MTN_CROWN still means the same point of the sprite
+       and nothing had to be re-traced for this. */
     var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage" style="--ar:' +
-      MTN_SKIN.ar.toFixed(4) + '">' +
+      MTN_SKIN.ar.toFixed(4) + '"><div class="mtn2-isle">' +
       '<img class="mtn2-art" src="' + MTN_SKIN.src + '" alt="">';
     pins.forEach(function (m, i) {
-      var frac = m.t === "base" ? meFrac : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
-      var p = mtnPathAt(frac);
+      var p, extra = "", cls;
+      if (m.t === "summit") {
+        p = { x: MTN_TOP.x, y: MTN_TOP.y };
+        extra = ";width:" + (MTN_TOP.r * 200).toFixed(2) + "%";
+      } else {
+        p = mtnPathAt(m.t === "base" ? meFrac : Math.min(1, m.alt / totalAlt));
+      }
       var lab = m.t === "base" ? (markLabel(m) + " · 你在这里") : markLabel(m);
       /* the name rides above the pin and appears on hover/keyboard focus, so a
          student can read the map without opening every popover. Pins near the
          top of the frame flip their label underneath instead — .mtn2-stage
          clips its overflow, so a label above them would be cut in half. */
-      var cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "") +
-        (p.y < 0.13 ? " lbl-below" : "");
+      cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "") +
+        (p.y < 0.16 ? " lbl-below" : "");
       html += '<button class="' + cls + '" data-i="' + i + '" title="' + esc(lab) +
-        '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%">' +
+        '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%' + extra + '">' +
         mtnPinIcon(m) + '<span class="mtn2-name">' + esc(lab) + '</span></button>';
     });
-    html += '</div>';   // .mtn2-stage
+    html += '</div></div>';   // .mtn2-isle / .mtn2-stage
     html += '<div class="mtn2-hud">' +
       '<span class="m2pill">⛰️ 已掌握 <b>' + alt + '</b> 米</span>' +
       '<span class="m2pill">' + zoneName(alt) + '</span>' +
@@ -5208,12 +5237,19 @@
     var _bvss = "百德中学 Bukit View Secondary School";
     var _cs = opts.currentSchool || "";
     var _csKnown = _cs && window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(_cs);
-    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
+    var st = { step: "confirm", descCat: null, desc: null, nounCat: null, noun: null,
       role: opts.currentRole || "student",
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
       schoolQ: "",
       heardFrom: opts.currentHeard || "" };
+    /* Open ON a rolled name (owner 2026-08-15). The four chip steps are a real
+       barrier for a student who just wants to start: 大类 → 描述词 → 名词大类 →
+       名词 is four decisions before the app will let them in. The dice was always
+       there, but only as one button among the first step's chips. Now the roll IS
+       the first screen — 换一个 re-rolls, and 我要自己选昵称 at the bottom opens the
+       manual flow for anyone who wants it. Nothing is saved until 确认. */
+    rollNick();
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -5308,8 +5344,8 @@
           }).join("") + '</div>' +
           '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
           detailHtml +
-          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重新选择</button>' +
-          '<button class="nav-btn primary" id="npConfirm">确认</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认</button></div>' +
+          '<div class="np-manual"><button id="npManual">我要自己选昵称</button></div>' + closeBtn;
       }
       card.innerHTML = html;
 
@@ -5356,7 +5392,7 @@
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
-        document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
+        document.getElementById("npManual").onclick = function () { st.step = "descCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
           var role = st.role || "student";
           var profile;
@@ -5556,18 +5592,36 @@
           });
         }
 
+        /* ⚠️ The home screen must NEVER wait on the network without a deadline.
+           This used to call renderHome() only from inside getProgress's callback,
+           so if anonymous auth or the Firestore read never SETTLED — which is what
+           a blocked or greylisted managed-school network does, no error, just
+           silence — the callback never fired, the fetch .catch never fired either
+           (the vocab had already loaded fine), and every stream sat on
+           「正在装载词库…」 forever. Reported live 2026-08-15 on all four streams.
+           Now: the cloud gets CLOUD_WAIT_MS to answer, and after that the app
+           opens offline. A late answer is still merged — but it only re-renders
+           if the student is still on the home screen, so an answer arriving
+           mid-question can never yank them out of a round. */
+        var CLOUD_WAIT_MS = 6000;
         function afterProfile() {
-          if (window.WSCloud && window.WSCloud.isAvailable()) {
-            window.WSCloud.getProgress(STREAM, function (cloud) {
-              mergeCloudProgress(cloud);
-              applyAmbience();   // cloud merge may raise the mastery tier
-              renderHome();
-              promptClassIfDue();
-            });
-          } else {
+          var opened = false;
+          function open(cloud) {
+            opened = true;
+            if (cloud) { mergeCloudProgress(cloud); applyAmbience(); }
             renderHome();
             promptClassIfDue();
           }
+          if (!(window.WSCloud && window.WSCloud.isAvailable())) { open(null); return; }
+          var timer = setTimeout(function () { if (!opened) open(null); }, CLOUD_WAIT_MS);
+          window.WSCloud.getProgress(STREAM, function (cloud) {
+            clearTimeout(timer);
+            if (!opened) { open(cloud); return; }
+            if (!cloud) return;
+            mergeCloudProgress(cloud);   // late answer: the store is correct either
+            applyAmbience();             // way; only repaint if home is still up
+            if (document.querySelector(".home-grid")) renderHome();
+          });
         }
         function promptClassIfDue() {
           // new-school-year nudge (from Jan 2): manual class update, never auto

@@ -162,10 +162,19 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-input.wrong{animation:xhShake .35s}
 @keyframes xhShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
 
-/* 连线 */
-.xh-match{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* 连线 — the two columns are spread apart to leave a channel for the rope, which
+   is drawn in an SVG layer over the whole grid (see renderMatch) */
+.xh-match{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:14px;column-gap:clamp(48px,12vw,140px)}
+.xh-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.xh-link{stroke:#8A5A2B;stroke-width:5;stroke-linecap:round}
+.xh-link.drag{stroke:rgba(138,90,43,.55);stroke-width:4;stroke-dasharray:8 7}
+.xh-link.ok{stroke:#3F8F5A}
+.xh-link.bad{stroke:#C4553F}
+.xh-lend{fill:#8A5A2B}
+.xh-lend.ok{fill:#3F8F5A}
+.xh-lend.bad{fill:#C4553F}
 .xh-col{display:flex;flex-direction:column;gap:10px}
-.xh-mitem{cursor:pointer;touch-action:manipulation;padding:8px;border-radius:10px;
+.xh-mitem{position:relative;z-index:1;cursor:pointer;touch-action:manipulation;padding:8px;border-radius:10px;
   border:3px solid var(--wood);background:linear-gradient(180deg,#fff,#F6EEDE);
   display:flex;align-items:center;justify-content:center;min-height:66px}
 .xh-mpic img{height:52px;width:auto;image-rendering:pixelated;display:block}
@@ -174,8 +183,36 @@ body::before{content:"";position:fixed;left:-2vw;bottom:-4vh;width:min(46vw,560p
 .xh-mword{flex-direction:column;gap:1px}
 .xh-mword b{font-family:var(--serif);font-size:21px;font-weight:900}
 .xh-mitem.sel{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,67,.55)}
+/* joined but not yet graded: rope brown, and deliberately NOT green — nothing on
+   this board says right or wrong until 检查答案 */
+.xh-mitem.linked{border-color:#8A5A2B;background:linear-gradient(180deg,#FFF8EC,#F0E2C9)}
 .xh-mitem.ok{border-color:#3F8F5A;background:#E9F7EE;cursor:default}
+.xh-mitem.bad{border-color:#C4553F;background:#FBEDEA}
 .xh-mitem.shake{animation:xhShake .35s;border-color:#C4553F}
+.xh-matchfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-top:16px}
+.xh-mhint{font-size:14.5px;font-weight:700;color:var(--ink-soft)}
+
+/* 连线 difficulty picker (menu) */
+.xh-diff{margin-bottom:16px}
+.xh-sizes{display:flex;gap:10px;flex-wrap:wrap}
+.xh-size{flex:1 1 90px;display:flex;flex-direction:column;align-items:center;gap:1px;
+  cursor:pointer;touch-action:manipulation;padding:9px 12px;border-radius:12px;
+  border:3px solid var(--wood);background:linear-gradient(180deg,#fff,#F6EEDE);color:var(--ink)}
+.xh-size b{font-family:var(--serif);font-size:22px;line-height:1.1}
+.xh-size span{font-size:11.5px;font-weight:700;color:var(--ink-soft)}
+.xh-size.on{background:linear-gradient(180deg,#FFE9A8,#F5C443);border-color:#A9752A}
+.xh-size.on span{color:#6B4708}
+
+/* 看图学词 flashcard */
+.xh-card{text-align:center}
+.xh-sprite.big img{height:clamp(160px,32vh,280px)}
+.xh-card-word{margin:14px 0 4px}
+.xh-card-word b{display:block;font-family:var(--serif);font-size:clamp(30px,5vw,44px);font-weight:900;color:var(--ink)}
+.xh-card-word .xh-py{display:block;font-size:19px;margin-top:2px}
+.xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
+.xh-say{padding:9px 20px;font-size:14.5px;margin-top:6px}
+.xh-cardnav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 
 /* ---- result ---- */
 .xh-result{text-align:center}

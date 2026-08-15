@@ -56,12 +56,19 @@
     var _bvss = "百德中学 Bukit View Secondary School";
     var _cs = opts.currentSchool || "";
     var _csKnown = _cs && window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(_cs);
-    var st = { step: "descCat", descCat: null, desc: null, nounCat: null, noun: null,
+    var st = { step: "confirm", descCat: null, desc: null, nounCat: null, noun: null,
       role: opts.currentRole || "student",
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
       schoolQ: "",
       heardFrom: opts.currentHeard || "" };
+    /* Open ON a rolled name (owner 2026-08-15). The four chip steps are a real
+       barrier for a student who just wants to start: 大类 → 描述词 → 名词大类 →
+       名词 is four decisions before the app will let them in. The dice was always
+       there, but only as one button among the first step's chips. Now the roll IS
+       the first screen — 换一个 re-rolls, and 我要自己选昵称 at the bottom opens the
+       manual flow for anyone who wants it. Nothing is saved until 确认. */
+    rollNick();
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -156,8 +163,8 @@
           }).join("") + '</div>' +
           '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
           detailHtml +
-          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重新选择</button>' +
-          '<button class="nav-btn primary" id="npConfirm">确认</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认</button></div>' +
+          '<div class="np-manual"><button id="npManual">我要自己选昵称</button></div>' + closeBtn;
       }
       card.innerHTML = html;
 
@@ -204,7 +211,7 @@
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
-        document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
+        document.getElementById("npManual").onclick = function () { st.step = "descCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
           var role = st.role || "student";
           var profile;
