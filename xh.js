@@ -70,6 +70,13 @@
        runs at module init, long before that var is assigned, so touching it would
        throw on every boot. */
     if (s.matchN !== 3 && s.matchN !== 5 && s.matchN !== 8) s.matchN = 5;
+    /* 学习范围 + the two-button 学词/闯关 split (owner 2026-08-16), mirroring the
+       mountain's ①复习范围 ②选择学习方式 ③cards. scope is a list of 组别; an empty
+       or unrecognised list is repaired to "everything" at first use, because a
+       scope of nothing would silently produce empty rounds. */
+    if (!(s.scope instanceof Array)) s.scope = null;      // null = all groups
+    if (s.tab !== "play") s.tab = "learn";
+    if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
        ⚠️ It must NEVER merge with 航程: 航程 is what you know, 航海值 is what you
        did. A student who plays 连线 all week raises 航海值 while 航程 does not
@@ -337,6 +344,39 @@
      field guide is exactly the right place for 陆上 vs 水中与空中.
      Rule: if something is worth being a top-level choice it is worth being a
      组别. When scope grows, add 组别 values rather than promoting 子类. */
+  /* ---------- 学习范围 (owner 2026-08-16) ----------
+     The dock's 复习范围. A round now draws from the SELECTED groups rather than
+     from whichever group the student happened to tap, which is what lets the menu
+     collapse to two buttons.
+     ⚠️ distractors() still draws from the answer's OWN 组别 (PATCH_category_hierarchy),
+     so widening the scope adds variety without changing difficulty — that rule is
+     untouched and must stay that way. */
+  function allGroupNames() {
+    var seen = {}, out = [];
+    WORDS.forEach(function (w) { if (!seen[w.组别]) { seen[w.组别] = 1; out.push(w.组别); } });
+    return out;
+  }
+  function scopeNames() {
+    var all = allGroupNames();
+    if (!store.scope) return all.slice();
+    var ok = store.scope.filter(function (g) { return all.indexOf(g) >= 0; });
+    return ok.length ? ok : all.slice();          // never let the scope be empty
+  }
+  function scopedWords() {
+    var sel = {}; scopeNames().forEach(function (g) { sel[g] = 1; });
+    return WORDS.filter(function (w) { return sel[w.组别]; });
+  }
+  function scopeLabel() {
+    var n = scopeNames();
+    return n.length === allGroupNames().length ? "全部" : n.join(" · ");
+  }
+  function toggleScope(g) {
+    var cur = scopeNames(), i = cur.indexOf(g);
+    if (i >= 0) { if (cur.length === 1) return; cur.splice(i, 1); }   // never empty
+    else cur.push(g);
+    store.scope = cur; save();
+  }
+
   function groups() {
     var seen = {}, out = [];
     WORDS.forEach(function (w) {
@@ -433,11 +473,48 @@
       '<span class="xh-tile-n">航海值 ' + (store.sail || 0) + " · 航程 " + st.met + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
-    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(1) + "选玩法" +
-      ' <span class="xh-en">pick a game</span>' + "</div>";
+    /* ---------- ① 学习范围 ② 学词/闯关 ③ 玩法 (owner 2026-08-16) ----------
+       Was: a flat row of five modes, then「选词语组」as a second step where tapping
+       a group also STARTED the round. The owner asked for the mountain's shape —
+       two main buttons and a toggleable scope — so scope is now a persistent
+       setting at the top, the two buttons pick the kind of activity, and the mode
+       cards below are only the ones that belong to the chosen kind. */
+    var sel = scopeNames(), selWords = scopedWords();
+    h += '<div class="xh-board"><button class="xh-sec xh-sec-t" id="xhScopeT">' + stepNo(1) +
+      '学习范围 · 可多选 <span class="xh-en">what to study</span>' +
+      '<span class="xh-sum">' + esc(scopeLabel()) + " · " + selWords.length + ' 词</span>' +
+      '<span class="xh-caret">' + (store.scopeOpen ? "▾" : "▸") + "</span></button>";
+    if (store.scopeOpen) {
+      h += '<div class="xh-scope">';
+      groups().forEach(function (b) {
+        var on = sel.indexOf(b.组别) >= 0;
+        h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
+          ' aria-pressed="' + (on ? "true" : "false") + '">' +
+          "<b>" + esc(b.组别) + "</b><span>" + b.done + " / " + b.n + "</span></button>";
+      });
+      h += "</div>";
+    }
+    h += "</div>";
 
+    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
+      '选择学习方式 <span class="xh-en">learn or play</span></div>' +
+      '<div class="xh-tabs">' +
+      '<button class="xh-tab' + (store.tab === "learn" ? " on" : "") + '" data-t="learn">' +
+        '<span class="xh-mi">📖</span><b>学词</b><span class="xh-en">Learn</span></button>' +
+      '<button class="xh-tab' + (store.tab === "play" ? " on" : "") + '" data-t="play">' +
+        '<span class="xh-mi">🎮</span><b>闯关</b><span class="xh-en">Play</span></button>' +
+      "</div></div>";
+
+    var tabModes = MODES.filter(function (m) { return !!m.learn === (store.tab === "learn"); });
+    if (tabModes.length && !tabModes.some(function (m) { return m.id === store.mode; })) {
+      store.mode = tabModes[0].id; save();     // keep the selection inside the visible tab
+    }
+    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
+      (store.tab === "learn" ? "看图学词" : "词语游乐场") +
+      ' <span class="xh-en">' + (store.tab === "learn" ? "study the pictures" : "pick a game") +
+      "</span></div>";
     h += '<div class="xh-modes">';
-    MODES.forEach(function (m) {
+    tabModes.forEach(function (m) {
       h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
         '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" +
         '<span class="xh-en">' + m.en + "</span>" + "</button>";
@@ -446,10 +523,8 @@
 
     /* 连线 is the one mode whose difficulty the student sets, so its control only
        appears when 连线 is the chosen mode — a size picker sitting over 看图识词
-       would just be a control that does nothing. It sits INSIDE step ① and is
-       deliberately NOT numbered: it is a setting on the game just chosen, not a
-       third step, and numbering it would shift 选词语组 between ② and ③ as it
-       appears and disappears. */
+       would just be a control that does nothing. It is deliberately NOT numbered:
+       it is a setting on the game just chosen, not a further step. */
     if (store.mode === "match") {
       h += '<div class="xh-subsec">一次连几组？' +
         ' <span class="xh-en">how many pairs at once</span>' + "</div><div class=\"xh-sizes\">";
@@ -459,28 +534,28 @@
       });
       h += "</div>";
     }
+    h += '<button class="xh-go" id="xhGoRound">出发 ›<span class="xh-en">start</span></button>';
     h += "</div>";
-
-    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) + '选词语组' +
-      ' <span class="xh-en">choose a group</span>' + "</div><div class=\"xh-blocks\">";
-    groups().forEach(function (b) {
-      h += '<button class="xh-block" data-b="' + esc(b.组别) + '">' +
-        "<b>" + esc(b.组别) + "</b><span>" + b.done + " / " + b.n + "</span></button>";
-    });
-    h += "</div></div>";
     view().innerHTML = h;
 
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
+    document.getElementById("xhScopeT").onclick = function () {
+      store.scopeOpen = !store.scopeOpen; save(); renderMenu();
+    };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-gchip"), function (el) {
+      el.onclick = function () { toggleScope(el.getAttribute("data-g")); renderMenu(); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-tab"), function (el) {
+      el.onclick = function () { store.tab = el.getAttribute("data-t"); save(); renderMenu(); };
+    });
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode"), function (el) {
       el.onclick = function () { store.mode = el.getAttribute("data-m"); save(); renderMenu(); };
     });
     Array.prototype.forEach.call(view().querySelectorAll(".xh-size"), function (el) {
       el.onclick = function () { store.matchN = parseInt(el.getAttribute("data-n"), 10); save(); renderMenu(); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-block"), function (el) {
-      el.onclick = function () { startRound(el.getAttribute("data-b")); };
-    });
+    document.getElementById("xhGoRound").onclick = function () { startRound(scopeLabel()); };
   }
 
   /* ---------- 航海图鉴 (addendum §2) ----------
@@ -511,13 +586,40 @@
     });
     return out;
   }
-  function renderLog(page) {
+  /* Open 看图学词 over an arbitrary list — the dock's answer to the mountain's
+     startFlashList. `grp` stays the REAL 组别 (never a filter label) because
+     renderLearnEnd's 开始测验 starts a round on it, and a label would find no words. */
+  function startLearnList(words, grp, at) {
+    if (!words || !words.length) return;
+    state = { grp: grp, mode: "learn", seq: words.slice(), i: at || 0,
+              correct: 0, missed: [], firstTry: true, pool: words.slice() };
+    words.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
+    render();
+  }
+
+  /* ⚠️ Rebuilt 2026-08-16 (owner: 「航海图鉴 does not respond to tapping at all」).
+     It was right that nothing responded: locked cells were rendered `disabled`, so
+     on a fresh account — 0 / 36 — EVERY cell on the page was dead, and the only
+     promise on screen (「tap a word you have met」) applied to nothing.
+     This is the dock's 我的词语表, so it now carries the same three controls that
+     page has and this one lacked: status FILTERS, a tap on ANY row (a word you have
+     not met is the most worth opening, not the least), and a BULK action over the
+     current filter. Revealing a locked word gives nothing away — 看图学词 already
+     walks every word in the group, met or not. */
+  function renderLog(page, filter) {
     state = null;
     var pages = logPages();
     if (!pages.length) return renderMenu();
     var cur = null;
     pages.forEach(function (p) { if (p.组别 === page) cur = p; });
     if (!cur) cur = pages[0];
+    /* the filter is a PARAMETER, never stored — same as the mountain's
+       renderWordList. Persisting it meant a student who last looked at 已认得
+       came back to「这个筛选下暂时没有词语」and an empty page, which at 0/36 is
+       every new student. Each visit opens on 全部. */
+    var f = filter || "all";
+    function keep(w) { return f === "all" || (f === "got") === !!store.done[w.词语]; }
+    var shown = cur.words.filter(keep);
     var sailed = WORDS.filter(function (w) { return store.done[w.词语]; }).length;
     var got = cur.words.filter(function (w) { return store.done[w.词语]; }).length;
 
@@ -537,16 +639,32 @@
 
     h += '<div class="xh-board"><div class="xh-sec">' + esc(cur.组别) +
       (got === cur.words.length ? '<span class="xh-log-stamp">全部集齐</span>' : "") +
-      '<span class="xh-en">tap a word you have met to hear it again</span></div>';
+      '<span class="xh-en">tap any word to open it as a flashcard</span></div>';
+    h += '<div class="xh-log-sub">点任何一个词语都能打开图卡，还没认得的也可以先看。' +
+      '<span class="xh-en">Tap any word to study it — including ones you have not met.</span></div>';
+    var fc = [["all", "全部", cur.words.length], ["got", "已认得", got],
+              ["miss", "还没认得", cur.words.length - got]];
+    h += '<div class="xh-log-filters">' + fc.map(function (c) {
+      return '<button class="xh-log-chip' + (f === c[0] ? " on" : "") + '" data-f="' + c[0] + '">' +
+        c[1] + " " + c[2] + "</button>";
+    }).join("") + "</div>";
+    h += '<div class="xh-log-act"><button class="xh-btn" id="xhLogLearn"' +
+      (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' +
+      '<span class="xh-en">study these</span></button></div>';
+    if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。</div>';
     cur.secs.forEach(function (sec) {
+      if (!cur.byS[sec].filter(keep).length) return;   // hide a section the filter emptied
       // a one-section chapter (日常用品) needs no divider — the chapter title
       // already says it, and an identical subtitle underneath reads as a bug
       if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + "</div>";
       h += '<div class="xh-log-grid">';
-      cur.byS[sec].forEach(function (w) {
+      cur.byS[sec].filter(keep).forEach(function (w) {
         var have = !!store.done[w.词语];
-        h += '<button class="xh-log-cell ' + (have ? "got" : "miss") + '" data-w="' + esc(w.词语) + '"' +
-          (have ? "" : " disabled") + ">" + img(w) +
+        /* ⚠️ never `disabled` any more — a locked cell that cannot be tapped is
+           what made the whole page inert at 0/36. Locked keeps its silhouette and
+           ？ so the collecting still means something; it is simply reachable. */
+        h += '<button class="xh-log-cell ' + (have ? "got" : "miss") + '" data-w="' + esc(w.词语) + '">' +
+          img(w) +
           (have
             ? "<b>" + esc(w.词语) + "</b>" +
               '<span class="xh-py">' + esc(w.拼音) + "</span>" +
@@ -562,9 +680,21 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-log-page"), function (el) {
       el.onclick = function () { renderLog(el.getAttribute("data-p")); };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-log-cell.got"), function (el) {
-      el.onclick = function () { speak(el.getAttribute("data-w")); };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-log-chip"), function (el) {
+      el.onclick = function () { renderLog(cur.组别, el.getAttribute("data-f")); };
     });
+    /* tap ANY word — met or not — and it opens as a flashcard, positioned at that
+       word inside the current filter so 上一个/下一个 walk the rest of it. The
+       mountain does the same: a row is a way in, not a reward for having got it. */
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-log-cell"), function (el) {
+      el.onclick = function () {
+        var k = el.getAttribute("data-w"), at = 0;
+        shown.forEach(function (w, i) { if (w.词语 === k) at = i; });
+        startLearnList(shown, cur.组别, at);
+      };
+    });
+    var lb = document.getElementById("xhLogLearn");
+    if (lb) lb.onclick = function () { startLearnList(shown, cur.组别, 0); };
   }
 
   /* ---------- 码头风云榜 (SPEC_XH_dock_economy_and_TTS §1) ----------
@@ -652,9 +782,14 @@
     });
   }
 
-  function startRound(sub, forceMode) {
+  /* startRound(label, forceMode, poolOverride)
+     ⚠️ `label` is now only what the round is CALLED. The words come from the
+     current 学习范围, or from poolOverride when the caller already has a list
+     (the atlas hands one over). Rounds used to be keyed to a single 组别, which
+     is why every caller passed one. */
+  function startRound(sub, forceMode, poolOverride) {
     var mode = forceMode || store.mode || "pic";
-    var pool = WORDS.filter(function (w) { return w.组别 === sub; });
+    var pool = poolOverride || scopedWords();
     if (!pool.length) return;
     var seq;
     if (mode === "learn") {
@@ -666,7 +801,8 @@
         Math.min(mode === "match" ? (store.matchN || 5) : ROUND_N, pool.length));
     }
     if (!seq.length) return;
-    state = { grp: sub, mode: mode, seq: seq, i: 0, correct: 0, missed: [], firstTry: true };
+    state = { grp: sub || scopeLabel(), mode: mode, seq: seq, i: 0, correct: 0,
+              missed: [], firstTry: true, pool: pool };
     // warm the round's sprites: each question swaps the image, and an undecoded
     // sprite shows as an empty frame for a beat — the picture IS the question
     var warm = (mode === "match" || mode === "learn") ? seq : seq.concat(distractors(seq[0], 3));
@@ -808,8 +944,8 @@
       '<button class="xh-btn ghost" id="xhAgain">再看一次</button>' +
       '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
-    document.getElementById("xhTest").onclick = function () { startRound(state.grp, "pic"); };
-    document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn"); };
+    document.getElementById("xhTest").onclick = function () { startRound(state.grp, "pic", state.pool); };
+    document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn", state.pool); };
     document.getElementById("xhBack").onclick = renderMenu;
   }
 
@@ -819,16 +955,26 @@
     stat(w).shown++; save();
     state.firstTry = true;
     var opts = shuffle(distractors(w).concat([w]));
+    /* ⚠️ the picture is the QUESTION here, so it must stay silent (owner 2026-08-16,
+       same defect as 连线): speaking it named the answer, and with 拼音 on by default
+       the student only had to match the sound to the printed pinyin. The 🔊 lives on
+       each OPTION instead — every option speaks, so hearing one reveals nothing —
+       which is exactly what the main app does in all its MCQ modes. Sibling buttons,
+       never nested, per the 可及性 pass. */
     var h = bar() + '<div class="xh-board xh-stage">' +
-      '<button class="xh-sprite" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+      '<span class="xh-sprite quiet" id="xhSprite">' + img(w) + "</span>" +
       '<div class="xh-hint" id="xhHint"></div><div class="xh-opts">';
     opts.forEach(function (o) {
-      h += '<button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
-        esc(o.词语) + "</span>" + '<span class="xh-py">' + esc(o.拼音) + "</span>" + "</button>";
+      h += '<div class="xh-optrow"><button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
+        esc(o.词语) + "</span>" + '<span class="xh-py">' + esc(o.拼音) + "</span>" + "</button>" +
+        '<button class="xh-otts" data-w="' + esc(o.词语) + '" title="朗读" aria-label="朗读 ' +
+        esc(o.词语) + '">🔊</button></div>';
     });
     view().innerHTML = h + "</div></div>";
     wireQuit();
-    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-otts"), function (el) {
+      el.onclick = function () { speak(el.getAttribute("data-w")); };
+    });
     Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (el) {
       el.onclick = function () {
         if (el.disabled) return;
@@ -894,6 +1040,50 @@
     return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
       .replace(/[üv]/gi, "u").replace(/\s+/g, "").toLowerCase();
   }
+  /* ---------- 角色精灵 (owner 2026-08-16) ----------
+     The student's avatar, drawn from the SAME 6-frame strips 攀山竞速 uses.
+     ⚠️ THIRD ASSET FAMILY — never point this at art/avatar/*.png (square, faces
+     LEFT, for the picker) or art/camp/pet_*.png (the campsite). Only
+     art/sprite/avatar/*_sprite.png faces RIGHT and is a strip.
+     Frames: 0 idle · 1-2 walk · 3-4 climb · 5 celebrate.
+     ⚠️ Cell WIDTH is per creature (鼠 128px, 唐僧 76px) so the aspect ratio is
+     derived from naturalWidth/6 at load — never transcribed. Height is a uniform
+     104, which is why background-size:600% 100% slices the strip correctly. */
+  function avatarSpriteId() {
+    try {
+      var p = (window.WSProfile && window.WSProfile.load) ? window.WSProfile.load() : null;
+      return (p && p.avatarId) || null;
+    } catch (e) { return null; }      // no avatar chosen, or profile.js absent
+  }
+  function anglerHtml(cls) {
+    var id = avatarSpriteId();
+    if (!id) return "";               // nothing chosen: the scene simply has no angler
+    return '<div class="xh-angler ' + (cls || "") + '" id="xhAngler" style="background-image:url(' +
+      "'art/sprite/avatar/" + id + "_sprite.png" + ASSET_V + "')\"></div>";
+  }
+  function wireAngler() {
+    var el = document.getElementById("xhAngler");
+    if (!el) return { cheer: function () {}, frame: function () {} };
+    var id = avatarSpriteId(), im = new Image();
+    im.onload = function () { el.style.aspectRatio = (im.naturalWidth / 6) + " / " + im.naturalHeight; };
+    im.onerror = function () { el.style.display = "none"; };   // 404 degrades, never a broken box
+    im.src = "art/sprite/avatar/" + id + "_sprite.png" + ASSET_V;
+    var t = null;
+    function frame(n) { el.style.backgroundPositionX = (n * 20) + "%"; }   // 6 frames -> 0..100% in 20% steps
+    frame(0);
+    return {
+      frame: frame,
+      cheer: function () {
+        frame(5);
+        el.classList.remove("cheer");
+        void el.offsetWidth;                 // restart the hop; re-adding a class alone will not
+        el.classList.add("cheer");
+        if (t) clearTimeout(t);
+        t = setTimeout(function () { frame(0); el.classList.remove("cheer"); }, 1100);
+      }
+    };
+  }
+
   function renderType() {
     var w = state.seq[state.i];
     stat(w).shown++; save();
@@ -912,12 +1102,13 @@
     var creel = caught === 0 ? "empty" : (caught >= n - 1 ? "full" : "half");
     view().innerHTML = bar() + '<div class="xh-board xh-stage">' +
       '<div class="xh-sea" id="xhSea">' +
+        anglerHtml() +
         '<img class="xh-rod" src="art/xh/dock_rod.png' + ASSET_V + '" alt="" ' +
           "onerror=\"this.style.display='none'\">" +
         '<img class="xh-creel" id="xhCreel" src="art/xh/dock_creel_' + creel + '.png' + ASSET_V +
           '" alt="" onerror="this.style.display=\'none\'">' +
         '<img class="xh-fx" id="xhFx" src="" alt="" aria-hidden="true">' +
-        '<button class="xh-catch" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+        '<button class="xh-catch" id="xhSprite" title="答对或看过拼音后可以点图听读音">' + img(w) + "</button>" +
       "</div>" +
       '<div class="xh-typerow">' +
       '<input class="xh-input" id="xhIn" type="text" autocomplete="off" autocapitalize="off" ' +
@@ -926,7 +1117,15 @@
       '<span class="xh-en">reel it in</span></button></div>' +
       '<div class="xh-hint" id="xhHint"></div></div>';
     wireQuit();
-    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
+    /* ⚠️ 词海垂钓 is the one mode with no text option to hang the 🔊 on, and it is
+       also the mode where speaking leaks MOST: the answer IS the pinyin, so hearing
+       the word simply hands it over. This is the only production mode at the dock
+       (SPEC_XH_MVP_v2 §3) and reading it aloud would erase what it teaches.
+       So the picture stays silent until the pinyin is on screen — which §4.4 already
+       does on a miss — and after that it is free to replay. */
+    var said = false;
+    document.getElementById("xhSprite").onclick = function () { if (said) speak(w.词语); };
+    var angler = wireAngler();
     var input = document.getElementById("xhIn");
     input.focus();
     var hint = document.getElementById("xhHint");
@@ -956,13 +1155,27 @@
            shows even when the 拼音 display toggle is off — unlike every other
            .xh-py on the page, which the topbar pill gates. */
         hint.innerHTML = '再试一次 <span class="xh-py xh-always">' + esc(w.拼音) + "</span>";
+        said = true;          // pinyin is on screen now, so the 🔊 can no longer leak
         input.select();
         return;
       }
       input.disabled = true;
       document.getElementById("xhGo").disabled = true;
       showFx("splash");
+      /* ⚠️ measure the arc, do not assume it. The creel now sits on the deck at the
+         far left while the catch rises at 60%, so the old fixed percentage offset
+         would only ever land correctly at one panel width. */
+      var creelEl = document.getElementById("xhCreel");
+      if (creelEl) {
+        var bc = catchEl.getBoundingClientRect(), bk = creelEl.getBoundingClientRect();
+        catchEl.style.setProperty("--landx",
+          Math.round(bk.left + bk.width / 2 - (bc.left + bc.width / 2)) + "px");
+        catchEl.style.setProperty("--landy",
+          Math.round(bk.top + bk.height * 0.30 - (bc.top + bc.height / 2)) + "px");
+      }
       catchEl.classList.add("land");        // arcs into the creel
+      said = true;                          // answered: noteRight speaks it, replay is fine
+      angler.cheer();                       // frame 5 + a hop, on every catch (owner)
       noteRight(w);
       hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
       advance(1250);
@@ -1003,9 +1216,20 @@
       h += '<button class="xh-mitem xh-mpic" data-w="' + esc(w.词语) + '">' + img(w) + "</button>";
     });
     h += '</div><div class="xh-col">';
+    /* ⚠️ the 🔊 belongs to the WORD, never to the picture (owner 2026-08-16).
+       Speaking on a picture tap hands over the answer: 拼音 is ON by default at the
+       dock, so hearing 「dà xiàng」 while touching the elephant maps straight onto the
+       pinyin printed under 大象. On this side the word is already visible, so reading
+       it aloud teaches pronunciation and reveals no pairing.
+       ⚠️ It is a SIBLING button, never nested inside .xh-mword — a 🔊 inside an answer
+       button is the near-miss trap the 可及性 pass removed from every MCQ surface
+       (a finger 2px off the circle joined the pair instead). It also sits on the OUTER
+       edge so the rope, which anchors on the word's left, is never under it. */
     right.forEach(function (w) {
-      h += '<button class="xh-mitem xh-mword" data-w="' + esc(w.词语) + '"><b>' + esc(w.词语) + "</b>" +
-        '<span class="xh-py">' + esc(w.拼音) + "</span>" + "</button>";
+      h += '<div class="xh-mrow"><button class="xh-mitem xh-mword" data-w="' + esc(w.词语) + '"><b>' +
+        esc(w.词语) + "</b>" + '<span class="xh-py">' + esc(w.拼音) + "</span></button>" +
+        '<button class="xh-mtts" data-w="' + esc(w.词语) + '" title="朗读" aria-label="朗读 ' +
+        esc(w.词语) + '">🔊</button></div>';
     });
     h += '</div></div><div class="xh-matchfoot"><span class="xh-mhint" id="xhMHint"></span>' +
       '<button class="xh-btn" id="xhCheck" disabled>检查答案' +
@@ -1091,7 +1315,6 @@
         links.splice(links.indexOf(mine), 1);     // tap a joined item to unjoin it
         sel = null; paint(); return;
       }
-      if (side === "pic") speak(key);
       if (sel && sel.side !== side) {
         var L = { ok: null };
         L[side] = key; L[sel.side] = sel.key;
@@ -1104,6 +1327,9 @@
       el.onclick = function () {
         pick(el.classList.contains("xh-mpic") ? "pic" : "word", el.getAttribute("data-w"));
       };
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll(".xh-mtts"), function (el) {
+      el.onclick = function () { speak(el.getAttribute("data-w")); };   // sibling: never joins a pair
     });
 
     checkBtn.onclick = function () {
@@ -1171,7 +1397,7 @@
     h += '<div class="xh-result-btns"><button class="xh-btn" id="xhAgain">再来一次</button>' +
       '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
-    document.getElementById("xhAgain").onclick = function () { startRound(state.grp); };
+    document.getElementById("xhAgain").onclick = function () { startRound(state.grp, null, state.pool); };
     document.getElementById("xhBack").onclick = renderMenu;
     Array.prototype.forEach.call(view().querySelectorAll(".xh-review-item"), function (el) {
       el.onclick = function () { speak(el.getAttribute("data-w")); };

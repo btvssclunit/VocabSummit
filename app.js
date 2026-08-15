@@ -1323,7 +1323,9 @@
     window.WSArena.open(arenaCtx());
   }
 
-  /* ================= 同伴挑战 · PK对决 (DESIGN_peer_pk_duel.md) =================
+  /* ================= 同伴挑战 (DESIGN_peer_pk_duel.md) =================
+     ⚠️ Student-facing name is 同伴挑战 ONLY. The 「· PK对决」 suffix was removed
+     2026-08-16 (owner); the design doc's own name is not the shipped one.
      Student-hosted sibling of 结伴登峰. The host PLAYS like everyone else (§2),
      so app.js only owns the setup screen — arena.js owns the room itself.
      Owner decisions 2026-08-14:
@@ -1366,7 +1368,7 @@
     var pool = scopedWords();
     var mode = store.pkMode || "cloze", dur = store.pkDur || 300;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">⚔️ 同伴挑战 · PK对决' + pyl("同伴挑战 · PK对决") + enli("同伴挑战 · PK对决") + '</div>' +
+      '<div class="mode-name">⚔️ 同伴挑战' + pyl("同伴挑战") + enli("同伴挑战") + '</div>' +
       '<div class="mode-desc">' + mdLine("和朋友比一比：同一套题，限时内谁答对得多谁赢。") +
         mdLine("答对的词照样计入「已掌握」，也照常累积历练值和灵露。") +
         mdLine("2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。") + '</div>' +
@@ -1529,9 +1531,15 @@
     var badgeOrder = ["生活空间", "核心", "巩固", "进阶", "文化站"];
     var compPresent = {};
     COMP_LIST.forEach(function (c) { compPresent[c.component] = 1; });
+    /* ⚠️ the chips need their own row wrapper: .badge-strip is a COLUMN so the caption
+       can sit UNDER the art (owner 2026-08-16 — beside it, HCL's five badges squeezed
+       the caption into a one-character-per-line sliver). Without this wrapper the
+       column would stack the badges vertically. */
+    html += '<span class="badge-chips">';
     badgeOrder.filter(function (comp) { return compPresent[comp]; }).forEach(function (comp) {
       html += '<span class="badge-chip"><img src="' + (BADGE_IMG[comp] || "art/badge/badge_hx.png") + '" alt=""></span>';
     });
+    html += '</span>';
     /* block gloss, not inline: 「成就徽章 Badges · 0/97」 on one line overflowed the
        card and clipped the count (owner 2026-08-14). English sits UNDER now. */
     html += '<span class="badge-note">成就徽章 · ' + badgeCount + '/' + badgeTotal +
@@ -2597,7 +2605,7 @@
     "再来一局": "Play again",
     "回到营地": "Back to camp",
     "连胜": "Win streak",
-    "同伴挑战 · PK对决": "Duel a friend",
+    "同伴挑战": "Duel a friend",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王": "Badge wall",
     "掌握里程碑": "Milestones",
     "对战徽章": "Battle medals",
@@ -2651,8 +2659,9 @@
       "The rain gets faster as you play, and every round starts at the slowest.",
     "本机最高分": "Best on this device", "生命": "Lives",
     "猜一个范围内的四字词语。": "Guess a four-character word from your units.",
-    "🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字":
-      "🟩 right character, right place · 🟨 right character, wrong place · ⬜ not in the word",
+    "🟩 字对位置对": "🟩 right character, right place",
+    "🟨 字对位置不对": "🟨 right character, wrong place",
+    "⬜ 没有这个字": "⬜ not in the word",
     "和朋友比一比：同一套题，限时内谁答对得多谁赢。":
       "Race a friend: same questions, whoever gets the most right in the time wins.",
     "答对的词照样计入「已掌握」，也照常累积历练值和灵露。":
@@ -2702,7 +2711,7 @@
     "再来一次": "zài lái yī cì", "查看": "chá kàn", "关闭": "guān bì", "返回": "fǎn huí",
     "板块": "bǎn kuài", "连胜": "lián shèng",
     "再来一局": "zài lái yī jú", "回到营地": "huí dào yíng dì",
-    "同伴挑战 · PK对决": "tóng bàn tiǎo zhàn · PK duì jué",
+    "同伴挑战": "tóng bàn tiǎo zhàn",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王":
       "chéng jiù qiáng · bǎn kuài zhāng → dān yuán zhāng → nián jí zhāng → dǐng jí cí wáng",
     "掌握里程碑": "zhǎng wò lǐ chéng bēi", "对战徽章": "duì zhàn huī zhāng",
@@ -2751,8 +2760,9 @@
       "yǔ shì huì yuè xià yuè jí —— měi yī jú dōu cóng zuì màn kāi shǐ",
     "本机最高分": "běn jī zuì gāo fēn", "生命": "shēng mìng",
     "猜一个范围内的四字词语。": "cāi yī gè fàn wéi nèi de sì zì cí yǔ",
-    "🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字":
-      "zì duì wèi zhì duì · zì duì wèi zhì bù duì · méi yǒu zhè gè zì",
+    "🟩 字对位置对": "zì duì wèi zhì duì",
+    "🟨 字对位置不对": "zì duì wèi zhì bù duì",
+    "⬜ 没有这个字": "méi yǒu zhè gè zì",
     "和朋友比一比：同一套题，限时内谁答对得多谁赢。":
       "hé péng yǒu bǐ yī bǐ：tóng yī tào tí，xiàn shí nèi shuí dá duì dé duō shuí yíng",
     "答对的词照样计入「已掌握」，也照常累积历练值和灵露。":
@@ -3808,17 +3818,29 @@
     var html = '<div class="study"><div class="rail card">' +
       '<div class="mode-name">🀄 词语汉兜' + pyl("词语汉兜") + enli("词语汉兜") + '</div>' +
       '<div class="mode-desc">' + mdLine("猜一个范围内的四字词语。") +
-        mdLine("🟩 字对位置对 · 🟨 字对位置不对 · ⬜ 没有这个字") + '</div>' +
+        mdLine("🟩 字对位置对") + mdLine("🟨 字对位置不对") +
+        mdLine("⬜ 没有这个字") + '</div>' +
       '<div class="prog-big">' + state.rows.length + ' <small>/ ' + HANDLE_MAX_ROWS + ' 次</small></div>' +
       '<div class="streak">连胜' + pyl("连胜") + enli("连胜") + ' <b>' + streak + '</b> 🏮</div>' +
       handleHintHtml(state) + '</div>' +
       '<div class="stage">' + handleHintBarHtml(state) + '<div class="handle-grid">';
-    for (var r = 0; r < HANDLE_MAX_ROWS; r++) {
-      html += '<div class="handle-row"><span class="handle-rownum">' + (r + 1) + '</span>';
-      var row = state.rows[r];
-      for (var c = 0; c < 4; c++) {
-        if (row) html += '<div class="handle-tile ' + row.res[c] + '">' + esc(row.g[c]) + '</div>';
-        else html += '<div class="handle-tile"></div>';
+    /* ⚠️ TWO COLUMNS OF SIX (owner 2026-08-16), not one column of twelve.
+       Twelve stacked rows needed a 62vh scroller, and the scroller was the whole
+       reason the board could hide the row you had just played. Six-and-six fits
+       any screen this game runs on, so the scroller and its scroll-into-view
+       bookkeeping are both gone. Rows still read 1-12 in play order: down the
+       left block first, then down the right. */
+    var half = Math.ceil(HANDLE_MAX_ROWS / 2);
+    for (var col = 0; col < 2; col++) {
+      html += '<div class="handle-col">';
+      for (var r = col * half; r < Math.min(HANDLE_MAX_ROWS, (col + 1) * half); r++) {
+        html += '<div class="handle-row"><span class="handle-rownum">' + (r + 1) + '</span>';
+        var row = state.rows[r];
+        for (var c = 0; c < 4; c++) {
+          if (row) html += '<div class="handle-tile ' + row.res[c] + '">' + esc(row.g[c]) + '</div>';
+          else html += '<div class="handle-tile"></div>';
+        }
+        html += '</div>';
       }
       html += '</div>';
     }
@@ -3837,18 +3859,9 @@
     }
     html += '</div></div>';
     view().innerHTML = html;
-    /* The grid is a scroller now that it holds 12 rows, so a late row can sit
-       below the fold on a phone. Scroll ONLY far enough to bring the row just
-       played into view — never to the bottom, which would push the played rows
-       off the top and leave a student staring at nine empty ones. */
-    var hGrid = view().querySelector(".handle-grid");
-    if (hGrid && state.rows.length) {
-      var lastRow = hGrid.children[state.rows.length - 1];
-      if (lastRow) {
-        var need = lastRow.offsetTop + lastRow.offsetHeight - hGrid.clientHeight;
-        if (need > hGrid.scrollTop) hGrid.scrollTop = need;
-      }
-    }
+    /* no scroll-into-view any more: 6+6 fits, so every row is always on screen.
+       (The old code indexed .handle-grid children directly, which two columns
+       would have broken anyway.) */
     if (state.done) {
       speak(state.answer.w);
       document.getElementById("hAgain").onclick = startHandle;
@@ -4219,7 +4232,47 @@
      ⚠️ Cell WIDTH is per creature (鼠 128px wide, 唐僧 76px); height is a uniform 104.
      Derive the cell from naturalWidth/6 at runtime — never transcribe the handoff's
      table, or a regenerated sprite silently mis-slices every frame. */
-  var AVATAR_SPRITE_H = SPRITE_FH * SPRITE_SCALE;   // every creature draws at the human climber's height
+  var AVATAR_SPRITE_H = SPRITE_FH * SPRITE_SCALE;   // cell height — fallback only, see AVATAR_INK_H
+  /* Target VISIBLE height for every creature. The built-in climber's artwork fills
+     ~94% of its 80px cell and draws at 2×, so ~150px is what the student actually sees
+     on the wall; matching it keeps avatars and the fallback climber the same size.
+     ⚠️ Sizing MUST normalise the INK, not the cell. The cells are a uniform 104px but
+     the art inside fills 69% (沙僧) to 93% (公鸡) of it, so cell-normalising drew 沙僧
+     22% shorter than 山羊 and 26% shorter than the human climber — owner 2026-08-16
+     「I just tried the goat and 沙僧 - 沙僧 looks so much smaller」. */
+  var AVATAR_INK_H = 150;
+  var _inkCv = null;
+  /* Alpha bounding box of frame 0, in cell coordinates, measured ONCE per sheet and
+     cached on the Image itself. Measured at runtime rather than transcribed for the
+     same reason the cell width is (§2 above): regenerated art must self-correct.
+     ⚠️ Frame 0 only. The climb frames reach higher (沙僧 72px idle vs 98px reaching),
+     and re-measuring per frame would make the sprite change size as it moves.
+     Returns null if the pixels cannot be read, and the caller falls back to cell
+     sizing — i.e. today's behaviour, never a broken draw. */
+  function avatarInk(img) {
+    if (img._ink !== undefined) return img._ink;
+    img._ink = null;
+    try {
+      var FW = Math.round(img.naturalWidth / 6), FH = img.naturalHeight;
+      if (!_inkCv) _inkCv = document.createElement("canvas");
+      _inkCv.width = FW; _inkCv.height = FH;
+      var c = _inkCv.getContext("2d");
+      c.clearRect(0, 0, FW, FH);
+      c.drawImage(img, 0, 0, FW, FH, 0, 0, FW, FH);
+      var d = c.getImageData(0, 0, FW, FH).data;
+      var x0 = FW, y0 = FH, x1 = -1, y1 = -1, x, y;
+      for (y = 0; y < FH; y++) for (x = 0; x < FW; x++) {
+        if (d[(y * FW + x) * 4 + 3] > 8) {          // 8: ignore despill haze on the edges
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+      }
+      if (x1 >= x0 && y1 >= y0) img._ink = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+    } catch (e) { /* unreadable pixels — cell sizing below still works */ }
+    return img._ink;
+  }
   var _avSprite = null, _avSpriteId = null;
   function avatarUnlocked(id) {
     /* WSProfile owns the unlock rules. A stale cached profile.js without the
@@ -4501,20 +4554,35 @@
         var f = 0;
         if (celT > 0) f = 5;                            // celebrate flash
         else if (moving) f = 3 + (Math.floor(t * 5) % 2); // climb A/B alternate
-        var img, FW, FH, sy, DW, DH;
+        var img, FW, FH, sy, DW, DH, ax = px, ay = py, shW, shH;
         if (av) {
           img = av; FW = av.naturalWidth / 6; FH = av.naturalHeight; sy = 0;
-          DH = AVATAR_SPRITE_H; DW = FW * (DH / FH);    // same height as the human climber, own width
-          /* a wide creature (鼠 128px, 龙/蛇 120px per cell) would otherwise swallow
-             the wall on a narrow canvas: cap the WIDTH and take the height down with
-             it, so the art is never stretched */
-          var cap = cv.width * 0.42;
-          if (DW > cap) { DH = DH * (cap / DW); DW = cap; }
+          /* ⚠️ a wide creature (鼠 128px, 龙/蛇 120px per cell) would swallow the wall
+             on a narrow canvas, so the ARTWORK is contain-fitted into
+             (AVATAR_INK_H tall × cap wide) — the height comes down with the width so
+             nothing is ever stretched. The cap now measures the ink rather than the
+             cell, which is a slight loosening: it bounds what the student can see
+             instead of bounding the cell's empty margins too. */
+          var cap = cv.width * 0.42, ink = avatarInk(av);
+          if (ink) {
+            var s = Math.min(AVATAR_INK_H / ink.h, cap / ink.w);
+            DW = FW * s; DH = FH * s;
+            /* anchor the INK, not the cell: art centred on px, feet landing on py.
+               Mirroring below still pivots on px, and the ink centre IS px, so a
+               left-facing creature stays put. */
+            ax = px - (ink.x + ink.w / 2 - FW / 2) * s;
+            ay = py + (FH - ink.y - ink.h) * s;
+            shW = ink.w * s * 0.40; shH = ink.h * s * 0.055;
+          } else {
+            DH = AVATAR_SPRITE_H; DW = FW * (DH / FH);
+            if (DW > cap) { DH = DH * (cap / DW); DW = cap; }
+          }
         } else {
           img = SPRITE_IMG; FW = SPRITE_FW; FH = SPRITE_FH;
           sy = (SPRITE_ROW[STREAM] || 0) * SPRITE_FH;
           DW = SPRITE_FW * SPRITE_SCALE; DH = SPRITE_FH * SPRITE_SCALE;
         }
+        if (shW === undefined) { shW = DW * 0.30; shH = DH * 0.05; }
         /* Feet sit ON the shelf's top surface (owner 2026-08-14: it used to read as
            standing IN FRONT of the ledge). py IS that surface, so the sprite's
            bottom edge lands on py — the old +6 pushed it 6px below the line, which
@@ -4522,11 +4590,11 @@
            The contact shadow sits ON the same line for the same reason. */
         ctx.save();
         ctx.globalAlpha = 0.32; ctx.fillStyle = "#0A1420";
-        ctx.beginPath(); ctx.ellipse(px, py, DW * 0.30, DH * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(px, py, shW, shH, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
         ctx.save();
         if (faceLeft) { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
-        ctx.drawImage(img, f * FW, sy, FW, FH, px - DW / 2, py - DH, DW, DH);
+        ctx.drawImage(img, f * FW, sy, FW, FH, ax - DW / 2, ay - DH, DW, DH);
         ctx.restore();
         return;
       }
