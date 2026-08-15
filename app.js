@@ -1145,7 +1145,11 @@
      that gate, but §7 says the room scoring formula still needs its own design
      round, so the gate stands until then. */
   var BATTLE_CHAMPION_AT = 5;                       // golds needed for the title
-  var BATTLE_RANKS = ["gold", "silver", "bronze"];  // index = rank - 1
+  var BATTLE_RANKS = ["gold", "silver", "bronze"];  // index = rank - 1 (DO NOT reorder)
+  /* Display order is deliberately the REVERSE of the rank order: a wall reads
+     left-to-right as a ladder you climb (铜 → 银 → 金 → 称号), so the capstone
+     sits at the end. Kept separate from BATTLE_RANKS, whose index IS the rank. */
+  var BATTLE_DISPLAY = ["bronze", "silver", "gold", "champion"];
   var BATTLE_TIER = {
     gold:   { zh: "金牌", icon: "🥇" },
     silver: { zh: "银牌", icon: "🥈" },
@@ -1707,7 +1711,7 @@
       out += '<div class="ach-unit card"><div class="ach-unit-name">' + esc(f.zh) +
         (got ? '<span class="ach-seal">🏆 ' + esc(f.champion) + '</span>' : '') +
         '<span class="ach-fam-note">' + esc(f.blurb) + '</span></div><div class="ach-badges">';
-      BATTLE_RANKS.concat("champion").forEach(function (tier) {
+      BATTLE_DISPLAY.forEach(function (tier) {
         var n = battleCount(fam, tier), have = n > 0;
         out += '<button class="ach-badge' + (have ? "" : " locked") + '" data-bf="' + fam + '" data-bt="' + tier + '">' +
           '<img src="' + battleImg(fam, tier) + '" alt="">' +
@@ -2219,7 +2223,7 @@
     var cards = "";
     ["room", "peer"].forEach(function (fam) {
       var f = BATTLE_FAMILY[fam], any = "";
-      BATTLE_RANKS.concat("champion").forEach(function (tier) {
+      BATTLE_DISPLAY.forEach(function (tier) {
         var n = mine[BATTLE_PUB[fam] + BATTLE_PUB_T[tier]] || 0;
         if (!n) return;
         any += '<div class="pb-badge"><img src="' + battleImg(fam, tier) + '" alt="" ' +

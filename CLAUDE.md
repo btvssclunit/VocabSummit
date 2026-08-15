@@ -2816,3 +2816,19 @@ in safari. the TTS works though」。**「TTS 有声、音效没声」这一句�
 Cache-bust `20260815b` → **`20260815c`**。
 ⚠️ **仍需 owner 在真 Safari 上确认。** 如果还是没声，请开 `sound.html` 按一遍并把黑框截图回报 ——
 那份记录能直接分辨是「通道被抢」「设备静音」还是「浏览器完全没出声」。
+
+## 对战徽章排序 · 2026-08-15 (owner)
+
+Owner: 「the badges should arrange left to right - bronze, silver, gold, ultimate」。
+成就墙的对战徽章由 金/银/铜/称号 改为 **铜 → 银 → 金 → 称号** —— 从左到右读成一条往上爬的阶梯，
+称号收尾。
+
+⚠️ **不能直接反转 `BATTLE_RANKS`**：那个数组的**下标就是名次**（`BATTLE_RANKS[rank-1]`，
+`awardBattleMedal` 和详情卡的「拿到第 N 名」都靠它），反转会让第一名发铜牌。
+新增一个独立的 `BATTLE_DISPLAY = ["bronze","silver","gold","champion"]` 只管展示顺序，
+用在 `battleWallHtml()` 与 `openPlayerBadges()` 两处。`BATTLE_RANKS` 一字未动。
+
+验证（真浏览器 G2，种入 room 金×4 + room 铜 + peer 银）：两个家族的顺序都是
+铜/银/金/称号，8 张图 naturalWidth 全为 320（无破图），称号格进度 4/5 与 0/5 正确，
+点开铜牌详情卡仍写「拿到第 **3** 名」（名次映射没坏），零控制台错误。测试数据已清除。
+Cache-bust `20260815c` → **`20260815d`**。
