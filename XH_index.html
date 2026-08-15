@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学海启航 · 启航码头 · 词山学海</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Placeholder for the 学海启航 beginner tier. Deliberately standalone: it
+     never loads app.js/app.css, so it cannot disturb the four stream apps while
+     it is still an empty berth. The palette tokens below are copied from
+     app.css :root — if the school palette ever changes, change both. -->
+<style>
+  :root{--sea1:#2E6391;--sea2:#1F4A70;--ink:#243B4A;--gold:#E3A63C;--gold-lt:#F5C443}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;padding:28px 18px;
+    font-family:"Noto Sans SC",sans-serif;color:#fff;background:#12213F;
+    background-image:url("art/seamap/sea_tile.png");background-size:cover;
+    background-position:center;image-rendering:pixelated}
+  .card{max-width:560px;width:100%;text-align:center;padding:26px 22px 24px;
+    border-radius:18px;background:rgba(31,74,112,.9);border:2px solid var(--gold);
+    box-shadow:0 0 0 2px #2A1B04,0 12px 32px rgba(6,26,48,.5);image-rendering:auto}
+  .card img{width:min(84%,360px);height:auto;display:block;margin:0 auto 10px;
+    image-rendering:pixelated;filter:drop-shadow(0 6px 14px rgba(6,26,48,.5))}
+  h1{font-family:"Noto Serif SC",serif;font-weight:900;font-size:clamp(24px,4vw,34px);
+    margin:6px 0 2px;letter-spacing:.04em}
+  .lv{color:var(--gold-lt);font-weight:700;font-size:15px;letter-spacing:.02em}
+  .soon{display:inline-block;margin:16px 0 10px;padding:8px 18px;border-radius:999px;
+    background:rgba(12,24,48,.7);border:2px solid var(--gold);color:#FFE9B0;
+    font-weight:700;font-size:15px}
+  p{line-height:1.85;font-size:14.5px;color:#DCE9F5;margin:8px 0 0}
+  .back{display:inline-block;margin-top:20px;text-decoration:none;cursor:pointer;
+    font-weight:700;font-size:15px;color:#4A3305;padding:12px 26px;border-radius:999px;
+    background:linear-gradient(180deg,#FFE07A 0%,#F5C443 42%,#E0A526 43%,#D08E15 100%);
+    box-shadow:0 0 0 3px #6B4708,0 6px 16px rgba(6,26,48,.45)}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <img src="art/seamap/dock_jetty.png" alt="启航码头">
+  <h1>启航码头</h1>
+  <div class="lv">学海启航 · 零基础</div>
+  <div class="soon">敬请期待</div>
+  <p>这里是「学海启航」的起点，为完全没有华文基础的同学准备。<br>
+  第一个泊位「看图识词」正在建造中。</p>
+  <a class="back" href="index.html">← 回到海图</a>
+</div>
+
+</body>
+</html>

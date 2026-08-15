@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>词山学海 · Vocab Summit · 百德中学</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=20260815d">
+<link rel="stylesheet" href="app.css?v=20260815g">
 </head>
 <body class="lp-body">
 
@@ -33,6 +33,57 @@
       <div><b>词圣鸿文苑</b><span class="lv">G3 高级华文</span></div></a>
   </div>
 
+<!-- ===== 航海选择页 · sea map =====
+     Replaces .lp-cards as the stream picker. The cards above stay in the DOM as
+     the fallback: nickname.js prefers #lpSea and falls back to #lpCards if this
+     block is ever missing.
+     EVERY coordinate lives in app.css, on the .i-* classes below — NOT inline.
+     That is load-bearing: an inline custom property beats any stylesheet rule,
+     including a media query, so inline positions made the portrait layout
+     silently impossible to override.
+     data-boat names the sprite for that voyage (see §4 of the design doc: the
+     landing points are hand-authored, so the heading is too — four fixed routes
+     do not justify computing bearings at runtime).
+     DOM order is paint order: farthest island first, dock and boat last. -->
+<div class="lp-sea" id="lpSea" style="display:none">
+  <button class="sea-back" id="lpSeaBack" type="button">← 返回首页</button>
+
+  <button class="sea-isle i-g2" data-go="G2_index.html" data-boat="away_diag flip"
+          aria-label="前往 词将竞技场 · G2 华文">
+    <img src="art/seamap/island_g2.png" alt="">
+    <span class="sea-label"><b>词将竞技场</b><span class="lv">G2 华文</span></span>
+  </button>
+
+  <button class="sea-isle i-g3" data-go="G3_index.html" data-boat="broadside flip"
+          aria-label="前往 词王淬炼坊 · G3 华文">
+    <img src="art/seamap/island_g3.png" alt="">
+    <span class="sea-label"><b>词王淬炼坊</b><span class="lv">G3 华文</span></span>
+  </button>
+
+  <button class="sea-isle i-hcl" data-go="HCL_index.html" data-boat="broadside flip"
+          aria-label="前往 词圣鸿文苑 · G3 高级华文">
+    <img src="art/seamap/island_hcl.png" alt="">
+    <span class="sea-label"><b>词圣鸿文苑</b><span class="lv">G3 高级华文</span></span>
+  </button>
+
+  <button class="sea-isle i-g1" data-go="G1_index.html" data-boat="toward"
+          aria-label="前往 词星大冒险 · G1 基础华文">
+    <img src="art/seamap/island_g1.png" alt="">
+    <span class="sea-label"><b>词星大冒险</b><span class="lv">G1 基础华文</span></span>
+  </button>
+
+  <button class="sea-isle i-dock" data-go="XH_index.html" data-boat="toward_diag"
+          aria-label="前往 启航码头 · 学海启航 零基础">
+    <img src="art/seamap/dock_jetty.png" alt="">
+    <span class="sea-label"><b>启航码头</b><span class="lv">学海启航 · 零基础</span></span>
+  </button>
+
+  <span class="sea-boat h-away_diag" id="lpBoat" aria-hidden="true"><img src="art/seamap/boat_away_diag.png" alt=""></span>
+
+  <div class="sea-rotate" id="lpRotate" hidden>📱 转成横屏，海图更开阔<button type="button" aria-label="关闭">✕</button></div>
+</div>
+
+
   <div class="lp-foot">百德中学 母语部 · 创建于 2026年8月8日 · 最近更新 2026年8月10日 · 学习进度暂存于本机<br>
   Open-source credits: antfu/handle (MIT) · chanind/hanzi-writer (MIT) · olehermanse/Typing-Game</div>
 </div>
@@ -41,8 +92,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-init.js?v=20260815d"></script>
-<script src="profile.js?v=20260815d"></script>
-<script src="nickname.js?v=20260815d"></script>
+<script src="firebase-init.js?v=20260815g"></script>
+<script src="profile.js?v=20260815g"></script>
+<script src="nickname.js?v=20260815g"></script>
 </body>
 </html>

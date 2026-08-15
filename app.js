@@ -1115,7 +1115,7 @@
     var rk = currentRank();
     var togo = rk.next ? '<span class="mtn-rank-next">再 ' + fmtNum(rk.next.at - rk.total) + ' 历练值 → ' + esc(rk.next.name) + '</span>' : '<span class="mtn-rank-next">已达最高段位</span>';
     return '<div class="mini-horizon horizon">' +
-      '<img class="mh-img" src="art/bg/landing_hero_bg.png" alt="">' +
+      '<img class="mh-img" src="' + MTN_SKIN.src + '" alt="">' +
       '<div class="app-zh">' + META.zh + '</div>' +
       '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
       '<div class="mtn-rooms">' +
@@ -5055,25 +5055,60 @@
     ov.querySelector("#popOk").onclick = function () { ov.remove(); };
   }
   /* ==================================================================
-     我的词山 · static illustrated mountain (redesigned 2026-08-10)
-     One fixed landscape image (art/bg/mountain_bg.png) shared by all four streams;
-     unit / 年级峰 / 你的营地 / 顶峰 pins placed along the painted path by
-     altitude fraction; a "you are here" marker at current progress. No
+     我的词山 · static illustrated mountain (redesigned 2026-08-10,
+     per-stream art 2026-08-15)
+     PER-STREAM island art (art/mountain/mtn_*.png) on the sea — the same
+     island the student sailed to on the landing 航海选择页, so the mountain
+     they climb and the one they picked are visibly the same place. This
+     replaced the single shared art/bg/mountain_bg.png, which is now unreferenced
+     (left in place, not deleted, like the retired camp scenery).
+     unit / 年级峰 / 你的营地 / 顶峰 pins placed along the painted trail by
+     altitude fraction; the camp tent doubles as the "you are here" marker. No
      scroll / camera / joystick / render loop. Tapping a pin reuses openMark
      (unit words · 年度试炼 gym · 营地 camp+shop · summit), so all v0.4
-     popovers carry over unchanged. The four painted terrain bands ARE the
-     four altitude zones; the HUD just labels the current one.
-     Pin positions come from MTN_PATH (hand-traced on this exact image); nudge
-     those waypoints if a future image changes the path.
+     popovers carry over unchanged. The altitude zones are unchanged; the HUD
+     just labels the current one.
+     Pin positions come from MTN_PATHS[STREAM] — see the tracing note there.
      ================================================================== */
-  /* Hand-traced by pixel-sampling the painted tan staircase on art/bg/mountain_bg.png
-     (bottom -> summit). Follows the zigzag: bottom bulge, the mid S-curve, then
-     the ridge to the pavilion. Re-trace if the image changes. */
-  var MTN_PATH = [
-    [0.593, 0.955], [0.625, 0.891], [0.574, 0.828], [0.513, 0.764], [0.521, 0.700],
-    [0.582, 0.637], [0.529, 0.573], [0.537, 0.509], [0.518, 0.446], [0.546, 0.382],
-    [0.489, 0.319], [0.541, 0.255], [0.516, 0.191], [0.519, 0.128], [0.555, 0.064]
-  ];
+  /* ---- per-stream mountain art + its own hand-traced trail ----
+     Each stream now has its OWN illustrated island (art/mountain/mtn_*.png)
+     instead of the single shared art/bg/mountain_bg.png, so the mountain a
+     student climbs is the same one they sailed to on the landing sea map.
+
+     MTN_PATHS runs foot -> summit hut as fractions of THAT sprite. These were
+     traced by eye against a fraction grid, NOT auto-detected: three automated
+     passes were tried and all failed on this art. A per-row brightest-warm scan
+     and a Dijkstra route both followed the sunlit grassland instead of the
+     trail, because on these islands the lit grass is the same warm tan as the
+     path and is much wider, and a shortest path will always take the shortcut
+     over a switchback. If the art is ever regenerated, re-trace by eye and
+     render the polyline back over the image to check it — do not trust a
+     colour test here.
+
+     ART_AR is the sprite aspect ratio; the stage takes it so the island fills
+     the frame exactly and the pin fractions stay in sprite space. */
+  var MTN_ART = {
+    g1:  { src: "art/mountain/mtn_g1.png",  ar: 1100 / 675 },
+    g2:  { src: "art/mountain/mtn_g2.png",  ar: 1100 / 917 },
+    g3:  { src: "art/mountain/mtn_g3.png",  ar: 1100 / 898 },
+    hcl: { src: "art/mountain/mtn_hcl.png", ar: 1100 / 938 }
+  };
+  var MTN_PATHS = {
+    g1: [[0.315,0.815],[0.292,0.755],[0.268,0.690],[0.290,0.640],[0.345,0.605],
+         [0.410,0.585],[0.470,0.560],[0.520,0.520],[0.556,0.475],[0.552,0.425],
+         [0.530,0.380],[0.512,0.335],[0.503,0.290],[0.500,0.245],[0.500,0.205]],
+    g2: [[0.500,0.790],[0.455,0.705],[0.385,0.660],[0.310,0.630],[0.395,0.585],
+         [0.485,0.535],[0.575,0.480],[0.500,0.435],[0.440,0.400],[0.510,0.355],
+         [0.570,0.325],[0.520,0.280],[0.495,0.240],[0.505,0.205],[0.512,0.170]],
+    g3: [[0.480,0.790],[0.485,0.730],[0.495,0.670],[0.505,0.610],[0.505,0.550],
+         [0.500,0.490],[0.495,0.440],[0.487,0.390],[0.480,0.340],[0.472,0.290],
+         [0.465,0.240],[0.462,0.190],[0.462,0.145],[0.463,0.100],[0.465,0.060]],
+    hcl:[[0.470,0.800],[0.480,0.740],[0.500,0.680],[0.505,0.620],[0.510,0.560],
+         [0.505,0.500],[0.500,0.450],[0.510,0.400],[0.525,0.350],[0.535,0.300],
+         [0.545,0.260],[0.530,0.210],[0.515,0.160],[0.505,0.110],[0.500,0.070]]
+  };
+  var MTN_SKIN = MTN_ART[STREAM] || MTN_ART.g1;
+  var MTN_PATH = MTN_PATHS[STREAM] || MTN_PATHS.g1;
   function mtnPathAt(frac) {
     var n = MTN_PATH.length - 1;
     var s = Math.max(0, Math.min(n - 0.0001, frac * n));
@@ -5118,7 +5153,9 @@
        Only the RENDERED position changed — buildMarks still records the camp at
        alt 0, so goals, zone boundaries and markDone are all untouched. */
     var meFrac = Math.min(1, alt / totalAlt);
-    var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage">';
+    var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage" style="--ar:' +
+      MTN_SKIN.ar.toFixed(4) + '">' +
+      '<img class="mtn2-art" src="' + MTN_SKIN.src + '" alt="">';
     pins.forEach(function (m, i) {
       var frac = m.t === "base" ? meFrac : (m.t === "summit" ? 1 : Math.min(1, m.alt / totalAlt));
       var p = mtnPathAt(frac);

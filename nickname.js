@@ -231,11 +231,95 @@
   }
 
 
+  /* ---------- 航海选择页 · sea map ----------
+     Four islands plus the 启航码头 dock on open water. Clicking one sails the
+     boat there and then navigates. Every coordinate is a CSS custom property on
+     the button (app.css .i-*); nothing here hardcodes a position.
+
+     The five boat sprites cover eight bearings because the hull is left-right
+     symmetric, so each diagonal/broadside file mirrors with scaleX(-1). Which
+     one a voyage uses is authored per island in data-boat rather than computed
+     from the bearing: the landing points are hand-placed anyway (four fixed
+     routes do not justify a pathfinder), and hardcoding the pairing removes any
+     chance of the sprite disagreeing with the route at some breakpoint. */
+
+  function initSeaMap(sea) {
+    if (sea._wired) return;
+    sea._wired = true;
+
+    var boat = document.getElementById("lpBoat");
+    var busy = false;
+
+    function skipSail() {
+      // Portrait stacks the islands with no clear sailing lane from the jetty,
+      // so a voyage would cut straight across land. The design doc's own answer
+      // where a route cannot stay on water is to drop it for that voyage.
+      if (window.matchMedia) {
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+        if (window.matchMedia("(orientation: portrait)").matches) return true;
+      }
+      return false;
+    }
+
+    function sail(isle) {
+      var go = isle.getAttribute("data-go");
+      if (!go || busy) return;   // one voyage at a time; ignore double-taps
+      busy = true;
+      var cs = getComputedStyle(isle);
+      var tx = cs.getPropertyValue("--tx").trim();
+      var ty = cs.getPropertyValue("--ty").trim();
+      if (!boat || !tx || !ty || skipSail()) { location.href = go; return; }
+
+      var h = (isle.getAttribute("data-boat") || "away_diag").split(" ");
+      boat.className = "sea-boat h-" + h[0] + (h[1] === "flip" ? " flip" : "");
+      boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
+      boat.style.setProperty("--tx", tx);
+      boat.style.setProperty("--ty", ty);
+      boat.classList.add("sailing");
+      // navigate the moment it moors: no confirmation, no toast, no pause.
+      var done = false;
+      function arrive() { if (!done) { done = true; location.href = go; } }
+      boat.addEventListener("animationend", arrive, { once: true });
+      setTimeout(arrive, 1600);  // belt and braces if animationend never fires
+    }
+
+    var isles = sea.querySelectorAll(".sea-isle");
+    for (var i = 0; i < isles.length; i++) {
+      (function (el) { el.addEventListener("click", function () { sail(el); }); })(isles[i]);
+    }
+
+    var back = document.getElementById("lpSeaBack");
+    if (back) back.onclick = function () {
+      sea.style.display = "none";
+      document.body.classList.remove("lp-sea-on");
+      var gate = document.getElementById("lpGate");
+      if (gate) gate.style.display = "";
+    };
+
+    // Orientation cannot be locked on the web (it needs fullscreen or an
+    // installed app, neither of which this project has) and CLAUDE.md forbids
+    // locking anyway, so portrait gets a dismissible nudge rather than a wall.
+    var rot = document.getElementById("lpRotate");
+    if (rot) {
+      var seen = false;
+      try { seen = sessionStorage.getItem("ws_seamap_rot") === "1"; } catch (e) {}
+      if (!seen && window.innerWidth < 700 && window.innerHeight > window.innerWidth) {
+        rot.hidden = false;
+      }
+      rot.querySelector("button").onclick = function () {
+        rot.hidden = true;
+        try { sessionStorage.setItem("ws_seamap_rot", "1"); } catch (e) {}
+      };
+    }
+  }
+
+
   /* ---------- landing page gate: Enter -> (nickname if new) -> paths ---------- */
   function initLandingGate() {
     var enterBtn = document.getElementById("lpEnterBtn");
     var gate = document.getElementById("lpGate");
     var cards = document.getElementById("lpCards");
+    var sea = document.getElementById("lpSea");
     var greet = document.getElementById("lpGreeting");
     if (!enterBtn || !gate || !cards) return; // not on the landing page
 
@@ -262,8 +346,16 @@
           };
         }
       }
-      cards.style.display = "flex";
-      cards.style.animation = "none";
+      // 航海选择页: the sea map is the stream picker. The four .lp-cards stay in
+      // the DOM as the fallback and are shown only if the map markup is absent.
+      if (sea) {
+        sea.style.display = "";
+        document.body.classList.add("lp-sea-on");
+        initSeaMap(sea);
+      } else {
+        cards.style.display = "flex";
+        cards.style.animation = "none";
+      }
     }
 
     enterBtn.onclick = function () {
