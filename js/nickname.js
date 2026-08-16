@@ -340,6 +340,33 @@
      corridor is now between G3's foot and G1's peak, so the waypoint moved with
      them. All 20 routes checked clear at 1920x990, 1366x768 and 1024x600. */
   var SEA_DETOUR = { "G2_index.html|HCL_index.html": [52, 41] };
+  /* ⚠️ PORTRAIT SEA LANES (owner 2026-08-16: 「the mobile sea map needs a more
+     natural sail route」). Portrait used to take the default arc — a near-straight
+     run down the middle channel, which read as teleporting in a line rather than
+     sailing. Each entry is a waypoint the track PASSES THROUGH at the halfway
+     mark, same convention as SEA_DETOUR above.
+
+     ⚠️ SOLVED, NOT DRAWN BY HAND, and the objective matters: the bulge TARGETS
+     ~20% of the crossing (capped at 86px) instead of being maximised. Maximising
+     put every waypoint hard against a screen edge and sent the boat on a 200px
+     excursion — which reads as lost, not as sailing. Result is a 24-58px sweep.
+     ⚠️ All 20 ordered voyages were sampled along the curve and verified to keep
+     10px clear of every island they are not visiting, and to stay on screen.
+     RE-RUN THAT CHECK if any portrait --cx/--by/--w/--tx/--ty changes; the lanes
+     are only valid against the island positions they were solved for.
+     Keys are unordered — the lookup below tries both directions. */
+  var SEA_SWEEP_P = {
+    "dock|G1_index.html": [58.5, 14.6],
+    "dock|G2_index.html": [66.2, 21.3],
+    "dock|G3_index.html": [59.2, 27.9],
+    "dock|HCL_index.html": [42.3, 41.8],
+    "G1_index.html|G2_index.html": [50.0, 28.5],
+    "G1_index.html|G3_index.html": [56.9, 36.7],
+    "G1_index.html|HCL_index.html": [56.2, 46.9],
+    "G2_index.html|G3_index.html": [56.2, 61.3],
+    "G2_index.html|HCL_index.html": [44.6, 54.1],
+    "G3_index.html|HCL_index.html": [56.2, 63.8]
+  };
   function portrait() {
     return !!(window.matchMedia && window.matchMedia("(orientation: portrait)").matches);
   }
@@ -458,8 +485,11 @@
          pass THROUGH at the halfway mark, which for a quadratic means
          C = 2W - (start + end)/2. */
       var key = ((prev && prev.go) || "dock") + "|" + go;
-      var alt = portrait() ? null
-        : (SEA_DETOUR[key] || SEA_DETOUR[go + "|" + ((prev && prev.go) || "dock")]);
+      var rkey = go + "|" + ((prev && prev.go) || "dock");
+      /* portrait now has its own lane table; landscape keeps the two detour pairs */
+      var alt = portrait()
+        ? (SEA_SWEEP_P[key] || SEA_SWEEP_P[rkey] || null)
+        : (SEA_DETOUR[key] || SEA_DETOUR[rkey]);
       var cx, cy;
       if (alt) {
         cx = 2 * (alt[0] / 100 * W) - (fromX + toX) / 2;

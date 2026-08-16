@@ -479,11 +479,15 @@
     var n = store.optsN || 4;
     return Math.max(2, Math.min(n, 4));
   }
-  function distractors(w, n) {
+  /* ⚠️ `mode` is optional and defaults to the current round's: in 看图识词 /
+     听音识图 the options ARE pictures, so a pictureless distractor renders as an
+     empty button. */
+  function distractors(w, n, mode) {
     n = n || 3;
     var picked = [], banned = mates(w.词语);
+    var need = modeNeedsPic(mode || (state && state.mode) || store.mode);
     var pool = shuffle(WORDS.filter(function (o) {
-      return o.词语 !== w.词语 && o.组别 === w.组别;
+      return o.词语 !== w.词语 && o.组别 === w.组别 && (!need || hasPic(o));
     }));
     // admitted one at a time: the blacklist is a rule about the whole option
     // set, not just about the answer
@@ -562,6 +566,24 @@
       if (store.done[w.词语]) seen[w.组别].done++;
     });
     return out;
+  }
+
+  /* ---------- 图卡适用性 (HANDOFF_生活空间 §4.4) ----------
+     ⚠️ NOT EVERY WORD HAS A PICTURE, and this is the one place that fact is
+     enforced. 数字 (零-十、百、千、两) carry no sprite ON PURPOSE: a number is
+     already a symbol, and drawing three apples to teach 三 teaches 苹果.
+
+     STRUCTURAL CONSEQUENCE, spelled out because §4.4 warns it fails SILENTLY:
+     看图识词 and 听音识图 both need a PICTURE AS THE ANSWER, so a pictureless word
+     can never appear in them — not as the answer and not as a distractor.
+     It is fine everywhere else: 拼音打字, 连线, 看图学词.
+     ⚠️ Any future group without art (colours? directions?) inherits this for free
+     by having an empty 图档 — do not add a second mechanism. */
+  function hasPic(w) { return !!(w && w.图档); }
+  function modeNeedsPic(mode) { return mode === "pic" || mode === "listen"; }
+  /* the pool a given mode may draw from, answers AND distractors alike */
+  function poolForMode(pool, mode) {
+    return modeNeedsPic(mode) ? pool.filter(hasPic) : pool;
   }
 
   /* ---------- modes (spec §4) ----------
@@ -832,12 +854,37 @@
 
     h += '<div class="xh-sec">' + stepNo(1) + '题型' + xhPy("题型") +
       ' <span class="xh-en">which kind</span></div><div class="xh-modes">';
+    /* ⚠️ A mode whose pool is empty must SAY SO, not fail on 出发. 看图识词 and
+       听音识图 need a picture as the answer, so with a picture-less scope (数字)
+       they have nothing to ask. Left enabled, the student picks one, presses 出发,
+       and nothing happens — which is precisely the silent failure §4.4 warns about,
+       just relocated. Disabled + a reason is the honest version. */
+    var blocked = 0;
     list.forEach(function (m) {
-      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") + '" data-m="' + m.id + '">' +
+      var usable = poolForMode(pool, m.id).length > 0;
+      if (!usable) blocked++;
+      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") +
+        (usable ? "" : " na") + '" data-m="' + m.id + '"' + (usable ? "" : " disabled") +
+        ' title="' + (usable ? "" : "这些词语没有图片，换成有图的词语组才能玩") + '">' +
         '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
-        '<span class="xh-en">' + m.en + "</span></button>";
+        '<span class="xh-en">' + m.en + "</span>" +
+        (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+        "</button>";
     });
     h += "</div>";
+    if (blocked) {
+      h += '<div class="xh-cfg-note">「数字」这一组没有图片，所以看图和听音的玩法用不上。' +
+        '数字可以用 看图学词、拼音打字 和 连线 来练。' +
+        '<span class="xh-en">Numbers have no pictures, so picture and listening rounds are off ' +
+        'for them. Use flashcards, typing or matching instead.</span></div>';
+    }
+    /* if the remembered mode is one of the blocked ones, move to a usable one so the
+       page never opens on a dead selection */
+    if (!poolForMode(pool, store.mode).length) {
+      var alt = null;
+      list.forEach(function (m) { if (!alt && poolForMode(pool, m.id).length) alt = m.id; });
+      if (alt) { store.mode = alt; save(); return renderModeConfig(kind); }
+    }
 
     if (cur.id === "learn") {
       /* 看图学词 walks the whole group in data order — it is a lesson, not a sample,
@@ -912,25 +959,72 @@
     };
   }
 
-  /* ================= 五枚航海徽 (SPEC_XH_dock_economy_and_TTS §「五枚航海徽」) ====
-     ⚠️ THE THRESHOLDS ARE LOCKED BY THE SPEC — "lock these now, never redesign".
-     They count 航程 (words met, i.e. store.done), which is exactly what 图鉴 unlocks
-     on, so this screen adds NO storage: it is derived, never recorded.
-     Shell and mother-of-pearl palette so they read as siblings to the mountain's
-     jade-and-lacquer set without colliding with it. ⚠️ They are a SEPARATE family
-     from the mountain's five 里程碑 badges and the eight 对战 medals — never mix the
-     art, and never count them together. */
+  /* ================= 航海徽 · 开放式里程表 (HANDOFF_生活空间_20260816 §5) ====
+     ⚠️ REPLACES THE FIVE-BADGE "COLLECT THEM ALL" LADDER. The old spec said
+     "lock these now, never redesign", and its top badge was 灯塔 = EVERY word in
+     the tier. That was safe only while the tier was closed. It is not: the word
+     list went 36 -> 100 in a single day and will keep growing. A finish line
+     defined as "all of them" therefore RUNS AWAY — a student three words short of
+     灯塔 becomes twenty-three short the moment vocabulary is added, and effort
+     already spent is silently taken back. That is the harm this replaces.
+
+     THE MODEL IS AN ODOMETER, NOT A PERCENTAGE (owner, §5.1). Rejected on the way:
+       - percentage: 48% is still pushed backwards by new words, just less visibly;
+       - 组别 集齐: groups differ wildly (食物 32 vs 交通 7), so badges are not
+         comparable, and adding a word to a finished group either revokes a badge
+         or leaves it asserting something false;
+       - 场景 完成: owner vetoed. The beginner syllabus is not designed yet and
+         scenes run 4-10 sentences, so it would mean renegotiating the promise
+         every time a scene is added.
+
+     THREE PROPERTIES THAT MUST SURVIVE ANY FUTURE EDIT (§5.3):
+       1. ⚠️ THRESHOLDS ARE ABSOLUTE AND ARE NEVER RENUMBERED. Adding vocabulary
+          must never move a badge further away. This is the whole point.
+       2. ⚠️ THERE IS NO FINAL BADGE. The ladder is defined as extensible: when
+          the word list passes 400, ADD A RUNG (600 and 800 are reserved). Do not
+          redesign the scheme, and never re-point the top rung at "all words".
+       3. 灯塔 no longer means "everything"; it is the 400-word far marker. That is
+          the one deliberate semantic rewrite in this scheme.
+
+     Counting still comes from store.done — which is exactly why §1.1 of the handoff
+     insists that field must never be deleted. Earned badges are never revoked.
+     Separate family from the mountain's A层 五枚里程碑 and B层 八枚对战奖牌:
+     separate art, separate count, never folded into achBadgeCount(). */
   var SAIL_BADGES = [
-    { k: "shell",      zh: "贝壳徽", en: "Shell",      img: "xh_badge_shell",      need: 10 },
-    { k: "coral",      zh: "珊瑚徽", en: "Coral",      img: "xh_badge_coral",      need: 25 },
-    { k: "pearl",      zh: "珍珠徽", en: "Pearl",      img: "xh_badge_pearl",      need: 50 },
-    { k: "compass",    zh: "罗盘徽", en: "Compass",    img: "xh_badge_compass",    need: 100 },
-    /* 灯塔徽 = every word in the tier. Kept as null so it tracks the word list
-       instead of freezing at whatever the count happened to be when this shipped —
-       the tier went 36 -> 100 in a single day. */
-    { k: "lighthouse", zh: "灯塔徽", en: "Lighthouse", img: "xh_badge_lighthouse", need: null }
+    { k: "shell",      zh: "贝壳徽", en: "Shell",        img: "xh_badge_shell",      need: 10 },
+    { k: "coral",      zh: "珊瑚徽", en: "Coral",        img: "xh_badge_coral",      need: 25 },
+    { k: "pearl",      zh: "珍珠徽", en: "Pearl",        img: "xh_badge_pearl",      need: 50 },
+    /* ⚠️ art not drawn yet (handoff §6.2). img:null renders a named plaque inside
+       the same ring rather than a blank or broken slot, so the road ahead stays
+       visible. Drop the PNG in and set img — nothing else needs to change. */
+    { k: "starfish",   zh: "海星徽", en: "Starfish",     img: "xh_badge_starfish",   need: 75 },
+    /* ⚠️ 罗盘 STAYS. The compass is a Chinese invention and 罗盘 is simply its
+       Chinese name, so it carries none of the borrowed-motif problem below. */
+    { k: "compass",    zh: "罗盘徽", en: "Compass",      img: "xh_badge_compass",    need: 100 },
+    /* ⚠️ 船锚(150) AND 舵轮(200) WERE DISCARDED — PATCH_01 §1. An admiralty anchor
+       and a spoked helm are both EUROPEAN forms; Chinese junks used stone/wood
+       weights and a stern rudder, so there is no recognisable "Chinese anchor"
+       silhouette to substitute. In a mother-of-pearl set they would have been the
+       only two pieces that looked borrowed. The anchor art exists and is
+       deliberately unused. Replaced by 龙舟 and 牵星板.
+       ⚠️ THE ORDER IS DELIBERATE, do not reshuffle: 生物(75) → 器物(100) → 船(150)
+       → 器物(200) → 船(300). No two adjacent rungs are the same kind, and 罗盘 and
+       牵星板 are kept apart so the ladder never shows two navigation instruments
+       side by side. */
+    { k: "dragonboat", zh: "龙舟徽", en: "Dragon boat",  img: "xh_badge_dragonboat", need: 150 },
+    /* 牵星板: a graduated SET of boards for fixing latitude by star altitude, which
+       is what the art shows — historically righter than the single plate the brief
+       first asked for. ⚠️ Known trade-off, accepted: at badge size it reads as a
+       geometric ornament rather than an instrument. That is fine here because every
+       other badge in the family is organic curves, so the angular silhouette is
+       actually the most DISTINGUISHABLE one, and the name always appears with it. */
+    { k: "starboard",  zh: "牵星板徽", en: "Star boards", img: "xh_badge_starboard",  need: 200 },
+    { k: "sailship",   zh: "帆船徽", en: "Sailing ship", img: "xh_badge_sailship",   need: 300 },
+    { k: "lighthouse", zh: "灯塔徽", en: "Lighthouse",   img: "xh_badge_lighthouse", need: 400 }
   ];
-  function sailBadgeNeed(b) { return b.need === null ? (WORDS.length || 0) : b.need; }
+  /* ⚠️ No more null-means-every-word: every rung is an absolute number now. Kept
+     as a function purely so the call sites did not have to change. */
+  function sailBadgeNeed(b) { return b.need; }
   function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
 
   function renderBadges() {
@@ -944,15 +1038,19 @@
     h += '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🎖️ 航海徽<span class="xh-en">Your badges</span></div>' +
       '<span class="beach-purse"><b>' + got + '</b> / ' + SAIL_BADGES.length + '</span></div>' +
-      '<div class="xh-log-sub">认得的词语越多，徽章越多。' +
-      '<span class="xh-en">Badges come from the words you have met.</span></div>';
+      '<div class="xh-log-sub">认得的词语越多，走得越远。徽章只会往前加，不会往后退；'
+      + '以后加了新词，也不会把已经走到的路推远。' +
+      '<span class="xh-en">The further you sail, the more you earn. Badges are never taken '
+      + 'back, and new words never push one further away.</span></div>';
     h += '<div class="sailbadge-wall">';
     SAIL_BADGES.forEach(function (b) {
       var need = sailBadgeNeed(b), have = met >= need;
       var pct = need ? Math.min(100, Math.round(met / need * 100)) : 0;
       h += '<div class="sailbadge' + (have ? " got" : "") + '">' +
-        '<img src="art/xh/badges/' + b.img + '.png' + ASSET_V + '" alt="" ' +
-          "onerror=\"this.style.display='none'\">" +
+        (b.img
+          ? '<img src="art/xh/badges/' + b.img + '.png' + ASSET_V + '" alt="" ' +
+            "onerror=\"this.style.display='none'\">"
+          : '<span class="sailbadge-todo">' + esc(b.zh.charAt(0)) + '</span>') +
         '<b>' + esc(b.zh) + '</b><span class="xh-en">' + esc(b.en) + '</span>' +
         (have ? '<span class="beach-tag on">已获得</span>'
               : '<span class="sailbadge-bar"><i style="width:' + pct + '%"></i></span>' +
@@ -1236,7 +1334,7 @@
     if (!words || !words.length) return;
     state = { grp: grp, mode: "learn", seq: words.slice(), i: at || 0,
               correct: 0, missed: [], firstTry: true, pool: words.slice() };
-    words.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
+    words.filter(hasPic).forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
     render();
   }
 
@@ -1435,7 +1533,10 @@
      is why every caller passed one. */
   function startRound(sub, forceMode, poolOverride) {
     var mode = forceMode || store.mode || "pic";
-    var pool = poolOverride || scopedWords();
+    /* ⚠️ filter BEFORE anything else reads the pool: state.pool is what
+       distractors() and the replay buttons later draw from, so a pictureless word
+       slipping through here would surface as a blank option several screens away */
+    var pool = poolForMode(poolOverride || scopedWords(), mode);
     if (!pool.length) return;
     var seq;
     if (mode === "learn") {
@@ -1474,7 +1575,7 @@
     // warm the round's sprites: each question swaps the image, and an undecoded
     // sprite shows as an empty frame for a beat — the picture IS the question
     var warm = (mode === "match" || mode === "learn") ? seq : seq.concat(distractors(seq[0], optCount() - 1));
-    warm.forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
+    warm.filter(hasPic).forEach(function (w) { (new Image()).src = "art/xh/" + w.图档 + ASSET_V; });
     render();
   }
 
@@ -1605,7 +1706,13 @@
     var h = '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 学词</span></div>" +
       '<div class="xh-board xh-stage xh-card">' +
-      '<button class="xh-sprite big" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+      /* ⚠️ a pictureless word (数字) shows its ARABIC NUMERAL in the sprite's place,
+         not an empty frame. §4.4: 汉字 + 阿拉伯数字 + 拼音 + 英文 is the complete card
+         for a number — there is nothing to draw and nothing missing. */
+      (hasPic(w)
+        ? '<button class="xh-sprite big" id="xhSprite" title="点图听读音">' + img(w) + "</button>"
+        : '<button class="xh-sprite big numeral" id="xhSprite" title="点一下听读音">' +
+          esc(w.数码 || "") + "</button>") +
       /* ⚠️ .xh-always ON BOTH (owner 2026-08-16 evening: 「the pier's flashcards must
          have pinyin and english displayed by default, not only when the toggle is
          selected」). 看图学词 is the LEARN-BEFORE-YOU-ARE-TESTED surface, and the
@@ -1615,7 +1722,11 @@
          拼音 revealed after a 词海垂钓 miss are the only exceptions. */
       '<div class="xh-card-word"><b>' + esc(w.词语) + "</b>" +
       '<span class="xh-py xh-always">' + esc(w.拼音) + "</span>" +
-      '<span class="xh-en xh-always">' + esc(w.英文释义) + "</span>" + "</div>" +
+      '<span class="xh-en xh-always">' + esc(w.英文释义) + "</span>" +
+      /* ⚠️ 两 is the most important card in the 数字 group and an English gloss alone
+         cannot carry it: a student who learns 二 but never 两 says 二只猫 forever.
+         §4.4 asks for an explicit note, so any word may carry 注记. */
+      (w.注记 ? '<span class="xh-card-note">' + esc(w.注记) + "</span>" : "") + "</div>" +
       '<button class="xh-btn xh-say" id="xhSay">🔊 再听一次' + xhPy("再听一次") +
       ' <span class="xh-en">hear it again</span>' + "</button>" +
       /* the two nav buttons carried NO gloss at all while the button above them had

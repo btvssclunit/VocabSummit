@@ -328,6 +328,16 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .sailbadge.got{border-color:var(--gold);
   background:linear-gradient(180deg,rgba(255,246,225,.92),rgba(250,232,196,.78))}
 .sailbadge.got img{filter:none}
+/* ⚠️ Placeholder face for the four rungs whose art is not drawn yet (海星/船锚/
+   舵轮/帆船, handoff §6.2). Same 96px ring and same locked/earned treatment as a
+   real badge, carrying the badge's first character, so the ladder reads as nine
+   rungs rather than five badges and four holes. It disappears on its own the
+   moment the PNG lands and `img` is set. */
+.sailbadge-todo{width:96px;height:96px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;font-family:var(--serif);font-size:38px;font-weight:900;
+  color:var(--gold-deep);background:linear-gradient(180deg,#FBF3E2,#EADFC6);
+  border:2px dashed rgba(183,121,31,.55);opacity:.5}
+.sailbadge.got .sailbadge-todo{opacity:1;border-style:solid;border-color:var(--gold)}
 .sailbadge b{font-family:var(--serif);font-size:16px;font-weight:900}
 .sailbadge-bar{display:block;width:100%;height:6px;border-radius:99px;background:#D8E4EC;
   overflow:hidden;margin-top:4px}
@@ -1041,3 +1051,17 @@ body.xh-py-on .xh-back .xh-uipy,body.xh-py-on .xh-top h1 .xh-uipy{display:block;
 body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   font-size:10.5px;font-weight:600;color:#46596A;line-height:1.25}
 .xh-top h1{line-height:1.15}
+
+/* 数字卡：没有图，改用阿拉伯数字占同一个位置 (HANDOFF §4.4) */
+.xh-sprite.numeral{display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif),serif;font-size:96px;font-weight:900;color:var(--gold-deep);
+  background:linear-gradient(180deg,#FCF6E8,#EFE3C8);border:2px solid var(--gold);
+  border-radius:18px;line-height:1}
+/* 「两」「二」的用法注记：语法差异用英文对照说不清楚，必须单列一行 */
+.xh-card-note{display:block;margin-top:8px;padding:8px 12px;border-radius:12px;
+  font-size:13.5px;font-weight:600;color:var(--ink);background:rgba(255,255,255,.82);
+  border:1px solid var(--glass-line-2);max-width:34ch;margin-left:auto;margin-right:auto}
+
+/* a mode with nothing to ask: dimmed, unclickable, and saying why */
+.xh-mode.na{opacity:.5;cursor:not-allowed}
+.xh-mode-na{display:block;margin-top:5px;font-size:11.5px;font-weight:700;color:#8A5A0F}

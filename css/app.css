@@ -1332,7 +1332,11 @@ body.lp-sea-on .lp-foot{display:none}
    the water below it — these islands are landmasses with a wide beach, and the
    ring is what that beach is for. Absolute, so it never adds to the button box
    and the hit area stays exactly the island. */
-.sea-label{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+/* ⚠️ --lb pushes the plaque DOWN off the island (0 in landscape, set in portrait).
+   The sprites are alpha-trimmed with no bottom padding, so bottom:0 put the whole
+   44px plaque ON the mountain and swallowed its lower third — owner 2026-08-16:
+   「the section titles are obscuring a good part of the mountain」. */
+.sea-label{position:absolute;left:50%;bottom:calc(-1 * var(--lb,0px));transform:translateX(-50%);
   padding:5px 14px 7px;border-radius:12px;background:rgba(31,74,112,.9);
   border:2px solid var(--gold,#E3A63C);box-shadow:0 4px 12px rgba(6,26,48,.45);
   text-align:center;white-space:nowrap;pointer-events:none}
@@ -1494,10 +1498,22 @@ body.lp-sea-on .lp-foot{display:none}
      quadratic (both arc directions) clear of every THIRD island. Re-run that check
      if ANY --cx / --by / --w / --tx / --ty below changes; a plausible-looking nudge
      is exactly what silently re-blocks a route. */
-  .i-g1  {--cx:24%; --by:26%;   --w:31vw; --tx:46.4%; --ty:28.9%}
-  .i-g2  {--cx:76%; --by:42.5%; --w:33vw; --tx:52.6%; --ty:46.6%}
-  .i-g3  {--cx:25%; --by:60%;   --w:34vw; --tx:48.9%; --ty:64.2%}
-  .i-hcl {--cx:77%; --by:79.5%; --w:36vw; --tx:52.1%; --ty:84.1%}
+  /* ⚠️ --lb (label push-down) and G1's --by were SOLVED, not eyeballed: maximise the
+     mountain handed back subject to every plaque clearing the island below it by
+     >=8px. Result: plaques cover 23px of their island instead of 44, and G1 rises
+     25px while its card stays exactly where it was (owner: 「G1 mountain can be
+     placed higher and the title card stays the same position」) — which is why G1
+     carries a LARGER --lb, 21+25. Re-solve if any --by / --w / label font changes. */
+  /* ⚠️ on .sea-isle, NOT on .sea-label: --lb is inherited, so a value set on the
+     label element itself would beat the per-island override below. Same element,
+     same specificity, so .i-g1 wins purely by coming after this line. */
+  .sea-isle{--lb:21px}
+  /* ⚠️ --tx/--ty RE-SOLVED after G1 rose: G1's old berth was computed against its
+     old position and would now sit just below the island instead of at its shore. */
+  .i-g1  {--cx:24%; --by:29.2%; --w:31vw; --tx:45.7%; --ty:32.1%; --lb:46px}
+  .i-g2  {--cx:76%; --by:42.5%; --w:33vw; --tx:53.3%; --ty:46.6%}
+  .i-g3  {--cx:25%; --by:60%;   --w:34vw; --tx:48.2%; --ty:64.2%}
+  .i-hcl {--cx:77%; --by:79.5%; --w:36vw; --tx:52.8%; --ty:84.1%}
   .i-dock{--cx:21%; --by:-4%;   --w:58vw; --tx:50.5%; --ty:9.8%}
   .i-dock .sea-label{left:50%;bottom:29%}
   .sea-boat{--hx:50.5%;--hy:9.8%}
@@ -1516,9 +1532,14 @@ body.lp-sea-on .lp-foot{display:none}
   .sea-boat.h-away,.sea-boat.h-toward{--bw:7vw}
   .sea-boat.h-away_diag,.sea-boat.h-toward_diag{--bw:9vw}
   .sea-boat.h-broadside{--bw:11vw}
-  .sea-label{padding:4px 10px 5px}
-  .sea-label b{font-size:16px}
-  .sea-label .lv{font-size:11px}}
+  /* ⚠️ the plaque's HEIGHT is the other half of「stop covering the mountain」:
+     --lb can only push it down until it reaches the island below (8px clearance,
+     already at the limit), so anything further has to come from the plaque itself.
+     Measured 51px before this; the trim takes it to ~44px, all of it handed back
+     to the mountain. Do not re-inflate the padding without re-solving --lb. */
+  .sea-label{padding:3px 9px 4px;border-width:1.5px}
+  .sea-label b{font-size:15.5px;line-height:1.18}
+  .sea-label .lv{font-size:10.5px;margin-top:1px}}
 
 /* ===== study ambience: campsite backdrop under all app pages ===== */
 /* ⚠️ QUIET BACKGROUND since 2026-08-16 (handoff §3). The stream pages used to
