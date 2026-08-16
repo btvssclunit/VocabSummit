@@ -876,18 +876,24 @@
      shown only once the course is complete (顶级词王). */
   var AMBIENCE = ["art/bg/bg-01-staircase-sunrise.png", "art/bg/bg-02-bamboo-forest.png",
                   "art/bg/bg-03-ridge-clouds.png", "art/bg/bg-04-snowpass-dusk.png"];
+  /* Which progression plate the student has earned. ⚠️ This is the MASTERY-fraction
+     scale (mastered/total), NOT the 段位 ladder, which runs on 历练值 — the two
+     advance at different rates and must never be shown as one system (handoff §4). */
+  function ambiencePlate() {
+    if (!WORDS.length) return AMBIENCE[0];
+    if (store.badges && store.badges["t4"]) return "art/bg/bg-05-summit-pavilion.png";
+    var frac = Object.keys(store.mastered).length / WORDS.length;
+    return AMBIENCE[Math.min(AMBIENCE.length - 1, Math.floor(frac * AMBIENCE.length))];
+  }
+  /* ⚠️ The plate LEFT THE BODY on 2026-08-16 (handoff §3). It now renders once, in
+     the 地景横幅 at the top of the right column. Painting it on the body as well put
+     the identical 1672x941 image on screen twice — once behind the cards, once
+     inside the banner. The page keeps the quiet gradient app.css already defines.
+     ⚠️ Do NOT also lower .pop-card alpha in this pass: the alpha was raised on
+     2026-08-14 precisely because muted text was unreadable over these plates, and
+     the handoff asks for that to be a separate, separately-verified change. */
   function applyAmbience() {
-    if (!WORDS.length) return;
-    var img;
-    if (store.badges && store.badges["t4"]) {
-      img = "art/bg/bg-05-summit-pavilion.png";                 // course complete: reward scene
-    } else {
-      var frac = Object.keys(store.mastered).length / WORDS.length;
-      var i = Math.min(AMBIENCE.length - 1, Math.floor(frac * AMBIENCE.length));
-      img = AMBIENCE[i];
-    }
-    document.body.style.backgroundImage =
-      'linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("' + img + '")';
+    document.body.style.backgroundImage = "";
   }
 
   /* ---------- daily streak (连续学习天数) — device-local ---------- */
@@ -1157,18 +1163,68 @@
     wirePyToggle();
   }
 
-  function miniHorizon() {
+  /* 地景横幅 (handoff §3) — the emotional entry point of the page: the student sees
+     WHERE THEY ARE before they see what to do. 16:9, top of the right column, and
+     the plate is the one applyAmbience used to paint on the body.
+     Layers: plate → 营地 chip → overlay text. The overlay is never baked into art.
+     ⚠️ The progress line is 段位/历练值 ONLY (handoff §4). The plate itself moves on
+     mastery fraction, which is a different scale; showing the two as one ladder is
+     the specific mistake that section exists to prevent, so the plate carries no
+     caption and no percentage.
+     ⚠️ The 灵露 PILL is the tap target for 营地, not any painted element — art
+     positions shift with the plate, a pill does not (§3). */
+  function heroBanner() {
     var rk = currentRank();
-    var togo = rk.next ? '<span class="mtn-rank-next">再 ' + fmtNum(rk.next.at - rk.total) + ' 历练值 → ' + esc(rk.next.name) + '</span>' : '<span class="mtn-rank-next">已达最高段位</span>';
-    return '<div class="mini-horizon horizon">' +
-      '<img class="mh-img" src="' + MTN_SKIN.src + '" alt="">' +
-      '<div class="app-zh">' + META.zh + '</div>' +
-      '<span class="mtn-rank">🎖️ ' + esc(rk.name) + ' · ' + fmtNum(rk.total) + ' 历练值' + togo + '</span>' +
-      '<div class="mtn-rooms">' +
-        '<span class="mtn-arena" id="arenaPill">🏔️ 结伴登峰</span>' +
-        '<span class="mtn-arena mtn-pk" id="pkPill">⚔️ 同伴挑战</span>' +
-      '</div>' +
-      '<span class="mtn-enter">⛰️ 我的词山 ›</span></div>';
+    var togo = rk.next
+      ? '再 ' + fmtNum(rk.next.at - rk.total) + ' → ' + esc(rk.next.name)
+      : '已达最高段位';
+    return '<button class="lscape" id="lscapeBtn" title="点开看全山纵览">' +
+      '<img class="lscape-bg" src="' + ambiencePlate() + '" alt="" ' +
+        'onerror="this.style.display=\'none\'">' +
+      '<span class="lscape-in">' +
+        '<span class="lscape-rank">🎖️ ' + esc(rk.name) + '</span>' +
+        '<span class="lscape-pts">' + fmtNum(rk.total) + ' 历练值 · ' + togo + '</span>' +
+      '</span>' +
+      '<span class="lscape-go">⛰️ 全山纵览 ›</span></button>' +
+      /* ONE chip. A 海拔 chip lived here for one render and duplicated the 数据条
+         directly below it — the 数据条 is where the four numbers belong (§1). */
+      '<div class="lscape-acts">' +
+        '<button class="lscape-chip" id="campChip">' + campLingluIcon() +
+          ' <b>' + fmtNum(store.lingLu) + '</b> <span>灵露 · 营地 ›</span></button>' +
+      '</div>';
+  }
+  /* §5 reward marker. ⚠️ Read off the REAL award tables, never the card's name.
+     The handoff proposes one marker per card (历练值 OR 灵露); the code says most
+     modes pay BOTH, so both are shown where both are earned — flagged rather than
+     forced into an either/or that would misinform the choice it sits next to. */
+  /* ⚠️ Declared per mode, NOT derived from PTS_BASE. Deriving got 词语汉兜 wrong on
+     the first pass: it pays 历练值 through its own 6 + unused-rows formula and never
+     appears in PTS_BASE, so the card claimed 灵露 only. 填空 is the same story via
+     CLOZE_BASE. Each entry below is checked against the code that actually awards:
+       quiz     scoreCorrect(CLOZE_BASE | PTS_BASE.zhmcq/enmcq)  + awardLingLu
+       flash    no scoreCorrect at all                            + awardLingLu 0.5x
+       rain     no 历练值 by design (it is the 灵露 game)          + awardLingLu 2x
+       sprint   PTS_BASE.sprint                                   + awardLingLu 1.25x
+       assemble PTS_BASE.assemble                                 + awardLingLu 1.5x
+       handle   6 + max(0, 12 - rows used)                        + awardLingLu 2x
+       rooms    ctx.roomCorrect → the 修行 formula                 + awardLingLu
+     If a mode's economy changes, change it HERE — a card that misstates its reward
+     is worse than a card with no marker. */
+  var REWARD_TAG = {
+    quiz:     { pts: true,  ll: true },
+    flash:    { pts: false, ll: true },
+    rain:     { pts: false, ll: true },
+    sprint:   { pts: true,  ll: true },
+    assemble: { pts: true,  ll: true },
+    handle:   { pts: true,  ll: true },
+    room:     { pts: true,  ll: true }
+  };
+  function rewardTag(mode) {
+    var r = REWARD_TAG[mode];
+    if (!r) return "";
+    return '<span class="rwd-row">' +
+      (r.pts ? '<span class="rwd rwd-pts">历练值</span>' : "") +
+      (r.ll ? '<span class="rwd rwd-ll">灵露</span>' : "") + '</span>';
   }
 
   /* ================= B层 · 对战徽章 (DESIGN_徽章体系_对战与排行榜.md §3/§6.5) ====
@@ -1478,7 +1534,13 @@
     var badgeCount = achBadgeCount();   // A层 only — 对战徽章 share the map but not this ladder
     var badgeTotal = COMP_LIST.length + UNIT_LIST.length + LEVELS.length + 1;
 
-    var html = '<div class="home-grid"><div class="home-left">' + miniHorizon();
+    /* ⚠️ 左 = 我要做什么（动线，带编号）· 右 = 我走到哪了（身份与进度，不带编号）
+       (handoff §0). Numbers mark DECISIONS; the right column contains none, so it
+       carries no step numbers and the funnel stays at four steps — which is what
+       keeps 动线编号 usable for G1/G2. The hero card is gone: its rank chip moved
+       into the banner overlay, its 结伴/同伴 pills into ④, and its 我的词山 link is
+       now the banner itself. */
+    var html = '<div class="home-grid"><div class="home-left">';
 
     html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
       'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
@@ -1494,7 +1556,18 @@
       '<div class="scope-top">' +
       '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
       '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button></div>' +
-      '<div class="scope-sum" id="scopeSum"></div>';
+      '<div class="scope-sum" id="scopeSum"></div>' +
+      /* §2: 我的词语表 belongs with ①复习范围 — both answer「哪些词」— not with the
+         badges and the leaderboard, which are trophies.
+         ⚠️ The handoff also asks for selecting it to SWAP the active scope to that
+         list. NOT built, deliberately: 我的词语表 already has its own filters
+         (全部 / 已掌握 / 待巩固 / 未掌握), so「that list」is four different lists and
+         the doc's own §2 open sub-item says to flag rather than invent the second
+         level. So this row states the current source plainly and opens the list;
+         it does not pretend to be a toggle it cannot honour. */
+      '<div class="scope-src"><span class="scope-src-lab">来源' + pyl("来源") + enli("来源") + '</span>' +
+      '<span class="scope-src-on">单元' + pyl("单元") + enli("单元") + '</span>' +
+      '<button class="scope-src-btn" id="wlEntry">📋 我的词语表' + pyl("我的词语表") + enli("我的词语表") + ' ›</button></div>';
     /* 板块 filter — one row, stream-wide, above the levels */
     var comps = streamComps();
     if (comps.length > 1) {
@@ -1537,8 +1610,7 @@
     });
     html += '</div>';
 
-    html += '</div><div class="home-right">' +
-      '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择学习方式") + enl("选择学习方式") + '</div>' +
+    html += '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择学习方式") + enl("选择学习方式") + '</div>' +
       '<div class="htabs">' +
       '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + pyl("修行") + enl("修行") + '</button>' +
       '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + pyl("闯关") + enl("闯关") + '</button></div>';
@@ -1559,8 +1631,29 @@
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
 
-    /* 成就徽章 · 我的词语表 · 词山风云榜 share ONE row (owner 2026-08-14). The
-       badge strip opens the row; the two entry cards below close it. */
+    /* ④ 结伴 — the two live-room entries, out of the old hero card and into the
+       funnel where they belong: they are a fourth way to practise, not a status
+       display (handoff §1). */
+    html += '<div class="section-label">' + stepNo(4) + '结伴' + pyl("结伴") + enl("结伴") + '</div><div class="camps">' +
+      '<button class="camp" id="arenaPill"><span class="flag">🏔️</span>' +
+        '<div><b>结伴登峰' + pyl("结伴登峰") + enli("结伴登峰") + '</b>' + rewardTag("room") + '</div></button>' +
+      '<button class="camp" id="pkPill"><span class="flag">⚔️</span>' +
+        '<div><b>同伴挑战' + pyl("同伴挑战") + enli("同伴挑战") + '</b>' + rewardTag("room") + '</div></button></div>';
+
+    /* ---- RIGHT COLUMN: identity & progress, no step numbers ---- */
+    html += '</div><div class="home-right">';
+    html += heroBanner();
+
+    /* 成就徽章 · 词山风云榜. 我的词语表 LEFT this row on 2026-08-16 (handoff §2):
+       it answers「哪些词」, the same question as ①复习范围, so filing it beside
+       badges and leaderboards mis-signalled it as a trophy. It now sits in ①. */
+    /* §1 right-column order: 地景横幅 → 数据条 → 入口行 */
+    html += '<div class="harbour">' +
+      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ' + pyl("已掌握词语") + enli("已掌握词语") + '</span></div>' +
+      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值' + pyl("历练值") + enli("历练值") + '</span></div>' +
+      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率' + pyl("正确率") + enli("正确率") + '</span></div>' +
+      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对' + pyl("最高连对") + enli("最高连对") + '</span></div></div>';
+
     html += '<div class="home-entries"><button class="badge-strip" id="badgeStrip">';
     /* One badge per component TYPE present in THIS stream (G1:3 · G2/G3:4 · HCL:5),
        in narrative order, ALL full-colour on the dashboard. The locked-vs-earned
@@ -1586,19 +1679,11 @@
     /* sublines removed 2026-08-14 (owner). The 连续 N 天 streak that used to live
        here is still shown inside 我的词语表 itself, so nothing is lost — it just
        stops competing with the title on the home page. */
-    html += '<button class="wl-entry" id="wlEntry"><span class="flag">📋</span>' +
-      '<div><b>我的词语表' + pyl("我的词语表") + enli("我的词语表") + '</b></div></button>';
     html += '<button class="wl-entry" id="lbEntry"><span class="flag">🏆</span>' +
       '<div><b>词山风云榜' + pyl("词山风云榜") + enli("词山风云榜") + '</b></div></button>';
     html += '</div>';   // .home-entries
 
-    html += '<div class="harbour">' +
-      '<div id="masteryInfo" style="cursor:pointer"><b>' + mastered + '</b><span>已掌握词语 ⓘ' + pyl("已掌握词语") + enli("已掌握词语") + '</span></div>' +
-      '<div><b>' + fmtNum(store.pts.total) + '</b><span>历练值' + pyl("历练值") + enli("历练值") + '</span></div>' +
-      '<div><b>' + (t.a ? Math.round(100 * t.c / t.a) + "%" : "–") + '</b><span>正确率' + pyl("正确率") + enli("正确率") + '</span></div>' +
-      /* the 我的档案 chip that used to sit here was a duplicate of the topbar
-         avatar pill (which now carries the nickname too) — removed 2026-08-13 */
-      '<div><b>🔥 ' + store.bestStreak + '</b><span>最高连对' + pyl("最高连对") + enli("最高连对") + '</span></div></div></div></div>';
+    html += '</div></div>';
 
     view().innerHTML = html;
 
@@ -1672,12 +1757,15 @@
     document.getElementById("lbEntry").onclick = renderLeaderboard;
     wireHomeSearch();
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
-    var mh = view().querySelector(".mini-horizon");
-    if (mh) mh.onclick = startMountain;
+    /* the banner IS 我的词山 now — tapping it opens the tall per-stream art (§3) */
+    var lsc = document.getElementById("lscapeBtn");
+    if (lsc) lsc.onclick = startMountain;
+    var campChip = document.getElementById("campChip");
+    if (campChip) campChip.onclick = openCampScene;      // §3: the PILL is the tap target
     var arenaPill = document.getElementById("arenaPill");
-    if (arenaPill) arenaPill.onclick = function (e) { e.stopPropagation(); openArena(); };
+    if (arenaPill) arenaPill.onclick = openArena;
     var pkPill = document.getElementById("pkPill");
-    if (pkPill) pkPill.onclick = function (e) { e.stopPropagation(); renderPkConfig(); };
+    if (pkPill) pkPill.onclick = renderPkConfig;
     Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
       btn.onclick = function () {
         if (!scopedWords().length) { alert(scopeEmptyMsg(false)); return; }
@@ -1702,9 +1790,11 @@
        the mode it describes — the config screen each card opens shows its own
        mode-desc, which is where a student actually needs the explanation. */
     function camp(mode, icon, name, desc) {
+      /* §5: the reward marker sits INSIDE the card, at the moment of choosing, so
+         the locked「掌握 ≠ 手速」rule is visible exactly where it matters. */
       return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
         '<span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
+        '<div><b>' + name + pyl(name) + enli(name) + '</b>' + rewardTag(mode) + '</div></button>';
     }
     function updateScopeSum() {
       var n = scopedWords().length;
@@ -2600,6 +2690,9 @@
   /* Shell labels only. Keep this list SHORT and navigational: it is a
      decoding crutch for the interface, not a translation layer for the app. */
   var EN_LAB = {
+    "结伴": "Team up",
+    "来源": "Source",
+    "单元": "Units",
     "复习范围 · 可多选": "Choose your units",
     "全选": "Select all",
     "清空": "Clear",
@@ -2748,6 +2841,9 @@
      whenever you add an EN_LAB entry — pyl() falls back to nothing if a key is
      missing, so a gap is silent, not broken. */
   var PY_LAB = {
+    "结伴": "jié bàn",
+    "来源": "lái yuán",
+    "单元": "dān yuán",
     "复习范围 · 可多选": "fù xí fàn wéi · kě duō xuǎn", "全选": "quán xuǎn", "清空": "qīng kōng",
     "选择学习方式": "xuǎn zé xué xí fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",
     "词语游乐场": "cí yǔ yóu lè chǎng",
@@ -3566,7 +3662,7 @@
     }
     setTopbar("home", "");
     showFab(false);        // timed round: no stray taps, and 词雨 words land here
-    view().innerHTML =
+    view().innerHTML = orientHintHtml("landscape") +
       '<div class="rain-shell">' +
       /* room code lives FIRST in the DOM so the portrait stack pins it at the very
          top (DESIGN_peer_pk_duel §3): the whole point is glanceability on a
@@ -3813,6 +3909,7 @@
     // stays fully visible above the on-screen keyboard (iOS keeps 100vh
     // fixed and scrolls the page instead — we pin scroll and shrink).
     function fitViewport() {
+      wireOrientHint();
       var shell = view().querySelector(".rain-shell");
       if (!shell) return;
       if (window.visualViewport) {
@@ -4508,6 +4605,42 @@
     document.getElementById("back").onclick = renderHome;
     document.getElementById("go").onclick = startSprint;
   }
+  /* ---------- 屏幕方向提示 (HANDOFF_stream_page_layout §7) ----------
+     One inline strip, never a modal, and never on the landing page — a student told
+     「用横屏」 on arrival and 「用竖屏」 later will ignore both. Each hint fires ONLY
+     when the current orientation is the wrong one for THAT activity, so the two can
+     never both appear.
+       攀山竞速 / 词雨灵露   fire in portrait  → suggest landscape
+       typing modes         fire in landscape → suggest portrait (the on-screen
+                            keyboard eats a landscape screen)
+     ⚠️ Gated on VIEWPORT WIDTH, not device type: a school iPad in portrait is wide
+     enough to need neither prompt. 820px per the handoff, tune on a real device.
+     ⚠️ Advisory only. iOS Safari cannot rotate the screen, so nothing is ever
+     blocked behind this — it is a strip above the activity, which starts anyway. */
+  var ORIENT_MIN_W = 820;
+  function orientHintHtml(want) {
+    if (store.orientOff) return "";
+    var w = window.innerWidth, portrait = window.innerHeight > w;
+    if (w >= ORIENT_MIN_W) return "";                  // wide enough either way
+    if (want === "landscape" && !portrait) return "";  // already correct
+    if (want === "portrait" && portrait) return "";
+    var msg = want === "landscape"
+      ? "📱 转成横屏，画面更开阔"
+      : "📱 转成竖屏，键盘不会挡住画面";
+    return '<div class="orient-hint" id="orientHint">' + msg +
+      '<button class="orient-x" data-off="1" type="button">不再提示</button>' +
+      '<button class="orient-x" type="button" aria-label="关闭">✕</button></div>';
+  }
+  function wireOrientHint() {
+    var el = document.getElementById("orientHint"); if (!el) return;
+    Array.prototype.forEach.call(el.querySelectorAll(".orient-x"), function (b) {
+      b.onclick = function () {
+        if (b.getAttribute("data-off")) { store.orientOff = 1; saveStore(); }
+        el.remove();
+      };
+    });
+  }
+
   function startSprint() {
     var avSheet = avatarSheet();   // resolved once for the whole round (see avatarSheet)
     var smode = store.sprintMode || "zh";
@@ -4522,7 +4655,7 @@
     _deferCel = true;
     setTopbar("home", "");
     showFab(false);        // timed round: no stray taps, and 词雨 words land here
-    view().innerHTML = '<div class="sprint-shell">' +
+    view().innerHTML = orientHintHtml("landscape") + '<div class="sprint-shell">' +
       '<canvas class="sprint-canvas" id="spCv"></canvas>' +
       '<div class="sprint-right">' +
       '<div class="sprint-hud">' +
@@ -4543,6 +4676,7 @@
     var paintOpts = null;
     wirePyAidToggle(function () { if (paintOpts) paintOpts(); });
 
+    wireOrientHint();
     var cv = document.getElementById("spCv");
     var ctx = cv.getContext("2d");
     var streamAccent = { g1: "#E3A63C", g2: "#3F5F8F", g3: "#B45A2E", hcl: "#4E6E58" }[STREAM] || "#E3A63C";
