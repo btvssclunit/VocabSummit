@@ -3393,10 +3393,22 @@
           var entering = state.streak, wasMastered = !!store.mastered[w.id], gained = 0;
           noteStreak(state, right);
           if (right) {
-            state.correct++; sfxOk(); gymNote(w.id);
-            /* 华文解释/英文翻译 do not confer mastery, so no +10 here — depth only */
+            state.correct++; sfxOk();
+            /* ⚠️ 华文解释 与 英文翻译 NOW CONFER MASTERY (owner 2026-08-16, HANDOFF
+               §1). The popover has always told students these four modes count;
+               the code only credited 填空挑战 and 攀山竞速. The owner ruled that the
+               CODE was wrong, not the copy — so the popover is untouched and this
+               branch gained markMastered.
+               ⚠️ ORDER IS LOAD-BEARING, and it was wrong here before: gymNote used
+               to run FIRST, which clears the word from 待巩固 and therefore threw
+               away the 复习补偿 that awardLingLu grants for recovering one. Same
+               order as the cloze branch now: score → 灵露 → mastery → gymNote.
+               The +10 first-mastery bonus fires inside markMastered, once per word
+               ever, guarded by store.pts.masteryAwarded. */
             gained = scoreCorrect(w, PTS_BASE[state.mode] || 2, 1, entering, wasMastered);
             awardLingLu(w, state.mode);
+            markMastered(w);
+            gymNote(w.id);
           }
           else if (state.gym || state.bchal) state.wrong[w.id] = 1;
           bump(state.mode, right);
