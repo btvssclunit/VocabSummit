@@ -1105,6 +1105,19 @@
      the home page, and the owner's constraint was explicitly "not cluttered".
      A student thinking "just 核心 this week" is served by one row of chips. */
   function compIsOn(name) { return !store.compOff[name]; }
+  /* ⚠️ 板块 DEFAULTS TO ALL ON, and「all off」is repaired to it at boot (owner
+     2026-08-16). An empty compOff already means all-on, so this only ever fires for
+     a profile that was left with every 板块 switched off — which the old 清空 did in
+     one tap and then persisted to localStorage. That state is indistinguishable from
+     a dead app: every mode refuses to start, and the 筛选 block that explains why is
+     collapsed by default. Nobody chooses「study nothing」, so it is safe to read the
+     stored value as damage rather than as intent.
+     ⚠️ Runs AFTER COMP_LIST is built — streamComps() reads it, and before the data
+     lands it would return [] and the guard would skip. Idempotent. */
+  function repairComps() {
+    var cs = streamComps();
+    if (cs.length && !cs.some(compIsOn)) { store.compOff = {}; saveStore(); }
+  }
   function scopedWords() {
     return WORDS.filter(function (w) { return scope.has(unitKey(w)) && compIsOn(w.component); });
   }
@@ -1785,10 +1798,16 @@
       store.compOff = {};                    // 全选 means 板块 too, or it is not 全选
       saveStore(); renderHome();
     };
+    /* ⚠️ 清空 clears UNITS ONLY — it deliberately does NOT switch the 板块 off
+       (owner 2026-08-16). It used to mirror 全选 and turn every 板块 off as well,
+       which reads symmetrical in the source and is not symmetrical in effect: with
+       no units selected the scope is already 共 0 词, so the extra switch buys
+       nothing and costs a trap. The student then picks one unit, still sees 共 0 词,
+       and the reason is folded away inside the collapsed 筛选 block (§18g). 板块 is
+       a stream-wide narrowing that defaults to ALL ON; only its own chips turn it off. */
     document.getElementById("selNone").onclick = function () {
       scope.clear();
       store.compOff = {};
-      streamComps().forEach(function (c) { store.compOff[c] = 1; });
       saveStore(); renderHome();
     };
     Array.prototype.forEach.call(view().querySelectorAll(".htab[data-tab]"), function (btn) {
@@ -6362,6 +6381,7 @@
           });
         });
         scope = new Set(UNIT_LIST.map(function (u) { return u.key; }));
+        repairComps();
         applyAmbience();
         applyEnAid();      // 英文提示: CSS-gated on body.en-aid, so this is the only switch
     applyPyAid();      // 拼音提示: same mechanism, body.py-aid

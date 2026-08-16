@@ -1275,11 +1275,24 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   align-self:center;filter:drop-shadow(0 6px 14px rgba(6,26,48,.28))}
 .xh-ph-zh{font-family:var(--serif),serif;font-size:clamp(21px,2.6vw,30px);font-weight:900;
   color:var(--ink);text-align:center;line-height:1.55}
+/* ⚠️ 喇叭与句子同一行、**并排**，不是压在句子上（§14「喇叭嵌在选项里」的同一条）。
+   min-width:0 给句子，否则长句会把喇叭挤出面板（§14「grid/flex 子项不缩」）。 */
+.xh-ph-line{display:flex;align-items:center;justify-content:center;gap:8px}
+.xh-ph-line .xh-ph-zh{min-width:0}
+.xh-ph-tts{flex:0 0 auto;background:none;border:0;cursor:pointer;line-height:1;
+  font-size:17px;padding:8px 6px;color:var(--sea2);opacity:.78;
+  border-radius:999px;touch-action:manipulation}
+.xh-ph-tts:hover{opacity:1;background:rgba(255,255,255,.55)}
+.xh-ph-tts:active{transform:translateY(1px)}
 /* the blank sits ON the text baseline so the sentence-final 。 stays attached
    instead of drifting off as a stray circle */
 .xh-blank{display:inline-block;min-width:2.4em;color:var(--gold-deep);
   border-bottom:3px solid var(--gold);margin:0 .04em;vertical-align:baseline}
-.xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);text-align:center;margin-top:-2px}
+/* ⚠️ the `body.xh-en-on` prefix is REQUIRED, not decoration (§18e): the gate rule
+   `body.xh-en-on .xh-en` is (0,2,1) and a bare `.xh-ph-en` is (0,1,0), so without
+   it this whole declaration loses and the line renders at the 12.5px gloss size. */
+body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
+  text-align:center;margin-top:-2px}
 /* the culture note only appears when a sentence actually has one (§5: optional) */
 .xh-ph-note{display:block;margin-top:7px;font-size:13px;font-weight:600;color:var(--ink);
   background:rgba(255,255,255,.82);border:1px solid var(--glass-line-2);
@@ -1294,16 +1307,29 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   image-rendering:pixelated;
   /* ⚠️ 压暗压灰只有这一个旋钮。哪张场景图偏亮就调这里，不要回头改美术——
      十张图的亮度不一致是必然的，改美术等于把一个参数拆成十份。 */
-  filter:saturate(.62) brightness(.82);}
-/* 底图之上再压一层白纱：单靠 filter 仍不足以保证任意底图下的文字对比度 */
+  filter:saturate(.74) brightness(.90);}
+/* 底图之上再压一层白纱：单靠 filter 仍不足以保证任意底图下的文字对比度。
+   ⚠️ owner 2026-08-16 晚：纱与旋钮一起放淡（.46/.60 → .26/.38），要求是「看得见场景」。
+   面板自己的玻璃仍然是文字对比度的主要来源，纱只负责面板**以外**的字（回合条）。 */
 .xh-scene-bg::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(rgba(247,250,252,.46),rgba(247,250,252,.60))}
-/* ⚠️ 面板必须有**不透明底色**，不能只靠 backdrop-filter。只有模糊时，可读性
-   取决于底图恰好是哪几个像素——不可控。.90 是这里的最低不透明度，别调低。 */
+  background:linear-gradient(rgba(247,250,252,.26),rgba(247,250,252,.38))}
+/* ⚠️ 这里曾经是 `rgba(255,255,255,.90)` 的近乎不透明白底，理由写在旧注释里：
+   只靠 backdrop-filter 时可读性取决于底图恰好是哪几个像素。owner 2026-08-16 晚
+   裁定要真正的液态玻璃、要看见场景，所以改用 .xh-board 那条同款渐变**略微加浓**
+   （.74/.56/.60 → .78/.62/.66），而不是回到平涂白。
+   ⚠️ 下面 @supports not 的纯色回退因此更重要，不是可选项：没有模糊时，白纱与这层
+   alpha 就是文字与摊位照片之间仅有的东西。 */
 .xh-phrase.on-scene,.xh-sort.on-scene{position:relative;z-index:1;
-  background:rgba(255,255,255,.90);
+  background:linear-gradient(150deg,rgba(255,255,255,.78),rgba(255,255,255,.62) 46%,
+    rgba(232,243,251,.66));
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);box-shadow:var(--glass-lift),var(--glass-edge)}
+/* ⚠️ 面板下移（owner 2026-08-16 晚）：场景图有内容的部分在上半张（摊位与人），
+   面板顶在最上面就把它整个盖住，下面反而留一大片空地板。
+   用 margin-top 而不是 justify-content——#xhView 是普通文档流，面板高度随题目变化，
+   居中会让面板在每一题之间上下跳。 */
+.xh-phrase.on-scene{margin-top:clamp(14px,11vh,120px)}
+.xh-sort.on-scene{margin-top:clamp(10px,5vh,52px)}
 /* 回合条也要浮在底图之上，否则它会被场景图盖住 */
 .xh-round-bar{position:relative;z-index:1}
 /* ⚠️ 旧 iPad 上 backdrop-filter 很吃效能，而旧 iPad 正是 G1/G2 学生的主力机型。
@@ -1355,8 +1381,49 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   padding:6px 2px;color:var(--sea2);opacity:.72}
 .xh-sort-acts{display:flex;justify-content:center;margin-top:2px}
 .xh-sort-acts .xh-btn[disabled]{opacity:.45;cursor:default}
+
+/* ---------- 组字成词 (HANDOFF_XH_踏浪竞速 §2) ----------
+   ⚠️ It reuses .xh-sort wholesale and only narrows the boxes: the tiles hold ONE
+   character each, and word-sized slots leave a four-character word spread across
+   half the panel with the picture stranded above it. Everything else — the green
+   prefix lock, the tray, the used-tile visibility trick — is shared on purpose, so
+   a fix to either mode's interaction lands on both. */
+.xh-build .xh-slot,.xh-build .xh-tile-w{min-width:56px;font-size:26px;padding:8px 10px}
+.xh-build .xh-slots{min-height:56px}
+/* the picture IS the question here, so it is the biggest thing on the panel */
+.xh-build .xh-ph-pic{width:clamp(104px,19vw,150px);margin-bottom:2px}
+body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
+
+/* ---------- 意见反馈 floating button (owner 2026-08-16 晚) ----------
+   ⚠️ DELIBERATE DUPLICATION, and it is the §17 kind: these rules also exist in
+   app.css and the pier never loads app.css. Change one, change both — the symptom
+   of missing that is「反馈 has no styling at the pier」, i.e. a bare browser button
+   pinned to the corner. Only two things differ from the mountain's copy, and both
+   follow from the label being glossed here: the pill is taller, and the phone
+   breakpoint hides the whole text block rather than one word. */
+.fb-fab{position:fixed;left:16px;bottom:16px;z-index:55;display:flex;align-items:center;gap:7px;
+  padding:9px 15px;border-radius:999px;cursor:pointer;touch-action:manipulation;
+  border:1px solid var(--glass-line);background:rgba(255,255,255,.86);color:var(--ink);
+  font-size:13.5px;font-weight:700;font-family:inherit;text-align:left;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 6px 18px rgba(23,58,90,.22)}
+.fb-fab:hover{transform:translateY(-2px)}
+.fb-fab:active{transform:scale(.96)}
+.fb-fab-icon{font-size:16px;line-height:1;flex:none}
+/* ⚠️ the two glosses ride INSIDE .fb-fab-txt, so they vanish with it on a phone and
+   the pill collapses to a clean circle instead of a lopsided one. */
+.fb-fab-txt{line-height:1.25}
+@media (max-width:560px){
+  .fb-fab{left:12px;bottom:12px;padding:0;width:44px;height:44px;justify-content:center;gap:0}
+  .fb-fab-txt{display:none}
+}
+@media print{.fb-fab{display:none}}
+
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
-  .xh-phrase.on-scene,.xh-sort.on-scene{background:rgba(255,255,255,.97)}
+  .xh-phrase.on-scene,.xh-sort.on-scene{background:rgba(255,255,255,.95)}
+  /* the 反馈 pill is glass over whatever pier art is behind it — with no blur the
+     alpha is the only thing keeping its label readable */
+  .fb-fab{background:rgba(255,255,255,.96)}
   /* the hero's two dark plates lean on the same rule: without the blur the only
      thing separating white text from bright sand is the alpha, so raise it */
   .xh-hero-sub{background:rgba(8,26,46,.72)}

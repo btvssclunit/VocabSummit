@@ -9,7 +9,11 @@
    four streams depend on. The TTS stack is COPIED from app.js rather than
    shared, for the same reason.
 
-   ⚠️ SCOPE IS 100 WORDS in SIX 组别 (data/xh_v3.json), updated 2026-08-16. It was
+   ⚠️ SCOPE IS 149 WORDS in EIGHT 组别 (data/xh_v3.json), 2026-08-16 晚: 整鸡 was
+   folded into 鸡肉 (owner: one idea, one word, right across the pier) and its art
+   retired to archived_art/. Its only sentence, scene_market-4, became a 鸡肉 line.
+   The paragraph below is the earlier history and its numbers are that history's.
+   ⚠️ It was 100 WORDS in SIX 组别 for part of the same day, and before that
    36 for one day: the original 142-word extraction used a proximity merge on
    sheets 07/09/10 that joined the wrong pairs, so every assignment after the merge
    point shifted by one and 36 sprites showed the wrong word. Everything that had
@@ -69,10 +73,12 @@
        with localStorage.getItem("ws_xh").
        stats[词语] = { shown, wrong, confused: { chosenWord: n } } */
     if (!s.stats || typeof s.stats !== "object") s.stats = {};
-    /* 连线 difficulty = how many pairs are on the board at once (owner 2026-08-15).
-       The allowed values are MATCH_SIZES, but they are NOT referenced here: load()
-       runs at module init, long before that var is assigned, so touching it would
-       throw on every boot. */
+    /* ⚠️ SUPERSEDED BY store.diff AND NO LONGER READ ANYWHERE (2026-08-16 晚,
+       HANDOFF §3.1). matchN / optsN / sortExtra / buildExtra were four independent
+       difficulty dials; 连线's board size now comes from DIFF_MATCH. They are still
+       normalised and stored because they are the only surviving record of what each
+       student had chosen, and reversing §3 without them would reset everyone.
+       ⚠️ Do NOT read them. Two live difficulty models is the failure mode. */
     if (s.matchN !== 3 && s.matchN !== 5 && s.matchN !== 8) s.matchN = 5;
     /* 学习范围 + the two-button 学词/闯关 split (owner 2026-08-16), mirroring the
        mountain's ①复习范围 ②选择学习方式 ③cards. scope is a list of 组别; an empty
@@ -82,6 +88,19 @@
     /* ⚠️ literals, NOT ROUND_SIZES/OPT_TIERS — same trap the 连线 line above warns
        about: this normaliser runs at module init, before those vars are assigned. */
     if (s.roundN !== 5 && s.roundN !== 10 && s.roundN !== 15 && s.roundN !== 20) s.roundN = 5;
+    /* ③难度 — the ONE dial (HANDOFF §3.1). ⚠️ Derived HERE, above optsN's own
+       normaliser, because it needs to know whether the student ever HAD an option
+       count: a returning profile carries 2/3/4 and maps straight onto 简单/中等/挑战,
+       while a fresh one has nothing and must not inherit the old default of 4 — that
+       would open a beginner's very first 连线 board at 8 pairs, which is the setting
+       the old default of 5 deliberately was not. New students start at 中等.
+       ⚠️ The three superseded dials (optsN, matchN, sortExtra) are still normalised
+       and stored below and are simply never read. They are the only record of what a
+       student had if this ever needs reversing, and they cost nothing.
+       ⚠️ literals, not DIFFS/DIFF_OPTS: load() runs before those exist. */
+    if ([1, 2, 3].indexOf(s.diff) === -1) {
+      s.diff = s.optsN === 2 ? 1 : s.optsN === 4 ? 3 : 2;
+    }
     if (s.optsN !== 2 && s.optsN !== 3 && s.optsN !== 4) s.optsN = 4;
     if (s.tab !== "play") s.tab = "learn";
     /* which of the four 词语挑战 question types was used last. It is remembered
@@ -98,9 +117,9 @@
        quizMode is separate from mode: the two containers must not overwrite each
        other's last-used type. */
     if (["phrase", "sort"].indexOf(s.useMode) === -1) s.useMode = "phrase";
-    /* 重整句子 拼块盘总块数。⚠️ 自己的常量，不复用 OPT_TIERS（那是「屏幕上几个选项」，
-       语义不同），仿 MATCH_SIZES 的先例。最低档 0 表示「刚好够，没有干扰词」。 */
+    /* ⚠️ 同样已被 store.diff 取代、不再有任何地方读取（见上）。留着只为留档。 */
     if ([0, 2, 4, 6].indexOf(s.sortExtra) === -1) s.sortExtra = 2;
+    if ([1, 2, 4].indexOf(s.buildExtra) === -1) s.buildExtra = 2;
     /* 闪卡 的两面（owner 2026-08-16 晚）：词语卡 走 xh_v3 的 150 个词，
        句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
        读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
@@ -222,9 +241,18 @@
     "船只 · 一艘一艘往上换": "chuán zhī · yī sōu yī sōu wǎng shàng huàn",
     "回海滩": "huí hǎi tān", "贝壳": "bèi ké", "海里": "hǎi lǐ",
     "航程": "háng chéng", "一次答对": "yī cì dá duì", "集齐的组": "jí qí de zǔ",
-    "返回": "fǎn huí", "关闭": "guān bì",
+    /* ⚠️ 返回 is KEPT even though setBack() no longer emits it — nothing else may,
+       but deleting a key is how a label silently loses its 拼音 later (§10). */
+    "返回": "fǎn huí", "回码头": "huí mǎ tóu", "关闭": "guān bì",
+    "意见反馈": "yì jiàn fǎn kuì",
     "看图识词": "kàn tú shí cí", "听音识图": "tīng yīn shí tú",
     "词海垂钓": "cí hǎi chuí diào", "连线": "lián xiàn",
+    "组字成词": "zǔ zì chéng cí", "多几个干扰字": "duō jǐ gè gān rǎo zì",
+    "难度": "nán dù",
+    /* ⚠️ 多几块干扰词 shipped with 重整句子 and has been missing from this table ever
+       since — xhPy() returns "" for an absent key, so the 拼音 under that one slider
+       heading has simply never been there and nothing said so (§10). */
+    "多几块干扰词": "duō jǐ kuài gān rǎo cí",
     "再听一次": "zài tīng yī cì", "收线": "shōu xiàn", "检查答案": "jiǎn chá dá àn",
     "上一个": "shàng yī gè", "下一个": "xià yī gè", "学完了": "xué wán le",
     "开始测验": "kāi shǐ cè yàn", "再来一次": "zài lái yī cì",
@@ -284,13 +312,17 @@
     var el = document.getElementById("xhTools");
     if (!el) return;
     var nick = profileOf().nickname || "我的档案";
+    /* ⚠️ ORDER MATTERS AND IT IS 中EN THEN 拼拼音 — the same order app.js emits
+       (setTopbar: enToggleHtml() then pyToggleHtml()). The pier had them the other
+       way round, so a student crossing from a mountain to the pier found the two
+       pills swapped under the same finger. Nothing else about them differs. */
     el.innerHTML =
-      '<button class="xh-tg' + (store.py ? " on" : "") + '" id="xhTgPy" ' +
-        'aria-pressed="' + (store.py ? "true" : "false") + '" title="拼音">' +
-        '<span class="xh-tg-ic">拼</span><span class="xh-tg-lab">拼音</span></button>' +
       '<button class="xh-tg' + (store.en ? " on" : "") + '" id="xhTgEn" ' +
         'aria-pressed="' + (store.en ? "true" : "false") + '" title="English">' +
         '<span class="xh-tg-ic">中</span><span class="xh-tg-lab">EN</span></button>' +
+      '<button class="xh-tg' + (store.py ? " on" : "") + '" id="xhTgPy" ' +
+        'aria-pressed="' + (store.py ? "true" : "false") + '" title="拼音">' +
+        '<span class="xh-tg-ic">拼</span><span class="xh-tg-lab">拼音</span></button>' +
       '<button class="xh-tg" id="xhTgFind" title="查词语" aria-label="查词语">' +
         '<span class="xh-tg-ic">🔎</span><span class="xh-tg-lab">查词</span></button>' +
       '<button class="xh-prof" id="xhProf" title="我的档案" aria-label="我的档案">' +
@@ -333,6 +365,49 @@
       onChanged: renderTop                // nickname / avatar may have changed
     });
   }
+
+  /* ---------- 意见反馈 floating button (owner 2026-08-16 晚) ----------
+     ⚠️ The pier shipped with NO way to report anything. Every mountain screen has
+     had this corner button since 2026-08-14 (app.js ensureFab); the pier was simply
+     never given one, so its students — the weakest readers on the platform, the
+     ones most likely to hit a word they cannot make sense of — had to find a teacher
+     to say so. Same button, same panel, same quota; profile.js is already loaded here.
+     ⚠️ It is NOT hidden on any pier screen, unlike the mountain's, which disappears
+     during 词雨灵露 and 攀山竞速. Nothing on the pier is timed: 词海垂钓's catch rises
+     on answers, not on a clock, so a stray tap costs a student nothing.
+     ⚠️ When 踏浪竞速 lands it will be the pier's first paced mode — hide it there. */
+  var _fabEl = null;
+  function ensureFab() {
+    if (_fabEl && _fabEl.isConnected) return _fabEl;
+    _fabEl = document.createElement("button");
+    _fabEl.className = "fb-fab";
+    _fabEl.id = "xhFbFab";
+    _fabEl.title = "意见反馈 · 报错";
+    _fabEl.setAttribute("aria-label", "意见反馈");
+    /* ⚠️ the label is glossed, like every other pier control — the mountain's is
+       bare 反馈 because its students can read it. */
+    _fabEl.innerHTML = '<span class="fb-fab-icon">💬</span>' +
+      '<span class="fb-fab-txt">反馈' + xhPy("意见反馈") +
+      '<span class="xh-en">tell us</span></span>';
+    _fabEl.onclick = function () {
+      if (window.WSProfile && window.WSProfile.openFeedback) window.WSProfile.openFeedback();
+    };
+    document.body.appendChild(_fabEl);
+    return _fabEl;
+  }
+  /* what the student is looking at right now, read by profile.js when a ticket is
+     opened. ⚠️ Derived from `state` at call time rather than pushed on every render:
+     the pier draws from two different shapes (a word row, a sentence row) and a
+     setter at each render site is a line that gets forgotten on the next new mode. */
+  window.WS_FEEDBACK_CTX = function () {
+    try {
+      if (!state || !state.seq) return null;
+      var cur = state.seq[state.i];
+      if (!cur) return null;
+      return { mode: (modeById(state.mode) || {}).zh || "",
+               word: cur.词语 || cur.ask || cur.zh || "", id: cur.id || "" };
+    } catch (e) { return null; }
+  };
 
   /* ---------- audio ----------
      Chinese only, and hanzi only — never pass 拼音 to the engine, it is read as
@@ -522,9 +597,42 @@
      nine places with no gloss at all — the single most-used control on the pier and
      the one a zero-Chinese beginner is least able to read. Add new screens through
      this, never by copying the markup again. */
-  function quitBtn() {
-    return '<button class="xh-quit" id="xhQuit">‹ 返回' + xhPy("返回") +
-      '<span class="xh-en">back</span></button>';
+  /* ⚠️ RETURNS NOTHING NOW (owner 2026-08-16 晚). The pier used to carry TWO back
+     controls at once — 「← 海图」 in the topbar and this 「‹ 返回」 in the round bar —
+     while a mountain has exactly ONE, in the topbar, whose destination depends on
+     where you are (app.js setTopbar: 「landing」 at the stream home, renderHome
+     inside a mode). Two backs in two places going to two different destinations is
+     the discrepancy the owner reported.
+     ⚠️ The function is KEPT rather than deleted from its ~15 call sites: those sites
+     are correct — they mark「this screen can be left」— and they now do it by calling
+     wireQuit(), which points the ONE control at renderMenu. Deleting it would be a
+     15-file-region edit for no behaviour. Add new screens through it exactly as
+     before. */
+  function quitBtn() { return ""; }
+  /* the topbar back button, contextual — the pier's half of setTopbar(backTo).
+     ⚠️ It stays an <a href="index.html"> in the markup so that with JS broken it
+     still degrades to the sea map rather than to a dead control. */
+  var _backFn = null;
+  function setBack(fn) {
+    _backFn = fn || null;
+    var a = document.querySelector(".xh-back");
+    if (!a) return;
+    /* ⚠️ 回码头, not 返回 (owner asked what the pier's word should be, 2026-08-16 晚).
+       What makes the mountain's 「‹ 回营地」 readable is that it NAMES THE PLACE you
+       land in; 返回 tells a beginner only that something reverses. The pier's home
+       base is the 码头 front page, so it says 回码头 — and the two lands then read as
+       one platform with one idea in two costumes.
+       ⚠️ The mountain's topbar chevron carries no label at all and 回营地 lives on an
+       in-content button. The pier keeps the label because its students are the ones
+       who need every control glossed; that difference is deliberate, not drift. */
+    a.innerHTML = _backFn
+      ? "‹ 回码头" + xhPy("回码头") + '<span class="xh-en">back to the pier</span>'
+      : '← 海图<span class="xh-py xh-uipy">hǎi tú</span><span class="xh-en">sea map</span>';
+    a.onclick = function (e) {
+      if (!_backFn) return;               // let the href take it to the sea map
+      e.preventDefault();
+      _backFn();
+    };
   }
 
   /* ⚠️ 组别 / 子类 are DATA, so their English lives here rather than in XH_PY,
@@ -617,8 +725,7 @@
      group can never ask for more distractors than it has (the 组别 rule stands —
      they always come from the answer's own group, never from another). */
   function optCount() {
-    var n = store.optsN || 4;
-    return Math.max(2, Math.min(n, 4));
+    return DIFF_OPTS[diffIx()];
   }
   /* ⚠️ `mode` is optional and defaults to the current round's: in 看图识词 /
      听音识图 the options ARE pictures, so a pictureless distractor renders as an
@@ -722,6 +829,49 @@
      by having an empty 图档 — do not add a second mechanism. */
   function hasPic(w) { return !!(w && w.图档); }
   function modeNeedsPic(mode) { return mode === "pic" || mode === "listen"; }
+  /* ---------- 组字成词 (HANDOFF_XH_踏浪竞速 §2) ----------
+     ⚠️ §2.5, AND IT IS THE SAME LOCKED RULE AS EVERY OTHER MODE HERE: decoy
+     characters come from OTHER WORDS IN THE SAME 组别, never from another group.
+     Difficulty scales how MANY there are, never how far away they are — a 挑战 round
+     is a longer board, not a trick.
+     ⚠️ Single-character words are drawn on too: 鱼 contributes 鱼 to 食物's letter
+     pool even though it can never be the answer itself. It is a character bank, and
+     excluding them would thin it for no reason.
+     ⚠️ Characters already IN the target are excluded. A fifth 妈 on the board is not
+     a harder puzzle, it is a board where two different tiles are both right and the
+     student cannot tell why. */
+  function buildDecoys(w) {
+    var have = {}, out = [];
+    String(w.词语).split("").forEach(function (c) { have[c] = 1; });
+    WORDS.forEach(function (o) {
+      if (o.组别 !== w.组别 || o.词语 === w.词语) return;
+      String(o.词语).split("").forEach(function (c) {
+        if (!have[c]) { have[c] = 1; out.push(c); }
+      });
+    });
+    return out;
+  }
+  function buildable(w) { return String(w.词语).length >= 2 && buildDecoys(w).length >= 1; }
+  /* ⚠️ EVERY TILE IS AN OBJECT WITH ITS OWN INDEX, BUILT FROM split("") — never from
+     a Set and never through anything that de-duplicates (§2.3). 妈妈 · 爸爸 · 星星 ·
+     谢谢 · 弟弟 · 姐姐 · 哥哥 · 妹妹 are all in reach here, and a de-duplicating build
+     leaves them unsolvable: one tile, two slots.
+     ⚠️ Validation compares the assembled CHARACTER SEQUENCE against the word, so two
+     tiles bearing the same character are freely interchangeable — which is correct,
+     and falls out of comparing strings rather than indices.
+     (The same shape as sortTiles one screen up. §2.3 warns this is「the exact bug
+     already flagged in 词山's 组词挑战」— it is not: that one was checked over 60
+     rounds and 20 repeated-character words on 2026-08-16 and does the right thing.
+     The rule is still right; only its premise was stale.) */
+  function buildTiles(w) {
+    var chars = String(w.词语).split("");
+    var tiles = chars.map(function (c, i) { return { i: i, t: c }; });
+    var extra = DIFF_BUILD[diffIx()];
+    shuffle(buildDecoys(w)).slice(0, extra).forEach(function (c, k) {
+      tiles.push({ i: chars.length + k, t: c, decoy: true });
+    });
+    return shuffle(tiles);
+  }
   /* the pool a given mode may draw from, answers AND distractors alike */
   function poolForMode(pool, mode) {
     /* ⚠️ 传声筒 draws from the SENTENCE library, not the word list, so a scope can
@@ -733,6 +883,10 @@
       phrasesFor(pool, mode).forEach(function (p) { ok[p.ask] = 1; });
       return pool.filter(function (w) { return ok[w.词语]; });
     }
+    /* ⚠️ §2.4's filter lives HERE and nowhere else, so it narrows the round pool AND
+       the replay list AND the door's grey-out test in one place. 数字 is 14 words of
+       one character each, so this empties it and the tile says why. */
+    if (mode === "build") return pool.filter(buildable);
     return modeNeedsPic(mode) ? pool.filter(hasPic) : pool;
   }
 
@@ -864,7 +1018,15 @@
        and the mode greys itself out rather than failing on 出发. */
     { id: "sort", icon: "🧩", zh: "重整句子", en: "Put the words in order", learn: true },
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
-    { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
+    { id: "match", icon: "🪢", zh: "连线", en: "Match them up" },
+    /* 组字成词 (HANDOFF_XH_踏浪竞速 §2) — 重整句子's gesture one level DOWN: that one
+       taps out the WORDS of a sentence, this taps out the CHARACTERS of a word. Third
+       screen in the platform to use it, after the mountain's 组词挑战, and the layout
+       is copied from 重整句子 on purpose — one gesture, learned once.
+       ⚠️ ≥2 CHARACTERS ONLY, and that is a real filter here rather than a formality:
+       49 of the pier's 149 words are single characters and the whole of 数字 is, so
+       the mode greys itself out for that group instead of opening onto one tile. */
+    { id: "build", icon: "🧱", zh: "组字成词", en: "Build the word" }
   ];
   /* ---------- ③ 的入口 (owner 2026-08-16 evening) ----------
      The tiles on the front page. ⚠️ They are NOT the same list as MODES: 词语挑战
@@ -884,7 +1046,13 @@
     { k: "use", icon: "💬", zh: "学以致用", en: "Put it to use", learn: true,
       sub: "看句选词 · 重整句子", subEn: "sentences, not single words" },
     { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false },
-    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false }
+    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false },
+    /* ⚠️ A FULL 泊位, not a question type tucked behind another door (§2.1). It sits
+       with 词海垂钓 and 连线 because those are the two that are really games, and
+       because deriving the 闯关 题型 list from the berth list then needs no special
+       case for it. */
+    { k: "build", icon: "🧱", zh: "组字成词", en: "Build the word from its characters",
+      learn: false, naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" }
   ];
   /* which store slot remembers the last type used behind a multi-type door.
      ⚠️ One slot per door: quizMode and useMode must never overwrite each other. */
@@ -923,7 +1091,12 @@
         (ok
           ? (e.sub ? '<span class="xh-mode-sub">' + e.sub +
                      '<span class="xh-en">' + e.subEn + "</span></span>" : "")
-          : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+          /* ⚠️ the reason is PER DOOR. It was hardcoded to「这组没有图片」, which is true
+             of 词语挑战 and 学以致用 and false of 组字成词 — that one greys out because
+             the scope holds nothing longer than one character, and telling a student
+             to go find pictures would send them looking for the wrong thing. */
+          : '<span class="xh-mode-na">' + (e.naZh || "这组没有图片") +
+            '<span class="xh-en">' + (e.naEn || "no pictures") + "</span></span>") +
         "</button>";
     }).join("");
   }
@@ -935,17 +1108,55 @@
     return MODES[0];
   }
   var ROUND_SIZES = [5, 10, 15, 20];       // ②每次题数
-  var OPT_TIERS = [2, 3, 4];               // ③挑战难度 — options on screen
-  function optTierLabel(n) {
-    return (n === 2 ? "⭐ " : n === 3 ? "⭐⭐ " : "⭐⭐⭐ ") + n + " 个选项";
+  /* ---------- ③难度 — ONE setting for every 闯关 题型 (HANDOFF §3.1) ----------
+     ⚠️ 1/2/3 = 简单/中等/挑战, and it is DELIBERATELY the only difficulty control the
+     pier has. It replaced four separate dials, each with its own units — 选项 2/3/4,
+     连线 3/5/8 组, 重整句子 +0/2/4/6, 组字成词 +1/2/4 — which meant a student who set
+     「hard」 in one mode met「normal」in the next and had no way to know why.
+     ⚠️ THE NUMBERS BELOW ARE THE OWNER'S, NOT §3.2's (owner 2026-08-16 晚, asked
+     directly). §3.2 proposes 连线 3/4/5 and 选项 3/4/6; those were tuned on real
+     boards and 连线's 8-pair board is its whole top end, so the STRUCTURE comes from
+     the handoff and the VALUES stay as they were. The one casualty is 重整句子's +6
+     step, which has no fourth 难度 to live on.
+     ⚠️ Every row is indexed [简单, 中等, 挑战] in that order. Adding a step means
+     adding it to every row here and nowhere else. */
+  var DIFFS = [1, 2, 3];
+  var DIFF_OPTS  = [2, 3, 4];   // 看图识词 / 听音识图 / 英文选词 / 看句选词 — options on screen
+  var DIFF_MATCH = [3, 5, 8];   // 连线 — pairs on the board
+  var DIFF_SORT  = [0, 2, 4];   // 重整句子 — extra word tiles
+  var DIFF_BUILD = [1, 2, 4];   // 组字成词 — extra characters
+  function diffIx() { return Math.max(0, Math.min((store.diff || 2) - 1, 2)); }
+  function diffLabel(n) {
+    return n === 1 ? "⭐ 简单" : n === 2 ? "⭐⭐ 中等" : "⭐⭐⭐ 挑战";
   }
-  var MATCH_SIZES = [3, 5, 8];   // 连线 difficulty: pairs on the board at once
-  /* 重整句子 difficulty: how many DECOY word tiles join the sentence's own blocks.
-     ⚠️ 0 is a real setting, not a placeholder — see the note at its slider. */
-  var SORT_EXTRAS = [0, 2, 4, 6];
-  function sortExtraLabel(n) {
-    return n === 0 ? "刚好够 · 没有干扰词" : "+" + n + " 块 · " + (n === 2 ? "容易" : n === 4 ? "普通" : "有挑战");
+  /* ⚠️ The slider says 简单/中等/挑战 and this line says what that BUYS in the mode
+     you are about to play. Three abstract steps with no stated effect is the reason
+     the mountain's 字块数量 was rewritten (§18f): a difficulty control the student
+     cannot verify against the screen is a control they stop trusting. */
+  function diffMeans(id) {
+    var i = diffIx();
+    if (id === "match") return "这一档：一次连 " + DIFF_MATCH[i] + " 组。";
+    if (id === "sort")  return "这一档：多 " + DIFF_SORT[i] + " 块干扰词。";
+    if (id === "build") return "这一档：多 " + DIFF_BUILD[i] + " 个干扰字。";
+    if (id === "type")  return "这一档：答对的贝壳多一些，题目一样。";
+    return "这一档：每题 " + DIFF_OPTS[i] + " 个选项。";
   }
+  function diffMeansEn(id) {
+    var i = diffIx();
+    if (id === "match") return DIFF_MATCH[i] + " pairs on the board.";
+    if (id === "sort")  return DIFF_SORT[i] + " extra word tiles in the tray.";
+    if (id === "build") return DIFF_BUILD[i] + " extra characters in the tray.";
+    if (id === "type")  return "Same questions, more 贝壳 for getting them right.";
+    return DIFF_OPTS[i] + " choices per question.";
+  }
+  /* ⚠️ OPT_TIERS / MATCH_SIZES / SORT_EXTRAS / BUILD_EXTRAS AND THEIR LABEL FUNCTIONS
+     ARE GONE (2026-08-16 晚). Four constants, four sliders, four sets of units — all
+     of it now lives in the DIFF_* rows above. They are deleted rather than left
+     unreferenced on purpose: a stray `SORT_EXTRAS` still sitting here is exactly what
+     the next change would reach for, and then two difficulty models would be live at
+     once. The old store fields survive (see load()); the old CONTROLS do not.
+     ⚠️ 重整句子's +6 step went with them. It has no fourth 难度 to sit on, and the
+     owner chose keeping the ranges honest over keeping every step. */
 
   /* 动线编号 — the same gold numerals app.js puts on multi-step decision flows.
      Numbering restarts per screen, and optional settings are never numbered. */
@@ -973,6 +1184,7 @@
   /* ---------- menu ---------- */
   function renderMenu() {
     state = null;
+    setBack(null);                          // pier front page: back = the sea map
     view().classList.add("two-col");        // the ONLY screen laid out in two columns
     /* PATCH_liquid_glass listed five structural gaps behind「it looks boring」,
        measured against the G2 arena screen. Four are here: a HERO CARD with art
@@ -1219,9 +1431,13 @@
     save();
     var cur = modeById(store.mode);
 
-    var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">' + esc(ent.zh) + '</span></div>';
-    h += '<div class="xh-board xh-cfg">';
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
+    var h = '<div class="xh-board xh-cfg">';
     h += '<div class="xh-berth-title">' + ent.icon + " " + ent.zh + xhPy(ent.zh) +
       '<span class="xh-en">' + ent.en + '</span></div>';
     h += '<div class="xh-cfg-scope">范围：' + esc(scopeLabel()) + " · " + pool.length + " 词" +
@@ -1315,33 +1531,29 @@
       }
     }
 
-    if (kind === "match") {
-      h += sec("一次连几组", "pairs on the board") +
-        qtySlider("xhMatchN", MATCH_SIZES, store.matchN, function (n) {
-          return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
-        });
-    } else if (kind !== "cards") {
-      h += sec("每次题数", "questions per round") +
-        qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
-      if (cur.opts) {
-        h += sec("挑战难度", "how many choices") +
-          qtySlider("xhOptsN", OPT_TIERS, store.optsN, optTierLabel);
+    /* ---------- ③难度 — ONE ROW, ALWAYS THE SAME ROW (HANDOFF §3.1) ----------
+       ⚠️ 「One persistent row, never conditionally shown or hidden」 is the point of
+       it, so it appears on every screen that runs questions, in the same place, with
+       the same three steps. What it MEANS per 题型 lives in DIFF_* and is spelled out
+       under the slider rather than in a different control per mode.
+       ⚠️ 词语闪卡 is the exception §3.2 allows for: it asks nothing, so it has no
+       difficulty axis and shows neither this row nor 每次题数.
+       ⚠️ 连线 shows no 每次题数 — its board size IS its round — so 难度 is the only
+       thing it asks. */
+    if (kind !== "cards") {
+      if (kind !== "match") {
+        h += sec("每次题数", "questions per round") +
+          qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
       }
-      /* 重整句子's difficulty is how many EXTRA word tiles sit in the tray, the same
-         shape as the mountain's 字块数量. ⚠️ Its own constant, never OPT_TIERS: that
-         one means「how many options are on screen」and the two would drift.
-         ⚠️ The lowest step really is 0 — exactly enough tiles, no decoys. PATCH_02 §0
-         still rules: the dock takes more exposure over more difficulty, and a
-         zero-start beginner ordering eight Chinese words is already the hard part. */
-      if (cur.id === "sort") {
-        h += sec("多几块干扰词", "extra word tiles") +
-          qtySlider("xhSortX", SORT_EXTRAS, store.sortExtra, sortExtraLabel);
-      }
+      h += sec("难度", "how hard") +
+        qtySlider("xhDiff", DIFFS, store.diff, diffLabel) +
+        '<div class="xh-cfg-note">' + diffMeans(cur.id) +
+        '<span class="xh-en">' + diffMeansEn(cur.id) + "</span></div>";
     }
 
-    /* ONE action. The 返回 in the round bar above already goes back to the dock, and
-       a second back button beside 出发 is the same redundancy the owner cut from the
-       menu (2026-08-16). */
+    /* ONE action. The topbar's 回码头 already leaves this screen, and a second back
+       button beside 出发 is the same redundancy the owner cut from the menu
+       (2026-08-16). */
     h += '<div class="xh-cfg-acts">' +
       '<button class="xh-go" id="xhGoRound">出发 ›' + xhPy("出发") +
       '<span class="xh-en">start</span></button></div></div>';
@@ -1366,11 +1578,12 @@
     });
     wireQtySlider("xhRoundN", ROUND_SIZES, function (n) { return n + " 题"; },
       function (n) { store.roundN = n; save(); });
-    wireQtySlider("xhMatchN", MATCH_SIZES, function (n) {
-      return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
-    }, function (n) { store.matchN = n; save(); });
-    wireQtySlider("xhOptsN", OPT_TIERS, optTierLabel, function (n) { store.optsN = n; save(); });
-    wireQtySlider("xhSortX", SORT_EXTRAS, sortExtraLabel, function (n) { store.sortExtra = n; save(); });
+    /* ⚠️ re-renders instead of just saving: the note under the slider spells out what
+       this step means for THIS mode («一次连 5 组»), so it has to be redrawn with it.
+       Every other slider here only changes a number nothing else displays. */
+    wireQtySlider("xhDiff", DIFFS, diffLabel, function (n) {
+      store.diff = n; save(); renderModeConfig(kind);
+    });
     document.getElementById("xhGoRound").onclick = function () {
       if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
       startRound(scopeLabel());
@@ -1475,10 +1688,13 @@
     state = null;
     var met = sailStats().met;
     var got = SAIL_BADGES.filter(sailBadgeGot).length;
-    var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">航海徽章' + xhPy("航海徽章") +
-      '<span class="xh-en">badges</span></span></div>';
-    h += '<div class="xh-board"><div class="beach-head">' +
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
+    var h = '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🎖️ 航海徽章' + xhPy("航海徽章") +
       '<span class="xh-en">Your badges</span></div>' +
       '<span class="beach-purse"><b>' + got + '</b> / ' + SAIL_BADGES.length + '</span></div>' +
@@ -1618,9 +1834,13 @@
   function renderBeach() {
     view().classList.remove("two-col");
     state = null;
-    var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">我的海滩' + xhPy("我的海滩") + '<span class="xh-en">your berth</span></span></div>';
-    h += '<div class="xh-board"><div class="beach-head">' +
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
+    var h = '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🏖️ 我的海滩' + xhPy("我的海滩") + '<span class="xh-en">Your berth</span></div>' +
       '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
       '<span class="xh-en">shells</span></span></div>';
@@ -1642,9 +1862,13 @@
   function renderBeachShop() {
     view().classList.remove("two-col");
     state = null;
-    var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">海滩小铺' + xhPy("海滩小铺") + '<span class="xh-en">the shop</span></span></div>';
-    h += '<div class="xh-board"><div class="beach-head">' +
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
+    var h = '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🛒 海滩小铺' + xhPy("海滩小铺") + '<span class="xh-en">Beach shop</span></div>' +
       '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
       '<span class="xh-en">shells</span></span></div>' +
@@ -1819,9 +2043,13 @@
     var sailed = WORDS.filter(function (w) { return store.done[w.词语]; }).length;
     var got = cur.words.filter(function (w) { return store.done[w.词语]; }).length;
 
-    var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">我的词语表' + xhPy("我的词语表") + '<span class="xh-en">word list</span></span></div>' +
-      '<div class="xh-board"><div class="xh-log-head">' +
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
+    var h = '<div class="xh-board"><div class="xh-log-head">' +
       '<div class="xh-berth-title">📋 我的词语表' + xhPy("我的词语表") + '<span class="xh-en">Your word list</span></div>' +
       '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" + xhPy("海里") +
       '<span class="xh-en">words met</span></span></div>' +
@@ -1922,8 +2150,12 @@
         zh + '<span class="xh-en">' + en + "</span></button>";
     }
     view().innerHTML =
-      '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">码头风云榜' + xhPy("码头风云榜") + '<span class="xh-en">the boards</span></span></div>' +
+    /* ⚠️ NO 回合条 HERE (owner 2026-08-16 晚). It used to hold 「‹ 返回」 plus a
+       tag naming this screen; the back moved to the topbar, and the tag was
+       already the panel's own title one line further down — the same words
+       twice, with an empty strip above them. Screens that KEEP the bar are the
+       ones whose bar carries something else: the jetty progress, or 连线's
+       scope + pair count. */
       '<div class="xh-board"><div class="xh-sec">🏆 码头风云榜' + xhPy("码头风云榜") +
       '<span class="xh-en">the dock boards</span></div>' +
       '<div class="xh-lb-tabs">' + tabBtn("sailed", "识词数", "words met") +
@@ -2054,7 +2286,9 @@
          ⚠️ THE DISTRACTOR POOL IS UNTOUCHED — distractors() still draws from the
          answer's whole 组别. Narrowing them to the 子类 would turn a fruit question
          into a fruit-only quiz and defeat the point (§6, and PATCH_category_hierarchy). */
-      var need = mode === "match" ? (store.matchN || 5) : (store.roundN || ROUND_N);
+      /* ⚠️ 连线's round size IS its difficulty — the board is the round — so it reads
+         the 难度 dial where every other mode reads 每次题数. */
+      var need = mode === "match" ? DIFF_MATCH[diffIx()] : (store.roundN || ROUND_N);
       /* ⚠️ 传声筒's sequence is SENTENCES, not words — everything below (子类
          theming, sprite prewarm) is about words and does not apply. Return early
          with the same state shape so render()/jetty()/renderResult() need no
@@ -2156,15 +2390,17 @@
     if (state.i >= state.seq.length) return renderResult();
     if (state.mode === "phrase") return renderPhrase();
     if (state.mode === "sort") return renderSort();
+    if (state.mode === "build") return renderBuild();
     if (state.mode === "enmcq") return renderEnMcq();
     if (state.mode === "listen") return renderListen();
     if (state.mode === "type") return renderType();
     if (state.mode === "match") return renderMatch();
     return renderPic();
   }
-  function wireQuit() {
-    document.getElementById("xhQuit").onclick = renderMenu;
-  }
+  /* ⚠️ Name kept, meaning unchanged: 「leaving this screen goes back to the pier's
+     front page」. Only the control it wires moved, from a button inside the round
+     bar to the one in the topbar. */
+  function wireQuit() { setBack(renderMenu); }
   function advance(ms) {
     setTimeout(function () { state.i++; render(); }, ms || 1150);
   }
@@ -2238,7 +2474,12 @@
      question must appear here explicitly; when a mode is added, add both rows.
      3 for 看句选词 (recognition, but inside a sentence — same tier as 听音识图) and
      4 for 重整句子 (production, same tier as 词海垂钓). */
-  var SAIL_PTS = { pic: 2, enmcq: 2, listen: 3, match: 3, type: 4, phrase: 3, sort: 4, learn: 0 };
+  /* ⚠️ `build` is 4 / 2 — PRODUCTION, the same tier as 词海垂钓 and 重整句子, and §2.6
+     names the 贝壳 rate explicitly. Added to BOTH tables in the same edit: the note
+     above is there because 看句选词 shipped missing from both and paid nothing for
+     days without erroring. */
+  var SAIL_PTS = { pic: 2, enmcq: 2, listen: 3, match: 3, type: 4, phrase: 3, sort: 4,
+                   build: 4, learn: 0 };
   function awardSail(mode, firstTry) {
     var base = SAIL_PTS[mode] || 0;
     if (!base) return 0;                      // 看图学词 asks nothing, so earns nothing
@@ -2257,11 +2498,23 @@
      match it — the two now share the 学以致用 card but they are two SEPARATE cards
      with no mid-round switch, so a student cannot pick the cheaper one and hop.
      ⚠️ If a mid-round switch is ever added, the two rates must be merged FIRST. */
-  var SHELL_PTS = { pic: 1, enmcq: 1, listen: 1, match: 1, type: 2, phrase: 1, sort: 2, learn: 0 };
+  var SHELL_PTS = { pic: 1, enmcq: 1, listen: 1, match: 1, type: 2, phrase: 1, sort: 2,
+                    build: 2, learn: 0 };
+  /* ⚠️ ③难度 PAYS IN 贝壳 AND ONLY IN 贝壳 (HANDOFF §3.3). ×1 / ×1.5 / ×2, rounded
+     down. It deliberately does NOT touch 航程 or 航海值:
+       · 航程 is「do you know this word」, and a word answered on 简单 is known exactly
+         as well as one answered on 挑战 (§4.1). Scaling mastery by difficulty would
+         quietly penalise the beginners this whole tier exists for.
+       · currency is where reaching further should be rewarded, so it goes here.
+     ⚠️ Applied AFTER the not-first-try halving, so a corrected answer on 挑战 still
+     beats a first-try answer on 简单 at the same base — which is the right ordering:
+     the harder board was harder either way. */
+  var DIFF_SHELL_MULT = [1, 1.5, 2];
   function awardShells(mode, firstTry) {
     var base = SHELL_PTS[mode] || 0;
     if (!base) return 0;
     var n = firstTry ? base : Math.max(1, Math.round(base * 0.5));
+    n = Math.max(1, Math.floor(n * DIFF_SHELL_MULT[diffIx()]));
     store.shells += n;
     return n;
   }
@@ -2420,6 +2673,7 @@
       '<button class="xh-btn ghost" id="xhAgain">再看一次</button>' +
       '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
+    wireQuit();                    // same reason as renderResult
     document.getElementById("xhTest").onclick = function () {
       startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
     };
@@ -2499,6 +2753,11 @@
     /* the blank keeps the measure word and everything else intact */
     return esc(p.zh).replace(esc(p.ask), '<span class="xh-blank">＿＿</span>');
   }
+  /* ⚠️ READS THE STEM, NEVER THE ANSWER (§8.7). The target is replaced by 「，」 —
+     a comma, so the engine leaves a pause exactly where the blank is — which is the
+     same trick app.js's speakCloze plays on 填空挑战's `__`. Handing p.zh straight to
+     speak() here would say the answer out loud before the student has picked. */
+  function speakStem(p) { speak(String(p.zh).replace(p.ask, "，")); }
   /* ---------- 重整句子 (HANDOFF_学以致用 §4–§5) ----------
      ⚠️ THE SAME GESTURE AS THE MOUNTAIN'S 组词挑战, ONE LEVEL UP: that one is「tap out
      the CHARACTERS of a word」, this is「tap out the WORDS of a sentence」. The layout
@@ -2519,7 +2778,7 @@
   function sortTiles(p) {
     /* [{i, t}] — `i` is identity, `t` is only what it says. */
     var tiles = p.seg.map(function (t, i) { return { i: i, t: t }; });
-    var extra = store.sortExtra || 0;
+    var extra = DIFF_SORT[diffIx()];
     if (extra) {
       /* ⚠️ DECOYS COME FROM THE ask WORD'S OWN 组别 — the one distractor rule the
          whole dock shares, no exceptions. They are whole WORDS, matching the tray's
@@ -2668,10 +2927,15 @@
         if (w && !p.tileOnly) noteRight(w, true);
         else sfxOk();
         document.getElementById("xhHint").innerHTML = "✅ " + esc(p.zh) +
+          '<button class="xh-ph-tts" id="xhSortSay" title="朗读句子" aria-label="朗读句子">🔊</button>' +
           (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
-        /* the sentence is read whole before the page turns — same floor/ceiling as
-           看句选词, which was tuned for exactly this length (§8.3). */
-        advanceAfterSpeech(p.zh, null, 1200, 5500);
+        /* ⚠️ Same change as 看句选词: no longer speech-gated (owner 2026-08-16 晚).
+           ⚠️ The 🔊 can only appear HERE, never on the question — this mode's whole
+           subject is word order, so reading the line aloud beforehand would hand over
+           the answer. The dwell is longer than 看句选词's because the student just
+           solved the line and this is the first time they see it whole. */
+        document.getElementById("xhSortSay").onclick = function () { speak(p.zh); };
+        setTimeout(function () { state.i++; render(); }, p.insight_en ? 3000 : 2200);
         return;
       }
       locked = i;
@@ -2687,6 +2951,128 @@
           '<span class="xh-en xh-always">First ' + locked + ' in place — keep going.</span>'
         : "第一块就要换一个，再想想。" +
           '<span class="xh-en xh-always">Start with a different word.</span>';
+    };
+    paint();
+  }
+
+  /* ---------- 组字成词 (HANDOFF_XH_踏浪竞速 §2) ----------
+     Tap the characters, in order, to build the word in the picture.
+     ⚠️ THE LAYOUT IS 重整句子's, DELIBERATELY. Slots on top, tray below, tap to place,
+     tap a slot to lift, prefix lock on check. A student who has met either mode knows
+     this one, and the pier is not the place to teach a second interaction.
+     ⚠️ NO SPEAKER BEFORE THE ANSWER (§8.7). The picture is the question and the word
+     is the answer, so a 🔊 anywhere on this screen would simply say it. Per-tile
+     speakers are no better: the four readings in order ARE the word. noteRight speaks
+     it once the board is solved, which is where it belongs. */
+  function renderBuild() {
+    var w = state.seq[state.i];
+    stat(w).shown++; save();
+    state.firstTry = true;
+    var target = String(w.词语);
+    /* the tray is drawn ONCE per question and cached, exactly as 重整句子 and the
+       mountain's 组词挑战 cache theirs: a re-render would re-roll the decoys, and the
+       word's own characters survive every roll — the 选项重洗＝泄题 trap (§14). */
+    var key = state.i + "|" + target;
+    if (state._buildKey !== key) { state._buildKey = key; state._buildTiles = buildTiles(w); }
+    var tiles = state._buildTiles;
+
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 组字成词</span></div>" +
+      '<div class="xh-board xh-stage xh-sort xh-build">' +
+      (hasPic(w) ? '<img class="xh-ph-pic" src="art/xh/' + esc(w.图档) + ASSET_V + '" alt="" ' +
+                   "onerror=\"this.style.display='none'\">" : "") +
+      /* ⚠️ the English goes through the GATE, unlike 重整句子's. There p.en IS the
+         prompt; here the picture is, so the gloss is a scaffold and a student who has
+         switched English off asked for it to be off. */
+      '<div class="xh-ph-en xh-en">' + esc(w.英文释义) + "</div>" +
+      '<div class="xh-slots" id="xhSlots">';
+    for (var s0 = 0; s0 < target.length; s0++) {
+      h += '<span class="xh-slot" data-k="' + s0 + '"></span>';
+    }
+    h += "</div>";
+    h += '<div class="xh-tray" id="xhTray">';
+    tiles.forEach(function (t) {
+      h += '<div class="xh-tilewrap"><button class="xh-tile-w" data-i="' + t.i + '">' +
+        esc(t.t) + "</button></div>";
+    });
+    h += "</div>" +
+      '<div class="xh-sort-acts">' +
+      '<button class="xh-btn" id="xhBuildGo">检查答案' + xhPy("检查答案") +
+      '<span class="xh-en">check</span></button></div>' +
+      '<div class="xh-hint" id="xhHint"></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+
+    var slots = [].slice.call(view().querySelectorAll(".xh-slot"));
+    var placed = [], locked = 0, done = false;
+    for (var s1 = 0; s1 < target.length; s1++) placed.push(null);
+
+    function tileById(i) {
+      for (var k = 0; k < tiles.length; k++) if (tiles[k].i === i) return tiles[k];
+      return null;
+    }
+    function paint() {
+      slots.forEach(function (s, k) {
+        var t = placed[k] === null ? null : tileById(placed[k]);
+        s.textContent = t ? t.t : "";
+        s.classList.toggle("filled", !!t);
+        s.classList.toggle("lock", k < locked);
+      });
+      tiles.forEach(function (t) {
+        var b = view().querySelector('.xh-tile-w[data-i="' + t.i + '"]');
+        if (b && b.parentNode) b.parentNode.classList.toggle("used", placed.indexOf(t.i) !== -1);
+      });
+      var go = document.getElementById("xhBuildGo");
+      if (go) go.disabled = placed.indexOf(null) !== -1;
+    }
+    function place(i) {
+      if (done || placed.indexOf(i) !== -1) return;
+      for (var k = locked; k < placed.length; k++) {
+        if (placed[k] === null) { placed[k] = i; paint(); return; }
+      }
+    }
+    function lift(k) {
+      if (done || k < locked || placed[k] === null) return;
+      placed[k] = null; paint();
+    }
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-tile-w"), function (b) {
+      b.onclick = function () { place(parseInt(b.getAttribute("data-i"), 10)); };
+    });
+    slots.forEach(function (s, k) { s.onclick = function () { lift(k); }; });
+
+    document.getElementById("xhBuildGo").onclick = function () {
+      if (done || placed.indexOf(null) !== -1) return;
+      var laid = placed.map(function (ix) { return tileById(ix).t; });
+      /* ⚠️ PREFIX LOCK, the same as 重整句子: characters in the right place go green
+         and stay; from the first wrong one, everything after it returns to the tray.
+         ⚠️ COMPARED AS TEXT, never by tile index — that is what makes the two 妈 tiles
+         of 妈妈 interchangeable, which they must be. */
+      var n = segPrefixLen(laid, target);
+      if (n >= placed.length) {
+        done = true; locked = placed.length; paint();
+        /* §4.1: a correct answer logs mastery identically to every other mode. This
+           calls the ONE path — noteRight — which also pays 航海值 and 贝壳 and speaks
+           the finished word. */
+        noteRight(w);
+        document.getElementById("xhHint").innerHTML = "✅ " + esc(target) +
+          '<span class="xh-py xh-always">' + esc(w.拼音) + "</span>";
+        advance(1400);
+        return;
+      }
+      locked = n;
+      for (var k = n; k < placed.length; k++) placed[k] = null;
+      /* ⚠️ noteWrong flips state.firstTry itself and plays the sound — do NOT clear
+         the flag first, or the miss is never recorded against the word.
+         ⚠️ no `chosen`: store.stats[].confused is a WORD-level confusion record and
+         the thing chosen here is a character. Writing one in would poison the table
+         that maintains the distractor blacklist. */
+      noteWrong(w, "");
+      paint();
+      document.getElementById("xhHint").innerHTML = locked
+        ? "前 " + locked + " 个字对了，后面再想想。" +
+          '<span class="xh-en xh-always">First ' + locked + " right — keep going.</span>"
+        : "第一个字就要换一个，再想想。" +
+          '<span class="xh-en xh-always">Start with a different character.</span>';
     };
     paint();
   }
@@ -2712,8 +3098,18 @@
       '<div class="xh-board xh-stage xh-phrase' + (bg ? " on-scene" : "") + '">' +
       (pic ? '<img class="xh-ph-pic" src="art/xh/' + esc(pic) + ASSET_V + '" alt="" ' +
              "onerror=\"this.style.display='none'\">" : "") +
-      '<div class="xh-ph-zh">' + phraseBlank(p) + "</div>" +
-      '<div class="xh-ph-en">' + esc(p.en) + "</div>" +
+      /* ⚠️ 喇叭是句子的**兄弟节点**，不嵌在句子里（§14），和四座山的 填空挑战 同一个
+         位置：题干旁边一颗，学生想听就听。它取代了「答对后自动朗读、读完才翻页」——
+         那条规则让想快的学生每题白等最多 5.5 秒（owner 2026-08-16 晚）。 */
+      '<div class="xh-ph-line"><div class="xh-ph-zh">' + phraseBlank(p) + "</div>" +
+      '<button class="xh-ph-tts" id="xhPhSay" title="朗读句子" aria-label="朗读句子">🔊</button></div>' +
+      /* ⚠️ .xh-en — THE GATE, no .xh-always (owner 2026-08-16). This line used to
+         carry neither class, so it was not exempted from the English gate, it had
+         simply never joined it: the translation stayed on screen with 英文 switched
+         off. The 学以致用 exemptions still stand for their own reasons (the 句子卡
+         is learn-before-test, and 重整句子's p.en IS the prompt), but here the
+         Chinese sentence plus the target's picture already carry the question. */
+      '<div class="xh-ph-en xh-en">' + esc(p.en) + "</div>" +
       '<div class="xh-opts">';
     opts.forEach(function (o, i) {
       /* ⚠️ .xh-optrow / .xh-otts are the pier's EXISTING option-row classes (see
@@ -2744,9 +3140,17 @@
            saying and a forced note would be filler. Blank is the normal state. */
         hint.innerHTML = "✅ " + esc(p.zh) +
           (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
-        /* 整句在语境里读完再走。句子比词长，天花板给到 5.5 秒。
-           ⚠️ 句子没有逐字拼音，所以这里没有 py 可传（见 js/tts.js 开头）。 */
-        advanceAfterSpeech(p.zh, null, 1200, 5500);
+        /* ⚠️ NO LONGER SPEECH-GATED (owner 2026-08-16 晚). This used to be
+           advanceAfterSpeech(p.zh, null, 1200, 5500): the whole sentence was read out
+           and the page did not turn until it finished, so a student who already knew
+           the word waited up to 5.5 seconds per question with nothing to do. The
+           reading did not disappear, it moved to the 🔊 beside the sentence, where it
+           is the student's choice and is available BEFORE the answer as well.
+           ⚠️ Nothing is auto-spoken here now: an utterance started at this point would
+           still be playing over the NEXT question's sentence, which reads as the app
+           talking about the wrong line.
+           The dwell is fixed, and longer when there is a culture note to read. */
+        setTimeout(function () { state.i++; render(); }, p.insight_en ? 2400 : 1400);
       } else {
         /* answering wrong costs nothing anywhere in this tier: mark it, stay put */
         btn.classList.add("no");
@@ -2755,6 +3159,11 @@
         sfxNo();
       }
     }
+    /* before the answer lands it reads the STEM (blank → pause); once the word is
+       known the blank is gone, so the same button reads the finished line. */
+    document.getElementById("xhPhSay").onclick = function () {
+      if (done) speak(p.zh); else speakStem(p);
+    };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) {
       b.onclick = function () { pick(parseInt(b.getAttribute("data-i"), 10)); };
     });
@@ -3016,7 +3425,7 @@
          drawn in rope brown; 检查答案 grades the lot at once. Instant marking made
          it a four-way guess with immediate confirmation, which is a different
          (and much easier) exercise than committing to a whole set;
-       · how many pairs are on the board is the student's choice (store.matchN),
+       · how many pairs are on the board follows ③难度 (DIFF_MATCH),
          which is what「difficulty」means in this mode.
      Links are held by 词语 text, not by element, so a redraw after a resize or a
      late-decoding sprite never loses them. */
@@ -3029,6 +3438,11 @@
     var links = [];          // [{pic:"老虎", word:"鲨鱼", ok:null}]
     var sel = null;          // {side:"pic"|"word", key:"老虎"}
     var graded = false;
+    /* which pairs have already been paid for. ⚠️ Needed because 连线 grades a WHOLE
+       BOARD and the student may press 检查答案 several times: without it, a pair
+       joined on the second pass earns nothing at all, while every other mode on the
+       pier pays a corrected answer at half rate through noteRight. */
+    var paid = {};
 
     var h = '<div class="xh-round-bar">' + quitBtn() +
       '<span class="xh-block-tag">' + esc(state.grp) + " · 连线 " + seq.length + "</span></div>" +
@@ -3157,15 +3571,32 @@
     checkBtn.onclick = function () {
       if (links.length !== seq.length) return;
       var right2 = 0, wrongLinks = [];
+      /* 🐛 连线 HAS BEEN PAYING NO 贝壳 SINCE IT SHIPPED (found 2026-08-16 while
+         checking §4.2 of the 踏浪竞速 handoff — 「verify mastery logging is unified
+         before adding the run」). This is the ONE mode that never called noteRight:
+         it grades a whole board at once, so it wrote store.done and awarded 航海值
+         inline — and awardShells was simply never written into that path. SHELL_PTS
+         has always had `match: 1`; nothing was missing from the table, so the check
+         that caught the identical 看句选词 bug (§18g) could not see this one.
+         ⚠️ THE LESSON IS NOT「add the missing call」, it is that a second write path
+         is where these hide. Every other mode reaches progress through noteRight;
+         this one is the exception §4.2 warns about, and it is now at least paying
+         through the same two award functions in the same order. */
       links.forEach(function (L) {
         L.ok = L.pic === L.word;
-        if (L.ok) { right2++; store.done[L.pic] = true; }
-        else wrongLinks.push(L);
+        if (L.ok) {
+          right2++;
+          if (!paid[L.pic]) {
+            paid[L.pic] = 1;
+            store.done[L.pic] = true;
+            awardSail("match", !graded);      // full on the first check, half after
+            awardShells("match", !graded);
+          }
+        } else wrongLinks.push(L);
       });
       if (!graded) {                    // only the FIRST check scores and records
         graded = true;
         state.correct = right2;
-        for (var ai = 0; ai < right2; ai++) awardSail("match", true);
         wrongLinks.forEach(function (L) {
           var w = seq.filter(function (x) { return x.词语 === L.pic; })[0];
           var s = stat(w);
@@ -3220,6 +3651,10 @@
     h += '<div class="xh-result-btns"><button class="xh-btn" id="xhAgain">再来一次</button>' +
       '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
+    /* ⚠️ explicit, even though the round that led here already aimed the topbar back
+       at renderMenu: an end screen that RELIES on the previous screen having wired a
+       shared control is one refactor away from a back button pointing at nothing. */
+    wireQuit();
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, null, state.pool); };
     document.getElementById("xhBack").onclick = renderMenu;
     Array.prototype.forEach.call(view().querySelectorAll(".xh-review-item"), function (el) {
@@ -3231,6 +3666,8 @@
   applyAids();     // before the first paint, so neither aid flashes in or out
   migrateBoat();   // legacy 3-tier store.boat -> the global 4-tier family
   renderTop();     // topbar works even if the word list never arrives
+  ensureFab();     // ...and so does 反馈: a student whose word list failed to load
+                   // is exactly the student with something to report
 
   /* the sentence library. Loaded up front and kept tiny (16KB): 传声筒 is one of
      the ② 学词 modes, so waiting for a second fetch at 出发 would stall the round.

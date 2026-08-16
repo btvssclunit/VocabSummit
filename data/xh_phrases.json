@@ -449,15 +449,15 @@
   {
    "id": "scene_market-4",
    "scene": "菜市场",
-   "zh": "我想买一只整鸡。",
-   "en": "I want to buy a whole chicken.",
-   "ask": "整鸡",
+   "zh": "我想要买一些鸡肉。",
+   "en": "I want to buy some chicken.",
+   "ask": "鸡肉",
    "seg": [
     "我",
-    "想",
+    "想要",
     "买",
-    "一只",
-    "整鸡"
+    "一些",
+    "鸡肉"
    ]
   },
   {
