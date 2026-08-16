@@ -1241,17 +1241,17 @@ body.L-both .demo-head .en{font-size:12.5px}
     { i: "🤝", zh: "结伴登峰 · 同伴挑战", en: "Rooms and duels", dzh: "老师开房或学生自己约。照常计分，所以不是捷径。", den: "Teacher-hosted rooms or student-arranged duels. Scored normally, so not a shortcut." }
   ];
 
-  /* ⚠️ 码头的活动清单正在改版（owner 2026-08-17）。改版落地后只需要改这三个
-     数组，正文不必动。 */
+  /* ⚠️ 码头的活动清单是数据驱动的：改版只改这三个数组，正文不必动。
+     2026-08-17：学以致用 已并进 词语挑战 当题型，学习 面因此只剩两张卡。 */
   var XH_LEARN = [
     { i: "📖", zh: "词语闪卡", en: "Flashcards", dzh: "两面：词语卡（图＋词＋拼音＋英文）与句子卡（整句读完，不挖空）。不计航程。", den: "Two faces: word cards (picture, word, pinyin, English) and sentence cards, read whole with nothing blanked. Does not count toward distance." },
-    { i: "🎯", zh: "词语挑战", en: "Quiz yourself", dzh: "词的层面，三种题型：英文选词 · 看图识词 · 听音识图。", den: "At the word level, three question types: English to word, picture to word, listen and pick the picture." },
-    { i: "💬", zh: "学以致用", en: "Put it to use", dzh: "句的层面，两种题型：看句选词（从真实句子里挖掉一个词）· 重整句子（按顺序点出句子的词）。", den: "At the sentence level, two types: fill the sentence, and put the words in order." }
+    { i: "🎯", zh: "词语挑战", en: "Quiz yourself", dzh: "五种题型，分两排：认词（英文选词 · 看图识词 · 听音识图）与用词（看句选词 · 重整句子）。一局只跑一种。", den: "Five question types on two shelves: knowing the word (English to word, picture to word, listen and pick the picture) and using it in a sentence (fill the sentence, put the words in order). One type per round." },
+    { i: "🪢", zh: "连线", en: "Match them up", dzh: "图片与词语配对，一板 3／5／8 组。", den: "Pair pictures with words; three, five or eight pairs to a board." },
+    { i: "🧱", zh: "组字成词", en: "Build the word", dzh: "按顺序点出词语的字。⚠️ 只收两个字以上的词，所以「数字」组整组灰掉。", den: "Tap out the characters of a word in order. ⚠️ Two characters minimum, so the numbers group greys out entirely." }
   ];
   var XH_PLAY = [
     { i: "🎣", zh: "词海垂钓", en: "Reel it in", dzh: "打出拼音，把鱼钓上来。", den: "Type the pinyin to land the catch." },
-    { i: "🪢", zh: "连线", en: "Match them up", dzh: "图片与词语配对，一板 3／5／8 组。", den: "Pair pictures with words; three, five or eight pairs to a board." },
-    { i: "🧱", zh: "组字成词", en: "Build the word", dzh: "按顺序点出词语的字。⚠️ 只收两个字以上的词，所以「数字」组整组灰掉。", den: "Tap out the characters of a word in order. ⚠️ Two characters minimum, so the numbers group greys out entirely." }
+    { i: "🏃", zh: "踏浪竞速", en: "Beach run", dzh: "同一批题目换一层皮：答对一题，角色跨过一个路标向前跑。题目、贝壳、航程都和普通闯关一样，只有反馈不同。门后选用哪一种题型来跑。", den: "The same questions wearing a different skin: each correct answer makes your character hop a hurdle and run on. Same questions, same shells, same distance as a plain round — only the feedback differs. Pick which question type to run behind this tile." }
   ];
   var XH_ELSE = [
     { i: "🏖️", zh: "我的海滩与小铺", en: "My beach and shop", dzh: "贝壳在这里花：摆件与船。", den: "Where shells are spent: beach ornaments and boats." },

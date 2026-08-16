@@ -425,8 +425,28 @@ body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
   overflow:hidden;background:#2E6391}
 .beach-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
 /* anchored bottom-centre, exactly like the camp's gear */
+/* ⚠️ -webkit-user-drag:none IS LOAD-BEARING (owner 2026-08-17:「I can't drag and drop
+   the purchased items … it responds to clicks for repositioning but snaps back to
+   its original position once I let go」). There is NO drag feature here to be broken:
+   the pier's berth is FIXED SLOTS by spec (see BERTH_SLOTS) and nothing in xh.js ever
+   listened for a pointer on these sprites. What the owner was fighting is Safari's
+   NATIVE image drag — press an <img>, a ghost follows the finger, release and it
+   snaps back. So the art advertised a gesture that was never implemented. Same rule
+   app.css already applies to the sea-map islands for the same reason. */
 .beach-item{position:absolute;transform:translateX(-50%);image-rendering:pixelated;
+  -webkit-user-drag:none;user-drag:none;-webkit-user-select:none;user-select:none;
   filter:drop-shadow(0 3px 7px rgba(6,26,48,.45))}
+/* ⚠️ touch-action:none is the other half of the drag: without it iPad treats the
+   gesture as a page scroll and pointermove never reaches beachDragMove — the item
+   twitches and stays put, which is very close to the symptom the owner reported for
+   a different reason. Only the movable copies get it; the menu hero's sprites must
+   stay inert so the hero button still takes a tap. */
+.beach-move{cursor:grab;touch-action:none;pointer-events:auto}
+.beach-move:active{cursor:grabbing}
+.beach-item.beach-dragging{cursor:grabbing;
+  filter:drop-shadow(0 8px 12px rgba(6,26,48,.5)) brightness(1.06)}
+.beach-hint{text-align:center;font-size:12.5px;font-weight:700;color:var(--ink-soft);
+  margin:8px auto 0}
 .beach-boat{filter:drop-shadow(0 4px 10px rgba(6,26,48,.4))}
 .beach-acts{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
 
@@ -1230,6 +1250,16 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
 /* the refinement row: same control, deliberately smaller so ① still reads as ONE
    decision with a follow-up rather than two competing rows of cards */
 .xh-cfg .xh-modes.sub{grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px;margin-bottom:16px}
+/* ⚠️ 认词 / 用词 — SHELF LABELS INSIDE ①, not 动线编号 (§7). The numbered step is
+   「挑战方式」; these two split its five tiles into「do you know the word」and「can you
+   use it in a sentence」, which is the teaching distinction that justified the two
+   doors before they were folded back into one (owner 2026-08-17). Deliberately
+   quieter than .xh-sec — a heading as loud as the step would read as a step. */
+.xh-shelf-lab{font-size:12.5px;font-weight:800;color:var(--gold-ink);letter-spacing:.04em;
+  margin:0 0 6px}
+.xh-shelf-lab .xh-en{font-weight:700;letter-spacing:0}
+/* the second shelf follows a grid that already carries a 16px bottom margin */
+.xh-cfg .xh-modes.sub + .xh-shelf-lab{margin-top:-4px}
 .xh-mode.sm{padding:9px 8px}
 .xh-mode.sm .xh-mi{font-size:19px}
 .xh-mode.sm b{font-size:14px}

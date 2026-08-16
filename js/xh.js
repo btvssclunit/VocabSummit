@@ -122,15 +122,23 @@
        and s.mode holds "learn" whenever the flashcard card is the selected one —
        without this, coming back from flashcards would forget the question type.
        ⚠️ literal, not a MODES lookup: load() runs before MODES is assigned. */
-    /* ⚠️ `phrase` LEFT this whitelist (owner 2026-08-16): 看句选词 is a 句-level task
-       and now lives under 学以致用, not among the three 词-level types. An old profile
-       holding quizMode === "phrase" is reset to "pic" here, which is correct — the
-       remembered 学以致用 side has its own slot below and starts on 看句选词 anyway. */
-    if (["enmcq", "pic", "listen"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
-    /* the 学以致用 side's own memory. ⚠️ separate from quizMode for the same reason
-       quizMode is separate from mode: the two containers must not overwrite each
-       other's last-used type. */
-    if (["phrase", "sort"].indexOf(s.useMode) === -1) s.useMode = "phrase";
+    /* ⚠️ `phrase` and `sort` ARE BACK IN THIS WHITELIST (owner 2026-08-17). They left
+       it on 08-16 when the two sentence types moved out to their own 学以致用 door;
+       that door is gone again and 词语挑战 owns all five types, so a remembered
+       sentence type is legal here once more.
+       ⚠️ THE MIGRATION MUST RUN BEFORE THE WHITELIST TEST, and it is gated on
+       `s.mode` — the mode actually LAST RUN — not on `useMode` alone. useMode is
+       "phrase" for everybody, including students who never opened that door once
+       (load() has defaulted it since it existed), so copying it across unconditionally
+       would drag a 看图识词 regular onto 看句选词. s.mode is the only field that says
+       which side the student was really on. */
+    if (["phrase", "sort"].indexOf(s.mode) !== -1 &&
+        ["phrase", "sort"].indexOf(s.useMode) !== -1) s.quizMode = s.useMode;
+    if (["enmcq", "pic", "listen", "phrase", "sort"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
+    /* ⚠️ `useMode` is KEPT but never read again — it is the only record of what the
+       student chose while 学以致用 was its own door, and the line above still consumes
+       it on first load after the merge. Same treatment §18i gave the four retired
+       difficulty fields: the constant goes, the store key stays. */
     /* ⚠️ 同样已被 store.diff 取代、不再有任何地方读取（见上）。留着只为留档。 */
     if ([0, 2, 4, 6].indexOf(s.sortExtra) === -1) s.sortExtra = 2;
     if ([1, 2, 4].indexOf(s.buildExtra) === -1) s.buildExtra = 2;
@@ -138,11 +146,16 @@
        句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
        读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
     if (s.cardKind !== "sentence") s.cardKind = "word";
-    /* ①模式 — 普通闯关 vs 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1). ⚠️ 普通 is the default and
-       stays the default (§8): the run is a reward for knowing your way around, not a
-       first encounter, and a beginner meeting the pier for the first time should see
-       a question, not a beach. */
+    /* 踏浪竞速 的皮肤开关。⚠️ NO LONGER A SETTING THE STUDENT WRITES (owner 2026-08-17):
+       it is set by which ③ tile they opened, so what is stored here is only「which
+       door opened the round that is running」. It still defaults to plain, which still
+       matters: renderMenu and any path that reaches a round without passing through
+       renderModeConfig must not raise a beach. */
     if (s.runMode !== "surf") s.runMode = "plain";
+    /* the 踏浪竞速 door's own last-used 题型. ⚠️ Separate from quizMode on purpose —
+       the two doors offer overlapping type lists and must not overwrite each other
+       (see ENTRY_MEM). Validated against the runnable set, not the quiz set. */
+    if (["enmcq", "pic", "listen", "phrase", "build"].indexOf(s.runQuizMode) === -1) s.runQuizMode = "pic";
     if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
        ⚠️ It must NEVER merge with 航程: 航程 is what you know, 航海值 is what you
@@ -158,6 +171,11 @@
     if (typeof s.shells !== "number") s.shells = 0;
     if (!s.owned || typeof s.owned !== "object") s.owned = {};   // purchased item keys
     if (!s.berth || typeof s.berth !== "object") s.berth = {};    // slot -> item key
+    /* 自由摆放 (owner 2026-08-17): item key -> {x, y} percent, y from the TOP.
+       ⚠️ Keyed by ITEM, not by slot: an item keeps where the student put it even
+       after it is swapped out and back in. 整理海滩 empties this and the slot's own
+       coordinates take over again, which is why BERTH_SLOTS is still the default. */
+    if (!s.berthPos || typeof s.berthPos !== "object") s.berthPos = {};
     /* ⚠️ LEGACY FIELD, read once and never written again. store.boat was the pier's
        own 3-tier chain (舢板 1 / 渔船 2 / 帆船 3). Boats are now a 4-tier family owned
        GLOBALLY in ws2_profile, so this survives only to be migrated: the colourful
@@ -229,6 +247,11 @@
     "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
+    /* the two shelves inside ①挑战方式 (owner 2026-08-17) */
+    "认词": "rèn cí", "用词": "yòng cí",
+    /* 我的海滩 的自由摆放 (owner 2026-08-17) */
+    "整理海滩": "zhěng lǐ hǎi tān",
+    "按住摆件可以拖到你喜欢的位置": "àn zhù bǎi jiàn kě yǐ tuō dào nǐ xǐ huān de wèi zhì",
     /* ⚠️ 传声筒 → 看句选词，并且它不再是一个并列的题型，而是收进 学以致用 这张容器卡
        （owner 2026-08-16）。旧名只留在 `PATCH_02` 与归档里，代码里的 id 仍是 "phrase"。
        ⚠️ 学以致用 是成语，单看比 传声筒 难读——这是**知情的取舍**：它现在与 词语挑战
@@ -1060,39 +1083,81 @@
      「clunky」the owner reported — a beginner had to tell 看图识词 from 听音识图
      before meeting a single word.
      `k` is the door, not a mode id: startRound is still driven by store.mode. */
-  /* ⚠️ 学词 面分成 词 与 句 两层（owner 2026-08-16）：
-     词语挑战 = 词的层面（三个题型）· 学以致用 = 句的层面（两个题型，把刚学的词拿去用）。
-     原先 传声筒 混在四个词级题型里，是唯一考句子的那个，形状不一致。 */
+  /* ⚠️ 学习 面现在是**两张卡**：先读（词语闪卡）再考（词语挑战）——owner 2026-08-17
+     把 学以致用 并进 词语挑战 当题型。
+     词 与 句 的分层没有消失，只是从「两扇门」降成 ①挑战方式 里的两排
+     （认词 三种 · 用词 两种），见 renderModeConfig。08-16 拆成两扇门是为了让
+     句级题型不再混在词级题型里，那个区分仍然在，少的只是一次点击。 */
   var ENTRIES = [
     { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true, short: "Flashcards",
       sub: "词语卡 · 句子卡", subEn: "words or sentences" },
+    /* ⚠️ 学以致用 IS NOT A DOOR ANY MORE (owner 2026-08-17:「put 学以致用 into quiz
+       yourself as a test mode」). Its two sentence types moved in here as question
+       types 4 and 5, so 学习 is two cards — read it, then test it — and every way of
+       being tested lives behind one door.
+       ⚠️ THE 「no in-round switching between 看句选词 and 重整句子」 RULE STILL HOLDS
+       (§18g): 看句选词 shows the whole sentence when you get it right, which is the
+       complete word order 重整句子 exists to test. Sharing a door does not break that,
+       because the type is still chosen BEFORE 出发 and a round runs exactly one of
+       them. Do not add an in-round switch just because they are now neighbours. */
     { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true, short: "the quiz",
-      sub: "英文选词 · 看图识词 · 听音识图", subEn: "three question types" },
-    { k: "use", icon: "💬", zh: "学以致用", en: "Put it to use", learn: true, short: "the sentences",
-      sub: "看句选词 · 重整句子", subEn: "sentences, not single words" },
-    { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false , short: "fishing" },
-    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false , short: "matching" },
-    /* ⚠️ A FULL 泊位, not a question type tucked behind another door (§2.1). It sits
-       with 词海垂钓 and 连线 because those are the two that are really games, and
-       because deriving the 闯关 题型 list from the berth list then needs no special
-       case for it. */
+      sub: "词的三种 · 句的两种", subEn: "five question types, words and sentences" },
+    /* ⚠️ 连线 AND 组字成词 MOVED TO 学习 (owner 2026-08-17:「连线 组字成词 live in
+       study mode instead of game mode」). They stay FULL DOORS rather than becoming
+       题型 under 词语挑战, because each asks its own question that no other door asks:
+       连线 has no 每次题数 at all (the board size IS the round) and 组字成词 counts
+       chips. Folded into 词语挑战 they would each need a special case in ③, which is
+       exactly the shape §2.1 refused. */
+    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: true, short: "matching" },
     { k: "build", icon: "🧱", zh: "组字成词", en: "Build the word from its characters",
-      learn: false, short: "word building",
-      naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" }
+      learn: true, short: "word building",
+      naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" },
+    { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false , short: "fishing" },
+    /* ⚠️ 踏浪竞速 IS A DOOR NOW, not a row inside every other config page (owner
+       2026-08-17:「play mode for pier should only show fishing and beach run」).
+       It is still a SKIN and not a scoring path — the same 看图识词 round pays the
+       same 贝壳 and the same 航程 either way, §18i is unchanged on that. What changed
+       is where you choose it: as a row it appeared on six config screens and asked a
+       question the student had no reason to answer there. As a door it asks its own
+       question once, and 闯关 finally reads as「the two things that are really games」.
+       ⚠️ It owns no mode of its own: `entryModes("surf")` is derived from RUN_MODES,
+       so a new runnable 题型 joins this door automatically and can never drift. */
+    { k: "surf", icon: "🏃", zh: "踏浪竞速", en: "Beach run", learn: false, short: "the beach run",
+      sub: "选一种题型来跑", subEn: "pick a question type to run",
+      naZh: "这组没有能跑的题型", naEn: "no runnable question type in this scope" }
   ];
   /* which store slot remembers the last type used behind a multi-type door.
-     ⚠️ One slot per door: quizMode and useMode must never overwrite each other. */
-  var ENTRY_MEM = { quiz: "quizMode", use: "useMode" };
+     ⚠️ One slot per door — an unconditional write would let two doors overwrite each
+     other's last-used type. There is only one such door now (owner 2026-08-17 folded
+     学以致用 into 词语挑战), but the map stays a map: the moment a second one appears
+     the shared-slot bug comes back. */
+  /* ⚠️ surf gets its OWN slot. It offers an overlapping set of 题型 (every runnable
+     one), so sharing quizMode would mean picking 看句选词 for the beach silently
+     changed what 词语挑战 opens on — the exact overwrite this map exists to prevent. */
+  var ENTRY_MEM = { quiz: "quizMode", surf: "runQuizMode" };
   function entryByKey(k) {
     for (var i = 0; i < ENTRIES.length; i++) if (ENTRIES[i].k === k) return ENTRIES[i];
     return ENTRIES[0];
   }
-  /* the mode ids a door can start. 词语挑战 owns the four question types; every
-     other door owns exactly one mode. */
+  /* the mode ids a door can start. 词语挑战 owns all five question types; every other
+     door owns exactly one mode.
+     ⚠️ ORDER IS THE UI ORDER: the three 词-level types first, then the two 句-level
+     ones, because renderModeConfig splits the row on that boundary. */
   function entryModes(k) {
     if (k === "cards") return ["learn"];
-    if (k === "quiz") return ["enmcq", "pic", "listen"];
-    if (k === "use") return ["phrase", "sort"];
+    if (k === "quiz") return ["enmcq", "pic", "listen", "phrase", "sort"];
+    /* ⚠️ DERIVED FROM RUN_MODES, never listed by hand: the beach run's 题型 set is
+       BY DEFINITION「the ones that can be run」, and a second hand-written copy would
+       disagree with runAllowed() the first time either changed. Filtered through the
+       quiz order so the two doors present the same types in the same order. */
+    if (k === "surf") {
+      return entryModes("quiz").filter(function (m) { return runAllowed(m); })
+        .concat(runAllowed("build") ? ["build"] : []);
+    }
+    /* ⚠️ "use" was a door until 2026-08-17 and old code paths may still ask for it.
+       Answering with the quiz list keeps a stale caller landing somewhere real
+       instead of on [ "use" ], which is not a mode at all. */
+    if (k === "use") return entryModes("quiz");
     return [k];
   }
   /* ⚠️ A door that cannot run under the current 学习范围 must SAY SO here rather
@@ -1102,6 +1167,12 @@
      end screens, which must land on the config page the student came from rather
      than all the way back at the dock (owner 2026-08-16 晚). */
   function entryForMode(id) {
+    /* ⚠️ 踏浪竞速 FIRST when the round is a run. Every runnable 题型 now belongs to two
+       doors, and a plain first-match walk would send a student who came in through
+       踏浪竞速 back to 词语挑战's setup — a different screen with a different memory
+       slot. store.runMode is the authoritative record of which door opened this
+       round, because only the surf door ever sets it. */
+    if (store.runMode === "surf" && runAllowed(id)) return "surf";
     for (var i = 0; i < ENTRIES.length; i++) {
       if (entryModes(ENTRIES[i].k).indexOf(id) !== -1) return ENTRIES[i].k;
     }
@@ -1201,11 +1272,24 @@
      the ANSWER EVENT is single — 检查答案 — which is what the runner listens for.
      ⚠️ Blocked types are GREYED, never hidden (§1.5): the student keeps the whole
      list in their head and learns which ones the beach cannot take. */
-  var RUN_MODES = { pic: 1, listen: 1, enmcq: 1, phrase: 1, sort: 1, build: 1 };
+  /* ⚠️ `sort` LEFT THIS LIST (owner 2026-08-17:「remove beach run from unscramble
+     sentence - it needs the backdrop of specific scenes」). 重整句子 already paints
+     its scene backdrop (renderSort reads SCENE_BG), so this is not a missing feature
+     — it is two backgrounds fighting: the beach band sits above #xhView while the
+     菜市场 or 动物园 it belongs to sits behind the panel. The scene is the point of
+     the sentence, so the beach loses.
+     ⚠️ `phrase` (看句选词) paints the SAME backdrop and is still allowed here. That is
+     the owner's call as given, not an oversight on my part — flag it rather than
+     "fixing" it, because 看句选词 is one tap per question and reads fine as a run
+     while 重整句子 is a whole tray of tiles over the same art. */
+  var RUN_MODES = { pic: 1, listen: 1, enmcq: 1, phrase: 1, build: 1 };
   function runAllowed(id) { return !!RUN_MODES[id]; }
   function runBlockWhy(id) {
     if (id === "match") return ["一次要连好几组，跑不成一题一步", "a whole board at once, not one answer"];
     if (id === "type")  return ["打字时键盘会挡住海滩", "the keyboard covers the beach"];
+    /* ⚠️ its own sentence, not the generic one: this is not「nothing to answer」, it
+       is「the scene背景 is doing the teaching here」(§1.5 — grey it out and say why). */
+    if (id === "sort")  return ["这个玩法要用场景背景", "it needs its scene backdrop"];
     return ["这个玩法没有答对答错", "nothing to answer here"];
   }
 
@@ -1466,6 +1550,10 @@
        Old side values are still accepted so a stale call cannot land on nothing. */
     if (kind === "learn") kind = "cards";
     if (kind === "play") kind = "type";
+    /* ⚠️ 学以致用 was a door for one day (2026-08-16 → 08-17). Without this line a
+       stale「use」falls through entryByKey's ENTRIES[0] fallback and opens 词语闪卡,
+       which is not even the right side of the screen. */
+    if (kind === "use") kind = "quiz";
     var ent = entryByKey(kind);
     var pool = scopedWords();
     var modes = entryModes(kind);
@@ -1484,6 +1572,13 @@
     }
     if (store.mode !== want) { store.mode = want; }
     if (mem) store[mem] = want;
+    /* ⚠️ THE DOOR SETS THE SKIN, and it is the only thing that does now (owner
+       2026-08-17). runMaybe() still reads store.runMode exactly as before, so nothing
+       downstream changed — what changed is that the student answers「beach or not」by
+       choosing a tile instead of by a row repeated on six setup screens.
+       ⚠️ Written on EVERY door, not just surf: leaving it alone would let a remembered
+       "surf" build a beach under 词语挑战, which is the one thing this door is for. */
+    store.runMode = (kind === "surf") ? "surf" : "plain";
     save();
     var cur = modeById(store.mode);
 
@@ -1544,33 +1639,58 @@
           ? 'Sentence cards run through every sentence in scope. They do not count towards 航程.'
           : 'Word cards run through every word in scope.') + '</span></div>';
     } else if (modes.length > 1) {
-      /* the question types behind a multi-type door (词语挑战 三个 · 学以致用 两个).
+      /* the question types behind a multi-type door — 词语挑战 now owns all five
+         (owner 2026-08-17 folded 学以致用 in).
          ⚠️ Numbered: on this screen it really IS the first decision the student
          makes, not a refinement of a card they picked one screen earlier.
-         ⚠️ The two 学以致用 types are two SEPARATE cards and there is no mid-round
-         switch between them (owner 2026-08-16). 看句选词 prints the whole sentence on
-         a correct answer, so switching to 重整句子 on that same sentence would hand
-         over the complete word order — which is the only thing 重整句子 tests.
+         ⚠️ SPLIT INTO 词 AND 句, not one row of five. Five tiles abreast is cramped
+         at the pier's card width, and the split carries the actual teaching point:
+         the first three ask「do you know this word」, the last two ask「can you use it
+         in a sentence」. That distinction is the whole reason they were two doors for
+         a day — folding the door back in must not lose it, only the extra click.
+         ⚠️ The sub-headings are NOT 动线编号 (§7): the numbered step is「which
+         question」, and these are two shelves inside it, not two more steps.
+         ⚠️ 看句选词 and 重整句子 are still two SEPARATE rounds with no mid-round switch
+         (§18g). 看句选词 prints the whole sentence on a correct answer, so switching to
+         重整句子 on that same sentence would hand over the complete word order — the
+         only thing 重整句子 tests. Sharing a shelf does not change that.
          ⚠️ Do NOT read that as「the dock forbids mid-round switching」: 组词挑战 on the
          mountain switches 释义/英文/填空 freely, and that is safe because it changes
          the PROMPT, not the mechanism, and the answer stays the same word. */
-      h += sec(kind === "use" ? "学以致用的方式" : "挑战方式", "which question") +
-        '<div class="xh-modes sub">';
+      var SENT_MODES = { phrase: 1, sort: 1 };
+      h += sec("挑战方式", "which question");
       var blocked = 0, noSeg = false;
-      modes.forEach(function (id) {
-        var m = modeById(id), usable = poolForMode(pool, id).length > 0;
-        if (!usable) { blocked++; if (id === "sort") noSeg = true; }
-        var why = id === "sort" ? "这些句子还没有分块" : "这组没有图片";
-        var whyEn = id === "sort" ? "sentences not split yet" : "no pictures";
-        h += '<button class="xh-mode sm' + (store.mode === id ? " on" : "") +
-          (usable ? "" : " na") + '" data-m="' + id + '"' + (usable ? "" : " disabled") + '>' +
-          '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
-          '<span class="xh-en">' + m.en + "</span>" +
-          (usable ? "" : '<span class="xh-mode-na">' + why +
-                         '<span class="xh-en">' + whyEn + "</span></span>") +
-          "</button>";
-      });
-      h += "</div>";
+      function modeBtns(list) {
+        var out = "";
+        list.forEach(function (id) {
+          var m = modeById(id), usable = poolForMode(pool, id).length > 0;
+          if (!usable) { blocked++; if (id === "sort") noSeg = true; }
+          var why = id === "sort" ? "这些句子还没有分块" : "这组没有图片";
+          var whyEn = id === "sort" ? "sentences not split yet" : "no pictures";
+          out += '<button class="xh-mode sm' + (store.mode === id ? " on" : "") +
+            (usable ? "" : " na") + '" data-m="' + id + '"' + (usable ? "" : " disabled") + '>' +
+            '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
+            '<span class="xh-en">' + m.en + "</span>" +
+            (usable ? "" : '<span class="xh-mode-na">' + why +
+                           '<span class="xh-en">' + whyEn + "</span></span>") +
+            "</button>";
+        });
+        return out;
+      }
+      var wordModes = modes.filter(function (id) { return !SENT_MODES[id]; });
+      var sentModes = modes.filter(function (id) { return !!SENT_MODES[id]; });
+      /* ⚠️ each shelf is skipped entirely when the door owns nothing on it, so a
+         future single-type door reusing this block never prints an empty heading. */
+      if (wordModes.length) {
+        h += (sentModes.length ? '<div class="xh-shelf-lab">认词' + xhPy("认词") +
+              '<span class="xh-en">know the word</span></div>' : "") +
+          '<div class="xh-modes sub">' + modeBtns(wordModes) + "</div>";
+      }
+      if (sentModes.length) {
+        h += (wordModes.length ? '<div class="xh-shelf-lab">用词' + xhPy("用词") +
+              '<span class="xh-en">use it in a sentence</span></div>' : "") +
+          '<div class="xh-modes sub">' + modeBtns(sentModes) + "</div>";
+      }
       /* ⚠️ 重整句子 is blocked by MISSING DATA, not by the student's scope, so it needs
          its own sentence — 「这组没有图片」 would send them off changing 学习范围 for
          something no scope can fix. `seg` is hand-written per §3.3 and none exist yet. */
@@ -1597,27 +1717,12 @@
        ⚠️ 连线 shows no 每次题数 — its board size IS its round — so 难度 is the only
        thing it asks. */
     if (kind !== "cards") {
-      /* ---------- ①模式 — 普通闯关 vs 踏浪竞速 (HANDOFF §1, §3.1) ----------
-         ⚠️ It is a SKIN over the question type chosen above, not a type of its own,
-         which is why it is a row here rather than a sixth tile on the front page. The
-         same 看图识词 round is the same round either way: same questions, same 贝壳,
-         same 航程. Only the feedback differs.
-         ⚠️ GREYED, NEVER HIDDEN, when this 题型 cannot run (§1.5) — a student who has
-         seen the beach on 看图识词 must be able to see WHY 词海垂钓 will not do it. */
-      var canRun = runAllowed(cur.id), why = runBlockWhy(cur.id);
-      if (!canRun && store.runMode === "surf") { /* remembered, but not here */ }
-      h += sec("模式", "how it looks") +
-        '<div class="xh-modes two">' +
-        '<button class="xh-mode' + (store.runMode !== "surf" ? " on" : "") +
-          '" data-rm="plain"><span class="xh-mi">📋</span><b>普通闯关</b>' +
-          xhPy("普通闯关") + '<span class="xh-en">Plain round</span></button>' +
-        '<button class="xh-mode' + (store.runMode === "surf" && canRun ? " on" : "") +
-          (canRun ? "" : " na") + '" data-rm="surf"' + (canRun ? "" : " disabled") + '>' +
-          '<span class="xh-mi">🏃</span><b>踏浪竞速</b>' + xhPy("踏浪竞速") +
-          '<span class="xh-en">Beach run</span>' +
-          (canRun ? "" : '<span class="xh-mode-na">' + why[0] +
-                         '<span class="xh-en">' + why[1] + "</span></span>") +
-        "</button></div>";
+      /* ⚠️ THE ①模式 ROW IS GONE (owner 2026-08-17). 普通闯关 vs 踏浪竞速 used to be a
+         two-button row on every one of these screens; it is now the choice of tile on
+         ③, so asking again here would be the same decision at two levels — the
+         「clunky」the owner named when ② stopped being navigation. runBlockWhy() is
+         still live and still explains a blocked 题型, but it does it inside the
+         踏浪竞速 door's own 题型 list, where a greyed-out type is actually informative. */
       if (kind !== "match") {
         h += sec("每次题数", "questions per round") +
           qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
@@ -1647,12 +1752,8 @@
         renderModeConfig(kind);           // re-render: the sliders differ per type
       };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-rm]"), function (el) {
-      el.onclick = function () {
-        store.runMode = el.getAttribute("data-rm"); save();
-        renderModeConfig(kind);
-      };
-    });
+    /* the [data-rm] handler is gone with the ①模式 row it wired — store.runMode is
+       written by the door now, up beside `store.mode` (owner 2026-08-17). */
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-ck]"), function (el) {
       el.onclick = function () {
         store.cardKind = el.getAttribute("data-ck"); save();
@@ -1886,9 +1987,37 @@
        item stays OWNED so swapping back is free */
     store.berth[it.slot] = it.k; save();
   }
-  function beachSprite(img, cx, by, w, extra) {
-    return '<img class="beach-item' + (extra ? " " + extra : "") + '" src="art/xh/' + img +
-      '.png' + ASSET_V + '" alt="" style="left:' + cx + '%;bottom:' + by + '%;width:' + w + '%" ' +
+  /* ---------- 自由摆放 (owner 2026-08-17) ----------
+     ⚠️ THE BERTH USED TO BE FIVE FIXED HOOKS. The spec chose that deliberately
+    （「The camp earned dragging; the dock has not yet」）and the owner overruled it on
+     2026-08-17 after trying to drag and finding only Safari's native image ghost:
+    「I can't drag and drop the purchased items … it snaps back once I let go」.
+     ⚠️ BERTH_SLOTS IS STILL LOAD-BEARING — it is where a newly bought item LANDS, and
+     the slot is still what「一个位置只能摆一样」means in the shop. Free placement moves
+     the sprite afterwards; it does not turn the shop into a five-of-everything shelf.
+     ⚠️ Y IS MEASURED FROM THE TOP here, like the camp's decoPos, while BERTH_SLOTS.by
+     is from the bottom. The two conventions meet in exactly one place (beachPosOf),
+     on purpose — converting anywhere else is how one of them ends up flipped. */
+  var BEACH_BOUNDS = { x0: 4, x1: 96, y0: 26, y1: 96 };
+  function beachClamp(p) {
+    return { x: Math.min(BEACH_BOUNDS.x1, Math.max(BEACH_BOUNDS.x0, p.x)),
+             y: Math.min(BEACH_BOUNDS.y1, Math.max(BEACH_BOUNDS.y0, p.y)) };
+  }
+  function beachPosOf(slot, key) {
+    var saved = store.berthPos && store.berthPos[key];
+    return beachClamp(saved || { x: slot.cx, y: 100 - slot.by });
+  }
+  /* lower on screen draws in front, recomputed live while dragging — the same rule
+     the camp uses, so a crate dragged down the sand passes in front of the bell. */
+  function beachZ(y) { return 10 + Math.round(y * 4); }
+  /* ⚠️ draggable="false" is NOT optional. An <img> is natively draggable and on
+     Safari that native drag eats the gesture, which is exactly the symptom the owner
+     reported. The matching -webkit-user-drag rule lives on .beach-item in xh.css. */
+  function beachSprite(img, x, y, w, extra, key) {
+    return '<img class="beach-item' + (extra ? " " + extra : "") + '" draggable="false" ' +
+      (key ? 'data-bk="' + esc(key) + '" ' : "") +
+      'src="art/xh/' + img + '.png' + ASSET_V + '" alt="" style="left:' + x +
+      "%;bottom:" + (100 - y) + "%;width:" + w + "%" + (key ? ";z-index:" + beachZ(y) : "") + '" ' +
       "onerror=\"this.style.display='none'\">";
   }
   function shellIcon() {
@@ -1898,7 +2027,7 @@
 
   /* the boat + whatever is in each berth slot, as one absolutely-positioned layer.
      Shared by 我的海滩 and the menu hero so the two can never drift apart. */
-  function beachSpritesHtml() {
+  function beachSpritesHtml(movable) {
     /* ⚠️ NO BOAT IN THIS SCENE (owner 2026-08-16 evening: 「remove boat from beach
        since it's now reflected on sea map」). The berth sprite used to be the only
        place a bought boat appeared; now it sails the landing sea map and rides the
@@ -1906,10 +2035,16 @@
        the painted stilt house and read as clutter rather than reward.
        The boat is still NAMED on the 我的海滩 tile and is bought/swapped in the shop
        below — this removes the sprite, not the feature. */
+    /* ⚠️ `movable` is FALSE for the menu hero. That hero is itself a <button> that
+       opens this screen, so a draggable child there would either swallow the tap or
+       let a student rearrange the beach from a thumbnail they cannot see properly. */
     var h = "";
     BERTH_SLOTS.forEach(function (sl) {
       var it = itemByKey(store.berth[sl.k]);
-      if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
+      if (!it) return;
+      var p = beachPosOf(sl, it.k);
+      h += beachSprite(it.img, p.x, p.y, sl.w,
+        movable ? "beach-move" : "", movable ? it.k : null);
     });
     return h;
   }
@@ -1927,19 +2062,86 @@
       '<div class="xh-berth-title">🏖️ 我的海滩' + xhPy("我的海滩") + '<span class="xh-en">Your berth</span></div>' +
       '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
       '<span class="xh-en">shells</span></span></div>';
-    h += '<div class="beach-stage">' +
+    h += '<div class="beach-stage" id="beachStage">' +
       '<img class="beach-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">";
-    /* the moored boat: spec puts it at cx 88 / by 30 / w 26, broadside because the
-       painted jetty runs left-to-right. ⚠️ ALL THREE TIERS SHARE ONE SCALE so the
-       boat does not jump size when upgraded — do not re-normalise per sprite. */
-    h += beachSpritesHtml();
+    h += beachSpritesHtml(true);
     h += "</div>";
+    h += '<div class="beach-hint">按住摆件可以拖到你喜欢的位置' + xhPy("按住摆件可以拖到你喜欢的位置") +
+      '<span class="xh-en">Press and hold an item to drag it anywhere</span></div>';
     h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' + xhPy("海滩小铺") +
-      '<span class="xh-en">shop</span></button></div></div>';
+      '<span class="xh-en">shop</span></button>' +
+      /* ⚠️ THE WAY BACK. Free placement without a reset is a trap: a student who
+         drags everything into one corner has no way to undo it, and the camp learned
+         this the same way (整理营地). It restores POSITIONS ONLY — nothing bought is
+         ever lost, and the confirm text says so. */
+      '<button class="xh-btn" id="beachTidy">🧹 整理海滩' + xhPy("整理海滩") +
+      '<span class="xh-en">tidy up</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();
     document.getElementById("beachShop").onclick = renderBeachShop;
+    document.getElementById("beachTidy").onclick = function () {
+      store.berthPos = {}; save(); sfxOk(); renderBeach();
+    };
+    wireBeachDrag(document.getElementById("beachStage"));
+  }
+
+  /* ---------- 自由摆放 drag (owner 2026-08-17) ----------
+     A straight port of app.js's camp drag, including the two things it learned the
+     hard way — repeat them rather than rediscovering them:
+     ⚠️ MOVE/UP ARE BOUND TO THE DOCUMENT, NOT THE SPRITE, and wired exactly once.
+     setPointerCapture sits in a try/catch, so wherever it silently fails the pointer
+     leaves the small sprite after a few pixels and pointermove stops firing: the item
+     twitches and sticks. Document-level listening removes the dependency. Once,
+     because renderBeach() runs on every visit and per-visit listeners would pile up.
+     ⚠️ passive:false, or preventDefault() during a move is ignored and a touch drag
+     scrolls the page instead of moving the item. touch-action:none on .beach-move
+     (xh.css) is the other half of that.
+     ⚠️ No press-and-hold gate: this is decoration, not an answer. */
+  var _bDrag = null, _bDragWired = false;
+  function beachDragMove(e) {
+    if (!_bDrag) return;
+    var r = _bDrag.stage.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    e.preventDefault();
+    var p = beachClamp({ x: (e.clientX - r.left) / r.width * 100,
+                         y: (e.clientY - r.top) / r.height * 100 });
+    _bDrag.img.style.left = p.x + "%";
+    _bDrag.img.style.bottom = (100 - p.y) + "%";
+    _bDrag.img.style.zIndex = beachZ(p.y);
+    _bDrag.pos = p; _bDrag.moved = true;
+  }
+  function beachDragEnd() {
+    if (!_bDrag) return;
+    _bDrag.img.classList.remove("beach-dragging");
+    /* ⚠️ a tap that never moved must NOT rewrite the saved position — otherwise
+       every accidental touch pins the item to wherever the finger landed. */
+    if (_bDrag.moved && _bDrag.pos) {
+      store.berthPos[_bDrag.img.getAttribute("data-bk")] = {
+        x: Math.round(_bDrag.pos.x * 10) / 10, y: Math.round(_bDrag.pos.y * 10) / 10
+      };
+      save();
+    }
+    _bDrag = null;
+  }
+  function wireBeachDrag(stage) {
+    if (!stage) return;
+    _bDrag = null;
+    Array.prototype.forEach.call(stage.querySelectorAll(".beach-move"), function (img) {
+      img.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        _bDrag = { img: img, stage: stage, moved: false };
+        img.classList.add("beach-dragging");
+        try { img.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+      // belt and braces for Safari, which may still attempt a native image drag
+      img.addEventListener("dragstart", function (e) { e.preventDefault(); });
+    });
+    if (_bDragWired) return;
+    _bDragWired = true;
+    document.addEventListener("pointermove", beachDragMove, { passive: false });
+    document.addEventListener("pointerup", beachDragEnd);
+    document.addEventListener("pointercancel", beachDragEnd);
   }
 
   function renderBeachShop() {
