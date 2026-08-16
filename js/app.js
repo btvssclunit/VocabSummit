@@ -365,6 +365,12 @@
        rather than the inclusions so a stream that gains a new 板块 shows it by
        default instead of silently hiding it. */
     s.compOff = s.compOff || {};
+    /* 来源 + 板块 fold into one「筛选」block (owner 2026-08-16 late:「reduce visual
+       clutter」). ⚠️ CLOSED by default and remembered: both are set-once controls,
+       and once the 板块 chips carry badge art they are the tallest thing in a card
+       that is a fixed-height scroll box. A student who never opens it gets every
+       板块 and the 单元 source, which is the correct default anyway. */
+    if (typeof s.filtOpen !== "boolean") s.filtOpen = false;
     s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
     s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
     /* rainSpeed / rainRamp retired 2026-08-14: 词雨 is progressive-only now.
@@ -1593,13 +1599,34 @@
          the doc's own §2 open sub-item says to flag rather than invent the second
          level. So this row states the current source plainly and opens the list;
          it does not pretend to be a toggle it cannot honour. */
+      "";
+    /* ⚠️ 来源 + 板块 live behind ONE fold (owner 2026-08-16 late). Both narrow an
+       existing selection rather than making it, both are set once and forgotten, and
+       together they were the tallest thing in a card that is a fixed-height scroll
+       box — so the units, which are what ① is actually for, started below the fold.
+       The closed state still STATES what is in force (来源 and how many 板块 are on),
+       so folding hides the controls, never the facts. */
+    var comps = streamComps();
+    var compsOn = comps.filter(compIsOn).length;
+    html += '<button class="scope-filt-t' + (store.filtOpen ? " open" : "") + '" id="filtT">' +
+      '<span class="scope-filt-lab">筛选' + pyl("筛选") + enli("筛选") + '</span>' +
+      '<span class="scope-filt-sum">单元' +
+        (comps.length > 1 ? ' · 板块 ' + compsOn + "/" + comps.length : "") + '</span>' +
+      '<span class="scope-caret">' + (store.filtOpen ? "▾" : "▸") + "</span></button>" +
+      '<div class="scope-filt' + (store.filtOpen ? "" : " closed") + '">' +
       '<div class="scope-src"><span class="scope-src-lab">来源' + pyl("来源") + enli("来源") + '</span>' +
       '<span class="scope-src-on">单元' + pyl("单元") + enli("单元") + '</span>' +
       '<button class="scope-src-btn" id="wlEntry">📋 我的词语表' + pyl("我的词语表") + enli("我的词语表") + ' ›</button></div>';
-    /* 板块 filter — one row, stream-wide, above the levels */
-    var comps = streamComps();
     if (comps.length > 1) {
-      html += '<div class="comp-row" id="compRow"><span class="comp-lab">板块' + pyl("板块") + enli("板块") + '</span>' +
+      /* ⚠️ FOUR 板块 GO 2x2 (owner 2026-08-16 late). auto-fill packs by width, so at
+         three-to-a-row G2/G3's four came out 3 + 1 and the last chip sat alone on
+         its own line. The count is per stream and fixed (G1 3 · G2/G3 4 · HCL 5), so
+         it is emitted as a class rather than sniffed with `:has()` — the students on
+         G1/G2 are the ones with the old iPads, and `:has()` is exactly the kind of
+         recent selector those miss. 3 and 5 keep the packing rule: 3 fills a row,
+         5 falls 3 + 2, and neither ends on an orphan. */
+      html += '<div class="comp-row' + (comps.length === 4 ? " n4" : "") +
+        '" id="compRow"><span class="comp-lab">板块' + pyl("板块") + enli("板块") + '</span>' +
         comps.map(function (c) {
           /* the five 板块 names are a fixed, navigational set (they filter the
              scope), so they gloss like any other chip. A stream that ever ships
@@ -1615,6 +1642,7 @@
             '<span class="comp-chip-lab">' + esc(c) + pyl(c) + enl(c) + '</span></button>';
         }).join("") + '</div>';
     }
+    html += '</div>';        // close .scope-filt
     var byLevel = {};
     UNIT_LIST.forEach(function (u) { (byLevel[u.level] = byLevel[u.level] || []).push(u); });
     /* EXCLUSIVE accordion (owner 2026-08-14): at most one level's units on screen.
@@ -1749,7 +1777,7 @@
            nothing at all — indistinguishable from a broken button. An empty filter
            is allowed now; the summary says 共 0 词 and starting a mode explains why. */
         b.classList.toggle("on", compIsOn(c));
-        saveStore(); updateScopeSum();
+        saveStore(); updateScopeSum(); updateFiltSum();
       };
     });
     document.getElementById("selAll").onclick = function () {
@@ -1772,6 +1800,11 @@
     });
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
+    /* ⚠️ re-render rather than a class flip: the closed header carries the 板块 count,
+       so a flip would leave「板块 3/4」stale the moment a chip is toggled inside. */
+    document.getElementById("filtT").onclick = function () {
+      store.filtOpen = !store.filtOpen; saveStore(); renderHome();
+    };
     document.getElementById("lbEntry").onclick = renderLeaderboard;
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     /* the banner IS 我的词山 now — tapping it opens the tall per-stream art (§3) */
@@ -1810,6 +1843,17 @@
       return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
         '<span class="flag">' + icon + '</span>' +
         '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
+    }
+    /* ⚠️ The folded 筛选 header restates the 板块 count, and the chips toggle by class
+       flip rather than a re-render — so without this the header keeps saying 4/4
+       after a chip is switched off, and the one fact folding must never hide goes
+       stale the moment it matters. */
+    function updateFiltSum() {
+      var el = document.querySelector(".scope-filt-sum");
+      if (!el) return;
+      var cs = streamComps();
+      el.textContent = "单元" +
+        (cs.length > 1 ? " · 板块 " + cs.filter(compIsOn).length + "/" + cs.length : "");
     }
     function updateScopeSum() {
       var n = scopedWords().length;
@@ -2709,7 +2753,7 @@
      decoding crutch for the interface, not a translation layer for the app. */
   var EN_LAB = {
     "结伴": "Team up",
-    "来源": "Source",
+    "来源": "Source", "筛选": "Filters",
     "单元": "Units",
     "复习范围 · 可多选": "Choose your units",
     "全选": "Select all",
@@ -2861,7 +2905,7 @@
      missing, so a gap is silent, not broken. */
   var PY_LAB = {
     "结伴": "jié bàn",
-    "来源": "lái yuán",
+    "来源": "lái yuán", "筛选": "shāi xuǎn",
     "单元": "dān yuán",
     "复习范围 · 可多选": "fù xí fàn wéi · kě duō xuǎn", "全选": "quán xuǎn", "清空": "qīng kōng",
     "选择学习方式": "xuǎn zé xué xí fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",

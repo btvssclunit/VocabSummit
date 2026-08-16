@@ -89,7 +89,18 @@
        and s.mode holds "learn" whenever the flashcard card is the selected one —
        without this, coming back from flashcards would forget the question type.
        ⚠️ literal, not a MODES lookup: load() runs before MODES is assigned. */
-    if (["enmcq", "pic", "listen", "phrase"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
+    /* ⚠️ `phrase` LEFT this whitelist (owner 2026-08-16): 看句选词 is a 句-level task
+       and now lives under 学以致用, not among the three 词-level types. An old profile
+       holding quizMode === "phrase" is reset to "pic" here, which is correct — the
+       remembered 学以致用 side has its own slot below and starts on 看句选词 anyway. */
+    if (["enmcq", "pic", "listen"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
+    /* the 学以致用 side's own memory. ⚠️ separate from quizMode for the same reason
+       quizMode is separate from mode: the two containers must not overwrite each
+       other's last-used type. */
+    if (["phrase", "sort"].indexOf(s.useMode) === -1) s.useMode = "phrase";
+    /* 重整句子 拼块盘总块数。⚠️ 自己的常量，不复用 OPT_TIERS（那是「屏幕上几个选项」，
+       语义不同），仿 MATCH_SIZES 的先例。最低档 0 表示「刚好够，没有干扰词」。 */
+    if ([0, 2, 4, 6].indexOf(s.sortExtra) === -1) s.sortExtra = 2;
     /* 闪卡 的两面（owner 2026-08-16 晚）：词语卡 走 xh_v3 的 150 个词，
        句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
        读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
@@ -180,10 +191,14 @@
     "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
-    /* 传声筒 had no line, so it was the one mode card on the 学词 screen with no
-       拼音 — invisible until the four types sat in a row together (§10: a missing
-       key returns "" and fails silently). */
-    "传声筒": "chuán shēng tǒng",
+    /* ⚠️ 传声筒 → 看句选词，并且它不再是一个并列的题型，而是收进 学以致用 这张容器卡
+       （owner 2026-08-16）。旧名只留在 `PATCH_02` 与归档里，代码里的 id 仍是 "phrase"。
+       ⚠️ 学以致用 是成语，单看比 传声筒 难读——这是**知情的取舍**：它现在与 词语挑战
+       并列，**容器卡允许抽象，题型卡不允许**，拼音与英文副标承担实际释义。
+       不要「顺手」把它改回大白话。
+       ⚠️ 重整句子 的「重」读 chóng 不读 zhòng。 */
+    "学以致用": "xué yǐ zhì yòng",
+    "看句选词": "kàn jù xuǎn cí", "重整句子": "chóng zhěng jù zi",
     "一次连几组": "yī cì lián jǐ zǔ", "返回码头": "fǎn huí mǎ tóu",
     /* 看图学词 had no entry while every other mode name did — invisible until the
        学词 tab held two cards side by side and only one carried its 拼音.
@@ -713,9 +728,9 @@
        be full of perfectly good words and still have nothing to ask (数字 has no
        sentences at all). Narrowing the pool here is what makes the mode grey
        itself out with a reason instead of dying on 出发. */
-    if (mode === "phrase") {
+    if (isPhraseMode(mode)) {
       var ok = {};
-      phrasesFor(pool).forEach(function (p) { ok[p.ask] = 1; });
+      phrasesFor(pool, mode).forEach(function (p) { ok[p.ask] = 1; });
       return pool.filter(function (w) { return ok[w.词语]; });
     }
     return modeNeedsPic(mode) ? pool.filter(hasPic) : pool;
@@ -745,10 +760,38 @@
     for (var i = 0; i < WORDS.length; i++) if (WORDS[i].词语 === t) return WORDS[i];
     return null;
   }
-  function phrasesFor(pool) {
+  /* both sentence modes; §8.4 asked for one predicate rather than two `=== "phrase"`
+     tests that would drift apart */
+  function isPhraseMode(m) { return m === "phrase" || m === "sort"; }
+  /* ---------- `seg` — 重整句子 的分块 (HANDOFF_学以致用 §3) ----------
+     ⚠️ OPTIONAL, AND HAND-WRITTEN. A sentence with no `seg` is simply invisible to
+     重整句子; nothing else in the codebase reads the field, so its absence cannot
+     break 看句选词, 我的词语表 or the search index.
+     ⚠️ NEVER SEGMENT AT RUNTIME. The dock ships flat files with no build step, and
+     more importantly the cut IS the teaching decision: 我/每天/搭/巴士/去/学校 and
+     我/每天/搭巴士/去学校 are two different lessons. That is not the program's call.
+     The four checks below are §3.4's validator, run here rather than offline so a
+     malformed row disqualifies its own sentence instead of shipping a broken round. */
+  var SEG_END = /[。？！]$/;
+  var SEG_PUNCT = /[，,、。．：:；;！!？?（）()“”"'’‘—…·\s]/;
+  function segOK(p) {
+    if (!p || !(p.seg instanceof Array) || p.seg.length < 3) return false;
+    for (var i = 0; i < p.seg.length; i++) {
+      if (typeof p.seg[i] !== "string" || !p.seg[i] || SEG_PUNCT.test(p.seg[i])) return false;
+    }
+    if (p.seg.join("") !== String(p.zh || "").replace(SEG_END, "")) return false;
+    /* ask must be exactly one block: straddling two means the cut is wrong, and the
+       whole 未认得优先 bucket key (§6.2) reads store.done[p.ask]. */
+    if (p.ask && p.seg.indexOf(p.ask) === -1) return false;
+    return true;
+  }
+  function phrasesFor(pool, mode) {
     var have = {};
     pool.forEach(function (w) { have[w.词语] = 1; });
-    return PHRASES.filter(function (p) { return phraseAskable(p) && have[p.ask]; });
+    return PHRASES.filter(function (p) {
+      if (!phraseAskable(p) || !have[p.ask]) return false;
+      return mode === "sort" ? segOK(p) : true;
+    });
   }
 
   /* ---------- modes (spec §4) ----------
@@ -777,12 +820,21 @@
        two that really are games: typing against a rising fish, and the match board. */
     { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word", learn: true, opts: true },
     { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture", learn: true, opts: true },
-    /* 传声筒 — a word from the scene is blanked out of a real sentence and the
-       student picks it. ⚠️ IT IS NOT A SENTENCE TEST. PATCH_02 §0: the goal is to
-       make a zero-start learner MEET these words again inside real language, not
+    /* 看句选词（原名 传声筒）— a word from the scene is blanked out of a real sentence
+       and the student picks it. ⚠️ IT IS NOT A SENTENCE TEST. PATCH_02 §0: the goal is
+       to make a zero-start learner MEET these words again inside real language, not
        to make them master the sentence. Not understanding the whole line is the
-       expected state; wherever「harder」and「more exposure」pull apart, take exposure. */
-    { id: "phrase", icon: "📣", zh: "传声筒", en: "Fill the sentence", learn: true, opts: true },
+       expected state; wherever「harder」and「more exposure」pull apart, take exposure.
+       ⚠️ THE id STAYS "phrase". store.mode, remembered modes, SHELL_PTS, poolForMode
+       and SCENE_BG all index on it; renaming the id would point every returning
+       student's remembered mode at nothing. Only the LABEL changed. */
+    { id: "phrase", icon: "📣", zh: "看句选词", en: "Fill the sentence", learn: true, opts: true },
+    /* 重整句子 — the word-tile game the 2026-08-16 morning design specified and
+       PATCH_02 replaced with an MCQ to get something shippable. This puts it back.
+       ⚠️ It teaches WORD ORDER, so it is the one mode whose answer is a sequence.
+       It needs the optional `seg` array; sentences without one are invisible to it
+       and the mode greys itself out rather than failing on 出发. */
+    { id: "sort", icon: "🧩", zh: "重整句子", en: "Put the words in order", learn: true },
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
     { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
   ];
@@ -793,14 +845,22 @@
      「clunky」the owner reported — a beginner had to tell 看图识词 from 听音识图
      before meeting a single word.
      `k` is the door, not a mode id: startRound is still driven by store.mode. */
+  /* ⚠️ 学词 面分成 词 与 句 两层（owner 2026-08-16）：
+     词语挑战 = 词的层面（三个题型）· 学以致用 = 句的层面（两个题型，把刚学的词拿去用）。
+     原先 传声筒 混在四个词级题型里，是唯一考句子的那个，形状不一致。 */
   var ENTRIES = [
     { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true,
       sub: "词语卡 · 句子卡", subEn: "words or sentences" },
     { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true,
-      sub: "英文选词 · 看图识词 · 听音识图 · 传声筒", subEn: "four question types" },
+      sub: "英文选词 · 看图识词 · 听音识图", subEn: "three question types" },
+    { k: "use", icon: "💬", zh: "学以致用", en: "Put it to use", learn: true,
+      sub: "看句选词 · 重整句子", subEn: "sentences, not single words" },
     { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false },
     { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false }
   ];
+  /* which store slot remembers the last type used behind a multi-type door.
+     ⚠️ One slot per door: quizMode and useMode must never overwrite each other. */
+  var ENTRY_MEM = { quiz: "quizMode", use: "useMode" };
   function entryByKey(k) {
     for (var i = 0; i < ENTRIES.length; i++) if (ENTRIES[i].k === k) return ENTRIES[i];
     return ENTRIES[0];
@@ -809,7 +869,8 @@
      other door owns exactly one mode. */
   function entryModes(k) {
     if (k === "cards") return ["learn"];
-    if (k === "quiz") return ["enmcq", "pic", "listen", "phrase"];
+    if (k === "quiz") return ["enmcq", "pic", "listen"];
+    if (k === "use") return ["phrase", "sort"];
     return [k];
   }
   /* ⚠️ A door that cannot run under the current 学习范围 must SAY SO here rather
@@ -851,6 +912,12 @@
     return (n === 2 ? "⭐ " : n === 3 ? "⭐⭐ " : "⭐⭐⭐ ") + n + " 个选项";
   }
   var MATCH_SIZES = [3, 5, 8];   // 连线 difficulty: pairs on the board at once
+  /* 重整句子 difficulty: how many DECOY word tiles join the sentence's own blocks.
+     ⚠️ 0 is a real setting, not a placeholder — see the note at its slider. */
+  var SORT_EXTRAS = [0, 2, 4, 6];
+  function sortExtraLabel(n) {
+    return n === 0 ? "刚好够 · 没有干扰词" : "+" + n + " 块 · " + (n === 2 ? "容易" : n === 4 ? "普通" : "有挑战");
+  }
 
   /* 动线编号 — the same gold numerals app.js puts on multi-step decision flows.
      Numbering restarts per screen, and optional settings are never numbered. */
@@ -1111,14 +1178,16 @@
        every other door owns exactly one. ⚠️ If the scope has since blocked it (数字
        has no pictures) fall to the first usable sibling rather than opening on a
        dead selection. */
-    var want = kind === "quiz" ? store.quizMode : modes[0];
+    var mem = ENTRY_MEM[kind];
+    var want = mem ? store[mem] : modes[0];
+    if (modes.indexOf(want) === -1) want = modes[0];
     if (!poolForMode(pool, want).length) {
       var alt = null;
       modes.forEach(function (m) { if (!alt && poolForMode(pool, m).length) alt = m; });
       want = alt || modes[0];
     }
     if (store.mode !== want) { store.mode = want; }
-    if (kind === "quiz") store.quizMode = want;
+    if (mem) store[mem] = want;
     save();
     var cur = modeById(store.mode);
 
@@ -1145,7 +1214,7 @@
          exposure, and reading the line whole is the most exposure it can give.
          ⚠️ 句子卡 records NO progress. 航程 counts words a student recognises, and
          reading a sentence is not that. */
-      var nPhr = phrasesFor(pool).length;
+      var nPhr = phrasesFor(pool, "phrase").length;
       /* ⚠️ a remembered 句子卡 must not survive into a scope with no sentences
          (数字 has none at all): 出发 would call startRound, find an empty sequence
          and return, and the student would be left pressing a button that does
@@ -1174,24 +1243,43 @@
         (store.cardKind === "sentence"
           ? 'Sentence cards run through every sentence in scope. They do not count towards 航程.'
           : 'Word cards run through every word in scope.') + '</span></div>';
-    } else if (kind === "quiz") {
-      /* the four question types. ⚠️ Numbered now: on this screen it really IS the
-         first decision the student makes, not a refinement of a card they picked
-         one screen earlier. */
-      h += sec("挑战方式", "which question") + '<div class="xh-modes sub">';
-      var blocked = 0;
+    } else if (modes.length > 1) {
+      /* the question types behind a multi-type door (词语挑战 三个 · 学以致用 两个).
+         ⚠️ Numbered: on this screen it really IS the first decision the student
+         makes, not a refinement of a card they picked one screen earlier.
+         ⚠️ The two 学以致用 types are two SEPARATE cards and there is no mid-round
+         switch between them (owner 2026-08-16). 看句选词 prints the whole sentence on
+         a correct answer, so switching to 重整句子 on that same sentence would hand
+         over the complete word order — which is the only thing 重整句子 tests.
+         ⚠️ Do NOT read that as「the dock forbids mid-round switching」: 组词挑战 on the
+         mountain switches 释义/英文/填空 freely, and that is safe because it changes
+         the PROMPT, not the mechanism, and the answer stays the same word. */
+      h += sec(kind === "use" ? "学以致用的方式" : "挑战方式", "which question") +
+        '<div class="xh-modes sub">';
+      var blocked = 0, noSeg = false;
       modes.forEach(function (id) {
         var m = modeById(id), usable = poolForMode(pool, id).length > 0;
-        if (!usable) blocked++;
+        if (!usable) { blocked++; if (id === "sort") noSeg = true; }
+        var why = id === "sort" ? "这些句子还没有分块" : "这组没有图片";
+        var whyEn = id === "sort" ? "sentences not split yet" : "no pictures";
         h += '<button class="xh-mode sm' + (store.mode === id ? " on" : "") +
           (usable ? "" : " na") + '" data-m="' + id + '"' + (usable ? "" : " disabled") + '>' +
           '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
           '<span class="xh-en">' + m.en + "</span>" +
-          (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+          (usable ? "" : '<span class="xh-mode-na">' + why +
+                         '<span class="xh-en">' + whyEn + "</span></span>") +
           "</button>";
       });
       h += "</div>";
-      if (blocked) {
+      /* ⚠️ 重整句子 is blocked by MISSING DATA, not by the student's scope, so it needs
+         its own sentence — 「这组没有图片」 would send them off changing 学习范围 for
+         something no scope can fix. `seg` is hand-written per §3.3 and none exist yet. */
+      if (noSeg) {
+        h += '<div class="xh-cfg-note">重整句子 需要把句子先切成词块，这批句子还没有切。' +
+          '<span class="xh-en">重整句子 needs its sentences split into word tiles first. ' +
+          'That is written by hand, and none are ready yet.</span></div>';
+      }
+      if (blocked - (noSeg ? 1 : 0) > 0) {
         h += '<div class="xh-cfg-note">「数字」这一组没有图片，所以看图和听音的玩法用不上。' +
           '数字可以用 词语闪卡、词海垂钓 和 连线 来练。' +
           '<span class="xh-en">Numbers have no pictures, so picture and listening rounds are off ' +
@@ -1211,6 +1299,16 @@
         h += sec("挑战难度", "how many choices") +
           qtySlider("xhOptsN", OPT_TIERS, store.optsN, optTierLabel);
       }
+      /* 重整句子's difficulty is how many EXTRA word tiles sit in the tray, the same
+         shape as the mountain's 字块数量. ⚠️ Its own constant, never OPT_TIERS: that
+         one means「how many options are on screen」and the two would drift.
+         ⚠️ The lowest step really is 0 — exactly enough tiles, no decoys. PATCH_02 §0
+         still rules: the dock takes more exposure over more difficulty, and a
+         zero-start beginner ordering eight Chinese words is already the hard part. */
+      if (cur.id === "sort") {
+        h += sec("多几块干扰词", "extra word tiles") +
+          qtySlider("xhSortX", SORT_EXTRAS, store.sortExtra, sortExtraLabel);
+      }
     }
 
     /* ONE action. The 返回 in the round bar above already goes back to the dock, and
@@ -1224,9 +1322,12 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-m]"), function (el) {
       el.onclick = function () {
         store.mode = el.getAttribute("data-m");
-        store.quizMode = store.mode;      // remembered per §load()
+        /* ⚠️ write the slot belonging to THIS door only. Before 学以致用 existed there
+           was one slot and an unconditional write; with two doors that would let
+           词语挑战 clobber what 学以致用 remembered and vice versa. */
+        if (mem) store[mem] = store.mode;
         save();
-        renderModeConfig(kind);           // re-render: 挑战难度 differs per type
+        renderModeConfig(kind);           // re-render: the sliders differ per type
       };
     });
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-ck]"), function (el) {
@@ -1241,6 +1342,7 @@
       return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
     }, function (n) { store.matchN = n; save(); });
     wireQtySlider("xhOptsN", OPT_TIERS, optTierLabel, function (n) { store.optsN = n; save(); });
+    wireQtySlider("xhSortX", SORT_EXTRAS, sortExtraLabel, function (n) { store.sortExtra = n; save(); });
     document.getElementById("xhGoRound").onclick = function () {
       if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
       startRound(scopeLabel());
@@ -1855,6 +1957,33 @@
     });
   }
 
+  /* ---------- 未认得优先 (HANDOFF_学以致用 §6) ----------
+     ⚠️ THIS IS A DOCK-WIDE CHANGE, not something the new mode brought with it.
+     startRound drew `shuffle(draw).slice(0, need)` — flat random — so a student who
+     already recognised 80 words could play a five-question round without meeting a
+     single new one, while the 航海徽章 thresholds (10/25/…/400) count rows in
+     store.done and simply stopped moving. The mountain has had the fix since day one
+     (app.js startQuiz,「WEAK-FIRST, RANDOM WITHIN BUCKET」); this is the same shape.
+     ⚠️ SHUFFLED WITHIN EACH BUCKET, never curriculum order: otherwise a student can
+     answer straight down the handbook without reading the questions.
+     ⚠️ Exemptions, both deliberate: `learn` walks its whole set in data order (it is
+     a lesson, not a sample — the mountain exempts `flash` for the same reason), and
+     distractors() is untouched, because narrowing the decoy pool is what ruins a
+     question (same warning as the 子类 note).
+     ⚠️ 重整句子 teaches WORD ORDER but buckets on store.done[p.ask], which records
+     WORDS. A student may well recognise 图书馆 and still have never ordered that
+     sentence, and this will file it as review. That inaccuracy is accepted for now:
+     fixing it means a second record of「sentences ordered correctly」, and CLAUDE.md
+     is explicit that this tier adds words, not systems. THIS IS NOT A BUG — do not
+     「fix」it by inventing a new store field. */
+  function wordUnmet(w) { return !store.done[w.词语]; }
+  function phraseUnmet(p) { return !(p && p.ask && store.done[p.ask]); }
+  function weakFirst(list, unmet) {
+    var fresh = [], seen = [];
+    list.forEach(function (x) { (unmet(x) ? fresh : seen).push(x); });
+    return shuffle(fresh).concat(shuffle(seen));
+  }
+
   /* startRound(label, forceMode, poolOverride)
      ⚠️ `label` is now only what the round is CALLED. The words come from the
      current 学习范围, or from poolOverride when the caller already has a list
@@ -1902,8 +2031,8 @@
          theming, sprite prewarm) is about words and does not apply. Return early
          with the same state shape so render()/jetty()/renderResult() need no
          special cases. */
-      if (mode === "phrase") {
-        var all = phrasesFor(pool);
+      if (isPhraseMode(mode)) {
+        var all = phrasesFor(pool, mode);
         if (!all.length) return;
         /* ⚠️ ONE SCENE PER ROUND — same idea as the 子类 theming for the other modes:
            only scenes that can FILL the round are eligible, so a thin one (农场 has
@@ -1916,17 +2045,30 @@
           byScene[q.scene].push(q);
         });
         var big = scenes.filter(function (k) { return byScene[k].length >= need; });
-        var pickScene = big.length
-          ? big[Math.floor(Math.random() * big.length)]
-          : scenes.sort(function (a, b) { return byScene[b].length - byScene[a].length; })[0];
-        var ph = shuffle(byScene[pickScene].slice()).slice(0, need);
+        /* ⚠️ SCENE FIRST, WEAK-FIRST INSIDE IT (§6.5). Sorting all sentences by
+           「not met yet」and taking the top N would pull them from several scenes and
+           break the single backdrop the whole mode is built around. So the scene is
+           chosen among those that can fill a round, preferring the one with the most
+           unmet sentences, and the bucketing happens within it. */
+        var pickFrom = big.length ? big : scenes;
+        var pickScene = pickFrom.slice().sort(function (a, b) {
+          var ua = byScene[a].filter(phraseUnmet).length, ub = byScene[b].filter(phraseUnmet).length;
+          if (ub !== ua) return ub - ua;
+          return byScene[b].length - byScene[a].length;
+        })[0];
+        var ph = weakFirst(byScene[pickScene], phraseUnmet).slice(0, need);
         if (!ph.length) return;
         state = { grp: pickScene, mode: mode, seq: ph, i: 0, correct: 0,
                   missed: [], firstTry: true, pool: pool, scene: pickScene };
-        ph.forEach(function (p) {
-          var w = wordByText(p.ask), f = p.pic || (w && w.图档);
-          if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
-        });
+        /* ⚠️ 重整句子 shows no sticker (§8.4), so there is nothing to prewarm for it:
+           every word is already on a tile and the answer has no ambiguity to resolve.
+           A picture there would only crowd the tray and pull the eye off word order. */
+        if (mode === "phrase") {
+          ph.forEach(function (p) {
+            var w = wordByText(p.ask), f = p.pic || (w && w.图档);
+            if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
+          });
+        }
         return render();
       }
       var draw = pool;
@@ -1945,7 +2087,10 @@
         var big = subs.filter(function (k) { return bySub[k].length >= need; });
         if (big.length) draw = bySub[big[Math.floor(Math.random() * big.length)]];
       }
-      seq = shuffle(draw.slice()).slice(0, Math.min(need, draw.length));
+      /* ⚠️ WEAK-FIRST, INSIDE THE THEME (§6.4.1). The bucketing runs on `draw`, after
+         the 子类 pick, never on `pool` — reversing the two would choose the round's
+         words before its theme and undo SPEC_XH_vocab_v3 §6. */
+      seq = weakFirst(draw, wordUnmet).slice(0, Math.min(need, draw.length));
     }
     if (!seq.length) return;
     state = { grp: sub || scopeLabel(), mode: mode, seq: seq, i: 0, correct: 0,
@@ -1982,6 +2127,7 @@
     }
     if (state.i >= state.seq.length) return renderResult();
     if (state.mode === "phrase") return renderPhrase();
+    if (state.mode === "sort") return renderSort();
     if (state.mode === "enmcq") return renderEnMcq();
     if (state.mode === "listen") return renderListen();
     if (state.mode === "type") return renderType();
@@ -2055,7 +2201,16 @@
   /* 英文选词 sits with 看图识词 at 2: both are 4-option recognition. It reads
      characters rather than pictures, but a wrong tap costs nothing in either, so
      the effort is comparable. */
-  var SAIL_PTS = { pic: 2, enmcq: 2, listen: 3, match: 3, type: 4, learn: 0 };
+  /* ⚠️ `phrase` WAS MISSING FROM THIS TABLE (found 2026-08-16 late, while adding
+     `sort`). `SAIL_PTS[mode] || 0` then returned 0 and `awardSail` bailed on the
+     next line, so 看句选词 has been paying NOTHING — not 航海值, not 贝壳 (it was
+     absent from SHELL_PTS too) — since the day it shipped. It is silent because
+     nothing throws: a missing key and a deliberate 0 look identical here.
+     ⚠️ `learn: 0` is the only intentional zero in either table. Anything that asks a
+     question must appear here explicitly; when a mode is added, add both rows.
+     3 for 看句选词 (recognition, but inside a sentence — same tier as 听音识图) and
+     4 for 重整句子 (production, same tier as 词海垂钓). */
+  var SAIL_PTS = { pic: 2, enmcq: 2, listen: 3, match: 3, type: 4, phrase: 3, sort: 4, learn: 0 };
   function awardSail(mode, firstTry) {
     var base = SAIL_PTS[mode] || 0;
     if (!base) return 0;                      // 看图学词 asks nothing, so earns nothing
@@ -2069,7 +2224,12 @@
      "never converts" rule but gives no numbers (same situation as the camp's
      GEAR prices and LINGLU_BASE). One dial, retune freely after real use.
      Typing pays double because it is the only production mode here. */
-  var SHELL_PTS = { pic: 1, enmcq: 1, listen: 1, match: 1, type: 2, learn: 0 };
+  /* ⚠️ `sort` is 2, the same as 词海垂钓: both are PRODUCTION tasks (you build the
+     answer) rather than recognition. `phrase` stays 1 and is not levelled up to
+     match it — the two now share the 学以致用 card but they are two SEPARATE cards
+     with no mid-round switch, so a student cannot pick the cheaper one and hop.
+     ⚠️ If a mid-round switch is ever added, the two rates must be merged FIRST. */
+  var SHELL_PTS = { pic: 1, enmcq: 1, listen: 1, match: 1, type: 2, phrase: 1, sort: 2, learn: 0 };
   function awardShells(mode, firstTry) {
     var base = SHELL_PTS[mode] || 0;
     if (!base) return 0;
@@ -2307,6 +2467,185 @@
     /* the blank keeps the measure word and everything else intact */
     return esc(p.zh).replace(esc(p.ask), '<span class="xh-blank">＿＿</span>');
   }
+  /* ---------- 重整句子 (HANDOFF_学以致用 §4–§5) ----------
+     ⚠️ THE SAME GESTURE AS THE MOUNTAIN'S 组词挑战, ONE LEVEL UP: that one is「tap out
+     the CHARACTERS of a word」, this is「tap out the WORDS of a sentence」. The layout
+     and the interaction are copied deliberately so a student learns one gesture.
+     ⚠️ TAP TO PLACE, NEVER DRAG. Touch drag on a tablet fights `touchmove` against
+     page scroll, triggers long-press text selection, and has to handle a release
+     halfway. Tapping is already proven here and on the avatar picker.
+     ⚠️ EVERY TILE IS KEYED BY ITS INDEX, NEVER BY ITS TEXT. A sentence may repeat a
+     word (我…我…), and de-duplicating by string would leave the student unable to
+     build the answer. Validation compares the TEXT SEQUENCE, so two identical tiles
+     are interchangeable, which is correct.
+     ⚠️ NO PICTURE (§8.4). 看句选词 needs one because「这包＿＿多少钱？」 has several
+     valid answers without it; here every word is on a tile and there is no ambiguity
+     to resolve, so a sticker would only crowd the tray and pull the eye off order.
+     ⚠️ NO PINYIN ON THE TILES (§8.2). These sentences carry no per-character reading
+     (see the head of js/tts.js) and a generated fallback is exactly what §8 forbids.
+     The 拼音 gate having nothing to show here is the normal state, not a defect. */
+  function sortTiles(p) {
+    /* [{i, t}] — `i` is identity, `t` is only what it says. */
+    var tiles = p.seg.map(function (t, i) { return { i: i, t: t }; });
+    var extra = store.sortExtra || 0;
+    if (extra) {
+      /* ⚠️ DECOYS COME FROM THE ask WORD'S OWN 组别 — the one distractor rule the
+         whole dock shares, no exceptions. They are whole WORDS, matching the tray's
+         granularity, and any that already appear in the sentence are dropped: a
+         duplicate decoy would be indistinguishable from a real tile and could be
+         placed correctly by accident. */
+      var w = wordByText(p.ask);
+      if (w) {
+        var inSeg = {};
+        p.seg.forEach(function (t) { inSeg[t] = 1; });
+        var pool = distractors(w, extra + 4, "sort").filter(function (o) { return !inSeg[o.词语]; });
+        pool.slice(0, extra).forEach(function (o, k) {
+          tiles.push({ i: p.seg.length + k, t: o.词语, decoy: true });
+        });
+      }
+    }
+    return shuffle(tiles);
+  }
+  function renderSort() {
+    var p = state.seq[state.i];
+    var bg = SCENE_BG[state.scene || p.scene];
+    /* the tray is drawn ONCE per question and cached, exactly as 组词挑战 caches its
+       chips: re-drawing on any re-render would re-roll the decoys, and the sentence's
+       own blocks survive every draw — the 选项重洗＝泄题 trap, one screen over. */
+    var key = state.i + "|" + p.id;
+    if (state._sortKey !== key) { state._sortKey = key; state._sortTiles = sortTiles(p); }
+    var tiles = state._sortTiles;
+    var end = String(p.zh || "").match(/[。？！]$/);
+
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      jetty() + '<span class="xh-block-tag">' + esc(p.scene) + " · 重整句子</span></div>" +
+      (bg ? '<div class="xh-scene-bg" style="background-image:url(&quot;art/xh/' +
+            esc(bg) + '.png' + ASSET_V + '&quot;)"></div>' : "") +
+      '<div class="xh-board xh-stage xh-sort' + (bg ? " on-scene" : "") + '">' +
+      /* ⚠️ .xh-always on the English: p.en IS THE PROMPT here — the student is
+         building the Chinese for exactly this line. Gated behind body.xh-en-on it
+         would leave them staring at a tray of unexplained word tiles. This extends
+         the existing §10 exception (「the 传声筒 situation line」), it does not open
+         a new one. */
+      '<div class="xh-sort-ask"><span class="xh-en xh-always">' + esc(p.en) + "</span></div>" +
+      '<div class="xh-slots" id="xhSlots">';
+    p.seg.forEach(function (_, i) {
+      h += '<span class="xh-slot" data-k="' + i + '"></span>';
+    });
+    /* ⚠️ 句末标点 is FIXED DECORATION, not a tile (§3.5). It has no word order to
+       teach, so making it tappable would just add a square that must be pressed. */
+    h += (end ? '<span class="xh-slot-end">' + esc(end[0]) + "</span>" : "") + "</div>";
+    h += '<div class="xh-tray" id="xhTray">';
+    tiles.forEach(function (t) {
+      h += '<div class="xh-tilewrap"><button class="xh-tile-w" data-i="' + t.i + '">' +
+        esc(t.t) + "</button>" +
+        /* ⚠️ sibling speaker, never nested (§14「喇叭嵌在选项里」). It reads ONE block,
+           which gives away nothing about the order. */
+        '<button class="xh-ttts" data-s="' + t.i + '" title="朗读" aria-label="朗读">🔊</button></div>';
+    });
+    h += "</div>" +
+      '<div class="xh-sort-acts">' +
+      '<button class="xh-btn" id="xhSortGo">检查答案' + xhPy("检查答案") +
+      '<span class="xh-en">check</span></button></div>' +
+      '<div class="xh-hint" id="xhHint"></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+
+    var slots = [].slice.call(view().querySelectorAll(".xh-slot"));
+    var placed = [];            // tile index per slot, or null
+    var locked = 0;             // slots green-locked by a previous check
+    p.seg.forEach(function () { placed.push(null); });
+    var done = false;
+
+    function tileById(i) {
+      for (var k = 0; k < tiles.length; k++) if (tiles[k].i === i) return tiles[k];
+      return null;
+    }
+    function btnFor(i) { return view().querySelector('.xh-tile-w[data-i="' + i + '"]'); }
+    function paint() {
+      slots.forEach(function (s, k) {
+        var t = placed[k] === null ? null : tileById(placed[k]);
+        s.textContent = t ? t.t : "";
+        s.classList.toggle("filled", !!t);
+        s.classList.toggle("lock", k < locked);
+      });
+      tiles.forEach(function (t) {
+        var b = btnFor(t.i);
+        /* the WRAPPER carries the class so the sibling speaker hides with the tile */
+        if (b && b.parentNode) b.parentNode.classList.toggle("used", placed.indexOf(t.i) !== -1);
+      });
+      var go = document.getElementById("xhSortGo");
+      if (go) go.disabled = placed.indexOf(null) !== -1;
+    }
+    function place(i) {
+      if (done || placed.indexOf(i) !== -1) return;
+      for (var k = locked; k < placed.length; k++) {
+        if (placed[k] === null) { placed[k] = i; paint(); return; }
+      }
+    }
+    function lift(k) {
+      if (done || k < locked || placed[k] === null) return;
+      placed[k] = null; paint();
+    }
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-tile-w"), function (b) {
+      b.onclick = function () { place(parseInt(b.getAttribute("data-i"), 10)); };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-ttts"), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var t = tileById(parseInt(b.getAttribute("data-s"), 10));
+        if (t) speak(t.t);
+      };
+    });
+    slots.forEach(function (s, k) { s.onclick = function () { lift(k); }; });
+
+    document.getElementById("xhSortGo").onclick = function () {
+      if (done || placed.indexOf(null) !== -1) return;
+      /* ⚠️ PREFIX LOCK, NOT ALL-OR-NOTHING (§5). Compare from the first slot; blocks
+         in the right place go green and STAY; from the first wrong one, everything
+         after it returns to the tray. The student sees WHERE the order broke, which
+         is the whole assessment-for-learning value of the mode.
+         ⚠️ Compared by TEXT, not by tile index: 我…我… swapped is still correct.
+         ⚠️ A wrong answer costs nothing — no 贝壳, no 航程, no 海里 — as everywhere
+         else in this tier. And no move-count scoring: that is a puzzle-player's
+         metric, not a language learner's. */
+      var i = 0;
+      while (i < placed.length && tileById(placed[i]).t === p.seg[i]) i++;
+      if (i >= placed.length) {
+        done = true;
+        locked = placed.length;
+        paint();
+        var w = wordByText(p.ask);
+        /* ⚠️ ONLY p.ask IS RECORDED (§7.1). One question puts 4–8 words on screen, and
+           store.done's ROW COUNT drives the nine 航海徽章 thresholds — marking every
+           block would push a student through three badge levels in a single round and
+           void the ladder. tileOnly / missing ask records nothing at all. */
+        if (w && !p.tileOnly) noteRight(w, true);
+        else sfxOk();
+        document.getElementById("xhHint").innerHTML = "✅ " + esc(p.zh) +
+          (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
+        /* the sentence is read whole before the page turns — same floor/ceiling as
+           看句选词, which was tuned for exactly this length (§8.3). */
+        advanceAfterSpeech(p.zh, null, 1200, 5500);
+        return;
+      }
+      locked = i;
+      for (var k = i; k < placed.length; k++) placed[k] = null;
+      /* ⚠️ noteWrong flips state.firstTry itself and plays the sound — do NOT clear
+         the flag first, or the miss is never recorded against the word. */
+      var w2 = wordByText(p.ask);
+      if (w2 && !p.tileOnly) noteWrong(w2, "");
+      else { state.firstTry = false; sfxNo(); }
+      paint();
+      document.getElementById("xhHint").innerHTML = locked
+        ? "前 " + locked + " 块对了，后面再想想。" +
+          '<span class="xh-en xh-always">First ' + locked + ' in place — keep going.</span>'
+        : "第一块就要换一个，再想想。" +
+          '<span class="xh-en xh-always">Start with a different word.</span>';
+    };
+    paint();
+  }
+
   function renderPhrase() {
     var p = state.seq[state.i];
     var w = wordByText(p.ask);
@@ -2322,7 +2661,7 @@
        bright is a single knob, never an art re-export. */
     var bg = SCENE_BG[state.scene || p.scene];
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      jetty() + '<span class="xh-block-tag">' + esc(p.scene) + " · 传声筒</span></div>" +
+      jetty() + '<span class="xh-block-tag">' + esc(p.scene) + " · 看句选词</span></div>" +
       (bg ? '<div class="xh-scene-bg" style="background-image:url(&quot;art/xh/' +
             esc(bg) + '.png' + ASSET_V + '&quot;)"></div>' : "") +
       '<div class="xh-board xh-stage xh-phrase' + (bg ? " on-scene" : "") + '">' +
