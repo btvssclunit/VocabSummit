@@ -1697,9 +1697,14 @@
          「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
          being spread across the home page. 词语闪卡 keeps its own card — different
          interaction (看词认义/点读), not a question-answering mode. */
+      /* ⚠️ 词语闪卡 COMES FIRST (owner 2026-08-16 深夜: 「learn then test」). Reading
+         left to right, the card that TEACHES has to precede the one that TESTS —
+         a student who has not met the words yet should not have to skip past a
+         quiz to find the flashcards. Same order the pier already uses in ③
+         (词语闪卡 · 词语挑战 · 学以致用). */
       html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + pyl("今日路线 · 选择你的营地") + enl("今日路线 · 选择你的营地") + '</div><div class="camps">' +
-        camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") +
-        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
+        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
+        camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") + '</div>';
     }
 
     /* ⚠️ ④ 结伴 IS GONE FROM THE FUNNEL (owner 2026-08-16 evening:「the room modes

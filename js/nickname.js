@@ -500,6 +500,18 @@
       }
       saveBerth(h);            // provisional: skipSail() below may return early
       if (skipSail()) { location.href = go; return; }
+      /* ⚠️ ALREADY MOORED HERE → GO STRAIGHT IN (owner 2026-08-16 深夜: 「the sailing
+         animation is gone from the sea map and the boat just teleports」).
+         The boat parks at its last destination, so tapping THAT island again asks it
+         to sail a voyage of zero length: --dx and --dy come out 0, the curve collapses
+         to a point, and the student watches a stationary boat for 1.7s before the page
+         changes — which reads exactly as「it teleports」. Measured on a real tap:
+         dx 0.0px / dy -0.0px. Anything shorter than a boat-width is not a voyage.
+         ⚠️ This is the most common tap on the map: come back from a stream page, tap
+         the same island again. It is not an edge case. */
+      if (Math.abs(toX - fromX) < 24 && Math.abs(toY - fromY) < 24) {
+        location.href = go; return;
+      }
 
       boat.className = "sea-boat h-" + h[0] + (h[1] ? " flip" : "");
       boat.querySelector("img").src = boatArt(h[0]);

@@ -56,7 +56,21 @@
     });
   }
   function view() { return document.getElementById("xhView"); }
+  /* ⚠️ A PICTURELESS WORD RENDERS ITS ARABIC NUMERAL, NOT AN EMPTY FRAME (owner
+     2026-08-16 深夜: 「Numbers are completely missing the question field — need the
+     numerals」). 数字 has no 图档 by design (§5: drawing three apples to teach 三
+     teaches apples), and every tile built from this helper — the 连线 board, the
+     词海垂钓 catch, the end-of-round review list — was asking the browser for
+     `art/xh/` and getting a blank.
+     ⚠️ The fallback is a SPAN, so it drops into a button or a card wherever an <img>
+     did. 词语卡 keeps its own branch: its numeral is 96px and carries the card frame.
+     ⚠️ 看图识词 / 听音识图 never reach this — modeNeedsPic filters them out one layer
+     up, and that filter stays: a numeral IS the answer written down, which is the
+     whole reason those two modes exclude the group. */
   function img(w, cls) {
+    if (!hasPic(w)) {
+      return '<span class="' + (cls || "") + ' xh-num">' + esc(w.数码 || w.词语) + "</span>";
+    }
     return '<img class="' + (cls || "") + '" src="art/xh/' + esc(w.图档) + ASSET_V + '" alt="">';
   }
 
@@ -619,7 +633,7 @@
      ⚠️ It stays an <a href="index.html"> in the markup so that with JS broken it
      still degrades to the sea map rather than to a dead control. */
   var _backFn = null;
-  function setBack(fn) {
+  function setBack(fn, dest) {
     _backFn = fn || null;
     var a = document.querySelector(".xh-back");
     if (!a) return;
@@ -631,9 +645,14 @@
        ⚠️ The mountain's topbar chevron carries no label at all and 回营地 lives on an
        in-content button. The pier keeps the label because its students are the ones
        who need every control glossed; that difference is deliberate, not drift. */
-    a.innerHTML = _backFn
-      ? "‹ 回码头" + xhPy("回码头") + '<span class="xh-en">back to the pier</span>'
-      : '← 海图<span class="xh-py xh-uipy">hǎi tú</span><span class="xh-en">sea map</span>';
+    a.innerHTML = !_backFn
+      ? '← 海图<span class="xh-py xh-uipy">hǎi tú</span><span class="xh-en">sea map</span>'
+      : dest
+        /* inside a round it names the ACTIVITY you drop back into, one level up —
+           the same「say where you land」rule, applied one rung lower. */
+        ? "‹ " + esc(dest.zh) + xhPy(dest.zh) +
+          '<span class="xh-en">back to ' + esc(dest.en) + "</span>"
+        : "‹ 回码头" + xhPy("回码头") + '<span class="xh-en">back to the pier</span>';
     a.onclick = function (e) {
       if (!_backFn) return;               // let the href take it to the sea map
       e.preventDefault();
@@ -1045,20 +1064,21 @@
      词语挑战 = 词的层面（三个题型）· 学以致用 = 句的层面（两个题型，把刚学的词拿去用）。
      原先 传声筒 混在四个词级题型里，是唯一考句子的那个，形状不一致。 */
   var ENTRIES = [
-    { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true,
+    { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true, short: "Flashcards",
       sub: "词语卡 · 句子卡", subEn: "words or sentences" },
-    { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true,
+    { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true, short: "the quiz",
       sub: "英文选词 · 看图识词 · 听音识图", subEn: "three question types" },
-    { k: "use", icon: "💬", zh: "学以致用", en: "Put it to use", learn: true,
+    { k: "use", icon: "💬", zh: "学以致用", en: "Put it to use", learn: true, short: "the sentences",
       sub: "看句选词 · 重整句子", subEn: "sentences, not single words" },
-    { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false },
-    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false },
+    { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false , short: "fishing" },
+    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false , short: "matching" },
     /* ⚠️ A FULL 泊位, not a question type tucked behind another door (§2.1). It sits
        with 词海垂钓 and 连线 because those are the two that are really games, and
        because deriving the 闯关 题型 list from the berth list then needs no special
        case for it. */
     { k: "build", icon: "🧱", zh: "组字成词", en: "Build the word from its characters",
-      learn: false, naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" }
+      learn: false, short: "word building",
+      naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" }
   ];
   /* which store slot remembers the last type used behind a multi-type door.
      ⚠️ One slot per door: quizMode and useMode must never overwrite each other. */
@@ -2421,7 +2441,32 @@
       /* ⚠️ WEAK-FIRST, INSIDE THE THEME (§6.4.1). The bucketing runs on `draw`, after
          the 子类 pick, never on `pool` — reversing the two would choose the round's
          words before its theme and undo SPEC_XH_vocab_v3 §6. */
-      seq = weakFirst(draw, wordUnmet).slice(0, Math.min(need, draw.length));
+      seq = weakFirst(draw, wordUnmet);
+      /* 🐛 THE BLACKLIST NEVER REACHED 连线 (owner 2026-08-16 深夜: 「猪肉 牛肉 must
+         never appear together — images too similar」). BLACKLIST/mates() lived only
+         inside distractors(), which builds MCQ OPTIONS; 连线 does not call it — its
+         board IS the round's word list — so the pair it was written to separate has
+         been landing on the same board since the mode shipped. Two near-identical red
+         slabs on a matching board is not a hard question, it is a coin toss.
+         ⚠️ Admitted one at a time, exactly as distractors() does: the rule is about
+         the WHOLE set on screen, not about one word against the answer.
+         ⚠️ Only for 连线. The question modes show ONE picture and their options are
+         already filtered; thinning their round list would drop words for no reason. */
+      if (mode === "match") {
+        var takenM = {}, keepM = [];
+        for (var mi = 0; mi < seq.length && keepM.length < need; mi++) {
+          if (takenM[seq[mi].词语]) continue;
+          keepM.push(seq[mi]);
+          var mm = mates(seq[mi].词语);
+          for (var mk in mm) takenM[mk] = true;
+        }
+        /* ⚠️ if the blacklist has thinned the pool below the board size, run the
+           SHORTER board rather than re-admitting a banned pair. A 4-pair board is a
+           fine round; 猪肉 beside 牛肉 is not. */
+        seq = keepM;
+      } else {
+        seq = seq.slice(0, Math.min(need, draw.length));
+      }
     }
     if (!seq.length) return;
     state = { grp: sub || scopeLabel(), mode: mode, seq: seq, i: 0, correct: 0,
@@ -2475,10 +2520,23 @@
     if (state.mode === "match") return renderMatch();
     return renderPic();
   }
-  /* ⚠️ Name kept, meaning unchanged: 「leaving this screen goes back to the pier's
-     front page」. Only the control it wires moved, from a button inside the round
-     bar to the one in the topbar. */
-  function wireQuit() { setBack(renderMenu); }
+  /* ---------- THREE LEVELS, ONE CONTROL (owner 2026-08-16 深夜) ----------
+     海图 ← 码头首页 ← 活动设定页 ← 一局
+     Inside a round the back button lands on THAT ACTIVITY'S setup page, not on the
+     pier front page — which is what the owner asked 换一组 to do, and then asked to
+     delete 换一组 for duplicating this control. Both are right: the destination was
+     the useful one, the second button was not.
+     ⚠️ `state && state.seq` is the test for「in a round」, not `state` alone: every
+     auxiliary screen (徽章 · 海滩 · 小铺 · 词语表 · 风云榜 · 设定页) sets state = null
+     on entry, so they all fall through to 回码头, which is correct for them.
+     ⚠️ The label changes with the level and always names the destination — the same
+     reason it says 回码头 rather than 返回. */
+  function wireQuit() {
+    var door = (state && state.seq) ? entryForMode(state.mode) : null;
+    if (!door) return setBack(renderMenu);
+    var e = entryByKey(door);
+    setBack(function () { renderModeConfig(door); }, { zh: e.zh, en: e.short || e.zh });
+  }
   function advance(ms) {
     setTimeout(function () { state.i++; render(); }, ms || 1150);
   }
@@ -2775,16 +2833,14 @@
       '<span class="xh-en">Now see how many you remember.</span>' + "</div>" +
       '<div class="xh-result-btns"><button class="xh-btn" id="xhTest">' +
       (isSent ? "📣 开始测验" : "🖼️ 开始测验") + "</button>" +
-      '<button class="xh-btn ghost" id="xhAgain">再看一次</button>' +
-      '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
+      '<button class="xh-btn ghost" id="xhAgain">再看一次' + xhPy("再看一次") +
+      '<span class="xh-en">again</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();                    // same reason as renderResult
     document.getElementById("xhTest").onclick = function () {
       startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
     };
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn", state.pool); };
-    /* same as renderResult: back to 词语闪卡's own setup, not to the dock */
-    document.getElementById("xhBack").onclick = function () { renderModeConfig("cards"); };
   }
 
   /* 4.1 看图识词 — picture → word */
@@ -3895,24 +3951,19 @@
       });
       h += "</div></div>";
     }
-    h += '<div class="xh-result-btns"><button class="xh-btn" id="xhAgain">再来一次</button>' +
-      '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
+    /* ⚠️ 换一组 IS GONE (owner 2026-08-16 深夜: 「和 回码头 走同一条路，那就删掉」).
+       It was a second way off this screen sitting beside the topbar's, which is the
+       exact duplication the whole 对齐山上 pass removed one screen at a time. What it
+       did that was useful — landing on the activity's setup page rather than the pier
+       front page — moved onto the back button itself (see wireQuit).
+       ⚠️ Do not put a second exit back here. 再来一次 is not one: it stays in the round. */
+    h += '<div class="xh-result-btns"><button class="xh-btn" id="xhAgain">再来一次' +
+      xhPy("再来一次") + '<span class="xh-en">again</span></button></div></div>';
     view().innerHTML = h;
-    /* ⚠️ explicit, even though the round that led here already aimed the topbar back
-       at renderMenu: an end screen that RELIES on the previous screen having wired a
-       shared control is one refactor away from a back button pointing at nothing. */
+    /* ⚠️ explicit, and load-bearing now that 换一组 is gone: this IS the way off the
+       result screen, and it lands on the activity's setup page (see wireQuit). */
     wireQuit();
-    /* ⚠️ 换一组 goes back to THIS activity's setup page, not to the dock front page
-       (owner 2026-08-16 晚: 「按了 换一组 却回到码头首页，还要再点一次才回到题型」).
-       The name is honest either way — 学习范围 is on the front page — but after a
-       round the thing a student wants to change is nearly always the type or the
-       难度, both of which are one screen away, not two. The topbar 回码头 is still
-       there for anyone who really wants the front page. */
-    var door = entryForMode(state.mode);
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, null, state.pool); };
-    document.getElementById("xhBack").onclick = function () {
-      if (door) renderModeConfig(door); else renderMenu();
-    };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-review-item"), function (el) {
       el.onclick = function () { speak(el.getAttribute("data-w")); };
     });
