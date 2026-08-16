@@ -454,27 +454,66 @@ body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
 .sailbadge b{font-family:var(--serif);font-size:16px;font-weight:900}
 .sailbadge-bar{display:block;width:100%;height:6px;border-radius:99px;background:#D8E4EC;
   overflow:hidden;margin-top:4px}
-.sailbadge-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-lt))}
-
-.beach-shelf{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:4px}
-.beach-card{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;
-  padding:11px 9px 12px;border-radius:14px;border:1px solid var(--glass-line);
-  background:var(--glass);box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
-.beach-card img{height:62px;width:auto;max-width:100%;object-fit:contain;image-rendering:pixelated}
-.beach-card b{font-family:var(--serif);font-size:15px;font-weight:900}
-.beach-card.owned{border-color:rgba(62,125,87,.5)}
-.beach-card.on{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,246,225,.9),rgba(250,232,196,.75))}
-.beach-buy{margin-top:4px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;
-  touch-action:manipulation;border:0;border-radius:999px;padding:7px 14px;
-  font-family:var(--sans);font-weight:800;font-size:13.5px;color:#3A2A08;
-  background:linear-gradient(180deg,#F0C264,var(--gold));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 2px 8px rgba(227,166,60,.4)}
-.beach-buy.own{background:linear-gradient(180deg,#fff,#EAF3FA);color:#2E5F42;
-  border:1px solid rgba(62,125,87,.45);box-shadow:none}
-.beach-buy:disabled{opacity:.45;cursor:not-allowed}
-.beach-buy:active:not(:disabled){transform:translateY(1px)}
+/* ⚠️ .beach-tag belongs to the BADGE WALL, not the shop — 已获得 / N 海里 under each
+   rung. It survived the 2026-08-17 shop rewrite, which retired every other
+   .beach-card/.beach-buy rule; it is here rather than down there so the next tidy-up
+   does not take it with them again. */
 .beach-tag{margin-top:4px;font-size:12px;font-weight:700;color:#46596A}
 .beach-tag.on{color:#2E5F42}
+.sailbadge-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-lt))}
+
+/* ---------- 海滩小铺 / 营地商店 的共同版式 (owner 2026-08-17) ----------
+   ⚠️ NO FRAME AROUND AN ITEM. The owner asked for the Pikmin Bloom shelf: art on
+   open ground, the name under it, the price as a small coin-and-number, and nothing
+   drawn around any of it. The old build put every item in its own glass rectangle,
+   which on a shelf of eight turned the screen into a grid of boxes — the boxes
+   competed with the art they were framing, and the art is the only part a
+   零起点 student can read.
+   ⚠️ THE WHOLE TILE IS THE BUTTON, which is why it is a <button> and never a div
+   with a button inside it (§14「按钮嵌套按钮」would relayout the shelf silently).
+   Each item only ever offers ONE action at a time — buy, or place, or sail — so
+   one button per tile is the whole interaction.
+   ⚠️ Any state that used to be a coloured border is now a WORD plus a tint behind
+   the art only. A frame that means「equipped」and a frame that means「this is an
+   item」look the same at arm's length. */
+.beach-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));
+  gap:4px 2px;margin:2px 0 10px;align-items:start}
+.xh-sitem{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;
+  width:100%;padding:8px 4px 12px;border:0;border-radius:16px;background:none;color:var(--ink);
+  font-family:var(--sans);cursor:pointer;touch-action:manipulation}
+.xh-sitem[disabled]{cursor:not-allowed;opacity:.45}
+button.xh-sitem:hover:not([disabled]){background:rgba(255,255,255,.42)}
+button.xh-sitem:active:not([disabled]){transform:translateY(1px)}
+/* the art well. ⚠️ Fixed HEIGHT, free width: the shelf holds crates, baskets and
+   four boats of wildly different proportions, and a fixed width would squash the
+   long ones. Nothing is drawn here — the well is empty space, not a card. */
+.xh-sic{display:flex;align-items:flex-end;justify-content:center;
+  width:100%;height:96px;margin-bottom:4px;border-radius:50%/38%}
+/* ⚠️ max-width/max-height, NOT height:62px (which is what this used to be). A flat
+   height made every boat the same number of pixels tall, so 简朴帆船 — a junk with
+   masts, drawn 285px tall — rendered NARROWER than the 舢板 beside it and read as
+   the smaller ship (owner 2026-08-17). Letting the natural proportions through
+   inside one box means the junks come out roughly twice the sampans' height, which
+   is what the art says they are. */
+.xh-sic img{max-width:100%;max-height:96px;width:auto;height:auto;object-fit:contain;
+  image-rendering:pixelated;filter:drop-shadow(0 3px 6px rgba(6,26,48,.22))}
+.xh-sitem.is-on .xh-sic{background:radial-gradient(60% 70% at 50% 62%,rgba(245,196,67,.42),rgba(245,196,67,0) 72%)}
+.xh-sitem.is-own .xh-sic{background:radial-gradient(60% 70% at 50% 62%,rgba(62,125,87,.22),rgba(62,125,87,0) 72%)}
+.xh-sitem b{font-family:var(--serif);font-size:15px;font-weight:900;line-height:1.25}
+/* the price: a coin and a number, the Pikmin Bloom read. ⚠️ THE SHELL IS 15px HERE
+   and the selector carries .xh-scost so it cannot lose to the art rule — the old
+   `.beach-card img{height:62px}` was (0,2,0) and beat `.shell-icon` at (0,1,0), so
+   every price on this screen was drawn with a 62px seashell (owner 2026-08-17:
+   「way smaller」). Same class of miss as §18e's 英文注解: specificity, not colour. */
+.xh-scost{display:inline-flex;align-items:center;gap:4px;margin-top:3px;
+  font-size:14.5px;font-weight:800;color:var(--gold-ink)}
+.xh-scost img{width:15px;height:15px;max-height:15px;object-fit:contain;
+  image-rendering:pixelated;filter:none}
+.xh-sitem[disabled] .xh-scost{color:#8A94A0}
+.xh-sstate{margin-top:3px;font-size:12.5px;font-weight:800;color:#2E6391}
+.xh-sstate.on{color:#2E5F42}
+.xh-sstate.locked{color:#7C8B99;font-weight:700}
+.xh-salt{margin-top:1px;font-size:11.5px;font-weight:700;color:#7C8B99}
 
 /* ---------- ①学习范围 ②学词/闯关 ③玩法 (owner 2026-08-16) ----------
    The pier's version of the mountain's ①复习范围 ②选择学习方式 ③cards. */
@@ -791,14 +830,34 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
    The strip is 6 equal cells: background-size 600% 100%, stepped 20% at a time.
    aspect-ratio is a 1/1 placeholder here and is overwritten inline once the sheet
    decodes, because the cell width differs per creature. */
-.xh-angler{position:absolute;left:18%;bottom:41.4%;height:30%;aspect-ratio:1/1;
+/* ⚠️ HEIGHT IS THE CELL, NOT THE CREATURE (owner 2026-08-17:「way too small」). The
+   sheets are 104 tall with the figure drawn inside a transparent cell — 沙僧 only
+   fills rows 26-98, so 30% of the panel put a 55px person beside a 95px rod and a
+   130px catch. 52% lands the visible figure at roughly rod height, which is what a
+   person holding that rod should read as. Measured off the artwork, not eyeballed:
+   see the PIL composite in the session notes.
+   ⚠️ 38 IS A BASE, NOT THE SIZE. --av-k (0.89-1.44) multiplies it, so 沙僧 lands at
+   54.7% and 龟 at 33.8% — the number that reaches the screen is roughly「52% for an
+   average sheet」, which is what was tuned. Raising this past 38 CLIPS: the panel
+   only has 58.6% above the plank, and 沙僧's celebrate frame fills its whole cell.
+   Recompute the headroom (base × k × (1 + hop − inkTop/104) ≤ 0.586) before moving
+   either number. */
+/* ⚠️ `* var(--av-k)` is the per-sheet size correction written inline by anglerHtml
+   from profile.js SPRITE_SCALE — without it 沙僧 renders at roughly half 鼠's visual
+   size at the same height (owner 2026-08-17). Any new base height here stays a plain
+   number; the correction rides on top of it. */
+.xh-angler{position:absolute;left:18%;bottom:41.4%;height:calc(38% * var(--av-k,1));aspect-ratio:1/1;
   transform:translateX(-50%);
   background-repeat:no-repeat;background-size:600% 100%;background-position:0% 0;
   image-rendering:pixelated;pointer-events:none;z-index:2;
   filter:drop-shadow(0 4px 9px rgba(6,26,48,.5))}
+/* ⚠️ THE HOP IS 5%, NOT 18% (2026-08-17). Once --av-k scaled the figures up, an 18%
+   lift pushed 沙僧's celebrate frame — which fills its cell to row 0 — straight out
+   of the panel's top, and .xh-sea clips. 5% still reads as a hop at this size and
+   leaves headroom on the shortest panel (clamp floor 190px). */
 .xh-angler.cheer{animation:xhCheerHop .55s ease-out}
 @keyframes xhCheerHop{0%{transform:translateX(-50%) translateY(0)}
-  38%{transform:translateX(-50%) translateY(-18%)}
+  38%{transform:translateX(-50%) translateY(-5%)}
   100%{transform:translateX(-50%) translateY(0)}}
 
 /* the catch rises in OPEN WATER, clear of the jetty edge at x 0.308 */
@@ -1440,61 +1499,77 @@ body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
 .xh-build .xh-ph-pic{width:clamp(104px,19vw,150px);margin-bottom:2px}
 body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 
-/* ---------- 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1, layer order §6.5) ----------
-   ⚠️ EVERYTHING MOVES ON --sx, ONE CUSTOM PROPERTY SET BY JS PER QUESTION. There is
-   no per-frame loop: a question is one step, so a transition is the whole animation.
-   That is also why it stays smooth on the old iPads G1/G2 study on — the compositor
-   gets four transforms a question, not sixty a second.
-   ⚠️ --sx lives on .xh-run (a CLASS), never inline per layer: a coordinate written
-   into style="" can never be overridden by a media query (§14).
+/* ---------- 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1, rebuilt 2026-08-17) ----------
+   ⚠️ THE RUNNER MOVES, THE BEACH DOES NOT (owner 2026-08-17:「can we see the avatar
+   run across the beach instead of having the beach items move to the left?」). The
+   first build scrolled the world under a runner pinned at 26%, which is the standard
+   endless-runner trick — and it read as「the scenery slides sideways」rather than as
+   「I am getting somewhere」. Now the whole beach is a fixed picture and --rx walks
+   the avatar across it, so the round's progress IS the distance travelled.
+   ⚠️ --rx is ONE custom property set on .xh-run per question. There is still no
+   per-frame loop: a question is one hop, so a transition is the whole animation, and
+   the old iPads G1/G2 study on get two transforms a question, not sixty a second.
    ⚠️ IT IS A NORMAL BLOCK IN THE FLOW, not position:fixed. The topbar above it is
    `position:sticky;top:0` and its height CHANGES with the 拼音/英文 gates — a fixed
    band would need that height as a number, and the number would be wrong for exactly
    the students who turn both aids on. In the flow it simply sits under the topbar at
    whatever height that is. */
-.xh-run{--sx:0px;position:relative;height:clamp(150px,36vh,300px);
+.xh-run{--rx:11%;position:relative;height:clamp(150px,36vh,300px);
   overflow:hidden;z-index:1;margin:0 0 14px;
   background:#BAD6E8;border-bottom:2px solid rgba(10,40,66,.18);
   box-shadow:0 6px 18px rgba(10,40,66,.22)}
-/* the four bands. ⚠️ background-size is written on EVERY one of them: an unsized
-   background tiles at its native pixel size and a 2048-wide sky sprouts a second sun
-   on a wide screen (§14「只设 background-image」). */
-.xh-run-sky,.xh-run-sea,.xh-run-sand,.xh-run-foam{position:absolute;left:0;right:0;
+/* the three bands, all static now. ⚠️ background-size is written on EVERY one of
+   them: an unsized background tiles at its native pixel size and a 2048-wide sky
+   sprouts a second sun on a wide screen (§14「只设 background-image」). */
+.xh-run-sky,.xh-run-sea,.xh-run-sand{position:absolute;left:0;right:0;
   background-repeat:repeat-x;image-rendering:pixelated;pointer-events:none}
-/* sky: static, no scroll (§6.5 layer 1) */
 .xh-run-sky{top:0;height:62%;background-image:url("../art/xh/run/xh_run_sky.png");
   background-size:auto 100%;background-position:center bottom}
-/* sea: slow scroll. The parallax factors are the layer order made visible — anything
-   nearer the camera moves faster, and the sand at 1.0 is the ground the runner is on. */
 .xh-run-sea{top:44%;height:30%;background-image:url("../art/xh/run/xh_run_sea.png");
-  background-size:auto 100%;background-position-x:calc(var(--sx) * -0.25);
-  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
+  background-size:auto 100%;background-position:left bottom}
 .xh-run-sand{bottom:0;height:34%;background-image:url("../art/xh/run/xh_run_sand.png");
-  background-size:auto 100%;background-position-x:calc(var(--sx) * -1);
-  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
-/* foam at the sea/sand seam, scrolling with the sand (§6.5 layer 3). ⚠️ The three
-   frames are stacked in ROWS, so the animation steps background-position-Y; the sheet
-   is 1408x768 and each row is 256 tall, aligned so the foam's underside sits on the
-   seam rather than its top. */
-.xh-run-foam{bottom:30%;height:64px;background-image:url("../art/xh/run/xh_foam_lap.png");
-  background-size:1408px 768px;background-position-x:calc(var(--sx) * -1);
-  animation:xhFoamLap 1.05s steps(1) infinite;
-  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
-@keyframes xhFoamLap{
-  0%{background-position-y:-142px} 33%{background-position-y:-398px} 66%{background-position-y:-654px}}
-/* props, markers and the arch ride one track so they share the ground's speed exactly.
-   ⚠️ transform, not `left`: animating left is what the owner reported as jank on the
-   sea map, and for the same reason — it relayouts, transform composites. */
-.xh-run-track{position:absolute;inset:0;transform:translateX(calc(var(--sx) * -1));
-  transition:transform .62s cubic-bezier(.33,0,.2,1);pointer-events:none}
-.xh-run-prop{position:absolute;height:23%;width:auto;image-rendering:pixelated;
+  background-size:auto 100%;background-position:left top}
+/* ⚠️ THE TWO ANIMATED WAVE LAYERS ARE GONE (owner 2026-08-17:「remove the animated
+   waves - need to regenerate as it is janky and has magenta not removed」).
+   .xh-run-foam (xh_foam_lap.png) and .xh-run-wave (xh_wave_chase.png) both stepped
+   frames with `steps(1)`, and both sheets still carry ~9k despill pixels of the
+   magenta key (255,221,255 along the foam crests — the §14「按颜色找水印」family of
+   miss). The art stays in art/xh/run/ unreferenced, pending a regenerated set; the
+   band reads fine without them because the sand tile already carries its own damp
+   edge at the seam. DO NOT wire either file back in until it is redrawn AND the
+   despill is verified — the tide it drove was pure feedback (§1.4), never a fail
+   state, so nothing about the mode depends on it. */
+/* scenery and the arch sit in one static track — nothing here moves any more. */
+.xh-run-track{position:absolute;inset:0;pointer-events:none}
+.xh-run-prop{position:absolute;height:16%;width:auto;image-rendering:pixelated;
+  transform:translateX(-50%);
   filter:drop-shadow(0 3px 6px rgba(6,26,48,.28))}
-.xh-run-mark{position:absolute;bottom:2%;height:44%;width:auto;image-rendering:pixelated;
+/* ⚠️ the marker is now a HURDLE, not a milestone counter. It stands at the midpoint
+   of a hop, so the arc below clears it: feet leave at bottom:8%, the arc lifts them
+   by 46% of the runner's own height (≈26% of the band), and the post tops out at
+   4+26 = 30%. Re-check those four numbers together if either height changes. */
+.xh-run-mark{position:absolute;bottom:4%;height:26%;width:auto;image-rendering:pixelated;
+  transform:translateX(-50%);
   filter:drop-shadow(0 3px 7px rgba(6,26,48,.32))}
 .xh-run-finish{position:absolute;bottom:4%;height:64%;width:auto;image-rendering:pixelated;
+  transform:translateX(-50%);
   filter:drop-shadow(0 5px 12px rgba(6,26,48,.34))}
-/* the runner holds a fixed x and lets the world move under it (§6.5 layer 7) */
-.xh-angler.xh-runner{left:26%;bottom:8%;height:38%;z-index:3}
+/* the runner walks the beach; --rx is written by JS from state.i (§6.5 layer 7).
+   ⚠️ height is the CELL, not the creature — same trap as the 词海垂钓 angler above:
+   the sheets are 104 tall with the figure inset, so 38% drew a ~79px person on a
+   300px beach. */
+/* ⚠️ 50 IS A BASE, NOT THE SIZE — --av-k multiplies it (沙僧 72%, 龟 44.5%). The
+   ceiling here is the jump: base × k × (1 + 0.46 − inkTop/104) ≤ 0.92, and 沙僧 at
+   50% lands on 0.87. Raise either number and the head leaves the band mid-arc. */
+.xh-angler.xh-runner{left:var(--rx,11%);bottom:8%;height:calc(50% * var(--av-k,1));z-index:3;
+  transition:left .62s cubic-bezier(.33,0,.2,1)}
+/* the hop. ⚠️ SAME .62s as the `left` transition, and the apex is at exactly 50% so
+   it peaks over the hurdle sitting at the midpoint of the hop. */
+.xh-angler.xh-runner.hop{animation:xhRunHop .62s cubic-bezier(.3,0,.4,1)}
+@keyframes xhRunHop{
+  0%{transform:translateX(-50%) translateY(0)}
+  50%{transform:translateX(-50%) translateY(-46%)}
+  100%{transform:translateX(-50%) translateY(0)}}
 /* ⚠️ the stumble is a WOBBLE, not a knockback: nothing is lost for a wrong answer
    anywhere in this tier, and moving the runner backwards would say otherwise. */
 .xh-angler.xh-runner.trip{animation:xhTrip .5s ease-out}
@@ -1502,36 +1577,20 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
   30%{transform:translateX(-50%) rotate(-9deg) translateY(4%)}
   60%{transform:translateX(-50%) rotate(5deg)}
   100%{transform:translateX(-50%) rotate(0)}}
-/* the 贝壳 pickup: a 4-cell strip stepped by JS, popping above the runner */
-.xh-run-shell{position:absolute;left:26%;bottom:30%;width:64px;height:64px;
+/* the 贝壳 pickup: a 4-cell strip stepped by JS, popping above the runner — and it
+   travels with them, so it always pops where the student is looking. */
+.xh-run-shell{position:absolute;left:var(--rx,11%);bottom:44%;width:64px;height:64px;
   transform:translateX(-50%);opacity:0;pointer-events:none;z-index:4;
   background-image:url("../art/xh/run/xh_shell_pickup.png");
   background-size:400% 100%;background-position:0 0;background-repeat:no-repeat;
-  image-rendering:pixelated;transition:opacity .18s}
+  image-rendering:pixelated;transition:opacity .18s,left .62s cubic-bezier(.33,0,.2,1)}
 .xh-run-shell.on{opacity:1;animation:xhShellPop .62s ease-out}
 @keyframes xhShellPop{from{transform:translateX(-50%) translateY(14px) scale(.7)}
   to{transform:translateX(-50%) translateY(-10px) scale(1)}}
-/* ⚠️ THE TIDE IS FEEDBACK, NOT A FAIL STATE (§1.4). --tide only ever nudges it a few
-   notches and the runner sits at 26%, so the wave cannot reach anyone. There is no
-   lose condition in this mode and nothing here should ever grow one. */
-/* ⚠️ visible FROM THE START, about 45px of it. A tide that only appears after a
-   wrong answer is not feedback, it is a punishment animation — and §1.4 is explicit
-   that it is the former. It creeps in and back out; at its furthest it is still less
-   than half way to the runner at 26%. */
-.xh-run-wave{--tide:0px;position:absolute;left:calc(-186px + var(--tide));bottom:0;
-  width:230px;height:74%;z-index:2;pointer-events:none;
-  background-image:url("../art/xh/run/xh_wave_chase.png");
-  background-size:400% 100%;background-repeat:no-repeat;
-  image-rendering:pixelated;opacity:.9;
-  animation:xhWaveRoll .9s steps(1) infinite;
-  transition:left .6s cubic-bezier(.33,0,.2,1)}
-@keyframes xhWaveRoll{
-  0%{background-position-x:0%} 25%{background-position-x:33.333%}
-  50%{background-position-x:66.666%} 75%{background-position-x:100%}}
 @media (prefers-reduced-motion:reduce){
-  .xh-run-foam,.xh-run-wave,.xh-run-shell.on{animation:none}
-  .xh-run-sea,.xh-run-sand,.xh-run-foam,.xh-run-track,.xh-run-wave{transition:none}
-  .xh-angler.xh-runner.trip{animation:none}
+  .xh-run-shell.on{animation:none}
+  .xh-angler.xh-runner,.xh-run-shell{transition:none}
+  .xh-angler.xh-runner.hop,.xh-angler.xh-runner.trip{animation:none}
 }
 
 /* ---------- 意见反馈 floating button (owner 2026-08-16 晚) ----------

@@ -3880,6 +3880,15 @@
         }
       };
       if (runSheet.complete) runFit(); else runSheet.addEventListener("load", runFit);
+      /* ⚠️ per-sheet size correction — the same problem 攀山竞速 solves with
+         avatarInk/AVATAR_INK_H, except this runner is a DOM element sized off the
+         CELL, and the cells are not drawn to a common size: 沙僧 fills far less of
+         its cell than 鼠 does, so at one height the monk looked half the rat's size
+         (owner 2026-08-17). The canvas can measure ink at runtime; a background-image
+         cannot, so the number comes from the measured table in profile.js. */
+      runEl.style.setProperty("--av-k",
+        (window.WSProfile && window.WSProfile.spriteScale)
+          ? window.WSProfile.spriteScale(_avSpriteId) : 1);
     } else if (runEl) {
       runEl.style.display = "none";
     }
@@ -5616,32 +5625,60 @@
     };
   }
 
-  /* ---------- 营地商店 camp shop (灵露兑换) ---------- */
-  function shopRow(it, owned, afford, buyKey) {
-    var btn = owned
-      ? '<span class="shop-owned">已拥有 ✓</span>'
-      : '<button class="shop-buy" data-key="' + buyKey + '"' + (afford ? "" : " disabled") + '>' +
-        (afford ? "兑换" : "灵露不足") + '</button>';
-    return '<div class="shop-row"><img class="shop-thumb" src="' + it.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-      '<div class="shop-info"><b>' + esc(it.name) + '</b><span>' + esc(it.desc) + '</span></div>' +
-      '<div class="shop-price">' + campLingluIcon() + ' ' + it.price + '</div>' + btn + '</div>';
+  /* ---------- 营地商店 camp shop (灵露兑换) ----------
+     ⚠️ TILES, NOT ROWS, AND NO FRAME AROUND AN ITEM (owner 2026-08-17, asking for
+     the Pikmin Bloom shelf on BOTH shops). Every item used to be a bordered row of
+     thumb + text + price + button — four columns of chrome around a 44px thumbnail,
+     which is the one part of the row a student actually recognises. Now the art is
+     large and unframed, the name sits under it, and the price is a coin and a
+     number. The pier's 海滩小铺 got the identical treatment; the two files carry
+     their own copies of these rules on purpose (§17). */
+  /* ⚠️ THE WHOLE TILE IS THE BUTTON — never a div with a button inside it
+     (§14「按钮嵌套按钮」). Each item offers exactly ONE action at a time, so `act`
+     is the only thing that differs between states; a state with no action renders
+     as a <div>, because 已装备 is a fact rather than a greyed-out offer. */
+  function shopTile(o) {
+    var tag = o.act ? "button" : "div";
+    return "<" + tag + ' class="shop-tile' + (o.on ? " is-on" : o.owned ? " is-own" : "") + '"' +
+      (o.act || "") + (o.act && o.dis ? " disabled" : "") + ">" +
+      '<span class="shop-ic"><img src="' + o.img + '" alt="" ' +
+        "onerror=\"this.style.display='none'\">" +
+        (o.n ? '<i class="shop-n">' + o.n + "</i>" : "") + "</span>" +
+      '<b>' + esc(o.name) + "</b>" +
+      (o.sub ? '<span class="shop-sub">' + esc(o.sub) + "</span>" : "") +
+      o.foot + "</" + tag + ">";
   }
-  /* one row per gear item. Three states, because owning and equipping are now
-     separate: 未拥有 -> 兑换 · 已拥有但没装上 -> 装备 · 装备中 -> 已装备 ✓ */
+  function shopCost(n) {
+    return '<span class="shop-cost">' + campLingluIcon() + " " + fmtNum(n) + "</span>";
+  }
+  function shopState(txt, on) {
+    return '<span class="shop-state' + (on ? " on" : "") + '">' + esc(txt) + "</span>";
+  }
+  function shopRow(it, owned, afford, buyKey) {
+    return shopTile({
+      img: it.file, name: it.name, sub: it.desc, owned: owned,
+      act: owned ? "" : ' data-key="' + esc(buyKey) + '"', dis: !afford,
+      foot: owned ? shopState("已拥有 ✓", 1) : shopCost(it.price)
+    });
+  }
+  /* one tile per gear item. Three states, because owning and equipping are now
+     separate: 未拥有 -> 价格 · 已拥有但没装上 -> 装备 · 装备中 -> 已装备 ✓ */
   function gearRow(it, slot) {
     var owned = !!store.deco[it.key] || (slot === "dwelling" && it.tier === 1);
     var equipped = equippedIn(slot) === it.key;
+    var locked = slot === "dwelling" && it.tier > dwellingTier() + 1;
     var afford = store.lingLu >= it.price;
-    var right;
-    if (equipped) right = '<span class="shop-owned">已装备 ✓</span>';
-    else if (owned) right = '<button class="shop-equip" data-eq="' + esc(it.key) + '" data-slot="' + esc(slot) + '">装备</button>';
-    else if (slot === "dwelling" && it.tier > dwellingTier() + 1) right = '<span class="shop-locked">先升级前一级</span>';
-    else right = '<button class="shop-buy" data-key="' + esc(it.key) + '"' + (afford ? "" : " disabled") + '>' +
-      (afford ? "兑换" : "灵露不足") + '</button>';
-    return '<div class="shop-row"><img class="shop-thumb" src="' + it.file + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
-      '<div class="shop-info"><b>' + esc(it.name) + '</b><span>' + esc(it.desc) + '</span></div>' +
-      (it.price ? '<div class="shop-price">' + campLingluIcon() + ' ' + it.price + '</div>' : '<div class="shop-price">—</div>') +
-      right + '</div>';
+    return shopTile({
+      img: it.file, name: it.name, sub: it.desc, on: equipped, owned: owned,
+      act: equipped ? ""
+         : owned ? ' data-eq="' + esc(it.key) + '" data-slot="' + esc(slot) + '"'
+         : locked ? "" : ' data-key="' + esc(it.key) + '"',
+      dis: !afford,
+      foot: equipped ? shopState("已装备 ✓", 1)
+          : owned ? shopState("装备", 0)
+          : locked ? '<span class="shop-state locked">先升级前一级</span>'
+          : (it.price ? shopCost(it.price) : shopState("—", 0))
+    });
   }
   function openShopScene() {
     setTopbar("home", "");
@@ -5669,37 +5706,40 @@
     if (window.WSBoats) {
       var bpick = window.WSBoats.pick();
       boatHtml = '<div class="shop-tier-label">船只 <span class="shop-slot-note">· 在海图上开的船，买下的随时可以换</span></div>' +
-        '<div class="shop-grid">' + window.WSBoats.list().map(function (b) {
+        '<div class="shop-grid shop-boats">' + window.WSBoats.list().map(function (b) {
           var own = window.WSBoats.owns(b.t), on = bpick === b.t;
-          var can = window.WSBoats.buyable(b.t) && store.lingLu >= b.ling;
-          return '<div class="shop-row' + (own ? " owned" : "") + '">' +
-            '<img class="shop-thumb" src="' + window.WSBoats.art(b.t) + '" alt="" ' +
-              'onerror="this.style.display=\'none\'">' +
-            '<div class="shop-info"><b>' + esc(b.zh) + '</b>' +
-              '<span class="shop-sub">' + esc(b.en) +
-              (b.shells ? ' · 或 ' + b.shells + ' 贝壳（启航码头）' : '') + '</span></div>' +
-            (on ? '<span class="shop-owned">正在开</span>'
-                : own ? '<button class="shop-equip" data-boatpick="' + b.t + '">换上</button>'
-                : !window.WSBoats.buyable(b.t)
-                  ? '<span class="shop-owned">先买' + esc((window.WSBoats.byTier(b.t - 1) || {}).zh || "") + '</span>'
-                  : '<button class="shop-buy" data-boatbuy="' + b.t + '"' + (can ? "" : " disabled") + '>' +
-                    campLingluIcon() + " " + fmtNum(b.ling) + '</button>') +
-            '</div>';
+          var buyable = window.WSBoats.buyable(b.t);
+          var can = buyable && store.lingLu >= b.ling;
+          return shopTile({
+            img: window.WSBoats.art(b.t), name: b.zh, sub: b.en, on: on, owned: own,
+            act: on ? "" : own ? ' data-boatpick="' + b.t + '"'
+               : !buyable ? "" : ' data-boatbuy="' + b.t + '"',
+            dis: !can,
+            foot: (on ? shopState("正在开", 1)
+                 : own ? shopState("换上", 0)
+                 : !buyable ? '<span class="shop-state locked">先买' +
+                     esc((window.WSBoats.byTier(b.t - 1) || {}).zh || "") + "</span>"
+                 : shopCost(b.ling)) +
+              (own || b.shells === undefined ? ""
+                 : '<span class="shop-alt">或 ' + b.shells + " 贝壳（启航码头）</span>")
+          });
         }).join("") + '</div>';
     }
 
     /* 消耗品与竞速道具：可重复购买，所以显示的是「持有数」而不是「已拥有」。
        ⚠️ 它们不占装备格，也不进 store.deco —— deco 是「买过就永远拥有」的装饰，
        这些是会被消耗掉的。 */
+    /* ⚠️ the held count is a BADGE ON THE ART, not a line of text: these are the only
+       repeat-buyable things in either shop, and「持有 3」buried in a subtitle is what
+       a student misses right before buying a fourth. Same corner-badge read as the
+       Pikmin Bloom shelf the owner pointed at. */
     function itemRow(it, kind) {
       var have = itemCount(it.key), afford = store.lingLu >= it.price;
-      return '<div class="shop-row">' +
-        '<img class="shop-thumb" src="art/item/' + it.img + '.png" alt="" ' +
-          'onerror="this.style.display=\'none\'">' +
-        '<div class="shop-info"><b>' + esc(it.zh) + '</b>' +
-          '<span class="shop-sub">' + esc(it.en) + (have ? ' · 持有 ' + have : '') + '</span></div>' +
-        '<button class="shop-buy" data-item="' + it.key + '"' + (afford ? "" : " disabled") + '>' +
-          campLingluIcon() + " " + fmtNum(it.price) + '</button></div>';
+      return shopTile({
+        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.en, n: have || 0,
+        act: ' data-item="' + it.key + '"', dis: !afford,
+        foot: shopCost(it.price)
+      });
     }
     var itemHtml =
       '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉，赛前最多带 ' +
@@ -5719,7 +5759,7 @@
       '</div></div>';
     view().innerHTML = html;
     document.getElementById("shopBack").onclick = openCampScene;
-    Array.prototype.forEach.call(view().querySelectorAll(".shop-buy[data-key]"), function (btn) {
+    Array.prototype.forEach.call(view().querySelectorAll(".shop-tile[data-key]"), function (btn) {
       btn.onclick = function () {
         var key = btn.getAttribute("data-key"), it = gearByKey(key);
         if (!it || store.deco[key] || store.lingLu < it.price) return;
@@ -5759,7 +5799,7 @@
         if (window.WSBoats && window.WSBoats.setPick(t)) openShopScene();
       };
     });
-    Array.prototype.forEach.call(view().querySelectorAll(".shop-equip[data-eq]"), function (btn) {
+    Array.prototype.forEach.call(view().querySelectorAll(".shop-tile[data-eq]"), function (btn) {
       btn.onclick = function () {
         var key = btn.getAttribute("data-eq"), slot = btn.getAttribute("data-slot");
         if (slot === "dwelling" || !store.deco[key]) return;

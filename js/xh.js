@@ -1966,26 +1966,46 @@
       '<span class="xh-en">Your boats — buy in order, sail whichever you like</span></div>';
     h += '<div class="xh-log-sub">买下的船在海图上也看得见。贝壳买不起的话，也可以在学段的营地商店用灵露换。' +
       '<span class="xh-en">Your boat also sails the sea map. Buy with shells here, or with 灵露 at a level camp shop.</span></div>';
+    /* ⚠️ ONE TILE, ONE ACTION, and the tile itself IS the button (see .xh-sitem).
+       `act` is the only thing that varies between the four states, so a state can
+       never end up with two buttons or none. A tile with nothing to do is rendered
+       as a <div>, not a disabled button: 正在开 is a fact, not a greyed-out offer. */
+    function shopTile(o) {
+      var tag = o.act ? "button" : "div";
+      var cls = "xh-sitem" + (o.on ? " is-on" : o.owned ? " is-own" : "");
+      return "<" + tag + ' class="' + cls + '"' + (o.act || "") +
+        (o.act && o.dis ? " disabled" : "") + (o.title ? ' title="' + o.title + '"' : "") + ">" +
+        '<span class="xh-sic"><img src="' + o.img + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\"></span>" +
+        '<b>' + esc(o.zh) + '</b>' + xhPy(o.zh) +
+        '<span class="xh-en">' + esc(o.en || "") + '</span>' + o.foot +
+        "</" + tag + ">";
+    }
+    function costHtml(n) { return '<span class="xh-scost">' + shellIcon() + n + "</span>"; }
+    function stateHtml(zh, en, on) {
+      return '<span class="xh-sstate' + (on ? " on" : "") + '">' + esc(zh) + xhPy(zh) +
+        '<span class="xh-en">' + esc(en) + "</span></span>";
+    }
+
     h += '<div class="beach-shelf">';
     var pick = boatPick();
     boatList().forEach(function (b) {
       var owned = ownsBoat(b.t), on = pick === b.t;
       var prev  = b.t > 1 && !ownsBoat(b.t - 1);          // must climb in order
       var afford = (store.shells || 0) >= b.shells;
-      h += '<div class="beach-card' + (on ? " on" : owned ? " owned" : "") + '">' +
-        '<img src="art/xh/boat_t' + b.t + '_broadside.png' + ASSET_V + '" alt="" ' +
-          "onerror=\"this.style.display='none'\">" +
-        '<b>' + esc(b.zh) + '</b>' + xhPy(b.zh) + '<span class="xh-en">' + esc(b.en) + '</span>' +
-        (on ? '<span class="beach-tag on">正在开' + xhPy("正在开") + '<span class="xh-en">sailing</span></span>'
-            : owned ? '<button class="beach-buy own" data-boatpick="' + b.t + '">开这艘' + xhPy("开这艘") + '<span class="xh-en">sail this</span></button>'
-            : prev ? '<span class="beach-tag">先买' + esc(boatName(b.t - 1)) + '</span>'
-            : '<button class="beach-buy" data-boat="' + b.t + '"' + (afford ? "" : " disabled") +
-              ' title="' + (afford ? "" : "贝壳不够，也可以到学段的营地商店用灵露换") + '">' +
-              shellIcon() + b.shells + '</button>') +
-        /* the other price is always shown, so a student who will never grind the
-           dock can see the boat is still reachable from their own level */
-        (owned ? "" : '<span class="beach-alt">或 ' + b.ling + ' 灵露</span>') +
-        '</div>';
+      h += shopTile({
+        img: "art/xh/boat_t" + b.t + "_broadside.png", zh: b.zh, en: b.en, on: on, owned: owned,
+        act: on ? "" : owned ? ' data-boatpick="' + b.t + '"' : prev ? "" : ' data-boat="' + b.t + '"',
+        dis: !afford,
+        title: (!on && !owned && !prev && !afford) ? "贝壳不够，也可以到学段的营地商店用灵露换" : "",
+        foot: (on ? stateHtml("正在开", "sailing", 1)
+             : owned ? stateHtml("开这艘", "sail this", 0)
+             : prev ? '<span class="xh-sstate locked">先买' + esc(boatName(b.t - 1)) + "</span>"
+             : costHtml(b.shells)) +
+          /* the other price is always shown, so a student who will never grind the
+             dock can see the boat is still reachable from their own level */
+          (owned ? "" : '<span class="xh-salt">或 ' + b.ling + " 灵露</span>")
+      });
     });
     h += '</div>';
 
@@ -1995,15 +2015,15 @@
       BERTH_ITEMS.filter(function (it) { return it.slot === sl.k; }).forEach(function (it) {
         var owned = ownsItem(it.k), on = store.berth[sl.k] === it.k;
         var afford = (store.shells || 0) >= it.price;
-        h += '<div class="beach-card' + (on ? " on" : owned ? " owned" : "") + '">' +
-          '<img src="art/xh/' + it.img + '.png' + ASSET_V + '" alt="" ' +
-            "onerror=\"this.style.display='none'\">" +
-          '<b>' + esc(it.zh) + '</b>' + xhPy(it.zh) + '<span class="xh-en">' + esc(it.en) + '</span>' +
-          (on ? '<span class="beach-tag on">摆着' + xhPy("摆着") + '<span class="xh-en">placed</span></span>'
-              : owned ? '<button class="beach-buy own" data-eq="' + it.k + '">摆上' + xhPy("摆上") + '<span class="xh-en">place it</span></button>'
-              : '<button class="beach-buy" data-buy="' + it.k + '"' + (afford ? "" : " disabled") +
-                (afford ? "" : ' title="贝壳不够，再去答几题"') + '>' + shellIcon() + it.price + '</button>') +
-          '</div>';
+        h += shopTile({
+          img: "art/xh/" + it.img + ".png", zh: it.zh, en: it.en, on: on, owned: owned,
+          act: on ? "" : owned ? ' data-eq="' + it.k + '"' : ' data-buy="' + it.k + '"',
+          dis: !afford,
+          title: (!on && !owned && !afford) ? "贝壳不够，再去答几题" : "",
+          foot: on ? stateHtml("摆着", "placed", 1)
+              : owned ? stateHtml("摆上", "place it", 0)
+              : costHtml(it.price)
+        });
       });
       h += '</div>';
     });
@@ -3446,10 +3466,23 @@
       return (p && p.avatarId) || null;
     } catch (e) { return null; }      // no avatar chosen, or profile.js absent
   }
+  /* ⚠️ per-sheet size correction, from the ONE table that measures it
+     (profile.js SPRITE_SCALE). The sheets are not drawn to a common size — 沙僧 fills
+     far less of its cell than 鼠 does — so sizing by the cell alone made the humans
+     look half the animals' size (owner 2026-08-17). Written INLINE here, not by
+     wireAngler, so the element is never painted once at the wrong size and corrected
+     a frame later. */
+  function avatarScale() {
+    try {
+      return (window.WSProfile && window.WSProfile.spriteScale)
+        ? window.WSProfile.spriteScale(avatarSpriteId()) : 1;
+    } catch (e) { return 1; }
+  }
   function anglerHtml(cls) {
     var id = avatarSpriteId();
     if (!id) return "";               // nothing chosen: the scene simply has no angler
-    return '<div class="xh-angler ' + (cls || "") + '" id="xhAngler" style="background-image:url(' +
+    return '<div class="xh-angler ' + (cls || "") + '" id="xhAngler" style="--av-k:' +
+      avatarScale() + ";background-image:url(" +
       "'art/sprite/avatar/" + id + "_sprite.png" + ASSET_V + "')\"></div>";
   }
   function wireAngler() {
@@ -3480,25 +3513,44 @@
      an answer, awards anything or writes to the store. The band is a sibling of
      #xhView that reads `state` after every render and draws what it finds.
 
-     ⚠️ THE SCROLL IS DERIVED FROM state.i, NEVER ACCUMULATED. Advancing a counter on
-     each correct answer would drift out of step with the question number the moment
+     ⚠️ THE RUNNER MOVES, THE BEACH DOES NOT (owner 2026-08-17). The first build
+     scrolled the world under a runner pinned at 26%. That is the standard
+     endless-runner trick and it read as「the beach furniture slides sideways」rather
+     than「I am getting somewhere」. The beach is now one fixed picture and the avatar
+     walks across it, so the round's progress IS the distance travelled.
+
+     ⚠️ THE POSITION IS DERIVED FROM state.i, NEVER ACCUMULATED. Advancing a counter
+     on each correct answer would drift out of step with the question number the moment
      one mode took a path that does not call the hooks (看句选词's tile-only sentence
      does exactly that), and the runner would then reach the arch a stretch early or
      late. Position is a pure function of「which question are we on」, so it cannot.
-     Only the TIDE — pure feedback, §1.4 — is accumulated, and if it ever missed a
-     beat the worst case is a wave one notch off.
 
      ⚠️ NO requestAnimationFrame AND NO CANVAS. Everything moves in discrete steps on
      CSS transitions, because everything the mode does IS discrete: one question, one
-     stretch. That also keeps it off the old iPads' compositor, which is the fleet
-     G1/G2 actually study on.
+     hop. That also keeps it off the old iPads' compositor, which is the fleet G1/G2
+     actually study on.
 
-     ⚠️ THE TIDE NEVER CATCHES ANYONE AND THERE IS NO LOSE CONDITION (§1.4). The round
-     ends when the questions run out, full stop. Do not add a fail state here later —
-     a zero-background beginner must never be cut off mid-activity. */
-  var RUN_STRETCH = 230;              // px of world per question
-  var RUN_TIDE_STEP = 26;             // px the wave moves per notch
-  var RUN_TIDE_MAX = 5;               // notches; clamped so it never reaches the runner
+     ⚠️ THERE IS NO LOSE CONDITION (§1.4). The round ends when the questions run out,
+     full stop. Do not add a fail state here later — a zero-background beginner must
+     never be cut off mid-activity. The chasing tide that used to say so is gone with
+     its art (see the CSS), and nothing replaced it, on purpose.
+
+     ⚠️ ALL GEOMETRY BELOW IS IN PERCENT OF THE BAND, not pixels. The band is fluid
+     (clamp(150px,36vh,300px) tall, full page width) and every landing point has to
+     stay put when the page reflows — a px runway would put the arch off-screen on a
+     phone and halfway across the sand on a Chromebook. */
+  var RUN_X0 = 11;                    // % — where the runner starts
+  var RUN_X1 = 82;                    // % — where they stand when the last question is answered
+  var RUN_ARCH = 86;                  // % — the finish arch; RUN_X1 lands them INSIDE it
+  /* ⚠️ HURDLES ARE EVERY k-TH HOP, NOT EVERY HOP. A 20-question round divides the
+     runway into 3.4% steps; a marker at each one would be 28px apart on a 800px band
+     and the posts are wider than that, so they would fuse into a fence. k keeps the
+     count at 4-6 whatever the round length, which means the posts stay full size and
+     legibly spaced. A hop that clears nothing still reads as a bounding run. */
+  var RUN_HURDLE_MAX = 6;
+  /* scenery only — never on the running line. ⚠️ Split from the hurdles on purpose:
+     a palm or a moored boat is not something a child hops over, and drawing one at
+     the midpoint of a hop would promise a jump the arc cannot sell. */
   var RUN_PROPS = ["palm", "rocks", "driftwood", "sandcastle", "starfish", "crab",
                    "seagull", "basket", "post", "netrack", "boat", "shells"];
 
@@ -3507,46 +3559,59 @@
     var b = runBand();
     if (b) b.parentNode.removeChild(b);
   }
+  /* where the runner stands once `i` questions are behind them. ⚠️ ONE function, used
+     by both the layout and the paint, so a hurdle can never end up off the line the
+     runner actually travels. */
+  function runX(i, n) {
+    if (n <= 0) return RUN_X0;
+    return RUN_X0 + (RUN_X1 - RUN_X0) * (Math.min(i, n) / n);
+  }
   /* built once per round, then only nudged — rebuilding it per question would restart
-     every CSS transition and the beach would jump instead of scroll. */
+     every CSS transition and the runner would teleport instead of hop. */
   function runBuild(n) {
     runTeardown();
     var b = document.createElement("div");
     b.className = "xh-run";
     b.id = "xhRunBand";
-    var track = "";
-    /* one marker per question, at the far end of that question's stretch (§6.5) */
-    for (var i = 1; i <= n; i++) {
+    var track = "", i, k;
+    /* hurdles: one at the MIDPOINT of every k-th hop, which is exactly where the jump
+       arc peaks (see .xh-angler.xh-runner.hop). ⚠️ Midpoint, not landing point — a
+       post on the landing spot is a post the runner lands inside. */
+    /* ⚠️ `i < n - 1` — THE LAST STRETCH IS ALWAYS CLEAR. A hurdle on the final hop
+       sits inside the finish arch's left post, and the last thing a beginner sees
+       should be an open run at the arch, not one more thing in the way. */
+    k = Math.max(1, Math.ceil(n / RUN_HURDLE_MAX));
+    for (i = 0; i < n - 1; i += k) {
       track += '<img class="xh-run-mark" src="art/xh/run/xh_run_marker.png' + ASSET_V +
-        '" alt="" style="left:' + (i * RUN_STRETCH) + 'px">';
+        '" alt="" style="left:' + ((runX(i, n) + runX(i + 1, n)) / 2).toFixed(2) + '%">';
     }
-    /* props scattered on the sand. ⚠️ Placed from a fixed walk, not Math.random per
-       paint: a prop that moved between two renders of the SAME question would read as
-       the beach glitching. The offsets are arbitrary but stable. */
-    /* ⚠️ SPACED WIDER THAN THE MARKERS (1.15 stretches vs 1), so the two never settle
-       into a rhythm — props at exactly one per stretch would read as part of the
-       milestone furniture instead of as scenery the runner passes. */
-    for (var k = 0; k < n + 2; k++) {
+    /* scenery scattered along the beach. ⚠️ Placed from a fixed walk, not Math.random
+       per paint: a prop that moved between two renders of the SAME question would read
+       as the beach glitching. The offsets are arbitrary but stable.
+       ⚠️ SET BACK FROM THE RUNNING LINE, not on it: bottom 22-26% puts their feet up
+       near the waterline, which at this scale reads as「further away」, and it keeps
+       them out from behind the hurdles and the runner. They stop at 70% so nothing
+       stands inside the finish arch. */
+    for (k = 0; k < 6; k++) {
       var nm = RUN_PROPS[(k * 5 + 3) % RUN_PROPS.length];
       track += '<img class="xh-run-prop" src="art/xh/run/prop_' + nm + '.png' + ASSET_V +
-        '" alt="" style="left:' + Math.round(150 + k * RUN_STRETCH * 1.15) + 'px;' +
-        "bottom:" + (3 + ((k * 5) % 7)) + "%\">";
+        '" alt="" style="left:' + (5 + k * 13) + "%;" +
+        "bottom:" + (22 + ((k * 3) % 5)) + "%\">";
     }
     track += '<img class="xh-run-finish" src="art/xh/run/xh_run_finish.png' + ASSET_V +
-      '" alt="" style="left:' + (n * RUN_STRETCH + 40) + 'px">';
+      '" alt="" style="left:' + RUN_ARCH + '%">';
     b.innerHTML =
       '<div class="xh-run-sky"></div>' +
       '<div class="xh-run-sea"></div>' +
       '<div class="xh-run-sand"></div>' +
-      '<div class="xh-run-foam"></div>' +
       '<div class="xh-run-track" id="xhRunTrack">' + track + "</div>" +
       /* the avatar rides the SAME 6-frame strip 攀山竞速 and the angler use — §1.6:
          zero new art, and any 生肖 or 神兽 added later inherits this mode for free. */
       anglerHtml("xh-runner") +
-      '<div class="xh-run-shell" id="xhRunShell"></div>' +
-      '<div class="xh-run-wave" id="xhRunWave"></div>';
+      '<div class="xh-run-shell" id="xhRunShell"></div>';
     var host = view();
     host.parentNode.insertBefore(b, host);
+    b.style.setProperty("--rx", runX(0, n).toFixed(2) + "%");
 
     state.surf.angler = wireAngler();
     return b;
@@ -3559,41 +3624,51 @@
   function runMaybe(mode) {
     runTeardown();
     if (store.runMode === "surf" && runAllowed(mode) && state && state.seq) {
-      state.surf = { tide: 0, angler: null };
+      state.surf = { angler: null };
       runBuild(state.seq.length);
     }
   }
   function runPaint() {
     var b = runBand() || runBuild(state.seq.length);
-    var s = state.surf;
-    var x = Math.min(state.i, state.seq.length) * RUN_STRETCH;
-    b.style.setProperty("--sx", x + "px");
-    var wave = document.getElementById("xhRunWave");
-    if (wave) wave.style.setProperty("--tide", (s.tide * RUN_TIDE_STEP) + "px");
+    b.style.setProperty("--rx", runX(state.i, state.seq.length).toFixed(2) + "%");
   }
   /* called from noteRight / noteWrong — the ONE answer path (§4.2), which is why the
      runner needs no hooks of its own inside any mode. */
   function runNote(ok) {
     if (!state || !state.surf) return;
-    var s = state.surf;
-    s.tide = ok ? Math.max(0, s.tide - 1) : Math.min(RUN_TIDE_MAX, s.tide + 1);
-    var wave = document.getElementById("xhRunWave");
-    if (wave) wave.style.setProperty("--tide", (s.tide * RUN_TIDE_STEP) + "px");
-    var a = s.angler;
+    var a = state.surf.angler;
+    var el = document.getElementById("xhAngler");
     if (ok) {
-      /* the dash: two walk frames for the length of the scroll, then idle again.
-         ⚠️ setInterval, not rAF — six frames over 600ms needs no better clock, and
-         rAF is exactly what does not run when the tab is backgrounded mid-round. */
+      /* ⚠️ THE STEP IS TAKEN HERE, NOT ON THE NEXT render(). runPaint only runs when
+         the next question draws, which is a reveal delay later (1400-3000ms) — the
+         arc would peak over the hurdle and the runner would still slide sideways long
+         after landing. So the answer path moves them and render() re-asserts the same
+         value, which is why runX is a pure function of (i, n): calling it twice for
+         the same answer cannot disagree with itself. */
+      var b = runBand();
+      if (b) b.style.setProperty("--rx", runX(state.i + 1, state.seq.length).toFixed(2) + "%");
+      /* the jump — 攀山竞速's ledge hop, sideways. ⚠️ The `left` move itself is
+         driven by runPaint on the NEXT render, so all this does is the pose and the
+         arc; the two share the same .62s so they land together. Frames 3-4 are the
+         climb pair, which is the sheet's only airborne pose.
+         ⚠️ setInterval/setTimeout, not rAF — four poses over 620ms needs no better
+         clock, and rAF is exactly what does not run when the tab is backgrounded
+         mid-round. */
+      if (el) { el.classList.remove("hop"); void el.offsetWidth; el.classList.add("hop"); }
       if (a) {
-        var f = 1, t = setInterval(function () { a.frame(f = (f === 1 ? 2 : 1)); }, 110);
-        setTimeout(function () { clearInterval(t); a.cheer(); }, 620);
+        a.frame(1);                                            // push off
+        setTimeout(function () { a.frame(3); }, 110);           // airborne
+        setTimeout(function () { a.frame(4); }, 330);
+        setTimeout(function () {
+          a.frame(0);
+          if (el) el.classList.remove("hop");
+        }, 640);
       }
       runShell();
     } else if (a) {
       /* the stumble. ⚠️ Costs NOTHING — no lost ground, no lost 贝壳, no lost round.
          It is a face, not a penalty (§1.4). */
       a.frame(3);
-      var el = document.getElementById("xhAngler");
       if (el) {
         el.classList.remove("trip"); void el.offsetWidth; el.classList.add("trip");
       }

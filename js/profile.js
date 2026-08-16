@@ -1357,6 +1357,64 @@
     return a ? '<img src="' + esc(a.file) + '" alt="">' : '👤';
   }
 
+  /* ---------- 6-frame sprite sheets: per-sheet size correction (owner 2026-08-17)
+     「Can you make the human figures and animals avatars the same size? 沙僧 is way
+     smaller than the rat.」 — and they are, even though every renderer already draws
+     them at one shared height.
+
+     ⚠️ THE SHEETS ARE NOT DRAWN TO A COMMON SIZE. Every cell is 104px tall, but the
+     creature inside it is not: 沙僧 draws 41x72 of an 80x104 cell while 鼠 draws
+     101x92 of a 128x104 one, so at the same CSS height the rat covers about 2.3x the
+     pixels. The five 西游记 humans are narrow and short in their cells; the 生肖
+     animals fill theirs. Sizing by the cell is what makes them look unequal.
+
+     ⚠️ THE METRIC IS DRAWN MASS, NOT DRAWN HEIGHT. Height is the intuitive answer and
+     it is wrong: 蛇 and 龟 are drawn low and wide on purpose, so matching heights
+     inflates them. sqrt(mean opaque pixels across the six frames) treats a tall thin
+     monk and a low wide turtle as the same size, which is what the eye does.
+
+     ⚠️ MEASURED, NEVER TYPED. Regenerate with local-admin/measure_avatar_scale.py
+     whenever a sheet is added or redrawn; the script carries the reasoning and the
+     one reference number that moves every avatar together. Do not hand-tune a single
+     row — that is how a table like this stops meaning anything.
+
+     ⚠️ THE ART IS UNTOUCHED. The correction is applied where the sheets are already
+     being drawn at a non-integer zoom (a CSS height), so resampling the source would
+     be the §14「像素画缩放」trap for nothing. Consumers multiply their own base size
+     by this, so each screen keeps its own composition.
+
+     ⚠️ THIRD ASSET FAMILY. These numbers describe art/sprite/avatar/*_sprite.png ONLY
+     — never art/avatar/*.png (square, faces LEFT, the picker) or art/camp/pet_*.png. */
+  var SPRITE_SCALE = {
+    "jtw_bailongma": 1.07,         // drawn mass 60.5
+    "jtw_shaseng": 1.44,           // drawn mass 45.2
+    "jtw_sunwukong": 1.33,         // drawn mass 48.9
+    "jtw_tangseng": 1.26,          // drawn mass 51.6
+    "jtw_zhubajie": 1.27,          // drawn mass 51.2
+    "pet_feng": 1.00,              // drawn mass 64.8
+    "pet_gui": 0.89,               // drawn mass 72.7
+    "pet_long": 1.05,              // drawn mass 62.2
+    "pet_qilin": 1.14,             // drawn mass 56.8
+    "zodiac_dog": 1.08,            // drawn mass 60.2
+    "zodiac_dragon": 0.97,         // drawn mass 66.9
+    "zodiac_goat": 0.90,           // drawn mass 71.8
+    "zodiac_horse": 1.11,          // drawn mass 58.4
+    "zodiac_monkey": 1.07,         // drawn mass 60.7
+    "zodiac_ox": 1.10,             // drawn mass 59.0
+    "zodiac_pig": 1.01,            // drawn mass 64.3
+    "zodiac_rabbit": 1.06,         // drawn mass 61.4
+    "zodiac_rat": 0.97,            // drawn mass 67.0
+    "zodiac_rooster": 1.01,        // drawn mass 64.6
+    "zodiac_snake": 1.37,          // drawn mass 47.5
+    "zodiac_tiger": 1.07           // drawn mass 60.8
+  };
+  /* ⚠️ Unknown id returns 1, never 0 or null: a sheet added to art/ before this table
+     is regenerated must render at its old size, not vanish. */
+  function spriteScale(id) {
+    var k = id && SPRITE_SCALE[id];
+    return k > 0 ? k : 1;
+  }
+
   /* AvatarInfoCard (设计文档 §3): the ONE enlarged card both entry points use —
      a grid thumbnail and the student's own current avatar. Same card, same code;
      only the primary button differs, so the two flows can never drift apart.
@@ -1552,6 +1610,10 @@
     openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml,
     avatarFile: avatarFile,
+    /* 词雨 runner, 攀山竞速 climber, 词海垂钓 angler and 踏浪竞速 runner all size the
+       6-frame sheets themselves; this is the one place that knows how big each
+       creature is actually drawn inside its cell. */
+    spriteScale: spriteScale,
     /* app.js asks before drawing the 攀山竞速 sprite; keep the unlock rules in one place */
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,
