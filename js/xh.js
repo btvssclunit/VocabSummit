@@ -780,10 +780,38 @@
       if (typeof p.seg[i] !== "string" || !p.seg[i] || SEG_PUNCT.test(p.seg[i])) return false;
     }
     if (p.seg.join("") !== String(p.zh || "").replace(SEG_END, "")) return false;
-    /* ask must be exactly one block: straddling two means the cut is wrong, and the
-       whole 未认得优先 bucket key (§6.2) reads store.done[p.ask]. */
-    if (p.ask && p.seg.indexOf(p.ask) === -1) return false;
+    /* ⚠️ `ask` DOES NOT HAVE TO BE ITS OWN TILE (PATCH_03 §3B — the rule was here and
+       is now retired). Requiring it did real damage in the first data pass: 鱼汤 was
+       split into 鱼/汤 and 咖喱鸡 into 咖喱/鸡 purely to satisfy this check, i.e. words
+       were broken to make a validator happy. `ask` only feeds store.done and the
+       weak-first bucket; whether its string also appears as a tile is irrelevant.
+       Three sentences ship this way on purpose (樟宜机场 · 鱼汤 · 咖喱鸡).
+       ⚠️ If an ask↔tile mapping is ever really needed, add an explicit field — do
+       not go back to guessing it by string equality. */
     return true;
+  }
+  /* ---------- 多个合法答案 (PATCH_03) ----------
+     ⚠️ `seg`'s own order is ONE correct answer, not THE correct answer. 农夫在喂鸡和猪
+     is just as good as 农夫在喂猪和鸡, and marking it wrong is a defect, not strictness.
+     `accepted_zh` holds the extras as STRINGS (never as tile arrays): a second array
+     of the same tiles would be a copy that can fall out of sync silently, whereas a
+     string is only ever compared, never a second source of truth.
+     ⚠️ The original is NOT repeated in accepted_zh — `seg` already provides it. */
+  function segAnswers(p) {
+    var out = [p.seg.join("")];
+    if (p.accepted_zh instanceof Array) {
+      p.accepted_zh.forEach(function (a) { if (a && out.indexOf(a) === -1) out.push(a); });
+    }
+    return out;
+  }
+  /* how many leading tiles of `laid` agree with answer string `ans` */
+  function segPrefixLen(laid, ans) {
+    var at = 0;
+    for (var i = 0; i < laid.length; i++) {
+      if (ans.substr(at, laid[i].length) !== laid[i]) return i;
+      at += laid[i].length;
+    }
+    return laid.length;
   }
   function phrasesFor(pool, mode) {
     var have = {};
@@ -2459,10 +2487,14 @@
      the answer.
 
      ⚠️ MEASURE-WORD LEAKAGE IS DELIBERATE — DO NOT「fix」IT (PATCH_02 §3).
-    「这台＿＿多少钱？」does narrow the answer to phone-like things. On the mountain
+    「这支＿＿多少钱？」does narrow the answer to phone-like things. On the mountain
      that would be a giveaway; here it is the entire point of a measure word, and a
-     student who reasons from 台 to the answer has just learned 台. Never strip the
-     measure word out of the stem to make the question「harder」. */
+     student who reasons from 支 to the answer has just learned 支. Never strip the
+     measure word out of the stem to make the question「harder」.
+     ⚠️ THE EXAMPLE CHANGED, THE RULE DID NOT (PATCH_03 §5.3, 2026-08-16). This
+     comment used to cite「这台…」, but 台 is wrong for a phone and scene_mall-3 was
+     corrected to 这支. Left unchanged, the next reader would have taken 台 for a
+     rule-protected example and put it back. */
   function phraseBlank(p) {
     /* the blank keeps the measure word and everything else intact */
     return esc(p.zh).replace(esc(p.ask), '<span class="xh-blank">＿＿</span>');
@@ -2605,12 +2637,25 @@
          in the right place go green and STAY; from the first wrong one, everything
          after it returns to the tray. The student sees WHERE the order broke, which
          is the whole assessment-for-learning value of the mode.
-         ⚠️ Compared by TEXT, not by tile index: 我…我… swapped is still correct.
+         ⚠️ SCORED AGAINST EVERY LEGAL ANSWER (PATCH_03 §2), and the one with the
+         LONGEST matching prefix becomes this check's reference. Locking always to
+         `seg` would take a student who is correctly building toward an accepted
+         variant and hand back a stretch they had right — more confusing than plain
+         all-or-nothing, which is exactly what the patch warns about.
+         ⚠️ Compared by TEXT, not by tile index: 我…我… swapped is still correct, and
+         that falls out for free because the comparison is against a STRING.
          ⚠️ A wrong answer costs nothing — no 贝壳, no 航程, no 海里 — as everywhere
          else in this tier. And no move-count scoring: that is a puzzle-player's
          metric, not a language learner's. */
+      var laid = placed.map(function (ix) { return tileById(ix).t; });
+      var built = laid.join("");
+      var answers = segAnswers(p);
       var i = 0;
-      while (i < placed.length && tileById(placed[i]).t === p.seg[i]) i++;
+      answers.forEach(function (ans) {
+        var n = segPrefixLen(laid, ans);
+        if (n > i) i = n;
+      });
+      if (answers.indexOf(built) !== -1) i = placed.length;
       if (i >= placed.length) {
         done = true;
         locked = placed.length;
