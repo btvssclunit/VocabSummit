@@ -557,10 +557,35 @@
         return [2 * (1 - t) * (ccx - sx) + 2 * t * (ex - ccx),
                 2 * (1 - t) * (ccy - sy) + 2 * t * (ey - ccy)];
       }
+      /* ⚠️ THE ENDS ARE PULLED BACK ONTO THE LINE TO THE ISLAND (owner 2026-08-16:
+         「sometimes it still sails with its side leading the way… when it
+         approaches a land mass it has to be pointing to it with its bow」).
+         The pure tangent is the physically honest heading, but the track sags
+         H*0.20, so at t=0 and t=1 the true direction of travel is 40–95° off the
+         line between the two berths: the boat dives away on departure and climbs
+         back up on arrival, and with 45° sprite buckets that reads as mooring
+         side-on. Measured over all 30 routes at 1600x900.
+         Fixing the PATH instead was the other option and was rejected: the sag is
+         what clears the other islands, and that clearance was verified against the
+         PAINTED extents of the art, which an element rect cannot reproduce — my
+         re-check with getBoundingClientRect flags even the shipped value as
+         colliding, so it is no basis for re-tuning.
+         w = |2t-1| : 0 at mid-voyage, where the tangent is trusted completely (on a
+         detoured route that is the only place the two genuinely differ), rising to
+         1 at both ends, where the heading becomes exactly the line to the island. */
+      function headingAt(t) {
+        var v = tangentAt(t);
+        if (!v[0] && !v[1]) return v;
+        var ang = Math.atan2(v[1], v[0]), chord = Math.atan2(ey - sy, ex - sx);
+        var d = ((ang - chord + Math.PI * 3) % (Math.PI * 2)) - Math.PI;   // signed −π..π
+        var w = Math.abs(2 * t - 1);
+        var a = chord + d * (1 - w);
+        return [Math.cos(a), Math.sin(a)];
+      }
       if (boatTurn) clearInterval(boatTurn);
       var t0 = Date.now(), lastH = "";
       function faceAlong(t) {
-        var v = tangentAt(Math.max(0, Math.min(1, t)));
+        var v = headingAt(Math.max(0, Math.min(1, t)));
         if (!v[0] && !v[1]) return;
         var hh = boatHeading(v[0], v[1]);
         var key = hh[0] + (hh[1] ? "|f" : "");
@@ -574,7 +599,7 @@
       /* the tangent AT ARRIVAL is known now, so the berth can be corrected before
          the voyage even starts — pageshow may fire before it finishes */
       (function () {
-        var v = tangentAt(1);
+        var v = headingAt(1);          // == the line to the island (see headingAt)
         if (v[0] || v[1]) saveBerth(boatHeading(v[0], v[1]));
       })();
       boatTurn = setInterval(function () {

@@ -632,6 +632,18 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* ---------- landscape (primary target: ≥900px) ---------- */
 @media (min-width:900px){
   .home-grid{grid-template-columns:400px 1fr}
+  /* ⚠️ 复习范围 is capped and scrolls INSIDE itself (owner 2026-08-16). Expanding
+     中一 used to add ~200px to the card, which shoved ②选择学习方式 and
+     ③词语游乐场 down the page — the left column changed height every time a level
+     was opened, so nothing below it ever sat still. A fixed box means opening a
+     level moves nothing outside the box.
+     ⚠️ Landscape only. On a phone the whole page is one column and a scroller
+     inside a scroller is worse than a long card — there is nothing beside it to
+     stay aligned with. */
+  /* height, not max-height: with max-height the card still GROWS until it hits the
+     cap, so opening 中一 shifted ② by 54px before settling. A fixed height means
+     the box never changes size at all, whichever level is open. */
+  #scopeCard{height:clamp(300px,46vh,560px);overflow-y:auto;overscroll-behavior:contain}
   /* auto-fit already handles the row; no fixed 2-up override any more */
   .study{grid-template-columns:300px 1fr}
   .rail{position:sticky;top:78px}
@@ -1568,6 +1580,15 @@ body.lp-sea-on .lp-foot{display:none}
    .pop-card alpha to .95 over busy art — but do NOT lower that alpha in the same
    change: the handoff wants this verified on its own first. */
 body{background:linear-gradient(180deg,#F4F9FC 0%,#E8F1F8 46%,#DCEAF4 100%) fixed}
+/* ⚠️ applyAmbience() sets ONLY background-image inline, so the plate arrives with
+   background-size:auto and TILES the moment the viewport is wider than the art —
+   owner 2026-08-16 saw the mountain repeat down the right edge of a wide screen.
+   The size/repeat/position live here rather than in the inline style: an inline
+   background-image cannot override these, so any future caller gets them free.
+   cover, not contain: this is a backdrop, and letterboxing a backdrop looks like
+   a bug. fixed keeps one image behind the whole scroll instead of one per screen. */
+body{background-repeat:no-repeat;background-size:cover;background-position:center top;
+  background-attachment:fixed}
 /* the home card now shows this stream's OWN island (the one the student sailed
    to on the landing sea map) rather than the shared landing hero. contain, not
    cover: these are transparent island sprites, and cropping one would cut the
