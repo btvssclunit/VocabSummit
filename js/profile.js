@@ -639,6 +639,84 @@
 
   function registerCodeProvider(fn) { _provider = fn || null; }
 
+  /* ================= 拼音 / 英文 闸门：落地页与档案页 (owner 2026-08-17) =========
+     「make sure the landing page and profile registration screen has English and
+     pinyin toggle so that non chinese users can also create their profile with ease」
+
+     The two aids existed on all five activity pages and NOWHERE on the way in: the
+     landing page and the nickname/registration flow are the first two screens anyone
+     sees, and they were Chinese-only. A parent or a non-CL student could not read the
+     screen where they choose who they are.
+
+     ⚠️ THE PREFERENCE IS GLOBAL, in ws2_profile beside the nickname — not per stream.
+     This is an identity screen that belongs to no stream, and §4 lists identity as one
+     of exactly three things allowed to cross the waterline. It does NOT touch
+     store.pyAid / store.enAid: those are per-stream, the streams own their own
+     toggles, and quietly rewriting them from here would change what a student sees
+     inside an activity they never opened.
+
+     ⚠️ DEFAULT ON, both of them — the opposite of the mountains' default and for the
+     same reason the pier defaults on: this screen's whole job is to be understood by
+     someone who cannot read it yet. Immersion is what the ACTIVITIES are for.
+
+     ⚠️ NOTHING HERE APPLIES ITSELF. A page must call ownAid() to say「no engine on
+     this page owns body.py-aid」. app.js and xh.js drive those classes from their own
+     per-stream settings, and a second writer would fight them on every render — the
+     landing page is the only page with no engine, so it is the only caller. */
+  var _ownAid = false;
+  function aidOn(k) {
+    var p = load() || {};
+    return p[k] !== false;                 // default ON, and only an explicit false is off
+  }
+  function aidPy() { return aidOn("aidPy"); }
+  function aidEn() { return aidOn("aidEn"); }
+  /* ⚠️ BOTH CLASS FAMILIES, exactly like fbGloss below: the landing page loads
+     app.css, a future caller might load xh.css, and an unrecognised class name is
+     inert. That is cheaper than sniffing which stylesheet is present. */
+  function applyAid() {
+    if (!_ownAid || !document.body) return;
+    var b = document.body, py = aidPy(), en = aidEn();
+    b.classList.toggle("py-aid", py);
+    b.classList.toggle("xh-py-on", py);
+    b.classList.toggle("en-aid", en);
+    b.classList.toggle("xh-en-on", en);
+  }
+  function ownAid(v) { _ownAid = (v !== false); applyAid(); }
+  /* the same two pills the stream topbars use, same classes, so there is one visual
+     control for this idea across the whole platform. ⚠️ EN FIRST, matching app.js and
+     (since 2026-08-16) the pier — the order was aligned once already, do not re-flip
+     it here. */
+  function aidPillsHtml() {
+    if (!_ownAid) return "";
+    return '<button class="tb-en' + (aidEn() ? " on" : "") + '" id="wsAidEn" type="button" ' +
+      'title="中文 / English" aria-label="English hints 英文提示" ' +
+      'aria-pressed="' + (aidEn() ? "true" : "false") + '">' +
+      '<span class="tb-en-zh">中</span><span class="tb-en-en">EN</span></button>' +
+      '<button class="tb-py' + (aidPy() ? " on" : "") + '" id="wsAidPy" type="button" ' +
+      'title="拼音提示 Pinyin" aria-label="拼音提示 Pinyin hints" ' +
+      'aria-pressed="' + (aidPy() ? "true" : "false") + '">' +
+      '<span class="tb-py-zh">拼</span><span class="tb-py-lab">拼音</span></button>';
+  }
+  /* ⚠️ A CLASS FLIP, NEVER A RE-RENDER (§10). On the mountain a re-render on toggle
+     is a leak — it re-draws the distractors. Nothing on the landing page has
+     distractors, but keeping the same mechanism means the habit survives when this
+     helper is reused somewhere that does. */
+  function wireAidPills(root) {
+    var scope = root || document;
+    [["wsAidEn", "aidEn"], ["wsAidPy", "aidPy"]].forEach(function (pair) {
+      var b = scope.querySelector ? scope.querySelector("#" + pair[0]) : null;
+      if (!b) return;
+      b.onclick = function () {
+        var p = load() || {}, on = !aidOn(pair[1]);
+        p[pair[1]] = on;
+        save(p);
+        applyAid();
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      };
+    });
+  }
+
   /* ================= 进度码 · 换设备时的「先认领身份」 (owner 2026-08-16) ========
      A student on a new device gets a NEW anonymous uid, so the cloud merge cannot
      find them — the 进度码 is the only way back. But the nickname picker runs
@@ -1040,7 +1118,14 @@
            was removed once this shipped — it was unreachable without scrolling
            to the end, which was the original complaint. Backdrop tap works too. */
         '<button class="prof-x" id="profCloseX" aria-label="关闭我的档案" title="关闭">✕</button>' +
-        '<div class="pop-title">👤 我的档案</div>' +
+        '<div class="pop-title">👤 我的档案' +
+          fbGloss("我的档案", "wǒ de dàng àn", "My profile") + '</div>' +
+        /* ⚠️ THE PILLS APPEAR ONLY WHERE NOTHING ELSE OWNS THE GATES — aidPillsHtml
+           returns "" unless the page called ownAid(), so on a stream page or the pier
+           this is empty and the topbar's own pair stays the single control. Without
+           that guard there would be two toggles on screen writing two different
+           settings, which is worse than none. */
+        (aidPillsHtml() ? '<div class="prof-aid">' + aidPillsHtml() + "</div>" : "") +
         /* Two independent columns, NOT four grid cells: as cells, the short
            进度/技术 blocks were locked to the row heights of the tall
            身份/进度码 blocks and left the panel half empty. */
@@ -1056,29 +1141,38 @@
                 (draft.mtlClass ? ' · ' + esc(draft.mtlClass) : '') +
                 (draft.school ? ' · ' + esc(shortSchool(draft.school)) : '') + '</div>' +
               '<div class="prof-head-links">' +
-                '<button class="code-link" id="profChangeAvatar">换头像</button>' +
-                '<button class="code-link" id="profChangeNick">换昵称</button></div>' +
+                '<button class="code-link" id="profChangeAvatar">换头像' +
+                  fbGloss("换头像", "huàn tóu xiàng", "Change avatar") + '</button>' +
+                '<button class="code-link" id="profChangeNick">换昵称' +
+                  fbGloss("换昵称", "huàn nì chēng", "Change nickname") + '</button></div>' +
             '</div>' +
           '</div>' +
-          '<div class="pop-label" style="font-weight:500;margin-top:10px">学校</div>' +
+          '<div class="pop-label" style="font-weight:500;margin-top:10px">学校' +
+            fbGloss("学校", "xué xiào", "School") + '</div>' +
           (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("profSchoolQ", draft.schoolQ) : "") +
           '<select class="np-select" id="profSchool">' +
             (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick, draft.schoolQ)
               : ('<option value="' + esc(draft.school) + '" selected>' + esc(draft.school || "百德中学 Bukit View Secondary School") + '</option>')) +
           '</select>' +
           (draft.schoolPick === "other" ? '<input type="text" class="prof-input" id="profSchoolOther" style="margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(draft.school) + '">' : "") +
-          '<div class="pop-label" style="font-weight:500;margin-top:10px">身份类别 · 当前：' + esc(catShown) + '</div>' +
+          '<div class="pop-label" style="font-weight:500;margin-top:10px">身份类别' +
+            fbGloss("身份类别", "shēn fèn lèi bié", "I am a\u2026") +
+            ' · 当前：' + esc(catShown) + '</div>' +
           '<div class="prof-chips">' + catChips + '</div>' +
           '<div id="profClassWrap"' + (cat === "student" ? "" : ' style="display:none"') + '>' +
-            '<div class="pop-label" style="font-weight:500">班级 · 请填「年份 + 班级」</div>' +
+            '<div class="pop-label" style="font-weight:500">班级' +
+              fbGloss("班级", "bān jí", "Class \u2014 write the year first, e.g. 2026 3HC3") +
+              ' · 请填「年份 + 班级」</div>' +
             '<input type="text" class="prof-input" id="profClass" placeholder="例如：2026 3HC3" value="' + esc(draft.mtlClass) + '">' +
             '<div class="pop-note">写上年份，升班后即使忘了更新，老师也能看出是哪一年的班级。</div>' +
           '</div>' +
           '<div class="feedback" id="profSaveFb"></div>' +
-          '<div class="nav-row"><button class="nav-btn primary" id="profSave">保存</button></div></div>' +
+          '<div class="nav-row"><button class="nav-btn primary" id="profSave">保存' +
+            fbGloss("保存", "bǎo cún", "Save") + '</button></div></div>' +
 
         // ---- 我的进度 ----
-        '<div class="prof-sec"><div class="pop-label">我的进度</div>' + progressHtml() + '</div>' +
+        '<div class="prof-sec"><div class="pop-label">我的进度' +
+          fbGloss("我的进度", "wǒ de jìn dù", "My progress") + '</div>' + progressHtml() + '</div>' +
 
         /* Column break sits HERE, and only here, because it is the split that
            leaves the two columns nearly the same height (identity+progress vs
@@ -1086,17 +1180,22 @@
         '</div><div class="prof-col">' +
 
         // ---- 进度码 ----
-        '<div class="prof-sec"><div class="pop-label">进度码 · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
+        '<div class="prof-sec"><div class="pop-label">进度码' +
+          fbGloss("进度码", "jìn dù mǎ", "Progress code \u2014 back up and restore") +
+          ' · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
 
         // ---- 意见反馈 ----
-        '<div class="prof-sec"><div class="pop-label">意见反馈</div>' +
+        '<div class="prof-sec"><div class="pop-label">意见反馈' +
+          fbGloss("意见反馈", "yì jiàn fǎn kuì", "Tell us about a problem") + '</div>' +
           '<div class="pop-note">发现词语内容有误、程序出错，或者有建议，都可以告诉我们。</div>' +
           '<div class="nav-row" style="margin-top:8px"><button class="nav-btn" id="profFeedback">✍️ 我要反馈</button></div>' +
           '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>' +
 
         // ---- 技术信息 (§5: collapsed to one line; expands on demand) ----
         '<div class="prof-sec"><details class="prof-more">' +
-          '<summary>技术编号与隐私说明</summary>' +
+          '<summary>技术编号与隐私说明' +
+            fbGloss("技术编号与隐私说明", "jì shù biān hào yǔ yǐn sī shuō míng",
+                    "Technical id and privacy note") + '</summary>' +
           '<div class="pop-note" style="margin:8px 0 6px">这串编号只用于技术支援，不代表你的身份。</div>' +
           '<div class="prof-uid" id="profUid">载入中…</div>' +
           '<div class="prof-row" style="margin-top:6px"><span class="pop-note">简短编号：<b id="profUidShort">…</b></span>' +
@@ -1614,6 +1713,17 @@
        6-frame sheets themselves; this is the one place that knows how big each
        creature is actually drawn inside its cell. */
     spriteScale: spriteScale,
+    /* 拼音 / 英文 for pages with no engine of their own — the landing page calls
+       ownAid(true) once and then owns these classes. See the block above. */
+    ownAid: ownAid,
+    applyAid: applyAid,
+    aidPillsHtml: aidPillsHtml,
+    wireAidPills: wireAidPills,
+    aidPy: aidPy,
+    aidEn: aidEn,
+    /* the dual-class gloss span both families recognise; used by the nickname
+       picker and the profile panel, which are shown on every page. */
+    gloss: fbGloss,
     /* app.js asks before drawing the 攀山竞速 sprite; keep the unlock rules in one place */
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,

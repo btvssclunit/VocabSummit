@@ -901,6 +901,13 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
 body.py-aid .harbour .pylab,body.en-aid .harbour .enlab,
 body.py-aid .rain-hud .pylab,body.en-aid .rain-hud .enlab,
 body.py-aid .home-foot .pylab,body.en-aid .home-foot .enlab,
+/* the landing page (owner 2026-08-17). ⚠️ Only the genuinely DARK ones belong here:
+   the sea-map plaque is navy (31,74,112) and the course card is navy (14,27,54).
+   .lp-enter-btn is GOLD and goes in the gold list below instead — it was in this
+   list for one edit and came out near-white on gold, which is the same 1.62:1
+   mistake §18e recorded, just with the colours swapped. Measure, do not assume. */
+body.py-aid .sea-label .pylab,body.en-aid .sea-label .enlab,
+body.py-aid .lp-card .pylab,body.en-aid .lp-card .enlab,
 /* the 🔊 pill is var(--sea1) — a dark plate like any other, and the one a G1/G2
    student presses most often (owner 2026-08-16 晚). ⚠️ It needs BOTH the body prefix
    and its own descendant to outrank the base gloss rule; that is the whole reason
@@ -913,10 +920,20 @@ body.py-aid .tts-lab .pylab,body.en-aid .tts-lab .enlab{
 body.en-aid .tts-lab .enlab.i{display:block;margin:1px 0 0}
 /* on gold/selected surfaces the soft grey loses contrast */
 .unit.on .enlab,.htab.on .enlab,.nav-btn.primary .enlab,
+/* the landing page's gold hero button (owner 2026-08-17) */
+.lp-enter-btn .enlab,
 .tb-en.on .enlab,.tb-py.on .enlab,.dopt.on .enlab,
 /* the 意见反馈 form's type chips use the same gold when selected (2026-08-16 晚) */
 .prof-chip.on .enlab{color:#553F06}
 body.py-aid .prof-chip.on .pylab{color:#553F06}
+body.py-aid .lp-enter-btn .pylab{color:#553F06}
+/* ⚠️ the sea-map plaque has `white-space:nowrap` and sits ON the island. A gloss
+   that widened it would push the plaque over the mountain the owner already asked
+   to keep clear (2026-08-16「the section titles are obscuring a good part of the
+   mountain」), so the gloss wraps normally and the plaque grows DOWNWARD only. */
+.sea-label{white-space:normal;max-width:min(42vw,260px)}
+body.py-aid .sea-label .pylab,body.en-aid .sea-label .enlab{
+  font-size:clamp(9.5px,.72vw,12px);line-height:1.25;margin-top:1px}
 /* ⚠️ block, not the inline `.enlab.i` tail: these sit under a chip label and a
    dialog heading, both of which are their own line. */
 body.en-aid .prof-chip .enlab,body.en-aid .pop-label .enlab,
@@ -1231,6 +1248,30 @@ button.mtn-pill:active{transform:scale(.96)}
 .lp-hero{position:relative;width:100vw;height:100vh;
   background:url("../art/bg/landing_hero_bg.png") center center/cover no-repeat;
   image-rendering:pixelated}
+/* ---------- 拼音 / 英文 pills on the landing page (owner 2026-08-17) ----------
+   ⚠️ Top-LEFT, not top-right: 学海无涯苦作舟 runs down the left edge at top:max(12vh,78px)
+   and the right couplet mirrors it, so the strip has to clear the couplets — and the
+   couplets are the one thing on this page that must never be covered (§1). At
+   top:14px it sits above both. The couplets are hidden entirely below 900px, where
+   this drops to the same corner without conflict.
+   ⚠️ It is INSIDE .lp-hero (position:relative), so it stays put when the gate is
+   replaced by the sea map — the screens a non-Chinese reader most needs it on come
+   after the gate, not before it. */
+/* ⚠️ position:fixed with z-index 21, ABOVE .lp-sea (position:fixed, z-index 20).
+   As an absolutely-positioned child of .lp-hero it was painted underneath the sea
+   map the moment the gate opened — and the sea map is one of the two screens a
+   non-Chinese reader most needs this on. It has to outrank the map, not sit in it. */
+.lp-aid{position:fixed;left:14px;top:14px;z-index:21;display:flex;gap:6px;flex-wrap:wrap}
+.lp-aid .tb-en,.lp-aid .tb-py{margin-left:0;height:38px}
+/* ⚠️ and it moves out of the way of 返回首页, which claims the same corner while the
+   map is up (.sea-back is left:14px/top:14px too). Top-right is free there: the
+   couplets that own the right edge are hidden under .lp-sea-on. */
+body.lp-sea-on .lp-aid{left:auto;right:14px}
+@media (max-width:900px){.lp-aid{left:10px;top:10px}
+  body.lp-sea-on .lp-aid{left:auto;right:10px}}
+/* the profile panel's own pair, shown only where nothing else owns the gates */
+.prof-aid{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
+.prof-aid .tb-en,.prof-aid .tb-py{margin-left:0;height:38px}
 .lp-logo{position:absolute;left:50%;top:18vh;transform:translateX(-50%);width:min(44vw,560px);
   image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55));
   animation:lpLogoFloat 4.2s ease-in-out infinite;will-change:transform}

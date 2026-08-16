@@ -117,42 +117,75 @@
       st.nounCat = nCat; st.noun = nList[Math.floor(Math.random() * nList.length)];
     }
 
+    /* ⚠️ 拼音 / 英文 for the registration flow (owner 2026-08-17: 「so that non
+       chinese users can also create their profile with ease」). This screen is the
+       first one anyone sees and it was Chinese-only.
+       ⚠️ Goes through WSProfile.gloss, which emits BOTH class families, so the
+       spans are gated by whichever page is showing the picker — the landing page
+       (profile.js owns the classes there), a stream page, or the pier.
+       ⚠️ Key = the Chinese on screen, one pinyin syllable per 汉字 (§10). A missing
+       key returns an empty string SILENTLY, so add the pinyin in the same edit as
+       the label. */
+    function np(zh, py, en) {
+      return (window.WSProfile && window.WSProfile.gloss)
+        ? window.WSProfile.gloss(zh, py, en) : "";
+    }
     function renderStep() {
       var html = "";
-      var closeBtn = dismissible ? '<div class="nav-row"><button class="nav-btn" id="npCancel">取消</button></div>' : "";
+      var closeBtn = dismissible ? '<div class="nav-row"><button class="nav-btn" id="npCancel">取消' +
+        np("取消", "qǔ xiāo", "Cancel") + '</button></div>' : "";
 
       if (st.step === "descCat") {
-        html = '<div class="pop-title">✨ 选一个昵称</div>' +
-          '<div class="pop-body">昵称随时可在设置中更改，先选一个开始学习吧！<br>第一步：选一个大类（这是你的"性格气质"）</div>' +
+        html = '<div class="pop-title">✨ 选一个昵称' +
+            np("选一个昵称", "xuǎn yī gè nì chēng", "Pick a nickname") + '</div>' +
+          '<div class="pop-body">昵称随时可在设置中更改，先选一个开始学习吧！<br>第一步：选一个大类（这是你的"性格气质"）' +
+            np("", "", "You can change it any time. Step 1: pick a group — this is your character.") + '</div>' +
           chipGrid(Object.keys(DESC_CATS)) +
-          '<div class="nav-row"><button class="nav-btn" id="npRandom">🎲 帮我随机抽一个</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn" id="npRandom">🎲 帮我随机抽一个' +
+            np("帮我随机抽一个", "bāng wǒ suí jī chōu yī gè", "Pick one for me") + '</button></div>' + closeBtn;
       } else if (st.step === "descWord") {
         html = '<div class="pop-title">' + esc(st.descCat) + '</div>' +
-          '<div class="pop-body">选一个具体的词语（点击可看意思）：</div>' +
+          '<div class="pop-body">选一个具体的词语（点击可看意思）：' +
+            np("", "", "Pick a word. Tap one to see what it means.") + '</div>' +
           chipGrid(DESC_CATS[st.descCat]) +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
       } else if (st.step === "nounCat") {
         html = '<div class="pop-title">' + esc(st.desc) + '·？</div>' +
-          '<div class="pop-body">第二步：选一个名词大类</div>' +
+          '<div class="pop-body">第二步：选一个名词大类' +
+            np("", "", "Step 2: pick a noun group.") + '</div>' +
           chipGrid(Object.keys(NOUN_CATS)) +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重选描述词</button></div>' + closeBtn;
       } else if (st.step === "nounWord") {
         html = '<div class="pop-title">' + esc(st.nounCat) + '</div>' +
-          '<div class="pop-body">选一个具体的名词：</div>' +
+          '<div class="pop-body">选一个具体的名词：' +
+            np("", "", "Pick a noun.") + '</div>' +
           chipGrid(NOUN_CATS[st.nounCat]) +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
       } else if (st.step === "restore") {
-        html = '<div class="pop-title">🔄 用进度码找回</div>' +
+        html = '<div class="pop-title">🔄 用进度码找回' +
+            np("用进度码找回", "yòng jìn dù mǎ zhǎo huí", "Restore with a progress code") + '</div>' +
           '<div class="pop-note">换了新设备的话，把旧设备「我的档案」里的进度码贴进来，' +
-          '就能用回原来的昵称，进度也会一起恢复。</div>' +
+          '就能用回原来的昵称，进度也会一起恢复。' +
+            np("", "", "On a new device, paste the progress code from your old device (My profile) " +
+                       "to get your nickname and progress back.") + '</div>' +
           '<textarea id="npCode" class="code-ta" placeholder="把进度码贴在这里…">' + esc(st.codeVal || "") + '</textarea>' +
           (st.codeErr ? '<div class="pop-note np-code-err">' + esc(st.codeErr) + '</div>' : "") +
-          '<div class="nav-row"><button class="nav-btn" id="npCodeBack">‹ 返回</button>' +
-          '<button class="nav-btn primary" id="npCodeGo">找回</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn" id="npCodeBack">‹ 返回' +
+            np("返回", "fǎn huí", "Back") + '</button>' +
+          '<button class="nav-btn primary" id="npCodeGo">找回' +
+            np("找回", "zhǎo huí", "Restore") + '</button></div>' + closeBtn;
       } else if (st.step === "confirm") {
         var nickname = nickOf();
         var role = st.role || "student";
-        var roleBtns = [["student", "🎒 学生"], ["teacher", "🧑‍🏫 老师"], ["parent", "👪 家长"], ["public", "🌏 公众人士"]];
+        /* ⚠️ THE FOUR IDENTITIES ARE THE ONE THING ON THIS SCREEN A NON-CHINESE
+           READER MUST GET RIGHT (owner 2026-08-17) — 家长 vs 老师 decides whether the
+           nickname ever reaches a leaderboard. Pinyin and English per button, not a
+           single line of prose underneath. */
+        var roleBtns = [
+          ["student", "🎒 学生", "xué shēng", "Student"],
+          ["teacher", "🧑‍🏫 老师", "lǎo shī", "Teacher"],
+          ["parent", "👪 家长", "jiā zhǎng", "Parent"],
+          ["public", "🌏 公众人士", "gōng zhòng rén shì", "Member of the public"]];
         var sel = st.schoolSel || _bvss;
         var detailHtml;
         if (role === "public") {
@@ -172,25 +205,35 @@
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
-        html = '<div class="pop-title">' + (st.restored ? "🔄 找回你的昵称" : "🎉 你的昵称") + '</div>' +
+        html = '<div class="pop-title">' + (st.restored ? "🔄 找回你的昵称" : "🎉 你的昵称") +
+            (st.restored ? np("找回你的昵称", "zhǎo huí nǐ de nì chēng", "Your nickname is back")
+                         : np("你的昵称", "nǐ de nì chēng", "Your nickname")) + '</div>' +
           '<div class="np-name-row"><span class="np-name">' + esc(nickname) + '</span>' +
           (st.restored
-            ? '<button class="np-roll" id="npDrop">用新昵称</button>'
-            : '<button class="np-roll" id="npRoll">🎲 换一个</button>') + '</div>' +
+            ? '<button class="np-roll" id="npDrop">用新昵称' +
+                np("用新昵称", "yòng xīn nì chēng", "Use a new one") + '</button>'
+            : '<button class="np-roll" id="npRoll">🎲 换一个' +
+                np("换一个", "huàn yī gè", "Roll again") + '</button>') + '</div>' +
           (st.restored
             ? '<div class="pop-note np-restored">✅ 进度码有效：' + esc(st.restored.streamLabel) +
               '，已掌握 ' + (st.restored.mastered === null ? "?" : st.restored.mastered) +
               ' 个词语。进入该科目时会问你要不要恢复。</div>'
             : "") +
-          '<div class="pop-label">你的身份 I am a…</div>' +
+          '<div class="pop-label">你的身份' +
+            np("你的身份", "nǐ de shēn fèn", "I am a…") + '</div>' +
           '<div class="np-roles">' + roleBtns.map(function (r) {
-            return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' + r[1] + '</button>';
+            return '<button class="np-role' + (role === r[0] ? " on" : "") + '" data-r="' + r[0] + '">' +
+              r[1] + np(r[1], r[2], r[3]) + '</button>';
           }).join("") + '</div>' +
-          '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。</div>' +
+          '<div class="pop-note">🏆 只有「学生」的昵称会出现在排行榜上。' +
+            np("", "", "Only students appear on the leaderboards.") + '</div>' +
           detailHtml +
-          '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认</button></div>' +
-          '<div class="np-manual"><button id="npManual">我要自己选昵称</button>' +
-          (st.restored ? "" : '<button id="npRestore">换了设备？用进度码找回</button>') +
+          '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认' +
+            np("确认", "què rèn", "Confirm") + '</button></div>' +
+          '<div class="np-manual"><button id="npManual">我要自己选昵称' +
+            np("我要自己选昵称", "wǒ yào zì jǐ xuǎn nì chēng", "Let me type my own") + '</button>' +
+          (st.restored ? "" : '<button id="npRestore">换了设备？用进度码找回' +
+            np("", "", "New device? Restore with a progress code") + '</button>') +
           '</div>' + closeBtn;
       }
       card.innerHTML = html;
@@ -662,6 +705,32 @@
   }
 
 
+  /* ---------- 拼音 / 英文 on the landing page (owner 2026-08-17) ----------
+     「make sure the landing page and profile registration screen has English and
+     pinyin toggle so that non chinese users can also create their profile with ease」
+
+     ⚠️ THE LANDING PAGE IS THE ONLY PAGE WITH NO ENGINE, which is why it is the only
+     caller of WSProfile.ownAid(): app.js and xh.js drive body.py-aid / body.xh-py-on
+     from their own per-stream settings, and a second writer would fight them on every
+     render. Everything else here — the pills, the preference, the gloss spans — lives
+     in profile.js so the picker and the profile panel behave the same wherever they
+     are opened from.
+     ⚠️ Mounted into .lp-hero rather than the gate: the toggles must survive the gate
+     being hidden, because the sea map and the profile panel come AFTER it and are the
+     screens a non-Chinese reader actually needs them on. */
+  function mountAid() {
+    if (!window.WSProfile || !window.WSProfile.ownAid) return;
+    window.WSProfile.ownAid(true);
+    var hero = document.querySelector(".lp-hero");
+    if (!hero || document.getElementById("lpAid")) return;
+    var box = document.createElement("div");
+    box.className = "lp-aid";
+    box.id = "lpAid";
+    box.innerHTML = window.WSProfile.aidPillsHtml();
+    hero.insertBefore(box, hero.firstChild);
+    window.WSProfile.wireAidPills(box);
+  }
+
   /* ---------- landing page gate: Enter -> (nickname if new) -> paths ---------- */
   function initLandingGate() {
     var enterBtn = document.getElementById("lpEnterBtn");
@@ -670,6 +739,7 @@
     var sea = document.getElementById("lpSea");
     var greet = document.getElementById("lpGreeting");
     if (!enterBtn || !gate || !cards) return; // not on the landing page
+    mountAid();
 
     function reveal(profile) {
       gate.style.display = "none";
