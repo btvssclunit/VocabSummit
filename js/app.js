@@ -1267,39 +1267,17 @@
           ' <b>' + fmtNum(store.lingLu) + '</b> <span>灵露 · 营地 ›</span></button>' +
       '</div>';
   }
-  /* §5 reward marker. ⚠️ Read off the REAL award tables, never the card's name.
-     The handoff proposes one marker per card (历练值 OR 灵露); the code says most
-     modes pay BOTH, so both are shown where both are earned — flagged rather than
-     forced into an either/or that would misinform the choice it sits next to. */
-  /* ⚠️ Declared per mode, NOT derived from PTS_BASE. Deriving got 词语汉兜 wrong on
-     the first pass: it pays 历练值 through its own 6 + unused-rows formula and never
-     appears in PTS_BASE, so the card claimed 灵露 only. 填空 is the same story via
-     CLOZE_BASE. Each entry below is checked against the code that actually awards:
+  /* ⚠️ 游戏卡片上的「历练值 / 灵露」小标记已移除（owner 2026-08-16）：几乎每个模式
+     两样都给，于是每张卡都挂着同样的两枚药丸，只把卡片撑高、没有区分作用。选择的
+     依据是玩法，不是奖励。要再加回来之前，先想清楚它能区分什么。
+     下面这张表留作参考（读的是真正发奖的代码，不是卡片名字）：
        quiz     scoreCorrect(CLOZE_BASE | PTS_BASE.zhmcq/enmcq)  + awardLingLu
-       flash    no scoreCorrect at all                            + awardLingLu 0.5x
-       rain     no 历练值 by design (it is the 灵露 game)          + awardLingLu 2x
+       flash    没有 scoreCorrect                                 + awardLingLu 0.5x
+       rain     刻意不给历练值（它是灵露的游戏）                   + awardLingLu 2x
        sprint   PTS_BASE.sprint                                   + awardLingLu 1.25x
        assemble PTS_BASE.assemble                                 + awardLingLu 1.5x
-       handle   6 + max(0, 12 - rows used)                        + awardLingLu 2x
-       rooms    ctx.roomCorrect → the 修行 formula                 + awardLingLu
-     If a mode's economy changes, change it HERE — a card that misstates its reward
-     is worse than a card with no marker. */
-  var REWARD_TAG = {
-    quiz:     { pts: true,  ll: true },
-    flash:    { pts: false, ll: true },
-    rain:     { pts: false, ll: true },
-    sprint:   { pts: true,  ll: true },
-    assemble: { pts: true,  ll: true },
-    handle:   { pts: true,  ll: true },
-    room:     { pts: true,  ll: true }
-  };
-  function rewardTag(mode) {
-    var r = REWARD_TAG[mode];
-    if (!r) return "";
-    return '<span class="rwd-row">' +
-      (r.pts ? '<span class="rwd rwd-pts">历练值</span>' : "") +
-      (r.ll ? '<span class="rwd rwd-ll">灵露</span>' : "") + '</span>';
-  }
+       handle   6 + max(0, 12 - 已用行数)                          + awardLingLu 2x
+       rooms    ctx.roomCorrect → 修行 的公式                      + awardLingLu   */
 
   /* ================= B层 · 对战徽章 (DESIGN_徽章体系_对战与排行榜.md §3/§6.5) ====
      Awarded for a PLACING in a live room, not for learning. Two families that
@@ -1593,16 +1571,20 @@
 
     html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围 · 可多选") + enl("复习范围 · 可多选") + '</div>' +
       '<div class="card" id="scopeCard">' +
-      /* ⚠️ ONE 全选/清空 pair for the whole card, on its own row above 板块 (owner
-         2026-08-16). It briefly had a second pair inline in the 板块 row, which put
-         two identical-looking pairs a few pixels apart with no way to tell which was
-         which. This pair now covers BOTH halves of the scope — units AND 板块 — so
-         「全选」really does mean everything and「清空」really does mean nothing. The
-         individual 板块 chips are still toggles, so a 板块-only change is one tap. */
+      /* ⚠️ ONE 全选/清空 pair for the whole card, and it now SHARES the summary row,
+         pinned right (owner 2026-08-16 evening). It briefly had a second pair inline
+         in the 板块 row, which put two identical-looking pairs a few pixels apart with
+         no way to tell which was which; then it had a row of its own, which cost a
+         whole line of height inside a fixed-height box. One row: 已选 N 个单元 on the
+         left, the pair on the right.
+         This pair covers BOTH halves of the scope — units AND 板块 — so「全选」really
+         does mean everything and「清空」really does mean nothing. The individual 板块
+         chips are still toggles, so a 板块-only change is one tap. */
       '<div class="scope-top">' +
-      '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
-      '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button></div>' +
       '<div class="scope-sum" id="scopeSum"></div>' +
+      '<div class="scope-acts">' +
+      '<button class="unit" id="selAll">全选' + pyl("全选") + enli("全选") + '</button>' +
+      '<button class="unit" id="selNone">清空' + pyl("清空") + enli("清空") + '</button></div></div>' +
       /* §2: 我的词语表 belongs with ①复习范围 — both answer「哪些词」— not with the
          badges and the leaderboard, which are trophies.
          ⚠️ The handoff also asks for selecting it to SWAP the active scope to that
@@ -1638,14 +1620,9 @@
       html += '<button class="scope-acc' + (open ? " open" : "") + '" data-lv="' + esc(lv) + '">' +
         esc(lv) + '<span class="cnt" data-cnt="' + esc(lv) + '"></span><span class="chev">›</span></button>' +
         '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">';
-      /* per-level 全选/清空 (owner 2026-08-16). The card-level pair covers「everything」
-         and「nothing」; picking exactly one year meant tapping its 5-6 units by hand,
-         which with the exclusive accordion is the single most common thing a teacher
-         asks a class to do. Inside the body, not the header: the header is itself a
-         <button> and buttons must never nest. */
-      html += '<div class="lv-acts">' +
-        '<button class="lv-act" data-lvall="' + esc(lv) + '">全选本级' + enli("全选") + '</button>' +
-        '<button class="lv-act" data-lvnone="' + esc(lv) + '">清空本级' + enli("清空") + '</button></div>';
+      /* ⚠️ 没有 per-level 全选本级/清空本级（owner 2026-08-16 evening）。它们存在过
+         一天：每展开一级就多出一行虚线按钮，而一级只有 5-6 个单元，逐个点并不慢。
+         卡片顶部那一对已经覆盖「全部」与「全无」。不要再加回来。 */
       byLevel[lv].forEach(function (u) {
         var on = scope.has(u.key) ? " on" : "";
         html += '<button class="unit' + on + '" data-k="' + esc(u.key) + '"><b>' + esc(u.unit) + '</b>' +
@@ -1779,18 +1756,6 @@
       streamComps().forEach(function (c) { store.compOff[c] = 1; });
       saveStore(); renderHome();
     };
-    Array.prototype.forEach.call(view().querySelectorAll(".lv-act[data-lvall]"), function (b) {
-      b.onclick = function () {
-        (byLevel[b.getAttribute("data-lvall")] || []).forEach(function (u) { scope.add(u.key); });
-        renderHome();
-      };
-    });
-    Array.prototype.forEach.call(view().querySelectorAll(".lv-act[data-lvnone]"), function (b) {
-      b.onclick = function () {
-        (byLevel[b.getAttribute("data-lvnone")] || []).forEach(function (u) { scope.delete(u.key); });
-        renderHome();
-      };
-    });
     Array.prototype.forEach.call(view().querySelectorAll(".htab[data-tab]"), function (btn) {
       btn.onclick = function () {
         var tab = btn.getAttribute("data-tab");
@@ -1835,11 +1800,9 @@
        the mode it describes — the config screen each card opens shows its own
        mode-desc, which is where a student actually needs the explanation. */
     function camp(mode, icon, name, desc) {
-      /* §5: the reward marker sits INSIDE the card, at the moment of choosing, so
-         the locked「掌握 ≠ 手速」rule is visible exactly where it matters. */
       return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
         '<span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + pyl(name) + enli(name) + '</b>' + rewardTag(mode) + '</div></button>';
+        '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
     }
     function updateScopeSum() {
       var n = scopedWords().length;

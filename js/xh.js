@@ -84,6 +84,12 @@
     if (s.roundN !== 5 && s.roundN !== 10 && s.roundN !== 15 && s.roundN !== 20) s.roundN = 5;
     if (s.optsN !== 2 && s.optsN !== 3 && s.optsN !== 4) s.optsN = 4;
     if (s.tab !== "play") s.tab = "learn";
+    /* which of the four 词语挑战 question types was used last. It is remembered
+       SEPARATELY from s.mode because 学词 now opens on two big cards (图卡 vs 挑战)
+       and s.mode holds "learn" whenever the flashcard card is the selected one —
+       without this, coming back from flashcards would forget the question type.
+       ⚠️ literal, not a MODES lookup: load() runs before MODES is assigned. */
+    if (["enmcq", "pic", "listen", "phrase"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
     if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
        ⚠️ It must NEVER merge with 航程: 航程 is what you know, 航海值 is what you
@@ -166,12 +172,23 @@
     "词语游乐场": "cí yǔ yóu lè chǎng",
     "学词方式": "xué cí fāng shì", "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
+    "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
+    /* 传声筒 had no line, so it was the one mode card on the 学词 screen with no
+       拼音 — invisible until the four types sat in a row together (§10: a missing
+       key returns "" and fails silently). */
+    "传声筒": "chuán shēng tǒng",
     "一次连几组": "yī cì lián jǐ zǔ", "返回码头": "fǎn huí mǎ tóu",
     /* 看图学词 had no entry while every other mode name did — invisible until the
        学词 tab held two cards side by side and only one carried its 拼音. */
     "看图学词": "kàn tú xué cí",
     "全选": "quán xuǎn", "清空": "qīng kōng",
-    "航海图鉴": "háng hǎi tú jiàn", "码头风云榜": "mǎ tóu fēng yún bǎng",
+    /* ⚠️ RENAMED 2026-08-16 evening (owner:「just make it simple … for easy
+       understanding」). The screen once called 航海图鉴 is now 我的词语表 — the
+       nautical name was a riddle to a zero-Chinese beginner, and it is literally the
+       same screen the mountains call 我的词语表.
+       ⚠️ 航海徽 became 航海徽章 in the same pass: 徽章 is the word the mountains use,
+       and the one-character form read as an abbreviation. */
+    "我的词语表": "wǒ de cí yǔ biǎo", "码头风云榜": "mǎ tóu fēng yún bǎng",
     "我的海滩": "wǒ de hǎi tān", "海滩小铺": "hǎi tān xiǎo pù",
     "船只 · 一艘一艘往上换": "chuán zhī · yī sōu yī sōu wǎng shàng huàn",
     "回海滩": "huí hǎi tān", "贝壳": "bèi ké", "海里": "hǎi lǐ",
@@ -184,8 +201,14 @@
     "开始测验": "kāi shǐ cè yàn", "再来一次": "zài lái yī cì",
     "再看一次": "zài kàn yī cì", "换一组": "huàn yī zǔ",
     "再看看这几个": "zài kàn kàn zhè jǐ gè",
-    "全部": "quán bù", "已认得": "yǐ rèn de", "还没认得": "hái méi rèn de",
-    "航海徽": "háng hǎi huī",
+    "全部": "quán bù", "已认得": "yǐ rèn de", "还不认得": "hái bù rèn de",
+    "航海徽章": "háng hǎi huī zhāng",
+    /* the nine 航海徽章 names (owner 2026-08-16 evening: they must answer the 拼音
+       toggle like every other label on the dock). ⚠️ Add a line here whenever a rung
+       is added — 600 and 800 are reserved, see SAIL_BADGES. */
+    "贝壳徽": "bèi ké huī", "珊瑚徽": "shān hú huī", "珍珠徽": "zhēn zhū huī",
+    "海星徽": "hǎi xīng huī", "罗盘徽": "luó pán huī", "龙舟徽": "lóng zhōu huī",
+    "牵星板徽": "qiān xīng bǎn huī", "帆船徽": "fān chuán huī", "灯塔徽": "dēng tǎ huī",
     "岸左": "àn zuǒ", "岸右": "àn yòu", "木桩": "mù zhuāng",
     "沙地": "shā dì", "空中": "kōng zhōng",
     "动物": "dòng wù", "食物": "shí wù", "日常用品": "rì cháng yòng pǐn",
@@ -594,7 +617,7 @@
      animals, so the player saw a hierarchy the ENGINE DOES NOT USE — distractors
      have always been drawn from the whole 组别, across both 子类. Rounds now draw
      from 组别 too, which is more variety at identical difficulty.
-     子类 stays in the data and resurfaces in 航海图鉴 as chapter sections, where a
+     子类 stays in the data and resurfaces in 我的词语表 as chapter sections, where a
      field guide is exactly the right place for 陆上 vs 水中与空中.
      Rule: if something is worth being a top-level choice it is worth being a
      组别. When scope grows, add 组别 values rather than promoting 子类. */
@@ -851,32 +874,39 @@
        numbers, and emitted at the BOTTOM OF THE RIGHT COLUMN as a 2-up grid.
        On a phone both wrappers are plain blocks, so this also puts the
        destinations after 出发 in the stack, which is the better reading order. */
+    /* ⚠️ THREE tiles, and 我的海滩 is NOT one of them (owner 2026-08-16 evening:
+       「the big image already is the entry point」). The hero IS the beach — same
+       artwork, same boat, same berth items — so a tile pointing at it was a second
+       door onto the same room, directly underneath the first.
+       Layout: 我的词语表 spans the full width (it is the one with cover art and a
+       progress bar, and it is where a student goes most), 航海徽章 and 码头风云榜
+       share the row below. */
     var tiles = '';
-    /* 航海图鉴 tile. 航程 (1 词 = 1 海里) is the dock's own distance metric and is
+    /* 我的词语表 tile. 航程 (1 词 = 1 海里) is the dock's own distance metric and is
        deliberately NOT 海拔 — nothing crosses the waterline. */
-    tiles += '<button class="xh-tile" id="xhLog">' +
+    tiles += '<button class="xh-tile wide" id="xhLog">' +
       '<img class="xh-tile-art" src="art/xh/xh_atlas_cover.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
-      '<span class="xh-tile-txt"><b>航海图鉴</b>' + xhPy("航海图鉴") +
-      '<span class="xh-en">the words you have met</span>' +
+      '<span class="xh-tile-txt"><b>我的词语表</b>' + xhPy("我的词语表") +
+      '<span class="xh-en">every word, and the ones you have met</span>' +
       '<span class="xh-bar"><i style="width:' + pct + '%"></i></span>' +
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
+    /* ⚠️ the badge ART, not a 🎖️ (owner 2026-08-16 evening). Nine mother-of-pearl
+       medallions were drawn for this ladder and the front page was showing a system
+       emoji instead. Earned ones are full colour, the rest carry the same greyscale
+       lock the wall uses, so the strip reads as「how far along」at a glance. */
     tiles += '<button class="xh-tile slim" id="xhBadges">' +
-      '<span class="xh-tile-ic">🎖️</span>' +
-      '<span class="xh-tile-txt"><b>航海徽</b>' + xhPy("航海徽") +
+      '<span class="xh-tile-txt"><b>航海徽章</b>' + xhPy("航海徽章") +
       '<span class="xh-en">your badges</span>' +
+      '<span class="xh-badgestrip">' + SAIL_BADGES.map(function (b) {
+        return '<img class="' + (sailBadgeGot(b) ? "got" : "") + '" src="art/xh/badges/' +
+          b.img + '.png' + ASSET_V + '" alt="" title="' + esc(b.zh) + '" ' +
+          "onerror=\"this.style.display='none'\">";
+      }).join("") + '</span>' +
       '<span class="xh-tile-n">' + SAIL_BADGES.filter(sailBadgeGot).length + ' / ' +
         SAIL_BADGES.length + '</span></span>' +
-      '<span class="xh-tile-go">›</span></button>';
-
-    tiles += '<button class="xh-tile slim" id="xhBeach">' +
-      '<span class="xh-tile-ic">🏖️</span>' +
-      '<span class="xh-tile-txt"><b>我的海滩</b>' + xhPy("我的海滩") +
-      '<span class="xh-en">your berth and the shop</span>' +
-      '<span class="xh-tile-n">' + (store.shells || 0) + ' 贝壳 · ' +
-        esc(boatName(boatPick())) + '</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
     tiles += '<button class="xh-tile slim" id="xhBoards">' +
@@ -942,7 +972,6 @@
     document.getElementById("xhHero").onclick = renderBeach;
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
-    document.getElementById("xhBeach").onclick = renderBeach;
     document.getElementById("xhBadges").onclick = renderBadges;
     document.getElementById("xhScopeT").onclick = function () {
       store.scopeOpen = !store.scopeOpen; save(); renderMenu();
@@ -991,26 +1020,65 @@
     h += '<div class="xh-cfg-scope">范围：' + esc(scopeLabel()) + " · " + pool.length + " 词" +
       '<span class="xh-en">' + pool.length + ' words in scope</span></div>';
 
-    h += '<div class="xh-sec">' + stepNo(1) + '题型' + xhPy("题型") +
-      ' <span class="xh-en">which kind</span></div><div class="xh-modes">';
     /* ⚠️ A mode whose pool is empty must SAY SO, not fail on 出发. 看图识词 and
        听音识图 need a picture as the answer, so with a picture-less scope (数字)
        they have nothing to ask. Left enabled, the student picks one, presses 出发,
        and nothing happens — which is precisely the silent failure §4.4 warns about,
        just relocated. Disabled + a reason is the honest version. */
     var blocked = 0;
-    list.forEach(function (m) {
+    function modeBtn(m, cls) {
       var usable = poolForMode(pool, m.id).length > 0;
       if (!usable) blocked++;
-      h += '<button class="xh-mode' + (store.mode === m.id ? " on" : "") +
-        (usable ? "" : " na") + '" data-m="' + m.id + '"' + (usable ? "" : " disabled") +
+      return '<button class="xh-mode' + (cls ? " " + cls : "") +
+        (store.mode === m.id ? " on" : "") + (usable ? "" : " na") +
+        '" data-m="' + m.id + '"' + (usable ? "" : " disabled") +
         ' title="' + (usable ? "" : "这些词语没有图片，换成有图的词语组才能玩") + '">' +
         '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
         '<span class="xh-en">' + m.en + "</span>" +
         (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
         "</button>";
-    });
-    h += "</div>";
+    }
+    h += '<div class="xh-sec">' + stepNo(1) + '题型' + xhPy("题型") +
+      ' <span class="xh-en">which kind</span></div>';
+    if (isLearn) {
+      /* ⚠️ TWO BIG CARDS, not five (owner 2026-08-16 evening: 「collapse into 2 big
+         categories — flashcards vs challenge — just like the mountains」). The
+         mountain's 修行 offers exactly 词语闪卡 and 学习挑战, and the three question
+         types live INSIDE 学习挑战 rather than beside it. The dock had all five side
+         by side, so a beginner had to tell 看图识词 from 听音识图 from 英文选词 before
+         they had met a single word — five near-identical cards, one of which is not
+         a test at all.
+         ⚠️ store.mode still holds the REAL mode id; the two cards only choose which
+         family it comes from. store.quizMode remembers the last question type so
+         going flashcards → back → 挑战 lands where the student left off. */
+      var quizModes = list.filter(function (m) { return m.id !== "learn"; });
+      var isQuiz = store.mode !== "learn";
+      var quizOk = quizModes.some(function (m) { return poolForMode(pool, m.id).length > 0; });
+      h += '<div class="xh-modes two">' +
+        modeBtn(modeById("learn"), "big") +
+        '<button class="xh-mode big' + (isQuiz ? " on" : "") + (quizOk ? "" : " na") +
+          '" data-k="quiz"' + (quizOk ? "" : " disabled") + '>' +
+          '<span class="xh-mi">🎯</span><b>词语挑战</b>' + xhPy("词语挑战") +
+          '<span class="xh-en">Quiz yourself</span>' +
+          (quizOk ? '<span class="xh-mode-sub">英文选词 · 看图识词 · 听音识图 · 传声筒' +
+                    '<span class="xh-en">four question types</span></span>'
+                  : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+        "</button></div>";
+      /* the four types, only once 词语挑战 is the chosen card. Unnumbered on purpose
+         (§7 动线编号): ① is「flashcards or a challenge」— this row is what KIND of
+         challenge, a refinement of that same step, not a new one. */
+      if (isQuiz) {
+        h += '<div class="xh-subsec">挑战方式' + xhPy("挑战方式") +
+          ' <span class="xh-en">which question</span></div>' +
+          '<div class="xh-modes sub">' +
+          quizModes.map(function (m) { return modeBtn(m, "sm"); }).join("") + "</div>";
+      } else {
+        /* still count the blocked ones so the 数字 note below is accurate */
+        quizModes.forEach(function (m) { if (!poolForMode(pool, m.id).length) blocked++; });
+      }
+    } else {
+      h += '<div class="xh-modes">' + list.map(function (m) { return modeBtn(m); }).join("") + "</div>";
+    }
     if (blocked) {
       h += '<div class="xh-cfg-note">「数字」这一组没有图片，所以看图和听音的玩法用不上。' +
         '数字可以用 看图学词、拼音打字 和 连线 来练。' +
@@ -1055,10 +1123,30 @@
       '<span class="xh-en">start</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode"), function (el) {
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-m]"), function (el) {
       el.onclick = function () {
-        store.mode = el.getAttribute("data-m"); save();
+        store.mode = el.getAttribute("data-m");
+        /* remember the question type separately — see load(). Picking 看图学词 must
+           not wipe it, or the 挑战 card would always reopen on the default. */
+        if (store.mode !== "learn" && isLearn) store.quizMode = store.mode;
+        save();
         renderModeConfig(kind);      // re-render: ②/③ differ per mode
+      };
+    });
+    /* the 词语挑战 card itself carries no mode — it restores the remembered one, or
+       the first usable one if the scope has since blocked it */
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-k]"), function (el) {
+      el.onclick = function () {
+        var want = store.quizMode;
+        if (!poolForMode(pool, want).length) {
+          want = null;
+          list.forEach(function (m) {
+            if (!want && m.id !== "learn" && poolForMode(pool, m.id).length) want = m.id;
+          });
+        }
+        if (!want) return;
+        store.mode = want; store.quizMode = want; save();
+        renderModeConfig(kind);
       };
     });
     wireQtySlider("xhRoundN", ROUND_SIZES, function (n) { return n + " 题"; },
@@ -1098,7 +1186,7 @@
     };
   }
 
-  /* ================= 航海徽 · 开放式里程表 (HANDOFF_生活空间_20260816 §5) ====
+  /* ================= 航海徽章 · 开放式里程表 (HANDOFF_生活空间_20260816 §5) ====
      ⚠️ REPLACES THE FIVE-BADGE "COLLECT THEM ALL" LADDER. The old spec said
      "lock these now, never redesign", and its top badge was 灯塔 = EVERY word in
      the tier. That was safe only while the tier was closed. It is not: the word
@@ -1172,15 +1260,20 @@
     var met = sailStats().met;
     var got = SAIL_BADGES.filter(sailBadgeGot).length;
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">航海徽' + xhPy("航海徽") +
+      '<span class="xh-block-tag">航海徽章' + xhPy("航海徽章") +
       '<span class="xh-en">badges</span></span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
-      '<div class="xh-berth-title">🎖️ 航海徽<span class="xh-en">Your badges</span></div>' +
+      '<div class="xh-berth-title">🎖️ 航海徽章' + xhPy("航海徽章") +
+      '<span class="xh-en">Your badges</span></div>' +
       '<span class="beach-purse"><b>' + got + '</b> / ' + SAIL_BADGES.length + '</span></div>' +
-      '<div class="xh-log-sub">认得的词语越多，走得越远。徽章只会往前加，不会往后退；'
-      + '以后加了新词，也不会把已经走到的路推远。' +
-      '<span class="xh-en">The further you sail, the more you earn. Badges are never taken '
-      + 'back, and new words never push one further away.</span></div>';
+      /* ⚠️ ONE line (owner 2026-08-16 evening). It used to spell out「徽章只会往前加，
+         不会往后退；以后加了新词，也不会把已经走到的路推远」— true, and the reason the
+         ladder is built this way (see the block comment above SAIL_BADGES), but it is
+         a promise about how the scheme cannot hurt you, and a pre-G1 student has no
+         reason to worry about that yet. The guarantee stays in the code; the screen
+         just says what to do. */
+      '<div class="xh-log-sub">认得的词语越多，航行得越远。' +
+      '<span class="xh-en">The more words you know, the further you sail.</span></div>';
     h += '<div class="sailbadge-wall">';
     SAIL_BADGES.forEach(function (b) {
       var need = sailBadgeNeed(b), have = met >= need;
@@ -1190,7 +1283,7 @@
           ? '<img src="art/xh/badges/' + b.img + '.png' + ASSET_V + '" alt="" ' +
             "onerror=\"this.style.display='none'\">"
           : '<span class="sailbadge-todo">' + esc(b.zh.charAt(0)) + '</span>') +
-        '<b>' + esc(b.zh) + '</b><span class="xh-en">' + esc(b.en) + '</span>' +
+        '<b>' + esc(b.zh) + '</b>' + xhPy(b.zh) + '<span class="xh-en">' + esc(b.en) + '</span>' +
         (have ? '<span class="beach-tag on">已获得</span>'
               : '<span class="sailbadge-bar"><i style="width:' + pct + '%"></i></span>' +
                 '<span class="beach-tag">' + met + ' / ' + need + ' 海里</span>') +
@@ -1438,17 +1531,22 @@
     });
   }
 
-  /* ---------- 航海图鉴 (addendum §2) ----------
-     The dock's collection surface, and the answer to「what is all this for?」.
-     One chapter per 组别, sectioned by 子类. A word not yet met is a dark
-     SILHOUETTE of its own
-     sprite, not an empty slot: the learner can see the shape of what is still out
-     there, which an empty box cannot show.
+  /* ---------- 我的词语表 (addendum §2) ----------
+     The dock's 我的词语表: one chapter per 组别, sectioned by 子类, read as a LIST
+     and used to start a 看图学词 run over whatever the filter shows. Exactly the
+     two things every mountain offers, and nothing else.
 
-     UNLOCK = FIRST CORRECT ANSWER, which store.done already records — so this
-     screen adds no storage at all. Deliberately weaker than the mountain's
-     mastery gate: 图鉴 is a record of what has been MET, not a claim of mastery,
-     and a beginner needs visible progress inside their first session.
+     ⚠️ NOT a collection surface any more (owner 2026-08-16 evening). It used to
+     black out an unmet word into a silhouette of its own sprite with a ？ for a
+     name, and stamp 全部集齐 on a finished chapter. Both are gone: a word not yet
+     met is the one most worth reading, and the dock已经 decided elsewhere (§航海徽章)
+     that「集齐」is the wrong frame for an open-ended word list that grew 36 → 150
+     in a day. Do not re-add either.
+
+     认得 = FIRST CORRECT ANSWER, which store.done already records — so this screen
+     adds no storage at all. Deliberately weaker than the mountain's mastery gate:
+     图鉴 is a record of what has been MET, not a claim of mastery, and a beginner
+     needs visible progress inside their first session.
 
      航程 (1 词 = 1 海里) is the dock's distance metric. It is NOT 海拔 and never
      converts into it — 贝壳/航程/航海值 all stop at the waterline. */
@@ -1477,7 +1575,8 @@
     render();
   }
 
-  /* ⚠️ Rebuilt 2026-08-16 (owner: 「航海图鉴 does not respond to tapping at all」).
+  /* ⚠️ Rebuilt 2026-08-16 (owner: 「航海图鉴 does not respond to tapping at all」 —
+     the screen was still called that then; it is 我的词语表 now).
      It was right that nothing responded: locked cells were rendered `disabled`, so
      on a fresh account — 0 / 36 — EVERY cell on the page was dead, and the only
      promise on screen (「tap a word you have met」) applied to nothing.
@@ -1505,9 +1604,9 @@
     var got = cur.words.filter(function (w) { return store.done[w.词语]; }).length;
 
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">航海图鉴' + xhPy("航海图鉴") + '<span class="xh-en">word log</span></span></div>' +
+      '<span class="xh-block-tag">我的词语表' + xhPy("我的词语表") + '<span class="xh-en">word list</span></span></div>' +
       '<div class="xh-board"><div class="xh-log-head">' +
-      '<div class="xh-berth-title">🧭 航海图鉴' + xhPy("航海图鉴") + '<span class="xh-en">Your word log</span></div>' +
+      '<div class="xh-berth-title">📋 我的词语表' + xhPy("我的词语表") + '<span class="xh-en">Your word list</span></div>' +
       '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" + xhPy("海里") +
       '<span class="xh-en">words met</span></span></div>' +
       '<div class="xh-log-pages">';
@@ -1519,17 +1618,20 @@
     h += "</div></div>";
 
     h += '<div class="xh-board"><div class="xh-sec">' + esc(cur.组别) + xhPy(cur.组别) +
-      (got === cur.words.length ? '<span class="xh-log-stamp">全部集齐</span>' : "") +
       '<span class="xh-en">tap any word to open it as a flashcard</span></div>';
-    h += '<div class="xh-log-sub">点任何一个词语都能打开图卡，还没认得的也可以先看。' +
+    h += '<div class="xh-log-sub">点任何一个词语都能打开图卡，还不认得的也可以先看。' +
       '<span class="xh-en">Tap any word to study it — including ones you have not met.</span></div>';
+    /* ⚠️ ONE row: the three status filters AND the bulk 看图学词 button (owner
+       2026-08-16 evening). The button had a row of its own, which pushed the words
+       themselves below the fold on an iPad. It sits at the right end of the same
+       flex row and drops under the chips only when the row runs out of width. */
     var fc = [["all", "全部", cur.words.length], ["got", "已认得", got],
-              ["miss", "还没认得", cur.words.length - got]];
+              ["miss", "还不认得", cur.words.length - got]];
     h += '<div class="xh-log-filters">' + fc.map(function (c) {
       return '<button class="xh-log-chip' + (f === c[0] ? " on" : "") + '" data-f="' + c[0] + '">' +
         c[1] + " " + c[2] + xhPy(c[1]) + "</button>";
-    }).join("") + "</div>";
-    h += '<div class="xh-log-act"><button class="xh-btn" id="xhLogLearn"' +
+    }).join("") +
+      '<button class="xh-btn sm xh-log-learn" id="xhLogLearn"' +
       (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' + xhPy("看图学词") +
       '<span class="xh-en">study these</span></button></div>';
     if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。' +
@@ -1539,20 +1641,22 @@
       // a one-section chapter (日常用品) needs no divider — the chapter title
       // already says it, and an identical subtitle underneath reads as a bug
       if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + xhPy(sec) + xhGroupEn(sec) + "</div>";
-      h += '<div class="xh-log-grid">';
+      h += '<div class="xh-log-list">';
       cur.byS[sec].filter(keep).forEach(function (w) {
         var have = !!store.done[w.词语];
-        /* ⚠️ never `disabled` any more — a locked cell that cannot be tapped is
-           what made the whole page inert at 0/36. Locked keeps its silhouette and
-           ？ so the collecting still means something; it is simply reachable. */
-        h += '<button class="xh-log-cell ' + (have ? "got" : "miss") + '" data-w="' + esc(w.词语) + '">' +
-          img(w) +
-          (have
-            ? "<b>" + esc(w.词语) + "</b>" +
-              '<span class="xh-py">' + esc(w.拼音) + "</span>" +
-              '<span class="xh-en">' + esc(w.英文释义) + "</span>"
-            : "<b>？</b>") +
-          "</button>";
+        /* ⚠️ NO SILHOUETTE AND NO ？ any more (owner 2026-08-16 evening: retire the
+           collection format). A word not yet met now shows exactly like one that has
+           been — picture, 词语, 拼音, 英文 — with a small status tag on the right.
+           Hiding the word behind a blacked-out sprite is a collector's tease, and
+           this page is the dock's 我的词语表: a list you read and a flashcard run you
+           start from it, the same two things every mountain offers. Nothing was being
+           protected anyway — 看图学词 has always walked the whole group, met or not. */
+        h += '<button class="xh-log-row ' + (have ? "got" : "miss") + '" data-w="' + esc(w.词语) + '">' +
+          (hasPic(w) ? img(w, "xh-log-thumb") : '<span class="xh-log-thumb xh-log-nopic">词</span>') +
+          '<span class="xh-log-wrap"><b>' + esc(w.词语) + "</b>" +
+            '<span class="xh-py">' + esc(w.拼音) + "</span>" +
+            '<span class="xh-en">' + esc(w.英文释义) + "</span></span>" +
+          '<span class="xh-log-st">' + (have ? "已认得" : "还不认得") + "</span></button>";
       });
       h += "</div>";
     });
@@ -1568,7 +1672,7 @@
     /* tap ANY word — met or not — and it opens as a flashcard, positioned at that
        word inside the current filter so 上一个/下一个 walk the rest of it. The
        mountain does the same: a row is a way in, not a reward for having got it. */
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-log-cell"), function (el) {
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-log-row"), function (el) {
       el.onclick = function () {
         var k = el.getAttribute("data-w"), at = 0;
         shown.forEach(function (w, i) { if (w.词语 === k) at = i; });

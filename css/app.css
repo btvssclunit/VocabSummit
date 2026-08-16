@@ -98,6 +98,12 @@ img{max-width:100%}
   background:rgba(255,255,255,.78);border:1px solid var(--glass-line);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
+/* ⚠️ A section label that follows a card needs its own top gap (owner 2026-08-16
+   evening: ②选择学习方式 sat on the bottom edge of ①复习范围). .card carries no
+   bottom margin and .section-label carried no top margin, so the two glass edges
+   met at 0px — and the card's drop shadow reaches ~8px past its border, which
+   reads as the pill overlapping the card. 18px clears the shadow. */
+.card + .section-label{margin-top:18px}
 .card{background:linear-gradient(150deg,rgba(255,255,255,.74),rgba(255,255,255,.56) 46%,rgba(232,243,251,.60));
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);border-radius:18px;
@@ -135,11 +141,16 @@ img{max-width:100%}
 .unit.on .unit-theme{color:#6B5010}
 /* #8A5A0F not var(--gold-deep): the token is 3.19:1 on a card, which passes only
    for large text. These small labels need 4.5:1 (measured 5.19:1). */
-.scope-sum{font-size:13px;color:#8A5A0F;font-weight:700;margin-bottom:8px}
-/* its own row, above 板块 (owner 2026-08-16) — the summary moved out from beside
-   the buttons onto the line below, so the pair reads as one clear action row */
-.scope-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.scope-top .unit{font-weight:700}
+.scope-sum{font-size:13px;color:#8A5A0F;font-weight:700;min-width:0}
+/* ONE header row: 已选 N 个单元 left, 全选/清空 pinned right (owner 2026-08-16
+   evening). The pair used to own a row of its own, which cost a full line inside a
+   fixed-height box. ⚠️ It is a normal flex child, NOT position:absolute — the card
+   scrolls inside itself in landscape, and an absolute corner would scroll away. */
+.scope-top{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin-bottom:8px}
+.scope-acts{display:flex;gap:6px;margin-left:auto;flex:none}
+.scope-acts .unit{font-weight:700;padding:5px 12px;font-size:13px}
+.scope-acts .unit b{font-size:13px}
 .scope-acc{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;border-top:1px solid #E4EDF4;padding:11px 2px 8px;font-size:14px;font-weight:700;color:#3A5A70;cursor:pointer;text-align:left}
 .scope-acc .cnt{font-weight:400;font-size:12.5px;color:var(--ink-soft)}
 .scope-acc .chev{margin-left:auto;color:#4E6273;transition:transform .18s}
@@ -393,11 +404,8 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
   touch-action:manipulation;transition:background .12s,color .12s,border-color .12s}
 .comp-chip.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
 .comp-chip:active{transform:scale(.96)}
-/* per-level 全选本级/清空本级, inside the accordion body above that level's units */
-.lv-acts{display:flex;gap:8px;flex-basis:100%;margin:2px 0 2px}
-.lv-act{border:1px dashed #B9CEDD;border-radius:12px;padding:6px 12px;font-size:12.5px;font-weight:700;
-  color:var(--sea2);background:rgba(255,255,255,.7);cursor:pointer;touch-action:manipulation}
-.lv-act:active{transform:scale(.96)}
+/* .lv-acts / .lv-act (全选本级 · 清空本级) removed 2026-08-16 evening — see the
+   matching note in app.js renderHome(). */
 
 /* ---------- 数量滑杆 (2026-08-14, redesigned same day) ----------
    The readout is ABOVE the track, not beside it: as a flex sibling it changed the
@@ -1962,12 +1970,8 @@ button.m2pill{cursor:pointer}
 .lscape-chip span{color:var(--ink-soft);font-weight:700}
 .lscape-chip:active{transform:translateY(1px)}
 
-/* §5 reward markers on the activity cards. Two tones, never summed, matching the
-   two currencies the app keeps deliberately apart. */
-.rwd-row{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap}
-.rwd{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;line-height:1.5}
-.rwd-pts{background:rgba(227,166,60,.22);color:#8A5A0F;border:1px solid rgba(227,166,60,.5)}
-.rwd-ll{background:rgba(46,99,145,.14);color:var(--sea2);border:1px solid rgba(46,99,145,.32)}
+/* .rwd-* (游戏卡片上的 历练值/灵露 标记) removed 2026-08-16 evening — see the note
+   above camp() in app.js. */
 
 /* §2 来源 row inside ①复习范围 */
 .scope-src{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}

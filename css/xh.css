@@ -160,6 +160,10 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
      re-measure if anything is ever added ABOVE them. */
   .xh-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
   .xh-tiles .xh-tile{margin-bottom:0;height:100%}
+  /* ⚠️ 我的海滩 is NOT a tile any more (owner 2026-08-16 evening: the hero IS the
+     beach), which left three. 我的词语表 takes the full row and the other two share
+     the one below, so the grid never ends on a stray half-width card. */
+  .xh-tiles .xh-tile.wide{grid-column:1 / -1}
   /* the 图鉴 cover is the tallest thing here; at half-column width it goes back to
      a leading strip rather than the phone's full-bleed art */
   .xh-tiles .xh-tile-art{width:64px;height:auto;flex:none;border-radius:8px;
@@ -214,6 +218,20 @@ body.xh-py-on .xh-tab.on .xh-uipy,body.xh-py-on .xh-mode.on .xh-uipy,
 body.xh-py-on .xh-gchip.on .xh-uipy,body.xh-py-on .xh-log-chip.on .xh-uipy,
 body.xh-py-on .xh-lb-tab.on .xh-uipy,body.xh-py-on .xh-go .xh-uipy{color:#553F06}
 body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
+/* ⚠️ THE SAME TREATMENT FOR ENGLISH, WHICH NEVER HAD IT (owner 2026-08-16 evening:
+   「the English support on this panel has too low visibility」). The 拼音 overrides
+   above have existed for every dark and gold surface since the toggles shipped;
+   .xh-en had none, so English rendered in the light-card slate #46596A on the navy
+   round-bar pill and on every gold button — which is where the owner saw it.
+   ⚠️ THE `body.xh-en-on` PREFIX IS LOAD-BEARING. The gate rule is (0,2,1); a bare
+   `.xh-block-tag .xh-en` is (0,2,0) and loses, so an override written without the
+   prefix silently does nothing. Add the prefix to any new one. */
+body.xh-en-on .xh-tab.on .xh-en,body.xh-en-on .xh-mode.on .xh-en,
+body.xh-en-on .xh-gchip.on .xh-en,body.xh-en-on .xh-log-chip.on .xh-en,
+body.xh-en-on .xh-lb-tab.on .xh-en,body.xh-en-on .xh-go .xh-en,
+body.xh-en-on .xh-btn .xh-en{color:#553F06}
+body.xh-en-on .xh-block-tag .xh-en{color:#E4EEF8}
+body.xh-py-on .xh-block-tag .xh-uipy{color:#CFE0F0}
 .xh-sec{font-family:var(--serif);font-weight:900;font-size:17px;margin-bottom:10px;
   padding-bottom:7px;border-bottom:2px solid rgba(138,90,50,.28)}
 
@@ -277,25 +295,46 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
    left along the bottom edge, where the stat row sits. */
 .xh-hero::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(10,28,48,0) 66%,rgba(10,28,48,.34) 100%)}
-/* the sub sits on the artwork's brightest band, so it needs its own lift on top of
-   the scrim above — the English line was washing out entirely */
-.xh-hero-sub{text-shadow:0 2px 8px rgba(6,20,40,.98),0 0 3px rgba(6,20,40,.92),0 1px 1px rgba(6,20,40,.85)}
 .xh-hero-in{position:relative;z-index:1;width:100%;padding:16px 18px 14px;color:#fff}
 .xh-hero-t{font-family:var(--serif);font-weight:900;font-size:27px;letter-spacing:.04em;
-  text-shadow:0 2px 10px rgba(6,20,40,.98),0 0 4px rgba(6,20,40,.9),0 1px 1px rgba(6,20,40,.85);
-  text-shadow:0 2px 6px rgba(6,20,40,.75)}
-.xh-hero-sub{font-size:13.5px;font-weight:700;margin-top:2px;margin-bottom:2px;color:#DCEBF7;
-  text-shadow:0 1px 4px rgba(6,20,40,.7)}
-.xh-hero-sub .xh-en{color:#E4F0F9;text-shadow:0 1px 5px rgba(6,20,40,.95)}
+  text-shadow:0 2px 10px rgba(6,20,40,.98),0 0 4px rgba(6,20,40,.9),0 1px 1px rgba(6,20,40,.85)}
+/* ⚠️ THE SUB SITS ON ITS OWN TRANSLUCENT PLATE (owner 2026-08-16 evening: 「the
+   English support on this panel has too low visibility」). It lands on the
+   artwork's brightest band — sky meeting sand — where light-blue text with a drop
+   shadow simply disappears; the 拼音 and English lines were the first to go.
+   ⚠️ NOT a return of the full dark scrim. That was 74%/80% over the WHOLE hero and
+   was removed because it hid the beach the student buys berth items for. This plate
+   is inline-block, so it hugs the three lines of text and nothing else. */
+.xh-hero-sub{display:inline-block;font-size:13.5px;font-weight:700;margin:4px 0 2px;
+  color:#fff;padding:6px 12px;border-radius:12px;background:rgba(8,26,46,.52);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  text-shadow:0 1px 4px rgba(6,20,40,.85)}
+/* ⚠️ THE `body.xh-en-on` PREFIX IS LOAD-BEARING, do not "simplify" it away. The
+   gate rule is `body.xh-en-on .xh-en{…color:#46596A}` = (0,2,1). A bare
+   `.xh-hero-sub .xh-en` is (0,2,0) and LOSES, so every dark-plate override of the
+   English colour on this page was silently doing nothing and the English lines were
+   rendering in dark slate on a bright beach. That was the whole of the owner's
+   「the English support on this panel has too low visibility」 (2026-08-16 evening).
+   Same trap as the `.xh-py`/`.xh-uipy` overrides above, which do carry the prefix. */
+body.xh-en-on .xh-hero-sub .xh-en{color:#fff;font-size:12px;
+  text-shadow:0 1px 4px rgba(6,20,40,.85)}
+body.xh-py-on .xh-hero-sub .xh-uipy{color:#E8F2FA}
 .xh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.xh-stat{background:rgba(12,32,54,.42);border:1px solid rgba(255,255,255,.28);
+/* ⚠️ .62, not .42 (owner 2026-08-16 evening). At 42% over bright sand the plate
+   composites to a light grey, and the pale-blue English line under each label was
+   the least readable text on the whole dock. These three tiles are small and sit at
+   the very bottom of the art, so darkening them costs almost none of the beach. */
+.xh-stat{background:rgba(10,28,48,.62);border:1px solid rgba(255,255,255,.28);
   border-radius:12px;padding:8px 10px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .xh-stat b{display:block;font-family:var(--serif);font-weight:900;font-size:22px;color:var(--gold-lt);
   line-height:1.2}
 .xh-stat b i{font-style:normal;font-family:var(--sans);font-size:11.5px;font-weight:700;
   color:#E6F0F8;margin-left:3px}
-.xh-stat>span{display:block;font-size:11.5px;font-weight:700;color:#EAF3FA}
-.xh-stat .xh-en{color:#C8DDEE;font-size:10.5px}
+.xh-stat>span{display:block;font-size:11.5px;font-weight:700;color:#F2F8FC}
+/* #E2EEF7 at 11px, not #C8DDEE at 10.5px — same reason as the plate above.
+   ⚠️ body.xh-en-on prefix required, see the note on .xh-hero-sub .xh-en above:
+   without it the gate rule wins and this line renders dark slate on a dark plate. */
+body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
 
 /* 动线编号 */
 .xh-step{display:inline-block;margin-right:7px;font-family:var(--serif);font-weight:900;
@@ -624,6 +663,17 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
 /* the boards tile has no cover art, so it uses an icon slot instead */
 .xh-tile.slim .xh-tile-ic{flex:none;display:flex;align-items:center;justify-content:center;
   width:70px;font-size:28px;background:rgba(31,74,112,.10)}
+/* ⚠️ THE BADGE TILE SHOWS THE REAL BADGE ART (owner 2026-08-16 evening). Nine
+   mother-of-pearl medallions were drawn for this ladder and the front page was
+   showing a 🎖️ system emoji. Unearned ones carry the same greyscale lock the wall
+   uses, so the strip reads as「how far along」rather than as nine identical coins.
+   ⚠️ flex-wrap, and the images are flex:none — a nine-image strip in a half-width
+   tile must wrap, never squeeze each medallion into a sliver. */
+.xh-badgestrip{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 6px}
+.xh-badgestrip img{width:26px;height:26px;flex:none;object-fit:contain;
+  filter:grayscale(1) opacity(.38)}
+.xh-badgestrip img.got{filter:none;
+  filter:drop-shadow(0 1px 3px rgba(23,58,90,.3))}
 
 /* ---------- 词海垂钓 (addendum §5) ----------
    ⚠️ This water panel is deliberately a DARK surface, not a glass card:
@@ -796,7 +846,9 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   background:linear-gradient(180deg,#FFE07A 0%,#F5C443 42%,#E0A526 43%,#D08E15 100%);
   box-shadow:0 0 0 3px #6B4708,0 6px 14px rgba(6,26,48,.35)}
 .xh-btn.ghost{background:rgba(255,255,255,.92);color:var(--sea2);box-shadow:0 0 0 2px var(--wood)}
-.xh-btn:disabled{opacity:.55}
+/* .sm — a 主按钮 that has to share a row with filter chips (航海图鉴) */
+.xh-btn.sm{font-size:13.5px;padding:8px 16px;box-shadow:0 0 0 2px #6B4708,0 4px 10px rgba(6,26,48,.3)}
+.xh-btn:disabled{opacity:.55;cursor:default}
 
 .xh-err{text-align:center;font-weight:700;line-height:1.8}
 .xh-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;
@@ -818,40 +870,46 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   background:var(--glass);color:#3A5A70;box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
 .xh-log-page.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.5);color:#3A2A08}
-.xh-log-stamp{display:inline-block;margin-left:8px;font-family:var(--serif);font-weight:900;
-  font-size:13px;color:#B33A2B;border:2px solid #B33A2B;border-radius:8px;padding:3px 9px;
-  transform:rotate(-6deg);background:rgba(255,255,255,.6)}
-.xh-log-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
-.xh-log-cell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px 12px;
-  border-radius:14px;border:1px solid rgba(150,185,212,.4);background:rgba(255,255,255,.55);
-  cursor:pointer;touch-action:manipulation;font-family:var(--sans);color:var(--ink);text-align:center}
-.xh-log-cell img{width:74px;height:74px;object-fit:contain;image-rendering:pixelated}
-.xh-log-cell b{font-family:var(--serif);font-size:16px;font-weight:900}
-.xh-log-cell .xh-py,.xh-log-cell .xh-en{font-size:11.5px;line-height:1.35}
-.xh-log-cell.got{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,244,220,.75))}
+/* ⚠️ .xh-log-stamp (全部集齐) and .xh-log-cell (silhouette tiles + ？) removed
+   2026-08-16 evening — the collection format is retired, see renderLog() in xh.js.
+   Do not re-add: the badge wall is the dock's only「how far have I come」surface,
+   and it is an odometer, not a set to complete. */
+.xh-log-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.xh-log-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;min-width:0;
+  padding:8px 12px 8px 8px;border-radius:14px;border:1px solid rgba(150,185,212,.4);
+  background:rgba(255,255,255,.62);cursor:pointer;touch-action:manipulation;
+  font-family:var(--sans);color:var(--ink)}
+.xh-log-row:hover{background:rgba(255,255,255,.82);border-color:rgba(150,185,212,.75)}
+.xh-log-thumb{width:46px;height:46px;flex:none;object-fit:contain;image-rendering:pixelated}
+/* 数字 has no 图档 by design (CLAUDE.md §5) — a placeholder glyph, never a broken img */
+.xh-log-nopic{display:grid;place-items:center;border-radius:10px;background:rgba(214,232,243,.75);
+  font-family:var(--serif);font-weight:900;font-size:20px;color:#6B8798}
+.xh-log-wrap{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.3}
+.xh-log-wrap b{font-family:var(--serif);font-size:17px;font-weight:900}
+.xh-log-wrap .xh-py,.xh-log-wrap .xh-en{font-size:11.5px;line-height:1.35}
+/* status tag. #6B7F8E on the pale plate is 4.6:1; the gold one is #6B4A05 on #FBEBC4. */
+.xh-log-st{flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;
+  background:rgba(214,232,243,.85);color:#4E6879;border:1px solid rgba(150,185,212,.6)}
+.xh-log-row.got{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,244,220,.78))}
+.xh-log-row.got .xh-log-st{background:linear-gradient(180deg,#FBEBC4,#F2D89A);
+  border-color:var(--gold);color:#6B4A05}
 /* section head inside a chapter (only drawn when a chapter has more than one) */
 .xh-log-sec{font-family:var(--serif);font-weight:900;font-size:14.5px;color:var(--sea2);
   margin:14px 0 8px;padding-left:10px;border-left:4px solid rgba(138,90,50,.45)}
-/* silhouette: the sprite's own alpha, filled black. Reads as a gap in the
-   collection while still showing the shape. */
-.xh-log-cell.miss img{filter:brightness(0) opacity(.42)}
-.xh-log-cell.miss b{color:#64798A;letter-spacing:.24em}   /* the ？ was 2.1:1 */
-/* ⚠️ was cursor:default while the button was also `disabled` — a locked cell was
-   completely inert, and at 0/36 that was the entire page. It is a real button now. */
-.xh-log-cell.miss:hover{background:rgba(255,255,255,.78);border-color:rgba(150,185,212,.7)}
 
 /* ---------- 航海图鉴 controls (owner 2026-08-16) ----------
    The same three the mountain's 我的词语表 has and this page lacked: an explanatory
    line, status filters, and a bulk action over whatever the filter currently shows. */
 .xh-log-sub{margin:8px 0 2px;font-size:13.5px;color:var(--ink-soft);line-height:1.6}
-.xh-log-filters{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+/* ⚠️ ONE row: chips left, 看图学词 pinned right (owner 2026-08-16 evening). The
+   button had a row of its own, which cost a whole line above the words. */
+.xh-log-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.xh-log-learn{margin-left:auto}
 .xh-log-chip{cursor:pointer;touch-action:manipulation;font-family:var(--sans);font-size:13.5px;
   font-weight:700;padding:8px 14px;border-radius:999px;border:1px solid var(--glass-line);
   background:var(--glass);color:#3A5A70;box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
 .xh-log-chip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.5);color:#3A2A08}
-.xh-log-act{margin:12px 0 4px}
-.xh-log-act .xh-btn:disabled{opacity:.5;cursor:default}
 .xh-log-empty{margin:14px 0 4px;font-size:14px;color:var(--ink-soft)}
 
 @media (max-width:560px){
@@ -994,9 +1052,25 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .xh-cfg-note{margin:4px 0 2px;font-size:13.5px;color:var(--ink-soft);line-height:1.7}
 .xh-cfg-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .xh-cfg-acts .xh-go{flex:1 1 100%;margin-top:0}
-/* 2-up: the 学词 page has four 题型 and auto-fit put them 3 + 1, which reads as a
-   stray card. Two columns also keeps the tap targets wide on a phone. */
+/* 2-up: the 闯关 page has two 题型 and auto-fit put them 3 + 1 back when 学词 had
+   five, which read as a stray card. Two columns also keeps the tap targets wide. */
 .xh-cfg .xh-modes{grid-template-columns:repeat(2,1fr)}
+/* ---------- 学词 ① = TWO BIG CARDS (owner 2026-08-16 evening) ----------
+   图卡 vs 挑战, the mountain's 词语闪卡 / 学习挑战 pair. The four question types
+   live UNDER the 挑战 card as a quieter row, never beside it — see renderModeConfig. */
+.xh-cfg .xh-modes.two{grid-template-columns:repeat(2,1fr);margin-bottom:10px}
+.xh-mode.big{padding:20px 14px;gap:3px}
+.xh-mode.big .xh-mi{font-size:32px}
+.xh-mode.big b{font-size:18px}
+.xh-mode-sub{display:block;margin-top:7px;font-size:11.5px;font-weight:700;color:#46596A;
+  line-height:1.45}
+.xh-mode.big.on .xh-mode-sub{color:#553F06}
+/* the refinement row: same control, deliberately smaller so ① still reads as ONE
+   decision with a follow-up rather than two competing rows of cards */
+.xh-cfg .xh-modes.sub{grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px;margin-bottom:16px}
+.xh-mode.sm{padding:9px 8px}
+.xh-mode.sm .xh-mi{font-size:19px}
+.xh-mode.sm b{font-size:14px}
 /* the ② category buttons navigate now, so they carry a chevron like every other
    entry on this page */
 .xh-tab.go{position:relative}
@@ -1165,4 +1239,8 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
    没有 backdrop-filter 时直接给纯色，成本为零，可读性反而更稳。 */
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
   .xh-phrase.on-scene{background:rgba(255,255,255,.97)}
+  /* the hero's two dark plates lean on the same rule: without the blur the only
+     thing separating white text from bright sand is the alpha, so raise it */
+  .xh-hero-sub{background:rgba(8,26,46,.72)}
+  .xh-stat{background:rgba(10,28,48,.78)}
 }
