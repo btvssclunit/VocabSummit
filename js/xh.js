@@ -338,8 +338,16 @@
   document.addEventListener("pointerdown", primeTTS, true);
   document.addEventListener("keydown", primeTTS, true);
 
-  function speak(text) {
-    if (!window.speechSynthesis || !text) return;
+  /* speak(text, onEnd) — onEnd fires exactly once when the utterance finishes,
+     errors, or is cancelled by the next speak(). Callers use it to hold the
+     screen until the sentence has actually been heard; it is NEVER the only
+     timer, because onend is not guaranteed to arrive (a cancelled utterance on
+     ChromeOS, a voice that never loads, a device with no zh voice at all). */
+  function speak(text, py, onEnd) {
+    if (typeof py === "function") { onEnd = py; py = null; }
+    var fired = false;
+    var done = function () { if (!fired) { fired = true; revive(); if (onEnd) onEnd(); } };
+    if (!window.speechSynthesis || !text) { done(); return; }
     primeTTS();
     var go = function () {
       if (!_zhVoice) loadVoiceCache();
@@ -347,11 +355,13 @@
         _warnedNoZh = true;
         toast("⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
       }
-      var u = new SpeechSynthesisUtterance(String(text));   // hanzi only
+      /* ⚠️ 读音以数据里的 拼音 为准，不让引擎自己猜（js/tts.js）。
+         码头的句子（生活空间）没有逐字拼音，那里 py 为空，维持引擎默认。 */
+      var u = new SpeechSynthesisUtterance(window.WSTts ? WSTts.text(text, py) : String(text));
       u.lang = (_zhVoice && _zhVoice.lang) || "zh-CN";
       if (_zhVoice) u.voice = _zhVoice;
       u.rate = 0.85;                                        // slower: absolute beginners
-      u.onend = revive; u.onerror = revive;
+      u.onend = done; u.onerror = done;
       speechSynthesis.cancel();
       setTimeout(function () { speechSynthesis.speak(u); }, 50);
     };
@@ -363,46 +373,88 @@
      it, pushing the context into WebKit's "interrupted" state where it renders
      nothing and resume() may never settle. Same defence app.js arrived at: never
      wait on resume alone, and rebuild the context if it will not run. */
-  var _ac = null, _acFails = 0;
-  function ac() {
+  var _ac = null, _keepAlive = null, _acBorn = 0, _acFails = 0, MAX_REBUILDS = 8;
+  function buildCtx() {
     var C = window.AudioContext || window.webkitAudioContext;
     if (!C) return null;
-    if (!_ac) { try { _ac = new C(); } catch (e) { return null; } }
+    var c;
+    try { c = new C(); } catch (e) { return null; }
+    _acBorn = (new Date()).getTime();
+    /* 静音保活源：通道里一直有东西在播，就不容易被回收、也不容易被朗读夺走。
+       gain 恒 0，听不见，每轮循环一个采样。app.js 早就有这个，码头漏了。 */
+    try {
+      var src = c.createBufferSource(), g0 = c.createGain();
+      src.buffer = c.createBuffer(1, 1, c.sampleRate);
+      src.loop = true; g0.gain.value = 0;
+      src.connect(g0); g0.connect(c.destination); src.start(0);
+      _keepAlive = src;
+    } catch (e) {}
+    return c;
+  }
+  function ac() {
+    if (!_ac) _ac = buildCtx();
     return _ac;
   }
+  /* 卡住的 context 只能扔掉重建——新建出来的 context 是 running 的，
+     而 interrupted 状态下 resume() 不保证会回来。限流：浏览器对一个页面能
+     建几个 AudioContext 有上限，烧完就永远没声音了。 */
+  function rebuildCtx() {
+    if (_acFails >= MAX_REBUILDS) return _ac;
+    if ((new Date()).getTime() - _acBorn < 1000) return _ac;
+    _acFails++;
+    var old = _ac;
+    _ac = null; _keepAlive = null;
+    if (old && old.close) { try { old.close(); } catch (e) {} }
+    return (_ac = buildCtx());
+  }
   function revive() {
-    var c = _ac;
-    if (c && c.state !== "running" && c.resume) { try { c.resume(); } catch (e) {} }
+    if (!_ac || _ac.state === "running") return;
+    try { _ac.resume(); } catch (e) {}
+    setTimeout(function () {
+      if (_ac && _ac.state !== "running") rebuildCtx();
+    }, 150);
   }
   function blip(freqs, type, vol, dur) {
     var c = ac();
     if (!c) return;
-    function play() {
-      var t0 = c.currentTime;
+    /* ⚠️ play() 必须拿**当下**那个 context 当参数。原来它闭包引用外层的 c，
+       兜底路径 close() 掉旧 context 再重建之后，play() 还在往那个已经关掉的
+       context 上 createOscillator——直接抛异常，一声都没有。答对音效在
+       iPad 上「时有时无」就是这里：朗读把通道拿走 → context 变 interrupted
+       → 走兜底 → 兜底本身是坏的。 */
+    function play(cc) {
+      if (!cc || cc.state !== "running") return false;
+      var t0 = cc.currentTime;
       freqs.forEach(function (f, i) {
-        var o = c.createOscillator(), g = c.createGain();
+        var o = cc.createOscillator(), g = cc.createGain();
         o.type = type; o.frequency.value = f;
         g.gain.setValueAtTime(vol, t0 + i * 0.05);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.05 + dur);
-        o.connect(g); g.connect(c.destination);
+        o.connect(g); g.connect(cc.destination);
         o.start(t0 + i * 0.05); o.stop(t0 + i * 0.05 + dur);
       });
+      return true;
     }
-    if (c.state === "running") { play(); return; }
+    if (play(c)) return;
+    /* 照样叫一声 resume()，但**不等它的 promise**——interrupted 状态下它可能
+       永远不兑现（CLAUDE.md §9）。120ms 之后还没起来就换一个新的。 */
     try { c.resume(); } catch (e) {}
     setTimeout(function () {
-      if (_ac && _ac.state !== "running" && _acFails < 6) {
-        _acFails++;
-        try { _ac.close(); } catch (e) {}
-        _ac = null;
-        if (!ac()) return;
-      }
-      play();
+      if (play(_ac)) return;
+      play(rebuildCtx());
     }, 120);
   }
   function sfxOk() { blip([420, 640], "triangle", 0.22, 0.13); }   // wooden knock
   function sfxNo() { blip([150, 110], "sawtooth", 0.10, 0.2); }    // rope creak
-  document.addEventListener("pointerdown", revive);
+  /* 一次点击是我们能拿到的最好的时机：新建的 context 生来就是 running 的。 */
+  document.addEventListener("pointerdown", function () {
+    var c = ac();
+    if (c && c.state !== "running") revive();
+  });
+  /* 切回这个标签页时，多数移动浏览器会把 context 留在 suspended。 */
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) revive();
+  });
 
   function toast(msg) {
     var t = document.createElement("div");
@@ -778,10 +830,15 @@
       h += '<div class="xh-scope">';
       groups().forEach(function (b) {
         var on = sel.indexOf(b.组别) >= 0;
+        /* ⚠️ 图标·组名·进度 挤在同一行（owner 2026-08-16：「可以一行放更多组，
+           省点竖向空间」）。原来是五行叠着放，八个组就是 ~760px，把 ②选择学习方式
+           整个推到折线以下——iPad 上第一屏只看得到分类。拼音和英文照旧各占一行，
+           但那两行本来就是闸门控制的，关掉之后卡片只剩一行高。 */
         h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' +
-          xhGroupIc(b.组别) + "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + xhGroupEn(b.组别) +
-          "<span>" + b.done + " / " + b.n + "</span></button>";
+          '<span class="xh-gc-top">' + xhGroupIc(b.组别) + "<b>" + esc(b.组别) + "</b>" +
+          '<span class="xh-gc-n">' + b.done + "/" + b.n + "</span></span>" +
+          xhPy(b.组别) + xhGroupEn(b.组别) + "</button>";
       });
       h += "</div>";
     }
@@ -1729,6 +1786,39 @@
   function advance(ms) {
     setTimeout(function () { state.i++; render(); }, ms || 1150);
   }
+  /* advanceAfterSpeech — 答对之后先把话读完，再翻页。
+     ⚠️ owner 2026-08-16：传声筒答对后画面立刻跳走，句子才读到一半。
+     以前是 advance(1500) 一个死定时器，而 rate=0.85 的一句话要 2.5–3.5 秒。
+     现在以**朗读结束**为准，但朗读永远不是唯一的闸门：
+       · floor  —— 就算没有语音（设备没装中文音色、朗读被系统吞掉），
+                   也要停够这么久，学生才看得清「✅ 整句」那一行
+       · ceiling —— onend 不保证会来（被下一句 cancel、音色始终没加载、
+                   ChromeOS 静默丢弃），到点就走，绝不把学生卡死在一题上
+     两个闸门都只放行一次。 */
+  function advanceAfterSpeech(text, py, floor, ceiling) {
+    var went = false, t0 = (new Date()).getTime();
+    floor = floor || 900;
+    var go = function () {
+      if (went) return;
+      went = true;
+      state.i++; render();
+    };
+    var after = function (ms) { setTimeout(go, ms > 0 ? ms : 0); };
+    setTimeout(go, ceiling || 4200);
+    /* ⚠️ 设备上根本没有中文音色时，onend 永远不会来，天花板就成了唯一的闸门——
+       每题白等 5 秒。所以先探一下**朗读到底有没有开始**：speak() 里有 50ms 的
+       ChromeOS 缓冲，350ms 之后还是既不 speaking 也不 pending，就是没在读，
+       按没有语音的节奏走。 */
+    setTimeout(function () {
+      if (went || !window.speechSynthesis) return;
+      if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+        after(floor - ((new Date()).getTime() - t0));
+      }
+    }, 350);
+    speak(text, py, function () {
+      after(floor - ((new Date()).getTime() - t0));
+    });
+  }
   function reveal(w) {
     return '<b>' + esc(w.词语) + "</b>" +
       ' <span class="xh-py">' + esc(w.拼音) + "</span>" +
@@ -1780,7 +1870,10 @@
     return n;
   }
 
-  function noteRight(w) {
+  /* quiet=true：由调用方自己朗读并据此翻页（advanceAfterSpeech）。
+     ⚠️ 以前这里读词、调用方紧接着读句子，第二句 cancel() 掉第一句——
+     学生听到半个词就被打断。 */
+  function noteRight(w, quiet) {
     if (state.firstTry) state.correct++;
     awardSail(state.mode, state.firstTry);
     awardShells(state.mode, state.firstTry);
@@ -1788,7 +1881,7 @@
     save();
     pushDock();
     sfxOk();
-    speak(w.词语);      // never the English (spec §3 of v1, unchanged)
+    if (!quiet) speak(w.词语, w.拼音);   // never the English (spec §3 of v1, unchanged)
   }
 
   /* Publish to the dock boards. Students only — teachers, parents and 公众 browse
@@ -1855,9 +1948,9 @@
         "</button></div></div>";
     view().innerHTML = h;
     wireQuit();
-    speak(w.词语);
-    document.getElementById("xhSprite").onclick = function () { speak(w.词语); };
-    document.getElementById("xhSay").onclick = function () { speak(w.词语); };
+    speak(w.词语, w.拼音);
+    document.getElementById("xhSprite").onclick = function () { speak(w.词语, w.拼音); };
+    document.getElementById("xhSay").onclick = function () { speak(w.词语, w.拼音); };
     document.getElementById("xhPrev").onclick = function () { if (state.i) { state.i--; render(); } };
     document.getElementById("xhNext").onclick = function () { state.i++; render(); };
   }
@@ -1916,10 +2009,10 @@
         el.classList.add("right");
         Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
         document.getElementById("xhSprite").classList.add("pop");
-        noteRight(w);
+        noteRight(w, true);
         var hint = document.getElementById("xhHint");
         hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
-        advance();
+        advanceAfterSpeech(w.词语, w.拼音, 1100, 3200);
       };
     });
   }
@@ -1994,14 +2087,15 @@
         btn.classList.add("ok");
         /* ⚠️ a tile-only answer records NO progress: 素食摊 is not a word entry, so
            marking it would invent a 航程 entry for a word that does not exist. */
-        if (!p.tileOnly) noteRight(w);
-        speak(p.zh);                       // the whole sentence, in context
+        if (!p.tileOnly) noteRight(w, true);
         var hint = document.getElementById("xhHint");
         /* ⚠️ insight_en is OPTIONAL (PATCH_02 §5). Most sentences have nothing worth
            saying and a forced note would be filler. Blank is the normal state. */
         hint.innerHTML = "✅ " + esc(p.zh) +
           (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
-        advance(1500);
+        /* 整句在语境里读完再走。句子比词长，天花板给到 5.5 秒。
+           ⚠️ 句子没有逐字拼音，所以这里没有 py 可传（见 js/tts.js 开头）。 */
+        advanceAfterSpeech(p.zh, null, 1200, 5500);
       } else {
         /* answering wrong costs nothing anywhere in this tier: mark it, stay put */
         btn.classList.add("no");
@@ -2062,10 +2156,11 @@
         Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
         var sp = document.getElementById("xhSprite");
         sp.classList.remove("hidden"); sp.classList.add("pop");
-        noteRight(w);
+        noteRight(w, true);
         var hint = document.getElementById("xhHint");
         hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
-        advance(1400);                                   // a beat longer: the picture only appears now
+        // a beat longer: the picture only appears now
+        advanceAfterSpeech(w.词语, w.拼音, 1400, 3200);
       };
     });
   }
@@ -2086,8 +2181,8 @@
     });
     view().innerHTML = h + "</div></div>";
     wireQuit();
-    speak(w.词语);
-    document.getElementById("xhPlay").onclick = function () { speak(w.词语); };
+    speak(w.词语, w.拼音);
+    document.getElementById("xhPlay").onclick = function () { speak(w.词语, w.拼音); };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-pic"), function (el) {
       el.onclick = function () {
         if (el.disabled) return;
@@ -2098,10 +2193,10 @@
         }
         el.classList.add("right");
         Array.prototype.forEach.call(view().querySelectorAll(".xh-pic"), function (b) { b.disabled = true; });
-        noteRight(w);
+        noteRight(w, true);
         var hint = document.getElementById("xhHint");
         hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
-        advance();
+        advanceAfterSpeech(w.词语, w.拼音, 1100, 3200);
       };
     });
   }
@@ -2200,7 +2295,7 @@
        So the picture stays silent until the pinyin is on screen — which §4.4 already
        does on a miss — and after that it is free to replay. */
     var said = false;
-    document.getElementById("xhSprite").onclick = function () { if (said) speak(w.词语); };
+    document.getElementById("xhSprite").onclick = function () { if (said) speak(w.词语, w.拼音); };
     var angler = wireAngler();
     var input = document.getElementById("xhIn");
     input.focus();
@@ -2252,9 +2347,9 @@
       catchEl.classList.add("land");        // arcs into the creel
       said = true;                          // answered: noteRight speaks it, replay is fine
       angler.cheer();                       // frame 5 + a hop, on every catch (owner)
-      noteRight(w);
+      noteRight(w, true);
       hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
-      advance(1250);
+      advanceAfterSpeech(w.词语, w.拼音, 1250, 3200);
     }
     document.getElementById("xhGo").onclick = check;
     input.addEventListener("keydown", function (e) {

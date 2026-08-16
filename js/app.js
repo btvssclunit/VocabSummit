@@ -143,15 +143,20 @@
     loadVoiceCache();
     speechSynthesis.onvoiceschanged = loadVoiceCache;
   }
-  function speak(text) {
+  /* speak(text, py) — py 是这句话逐字的音节串（w.py / w.zhPy / w.clozePy）。
+     ⚠️ 传了 py，读音就以**数据**为准而不是引擎自己猜（js/tts.js 里换同音字）。
+     owner 2026-08-16：屏幕上写 zhǎng、喇叭读 cháng，两者各说各话。
+     没有 py 就退回引擎默认——不会更差，只是没有校正。 */
+  function speak(text, py) {
     if (!window.speechSynthesis || !text) return;
+    var said = window.WSTts ? WSTts.text(text, py) : String(text);
     var go = function () {
       if (!_zhVoice) loadVoiceCache();
       if (!_zhVoice && !_warnedNoZh) {
         _warnedNoZh = true;
         toast("⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
       }
-      var u = new SpeechSynthesisUtterance(String(text));  // hanzi only, never pinyin
+      var u = new SpeechSynthesisUtterance(said);          // hanzi only, never pinyin
       u.lang = (_zhVoice && _zhVoice.lang) || "zh-CN";
       if (_zhVoice) u.voice = _zhVoice;
       u.rate = 0.9;
@@ -165,8 +170,14 @@
     if (!(speechSynthesis.getVoices() || []).length) { setTimeout(go, 200); } else { go(); }
   }
   // Cloze sentence: blank becomes a pause, never the answer.
-  function speakCloze(sentence) {
-    speak(String(sentence).replace(/_{2,}|＿+/g, "，"));
+  // ⚠️ 换空格不影响 clozePy 对齐：__ 和 ，都不是汉字，都不消耗音节。
+  function speakCloze(sentence, py) {
+    speak(String(sentence).replace(/_{2,}|＿+/g, "，"), py);
+  }
+  /* 「正确答案：X」——前缀是我们自己写的中文，不在 w.py 里，
+     所以只对词本身做校正，再拼上去，否则音节数一定对不上。 */
+  function sayAnswer(w) {
+    speak("正确答案：" + (window.WSTts ? WSTts.text(w.w, w.py) : w.w));
   }
 
   /* ---------- sound effects (Web Audio, synthesized, no files) ----------
@@ -258,7 +269,16 @@
     setTimeout(function () {
       if (played) return;
       if (c.state === "running") return go(c);
-      go(rebuildCtx());
+      var fresh = rebuildCtx();
+      if (fresh && fresh.state === "running") return go(fresh);
+      /* ⚠️ rebuildCtx 可能什么也没换：1 秒限流会把**同一个卡住的** context
+         原样还回来，go() 一看不是 running 就默默什么都不做——答对了却没声音，
+         而且不报错。再等一拍，让限流窗口过去，然后最后试一次。
+         (owner 2026-08-16「答对音效又没了」) */
+      setTimeout(function () {
+        if (played) return;
+        go(_actx && _actx.state === "running" ? _actx : rebuildCtx());
+      }, 260);
     }, 120);
   }
   /* Rising 3-note reward chime + a sparkle on top. Louder and on triangle waves
@@ -2558,13 +2578,13 @@
       if (e.target.closest && e.target.closest(".tts")) return;
       state.revealed = !state.revealed; renderFlash(state);
     };
-    document.getElementById("ttsW").onclick = function () { speak(w.w); };
+    document.getElementById("ttsW").onclick = function () { speak(w.w, w.py); };
     ["ttsWF", "ttsWB"].forEach(function (id) {
       var b = document.getElementById(id);
-      if (b) b.onclick = function (e) { e.stopPropagation(); speak(w.w); };
+      if (b) b.onclick = function (e) { e.stopPropagation(); speak(w.w, w.py); };
     });
     var zhBtn = document.getElementById("ttsZh");
-    if (zhBtn) zhBtn.onclick = function (e) { e.stopPropagation(); speak(w.zh); };
+    if (zhBtn) zhBtn.onclick = function (e) { e.stopPropagation(); speak(w.zh, w.zhPy); };
     function next() {
       state.revealed = false;
       state.i++;
@@ -3255,7 +3275,7 @@
     flashMult(state);
 
     wireDiff(state);
-    document.getElementById("ttsS").onclick = function () { speakCloze(w.cloze); };
+    document.getElementById("ttsS").onclick = function () { speakCloze(w.cloze, w.clozePy); };
     function finish(right, attempt) {
       var entering = state.streak, wasMastered = !!store.mastered[w.id];
       /* 打拼音 is practice only: no 连对/bestStreak, no 历练值, no mastery. */
@@ -3313,7 +3333,7 @@
             if (!fb.isConnected) return;
             fb.className = "feedback show bad";
             fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + tail;
-            speak("正确答案：" + w.w);
+            sayAnswer(w);
             finish(false);
           }, 900);
         }
@@ -3323,7 +3343,7 @@
     } else {
       var locked = false;
       Array.prototype.forEach.call(view().querySelectorAll(".opt-tts"), function (b) {
-        b.onclick = function () { speak(state._opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+        b.onclick = function () { var o = state._opts[parseInt(b.getAttribute("data-i"), 10)]; speak(o.w, o.py); };
       });
       Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
         btn.onclick = function () {
@@ -3347,7 +3367,7 @@
           else {
             btn.classList.add("wrong");
             sfxBad();
-            setTimeout(function () { if (!fb.isConnected) return; reveal(); speak("正确答案：" + w.w); }, 900);
+            setTimeout(function () { if (!fb.isConnected) return; reveal(); sayAnswer(w); }, 900);
           }
         };
       });
@@ -3383,10 +3403,10 @@
     flashMult(state);
 
     var tp = document.getElementById("ttsP");
-    if (tp) tp.onclick = function () { speak(w.zh); };
+    if (tp) tp.onclick = function () { speak(w.zh, w.zhPy); };
     var locked = false;
     Array.prototype.forEach.call(view().querySelectorAll(".opt-tts"), function (b) {
-      b.onclick = function () { speak(opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+      b.onclick = function () { var o = opts[parseInt(b.getAttribute("data-i"), 10)]; speak(o.w, o.py); };
     });
     Array.prototype.forEach.call(view().querySelectorAll(".opt"), function (btn) {
       btn.onclick = function () {
@@ -3436,7 +3456,7 @@
         else {
           btn.classList.add("wrong");
           sfxBad();
-          setTimeout(function () { if (!fb.isConnected) return; reveal(); speak("正确答案：" + w.w); }, 900);
+          setTimeout(function () { if (!fb.isConnected) return; reveal(); sayAnswer(w); }, 900);
         }
       };
     });
@@ -4114,7 +4134,7 @@
        (The old code indexed .handle-grid children directly, which two columns
        would have broken anyway.) */
     if (state.done) {
-      speak(state.answer.w);
+      speak(state.answer.w, state.answer.py);
       document.getElementById("hAgain").onclick = startHandle;
       document.getElementById("hHome").onclick = renderHome;
       return;
@@ -4331,9 +4351,9 @@
       return qHtml(w.zh, w.zhPy);
     }
     if (pm === "en") { promptTag = "看英文，拼出词语"; }
-    else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读句子"); ttsFn = function () { speakCloze(w.cloze); }; }
+    else if (pm === "cloze") { promptTag = "看句子，拼出空格里的词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读句子"); ttsFn = function () { speakCloze(w.cloze, w.clozePy); }; }
     else if (pm === "py") { promptTag = "看拼音，拼出词语（10% 历练值）"; }
-    else { promptTag = "看释义，拼出词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读释义"); ttsFn = function () { speak(w.zh); }; }
+    else { promptTag = "看释义，拼出词语"; ttsBtn = ttsBtnHtml("asmTts", "朗读释义"); ttsFn = function () { speak(w.zh, w.zhPy); }; }
     var promptHtml = promptBody();
 
     var html = '<div class="study"><div class="rail card">' +
@@ -4416,7 +4436,7 @@
             fb.innerHTML = "✔ " + fbZh + pyl(fbZh) + enl(fbZh) +
               "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" +
               '<button class="tts sm" id="asmSay" style="margin-left:8px">🔊</button>';
-            document.getElementById("asmSay").onclick = function () { speak(w.w); };
+            document.getElementById("asmSay").onclick = function () { speak(w.w, w.py); };
             document.getElementById("asmNextRow").style.display = "flex";
             var nx = document.getElementById("asmNext");
             nx.onclick = function () {
@@ -4771,8 +4791,8 @@
         // blank stays a literal __ here, as it always has in 攀山竞速
         pr.innerHTML = isCl ? qHtml(cur.cloze, cur.clozePy) : qHtml(cur.zh, cur.zhPy);
         say.style.display = "";
-        say.onclick = isCl ? function () { speakCloze(cur.cloze); }
-                           : function () { speak(cur.zh); };
+        say.onclick = isCl ? function () { speakCloze(cur.cloze, cur.clozePy); }
+                           : function () { speak(cur.zh, cur.zhPy); };
       }
       pr.className = "sq-prompt" + qCls(pr.innerHTML);
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
@@ -4786,7 +4806,7 @@
           '<button class="opt-tts" data-i="' + i + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("");
       Array.prototype.forEach.call(box.querySelectorAll(".opt-tts"), function (b) {
-        b.onclick = function () { speak(opts[parseInt(b.getAttribute("data-i"), 10)].w); };
+        b.onclick = function () { var o = opts[parseInt(b.getAttribute("data-i"), 10)]; speak(o.w, o.py); };
       });
       Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (b) {
         b.onclick = function () {
@@ -5084,7 +5104,8 @@
     ids.forEach(function (id) {
       var w = WORDS[_idIndex[id]];
       if (!w) return;
-      h += '<span class="wchip ' + (store.mastered[id] ? "got" : "not") + '" data-say="' + esc(w.w) + '">' + esc(w.w) + '</span>';
+      h += '<span class="wchip ' + (store.mastered[id] ? "got" : "not") + '" data-say="' + esc(w.w) +
+        '" data-py="' + esc(w.py || "") + '">' + esc(w.w) + '</span>';
     });
     return h + '</div><div class="pop-hint">金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音</div>';
   }
@@ -5095,7 +5116,7 @@
   }
   function wireChips(ov) {
     Array.prototype.forEach.call(ov.querySelectorAll(".wchip"), function (ch) {
-      ch.onclick = function () { speak(ch.getAttribute("data-say")); };
+      ch.onclick = function () { speak(ch.getAttribute("data-say"), ch.getAttribute("data-py")); };
     });
   }
   /* 年度试炼 block shown inside the 年级峰 popover (folded in to avoid a

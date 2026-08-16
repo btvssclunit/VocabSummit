@@ -132,7 +132,14 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   /* 图鉴 cover art is the single biggest vertical consumer in a 400px rail, so it
      drops to a leading icon. The full-art version stays on phones, where it is a
      good affordance. */
-  .xh-col-l .xh-tile-art{width:44px;height:auto;flex:none;border-radius:8px}
+  /* ⚠️ align-self + object-fit must BOTH be undone, not just the width. The base
+     rule is align-self:stretch + object-fit:cover — a full-bleed art strip, which
+     is right on a phone where the tile is short and the strip is 86px wide. In a
+     narrow rail the same rule crops the 375x512 cover to a 44px-wide vertical
+     slice of the book spine, which is the「码头看起来坏了」sliver owner
+     photographed on the iPad. Contain + centre shows the whole cover. */
+  .xh-col-l .xh-tile-art{width:44px;height:auto;flex:none;border-radius:8px;
+    align-self:center;object-fit:contain;margin:10px 0 10px 10px}
   /* ⚠️ Acceptance §6.1: 出发 must be above the fold at 1366x768 on FIRST PAINT.
      Measured at 796px against a 768 viewport before this block — the right column
      was 28px too tall, so the padding comes down here and only here. Re-measure
@@ -155,7 +162,8 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   .xh-tiles .xh-tile{margin-bottom:0;height:100%}
   /* the 图鉴 cover is the tallest thing here; at half-column width it goes back to
      a leading strip rather than the phone's full-bleed art */
-  .xh-tiles .xh-tile-art{width:64px;height:auto;flex:none;border-radius:8px}
+  .xh-tiles .xh-tile-art{width:64px;height:auto;flex:none;border-radius:8px;
+    align-self:center;object-fit:contain;margin:10px 0 10px 10px}
 }
 @media (max-width:899px){
   .xh-scopewrap.sc-closed{display:none}
@@ -437,13 +445,25 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
   color:var(--sea2);background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
 .xh-sbtn:active{transform:translateY(1px)}
-.xh-scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
-.xh-gchip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;cursor:pointer;
-  touch-action:manipulation;text-align:left;padding:12px 14px;border-radius:14px;
+/* ⚠️ minmax(112px,…) not 150px (owner 2026-08-16「一行可以放更多组」). At 150 the
+   320–400px rail fits exactly ONE column, so eight 组别 stacked to ~760px and
+   pushed ②选择学习方式 off the first screen on an iPad. 112 fits two in the rail
+   and three once the rail reaches 400px, without ever clipping a four-character
+   组名 (天气与自然 wraps to two lines, which the chip allows). */
+.xh-scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-top:10px}
+.xh-gchip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;
+  touch-action:manipulation;text-align:left;padding:8px 10px;border-radius:12px;
   border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
   font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
-.xh-gchip b{font-size:16px}
-.xh-gchip span{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+/* 图标 · 组名 · 进度 on ONE line; the count is pushed right and never wraps */
+.xh-gc-top{display:flex;align-items:baseline;gap:5px;width:100%}
+.xh-gc-top .xh-gchip-ic{font-size:15px;flex:none}
+.xh-gchip b{font-size:15px;flex:1 1 auto;min-width:0;line-height:1.25}
+.xh-gc-n{font-size:11.5px;font-weight:700;color:var(--ink-soft);flex:none;white-space:nowrap}
+/* the two gloss lines stay gated; smaller here than elsewhere because a 112px
+   chip has no room for the full-size annotation */
+body.xh-py-on .xh-gchip .xh-py{font-size:11.5px;line-height:1.3}
+body.xh-en-on .xh-gchip .xh-en{font-size:11px;line-height:1.3}
 .xh-gchip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.55);color:#3A2A08}
 .xh-gchip.on span{color:#5C4409}
