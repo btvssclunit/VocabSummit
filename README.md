@@ -111,7 +111,9 @@ CLAUDE.md, 部署缓存版本号.
 3. Repo Settings → Pages → Source: `main` branch, root folder.
 4. The site appears at <https://btvssclunit.github.io/VocabSummit/> within a minute or two.
 
-⚠️ Bump the `?v=` version on the asset tags in the six entry pages and `ASSET_V` in
+⚠️ Bump the `?v=` version (date, then a suffix for repeat same-day deploys:
+`b`…`z`, then `AA`, `Ab`, `Ac`; the date itself always stays truthful) on the
+asset tags in the six entry pages and `ASSET_V` in
 `teacher.html` in the same commit, or browsers will serve a mixed old/new set of
 files for up to ten minutes. CLAUDE.md explains why this bit people twice.
 

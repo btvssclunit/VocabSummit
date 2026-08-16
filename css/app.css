@@ -1230,6 +1230,7 @@ button.mtn-pill:active{transform:scale(.96)}
   background:linear-gradient(rgba(8,16,34,0),rgba(8,16,34,.82) 60%);
   font-size:11.5px;text-align:center;padding:16px 10px 8px;line-height:1.7;margin:0}
 /* portrait fallback: stack and scroll */
+
 @media (orientation:portrait){
   /* portrait rebuild (feedback U-1/2/3). NB: gate/greeting/cards/foot are all
      CHILDREN of .lp-hero, so the hero can't be a short banner. Instead make it a
@@ -1338,7 +1339,13 @@ body.lp-sea-on .lp-foot{display:none}
    ⚠️ Because the boat now STAYS at its last berth, a voyage can start from any
    island — that is 20 routes, not 4, and all 20 were verified clear of land
    with the arc included. Moving any island means re-verifying all of them. */
-.i-g2  {--cx:14%; --by:50%;  --w:20vw;    --tx:23.5%; --ty:53.1%}
+/* ⚠️ G2 moved OUT, not G1 in (owner 2026-08-16: 「G1 needs the shortest distance
+   from the pier, now it looks like G2 is nearer」). Pulling G1 toward the jetty
+   either collided with the dock art or broke routes at every position tried;
+   pushing G2 out fixes the ordering AND makes distance read as difficulty:
+   dock→G1 352 < G2 413 < G3 477 < HCL 803 px at 1600x900.
+   ⚠️ --ty moves with --by. All 20 routes re-verified. */
+.i-g2  {--cx:11%; --by:59%;  --w:20vw;    --tx:20.5%; --ty:62.1%}
 /* ⚠️ G3 up / HCL down, 2026-08-16 (owner). At --by:50% HCL is 512px tall on a
    1920x990 viewport and its summit sat 17px ABOVE the top edge — the peak was
    simply cut off, and the 我的档案 pill covered what was left of it. Lowering HCL
@@ -1504,7 +1511,12 @@ body.lp-sea-on .lp-foot{display:none}
   .i-g2  {--cx:76%; --by:42.5%; --w:33vw; --tx:53.3%; --ty:46.6%}
   .i-g3  {--cx:25%; --by:60%;   --w:34vw; --tx:48.2%; --ty:64.2%}
   .i-hcl {--cx:77%; --by:79.5%; --w:36vw; --tx:52.8%; --ty:84.1%}
-  .i-dock{--cx:21%; --by:-4%;   --w:58vw; --tx:50.5%; --ty:9.8%}
+  /* ⚠️ 58vw → 48vw: at 58 the dock's painted top reached y=565 on a 390x780 screen
+     and swallowed G1's plaque (which sits at 554-598). Shrinking the dock is the
+     only lever that does not fight something else — G1 cannot move up (G2's plaque
+     is 1px below its head) and the plaque cannot move up (it would cover half the
+     island). Owner 2026-08-16: 「on vertical screen G1 wording is blocked」. */
+  .i-dock{--cx:21%; --by:-4%;   --w:48vw; --tx:50.5%; --ty:9.8%}
   .i-dock .sea-label{left:50%;bottom:29%}
   .sea-boat{--hx:50.5%;--hy:9.8%}
   /* the pill and 返回首页 both live on the top row of a 390px screen, so the
@@ -1530,6 +1542,23 @@ body.lp-sea-on .lp-foot{display:none}
   .sea-label{padding:3px 9px 4px;border-width:1.5px}
   .sea-label b{font-size:15.5px;line-height:1.18}
   .sea-label .lv{font-size:10.5px;margin-top:1px}}
+
+
+/* ⚠️ SHORT LANDSCAPE (a phone on its side, ~390-520px tall). The islands are sized
+   in vw, so on a wide-but-short viewport G3 grew taller than the screen and its
+   peak was clipped off the top — measured top:-2px at 844x390 (owner 2026-08-16:
+   「on mobile landscape G3 mountain top is partially blocked」). Narrow them so
+   their HEIGHT fits; the layout and all the berths are unchanged. */
+@media (orientation:landscape) and (max-height:560px){
+  .i-g1  {--w:17vw}
+  .i-g2  {--w:14vw}
+  .i-g3  {--w:19vw}
+  .i-hcl {--w:22vw}
+  .i-dock{--w:18vw}
+  .sea-label{--lb:10px}
+  .sea-label b{font-size:13px}
+  .sea-label .lv{font-size:9.5px}
+}
 
 /* ===== study ambience: campsite backdrop under all app pages ===== */
 /* ⚠️ QUIET BACKGROUND since 2026-08-16 (handoff §3). The stream pages used to
