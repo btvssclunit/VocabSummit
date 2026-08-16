@@ -344,7 +344,16 @@
      dock↔HCL：这条**本来就在压 G1**（不是 2026-08-16 那次错落调整造成的，
      调整前的线上版本同样会压），本轮一并修掉。 */
   var SEA_DETOUR = {
-    "G2_index.html|HCL_index.html": [52, 41],
+    /* ⚠️ G2↔HCL's detour is GONE: with the arc sagging below the islands instead of
+       lifting over them, that pair clears on its own. One fewer hand-placed number.
+
+       ⚠️ dock↔HCL IS THE ONE ROUTE THAT STILL ARCS UP, and it is a physical limit,
+       not an oversight. The owner's drawing routes it UNDER G1; the gap between
+       G1's painted foot and the bottom of a 900px screen is 70px and the hull is
+       ~68px, so the boat cannot fit through without hanging off the edge. Raising
+       G1 to open that gap was tested (--by 7.8% → 12%): it does free this route,
+       but then G1 intrudes on g3↔hcl and g3↔dock — two broken routes traded for
+       one. So this pair keeps an upward waypoint while the other 18 sag. */
     "dock|HCL_index.html": [48, 38]
   };
   /* ⚠️ PORTRAIT SEA LANES (owner 2026-08-16: 「the mobile sea map needs a more
@@ -511,9 +520,17 @@
         cx = 2 * (alt[0] / 100 * W) - (fromX + toX) / 2;
         cy = 2 * (H - alt[1] / 100 * H) - (fromY + toY) / 2;
       } else {
+        /* ⚠️ THE ARC SAGS DOWNWARD, into the open water (owner 2026-08-16, who drew
+           the routes he wanted straight onto a screenshot). It used to lift UPWARD
+           (-H*0.07), which sent voyages across the island band instead of below it.
+           Verified by script at this sag: all 20 landscape voyages clear every
+           third island — the upward arc blocked FOUR of them, including G2↔HCL,
+           which is why that pair needed a detour and now does not.
+           A quadratic passes half way to its control point, so the visible sag is
+           half of this. */
         cx = (fromX + toX) / 2;
-        cy = (fromY + toY) / 2 - H * 0.07;   // 2x the 3.5% arc height: a quadratic
-      }                                       // passes half way to its control point
+        cy = (fromY + toY) / 2 + H * 0.20;
+      }
       boat.style.setProperty("--dx", (toX - fromX).toFixed(1) + "px");
       boat.style.setProperty("--dy", (toY - fromY).toFixed(1) + "px");
       boat.style.setProperty("--ctlx", (cx - fromX).toFixed(1) + "px");
