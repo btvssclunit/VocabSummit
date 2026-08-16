@@ -613,8 +613,30 @@ body.xh-en-on .xh-gchip .xh-en{font-size:11px;line-height:1.3}
 /* 看图识词 renders this as a silent <span> (the picture is the question), so the
    pointer cursor must not promise a tap there. 看图学词 keeps it as a button. */
 .xh-sprite.quiet{cursor:default}
-.xh-sprite{display:block;margin:0 auto;border:0;background:none;cursor:pointer;
+/* ⚠️ inline-block, NOT block+margin:auto (owner 2026-08-16 晚). As a block it was a
+   full-width plate with the picture parked at its left end and a large empty board
+   to the right — which is the space the answer now lives in. */
+.xh-sprite{display:inline-block;border:0;background:none;cursor:pointer;
   touch-action:manipulation;padding:6px}
+/* 精灵 + 答案，并排一行 */
+.xh-qrow{display:inline-flex;align-items:center;justify-content:center;
+  gap:clamp(12px,2.6vw,30px);max-width:100%}
+/* ⚠️ THE ANSWER IS THE BIGGEST THING ON THE PANEL once it lands — it is the word
+   being learned, and it used to be a 22px caption under a 210px picture. */
+.xh-answer{opacity:0;transition:opacity .22s;text-align:left;min-width:0}
+.xh-answer.show{opacity:1}
+.xh-answer b{display:block;font-family:var(--serif),serif;font-weight:900;
+  font-size:clamp(30px,6.4vw,56px);line-height:1.08;color:var(--ink)}
+/* ⚠️ both prefixed with the gate (§18e): a bare `.xh-answer .xh-py` is (0,2,0) and
+   the gate rule is (0,2,1), so the size below would never have applied. */
+body.xh-py-on .xh-answer .xh-py{display:block;font-size:clamp(14px,2vw,20px);margin-top:4px}
+body.xh-en-on .xh-answer .xh-en{display:block;font-size:clamp(13px,1.7vw,17px);margin-top:2px}
+/* portrait: side by side would squeeze both, so the answer drops under the picture —
+   still large, which was the point. */
+@media (max-width:560px){
+  .xh-qrow{flex-direction:column;gap:6px}
+  .xh-answer{text-align:center}
+}
 .xh-sprite img{display:block;width:auto;height:clamp(130px,24vh,210px);image-rendering:pixelated;
   filter:drop-shadow(0 6px 12px rgba(12,30,48,.25))}
 .xh-sprite:hover img{filter:drop-shadow(0 8px 16px rgba(12,30,48,.32)) brightness(1.04)}
@@ -1056,6 +1078,21 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .prof-chips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
 .prof-chip{border:1px solid var(--glass-line);border-radius:999px;padding:7px 15px;font-size:13.5px; background:rgba(255,255,255,.6);color:#3A5A70;cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.1)}
 .prof-chip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.5); color:#3A2A08;font-weight:700;box-shadow:0 3px 12px rgba(227,166,60,.4)}
+/* ---------- 意见反馈 表单的注解（owner 2026-08-16 晚）----------
+   ⚠️ profile.js 给每一条注解**同时**挂两套 class（.pylab/.enlab 与 .xh-py/.xh-en），
+   因为它同时被四座山和码头加载，而两边的闸门不是同一套。这里只管码头这一半。
+   ⚠️ 每一条都必须带 body.xh-py-on / body.xh-en-on 前缀（§18e），否则输给闸门规则。 */
+body.xh-py-on .pop-title .xh-py,body.xh-py-on .pop-label .xh-py,
+body.xh-py-on .prof-chip .xh-py,body.xh-py-on .nav-btn .xh-py{
+  display:block;font-size:11.5px;font-weight:600;color:#6A5A21;margin-top:1px;letter-spacing:.01em}
+body.xh-en-on .pop-title .xh-en,body.xh-en-on .pop-label .xh-en,
+body.xh-en-on .prof-chip .xh-en,body.xh-en-on .nav-btn .xh-en,
+body.xh-en-on .pop-note .xh-en,body.xh-en-on .fb-ctx .xh-en{
+  display:block;font-size:11.5px;font-weight:500;color:#4E6273;margin-top:1px;
+  letter-spacing:.01em;text-transform:none}
+/* 金色底上的深灰／深金都掉到 3:1 以下，选中的 chip 与主按钮各给一档更深的墨色 */
+body.xh-py-on .prof-chip.on .xh-py,body.xh-en-on .prof-chip.on .xh-en,
+body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{color:#553F06}
 .prof-input{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px; padding:0 12px;font-size:15px;font-family:inherit;color:var(--ink);background:rgba(255,255,255,.55); box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
 .prof-prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
 .prof-prog div{background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:13px; padding:9px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}

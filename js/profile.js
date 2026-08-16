@@ -757,11 +757,26 @@
      ⚠️ What is NOT enforceable without Cloud Functions / App Check: a true
      per-minute rate limit, or blocking a determined student from burning their
      five slots on nonsense. The answer to that is the ban list, not more rules. */
+  /* ---------- 反馈表单的拼音 / 英文 (owner 2026-08-16 晚) ----------
+     ⚠️ profile.js IS LOADED BY BOTH FAMILIES AND THEY GATE DIFFERENTLY: the mountains
+     use body.py-aid / body.en-aid over .pylab / .enlab, the pier uses
+     body.xh-py-on / body.xh-en-on over .xh-py / .xh-en. Rather than sniff which page
+     this is, every gloss carries BOTH class sets — whichever stylesheet is loaded
+     recognises its own pair and the other is an inert class name. That also means
+     HCL needs no special case: it never sets body.py-aid, so the spans stay hidden.
+     ⚠️ Key = the Chinese ON SCREEN, pinyin hand-written, syllable count == 汉字 count
+     (§10). The emoji in FB_TYPES is not part of the key.
+     ⚠️ The long consent note gets ENGLISH ONLY. It is prose, not a label; a paragraph
+     of pinyin is noise, and it would be a syllable-count trap on every future edit. */
+  function fbGloss(zh, py, en) {
+    return (py ? '<span class="pylab xh-py xh-uipy">' + esc(py) + "</span>" : "") +
+           (en ? '<span class="enlab xh-en">' + esc(en) + "</span>" : "");
+  }
   var FB_TYPES = [
-    { k: "content", label: "📖 词语内容有误" },
-    { k: "bug",     label: "🐞 程序出错" },
-    { k: "idea",    label: "💡 建议" },
-    { k: "other",   label: "❓ 其他" }
+    { k: "content", label: "📖 词语内容有误", py: "cí yǔ nèi róng yǒu wù", en: "Wrong word or meaning" },
+    { k: "bug",     label: "🐞 程序出错",     py: "chéng xù chū cuò",      en: "Something is broken" },
+    { k: "idea",    label: "💡 建议",         py: "jiàn yì",               en: "An idea" },
+    { k: "other",   label: "❓ 其他",         py: "qí tā",                 en: "Something else" }
   ];
   /* Default quota raised 5 → 20 (owner 2026-08-14). The reasoning is worth
      keeping: the student who files eight real problems in an afternoon is the
@@ -811,8 +826,8 @@
     if (window.WSCloud && window.WSCloud.myFeedbackQuota) {
       window.WSCloud.myFeedbackQuota(function (m) {
         _fbQuota = (typeof m === "number") ? m : FB_DAILY_DEFAULT;
-        var left = document.getElementById("fbLeft");
-        if (left) left.textContent = Math.max(0, fbQuota() - fbLocal().n);
+        /* ⚠️ the value is stored and enforced, never painted — the「今天还可以提交 N 次」
+           readout it used to update was removed on purpose (see draw()). */
       });
     }
     var ov = document.createElement("div");
@@ -826,27 +841,39 @@
 
     function draw(msg, sending) {
       card.innerHTML =
-        '<div class="pop-title">✍️ 意见反馈</div>' +
+        '<div class="pop-title">✍️ 意见反馈' +
+          fbGloss("意见反馈", "yì jiàn fǎn kuì", "Tell us about a problem") + '</div>' +
         (ctx ? '<div class="fb-ctx">正在看：<b>' + esc(ctx) + '</b><br>' +
-               '<span class="pop-note">这条信息会一起送出，老师就知道是哪一题。</span></div>' : '') +
-        '<div class="pop-note">你的昵称、班级和学校会随反馈一起送出，方便老师跟进。请不要写真实姓名或联络方式。</div>' +
-        '<div class="pop-label" style="margin-top:12px">这是哪一类？</div>' +
+               '<span class="pop-note">这条信息会一起送出，老师就知道是哪一题。' +
+               fbGloss("", "", "This is sent too, so the teacher knows which question.") +
+               '</span></div>' : '') +
+        '<div class="pop-note">你的昵称、班级和学校会随反馈一起送出，方便老师跟进。请不要写真实姓名或联络方式。' +
+          fbGloss("", "", "Your nickname, class and school are sent with this so the teacher can follow up. " +
+                          "Do not write your real name or any contact details.") + '</div>' +
+        '<div class="pop-label" style="margin-top:12px">这是哪一类？' +
+          fbGloss("这是哪一类", "zhè shì nǎ yī lèi", "What kind of thing is it?") + '</div>' +
         '<div class="prof-chips" id="fbTypes">' +
           FB_TYPES.map(function (t) {
-            return '<button class="prof-chip' + (sel === t.k ? " on" : "") + '" data-fb="' + t.k + '">' + t.label + '</button>';
+            return '<button class="prof-chip' + (sel === t.k ? " on" : "") + '" data-fb="' + t.k + '">' +
+              t.label + fbGloss(t.label, t.py, t.en) + "</button>";
           }).join("") + '</div>' +
-        '<div class="pop-label" style="margin-top:12px">说说看</div>' +
+        '<div class="pop-label" style="margin-top:12px">说说看' +
+          fbGloss("说说看", "shuō shuo kàn", "Tell us more") + '</div>' +
         '<textarea class="code-ta fb-ta" id="fbText" maxlength="' + FB_MAX + '" ' +
           'placeholder="例如：中二单元三「聚集」的填空句好像少了一个字。"></textarea>' +
-        '<div class="prof-row"><span class="pop-note" id="fbCount">0 / ' + FB_MAX + '</span>' +
-        '<span class="pop-note">今天还可以提交 <b id="fbLeft"></b> 次</span></div>' +
+        /* ⚠️ THE REMAINING-SUBMISSIONS COUNT IS DELIBERATELY NOT SHOWN (owner
+           2026-08-16 晚): 「今天还可以提交 20 次」 reads as a score to beat to exactly
+           the students most likely to fill it with rubbish. The quota still applies —
+           it is enforced by the ticket-ID rule server-side (§16) and by fbLocal()
+           here — it is simply not advertised. A student who hits it is told they are
+           done for today, without a number. */
+        '<div class="prof-row"><span class="pop-note" id="fbCount">0 / ' + FB_MAX + '</span></div>' +
         '<div class="feedback" id="fbMsg">' + (msg || "") + '</div>' +
-        '<div class="nav-row"><button class="nav-btn" id="fbCancel">取消</button>' +
+        '<div class="nav-row"><button class="nav-btn" id="fbCancel">取消' +
+          fbGloss("取消", "qǔ xiāo", "Cancel") + '</button>' +
         '<button class="nav-btn primary" id="fbSend"' + (sending ? " disabled" : "") + '>' +
-        (sending ? "送出中…" : "送出") + '</button></div>';
+        (sending ? "送出中…" : "送出") + fbGloss("送出", "sòng chū", "Send") + '</button></div>';
 
-      var lo = fbLocal();
-      card.querySelector("#fbLeft").textContent = Math.max(0, fbQuota() - lo.n);
       var ta = card.querySelector("#fbText");
       ta.oninput = function () { card.querySelector("#fbCount").textContent = ta.value.length + " / " + FB_MAX; };
       Array.prototype.forEach.call(card.querySelectorAll("[data-fb]"), function (b) {
@@ -870,7 +897,8 @@
       /* quota 0 is a teacher shutting this account off, not a used-up daily
          allowance — 「今天已经提交 0 次了」 would read as nonsense */
       if (fbQuota() <= 0) { say("这个账号暂时无法提交反馈，请直接告诉老师。"); return; }
-      if (lo.n >= fbQuota()) { say("今天已经提交 " + fbQuota() + " 次了，明天再来吧。"); return; }
+      /* ⚠️ no number here either, same reason as the removed counter above. */
+      if (lo.n >= fbQuota()) { say("今天的反馈次数用完了，明天再来吧。"); return; }
       if (Date.now() - (lo.last || 0) < FB_COOLDOWN_MS) {
         say("刚刚才送出过，请等一下再提交。"); return;
       }

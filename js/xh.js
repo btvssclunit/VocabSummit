@@ -1078,6 +1078,15 @@
   /* ⚠️ A door that cannot run under the current 学习范围 must SAY SO here rather
      than open onto a dead config screen. Same rule §4.4 already applies one level
      down: 看图识词/听音识图 need a picture, 传声筒 needs a sentence. */
+  /* ⚠️ the reverse of entryModes: which door owns this mode. Used by 换一组 on the
+     end screens, which must land on the config page the student came from rather
+     than all the way back at the dock (owner 2026-08-16 晚). */
+  function entryForMode(id) {
+    for (var i = 0; i < ENTRIES.length; i++) {
+      if (entryModes(ENTRIES[i].k).indexOf(id) !== -1) return ENTRIES[i].k;
+    }
+    return null;
+  }
   function entryUsable(pool, k) {
     return entryModes(k).some(function (m) { return poolForMode(pool, m).length > 0; });
   }
@@ -1425,6 +1434,10 @@
      shown twice — and 看图学词 / 词海垂钓 have no difficulty at all. */
   function renderModeConfig(kind) {
     state = null;
+    /* ⚠️ the beach band is a SIBLING of #xhView, so it survives an innerHTML swap.
+       Reaching this screen from a finished 踏浪竞速 round without this leaves the
+       whole beach sitting above the setup panel. */
+    runTeardown();
     view().classList.remove("two-col");
     /* ⚠️ ONE DOOR PER SCREEN (owner 2026-08-16 evening). It used to take a
        "learn"/"play" SIDE and re-show the whole mode grid, so the student picked the
@@ -2502,6 +2515,31 @@
       after(floor - ((new Date()).getTime() - t0));
     });
   }
+  /* ---------- 答案摆在精灵**旁边**，大字 (owner 2026-08-16 晚) ----------
+     ⚠️ It used to land in .xh-hint UNDER the picture, at 22px — the owner's words
+     were「让正确的字大字显示在精灵右边，不要在下面放一个小字」. The word is the thing
+     being learned; at 22px under a 210px sprite it read as a caption.
+     ⚠️ The frame that holds the sprite already ran the full width of the panel
+     (`.xh-sprite` was display:block + margin:0 auto), so there was a large empty
+     plate to the right of every picture. This puts the answer in it.
+     ⚠️ 听音识图 does NOT get this: there the options ARE the pictures and the sprite
+     slot does not exist, so its reveal stays a line under the board. */
+  function spriteRow(w, cls) {
+    return '<div class="xh-qrow">' +
+      '<span class="xh-sprite ' + cls + '" id="xhSprite">' + img(w) + "</span>" +
+      '<div class="xh-answer" id="xhAnswer"></div></div>';
+  }
+  function showAnswer(w) {
+    var el = document.getElementById("xhAnswer");
+    if (!el) return false;
+    el.className = "xh-answer show";
+    /* 拼音 and 英文 stay GATED — they are annotations on the answer, not the answer.
+       ⚠️ Their overrides carry the body.xh-py-on / body.xh-en-on prefix (§18e). */
+    el.innerHTML = "<b>" + esc(w.词语) + "</b>" +
+      '<span class="xh-py">' + esc(w.拼音) + "</span>" +
+      '<span class="xh-en">' + esc(w.英文释义) + "</span>";
+    return true;
+  }
   function reveal(w) {
     return '<b>' + esc(w.词语) + "</b>" +
       ' <span class="xh-py">' + esc(w.拼音) + "</span>" +
@@ -2745,7 +2783,8 @@
       startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
     };
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn", state.pool); };
-    document.getElementById("xhBack").onclick = renderMenu;
+    /* same as renderResult: back to 词语闪卡's own setup, not to the dock */
+    document.getElementById("xhBack").onclick = function () { renderModeConfig("cards"); };
   }
 
   /* 4.1 看图识词 — picture → word */
@@ -2761,7 +2800,7 @@
        which is exactly what the main app does in all its MCQ modes. Sibling buttons,
        never nested, per the 可及性 pass. */
     var h = bar() + '<div class="xh-board xh-stage">' +
-      '<span class="xh-sprite quiet" id="xhSprite">' + img(w) + "</span>" +
+      spriteRow(w, "quiet") +
       '<div class="xh-hint" id="xhHint"></div><div class="xh-opts">';
     opts.forEach(function (o) {
       h += '<div class="xh-optrow"><button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
@@ -2786,8 +2825,7 @@
         Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) { b.disabled = true; });
         document.getElementById("xhSprite").classList.add("pop");
         noteRight(w, true);
-        var hint = document.getElementById("xhHint");
-        hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+        showAnswer(w);
         advanceAfterSpeech(w.词语, w.拼音, 1100, 3200);
       };
     });
@@ -3258,7 +3296,7 @@
     var opts = shuffle(distractors(w, optCount() - 1).concat([w]));
     var h = bar() + '<div class="xh-board xh-stage">' +
       '<div class="xh-enq">' + esc(w.英文释义) + '</div>' +
-      '<span class="xh-sprite hidden" id="xhSprite">' + img(w) + "</span>" +
+      spriteRow(w, "hidden") +
       '<div class="xh-hint" id="xhHint"></div><div class="xh-opts">';
     opts.forEach(function (o) {
       h += '<div class="xh-optrow"><button class="xh-opt" data-w="' + esc(o.词语) + '"><span class="xh-word">' +
@@ -3284,8 +3322,7 @@
         var sp = document.getElementById("xhSprite");
         sp.classList.remove("hidden"); sp.classList.add("pop");
         noteRight(w, true);
-        var hint = document.getElementById("xhHint");
-        hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
+        showAnswer(w);
         // a beat longer: the picture only appears now
         advanceAfterSpeech(w.词语, w.拼音, 1400, 3200);
       };
@@ -3865,8 +3902,17 @@
        at renderMenu: an end screen that RELIES on the previous screen having wired a
        shared control is one refactor away from a back button pointing at nothing. */
     wireQuit();
+    /* ⚠️ 换一组 goes back to THIS activity's setup page, not to the dock front page
+       (owner 2026-08-16 晚: 「按了 换一组 却回到码头首页，还要再点一次才回到题型」).
+       The name is honest either way — 学习范围 is on the front page — but after a
+       round the thing a student wants to change is nearly always the type or the
+       难度, both of which are one screen away, not two. The topbar 回码头 is still
+       there for anyone who really wants the front page. */
+    var door = entryForMode(state.mode);
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, null, state.pool); };
-    document.getElementById("xhBack").onclick = renderMenu;
+    document.getElementById("xhBack").onclick = function () {
+      if (door) renderModeConfig(door); else renderMenu();
+    };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-review-item"), function (el) {
       el.onclick = function () { speak(el.getAttribute("data-w")); };
     });

@@ -114,7 +114,11 @@ img{max-width:100%}
 .tts:active{transform:scale(.95)}
 /* label + its 拼音/English glosses stack as one flex item */
 .tts-lab{display:inline-block;text-align:left;line-height:1.25}
-.tts-lab .pylab,.tts-lab .enlab{color:rgba(255,255,255,.86)}
+/* ⚠️ THIS PAIR IS SET IN THE DARK-PLATE BLOCK FURTHER DOWN, NOT HERE. A bare
+   `.tts-lab .pylab` is (0,2,0) and loses to `body.py-aid .pylab` (0,2,0, and later
+   in the file), so the light colour written here never applied and the 🔊 button's
+   两行注解 rendered dark gold and dark grey on a navy pill — owner 2026-08-16 晚,
+   「G1/G2 的蓝色按钮里拼音和英文很难看清」. Same trap as §18e at the pier. */
 .tts.sm{font-size:12.5px;padding:5px 13px}
 /* invisible hit-area padding: keeps the visual pill size, widens what the finger hits */
 .tts::after{content:"";position:absolute;inset:-8px}
@@ -891,11 +895,30 @@ body.en-aid .enlab.i{display:inline-block;margin:0 0 0 6px;vertical-align:baseli
    owner reported. Any new dark surface carrying a gloss must be added here. */
 body.py-aid .harbour .pylab,body.en-aid .harbour .enlab,
 body.py-aid .rain-hud .pylab,body.en-aid .rain-hud .enlab,
-body.py-aid .home-foot .pylab,body.en-aid .home-foot .enlab{
+body.py-aid .home-foot .pylab,body.en-aid .home-foot .enlab,
+/* the 🔊 pill is var(--sea1) — a dark plate like any other, and the one a G1/G2
+   student presses most often (owner 2026-08-16 晚). ⚠️ It needs BOTH the body prefix
+   and its own descendant to outrank the base gloss rule; that is the whole reason
+   the earlier attempt at line ~117 did nothing. */
+body.py-aid .tts-lab .pylab,body.en-aid .tts-lab .enlab{
   color:rgba(232,243,250,.92)}
+/* ⚠️ and the ENGLISH inside the pill is a full line, not an inline tail: `.enlab.i`
+   sets display:inline-block with a 6px left margin, which on a three-line button
+   ran the English up against the pinyin. */
+body.en-aid .tts-lab .enlab.i{display:block;margin:1px 0 0}
 /* on gold/selected surfaces the soft grey loses contrast */
 .unit.on .enlab,.htab.on .enlab,.nav-btn.primary .enlab,
-.tb-en.on .enlab,.tb-py.on .enlab,.dopt.on .enlab{color:#553F06}
+.tb-en.on .enlab,.tb-py.on .enlab,.dopt.on .enlab,
+/* the 意见反馈 form's type chips use the same gold when selected (2026-08-16 晚) */
+.prof-chip.on .enlab{color:#553F06}
+body.py-aid .prof-chip.on .pylab{color:#553F06}
+/* ⚠️ block, not the inline `.enlab.i` tail: these sit under a chip label and a
+   dialog heading, both of which are their own line. */
+body.en-aid .prof-chip .enlab,body.en-aid .pop-label .enlab,
+body.en-aid .pop-title .enlab,body.en-aid .nav-btn .enlab,
+body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px 0 0}
+.pop-title .pylab,.pop-title .enlab{font-weight:600;letter-spacing:0}
+.pop-label .pylab,.pop-label .enlab{letter-spacing:.01em;text-transform:none}
 .camp .go .enlab{color:var(--gold-deep);text-align:right}
 .enlab-always{display:block;font-size:12.5px;color:#4E6273;line-height:1.5}
 /* 中/EN toggle — icon-only on purpose: a student who cannot read the interface
