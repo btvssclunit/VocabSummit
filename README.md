@@ -49,7 +49,7 @@ css/    app.css        every stream-page style, incl. the BVSS palette tokens
 
 data/   g1|g2|g3|hcl.json   generated vocabulary, one file per stream
         id_registry.json    stable word IDs — always commit together with the JSON
-        xh_v3.json          启航码头 word list — 149 words in 8 groups (数字 has no sprites)
+        xh_v3.json          启航码头 word list — 150 words in 8 groups (数字 has no sprites)
         search_index.json   词/拼音/英文/所属站 only — the cross-station search index
 
 art/    bg/            scene + progression backdrops

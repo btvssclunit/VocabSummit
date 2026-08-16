@@ -80,7 +80,7 @@
 | 1 | 这里的鱼很新鲜。 | The fish here is very fresh. | 鱼 |
 | 2 | 我要买两个番茄。 | I want to buy two tomatoes. | 番茄 |
 | 3 | 请问十个鸡蛋多少钱？ | Excuse me, how much are ten eggs? | 鸡蛋 |
-| 4 | 我想买一只鸡。 | I want to buy a whole chicken. | 鸡 |
+| 4 | 我想买一只整鸡。 | I want to buy a whole chicken. | 整鸡 |
 | 5 | 我买了六只螃蟹。 | I bought six crabs. | 螃蟹 |
 | 6 | 菜市场的菜比超级市场便宜。 | Vegetables at the wet market are cheaper than at the supermarket. | ⚠️ 菜市场 · ⚠️ 超级市场 |
 | 7 | 请问一包辣椒多少钱？ | Excuse me, how much is a packet of chillies? | ⚠️ 辣椒 |
@@ -90,8 +90,12 @@
 
 「注 #1」A wet market is so called because the floors are hosed down constantly. Produce is fresher and cheaper than a supermarket's, and stallholders are often the same families for decades.
 「注 #6」The 比 comparison. Wet markets survive on lower rent and no packaging.
-⚠️ **#4 的干扰项是动物，不是食材** — 鸡 属 动物 组。语言上正确，请勿修正。
-⚠️ **鸡腿已取消**，避免与 鸡肉 的美术碰撞。
+⚠️ **#4 已按 owner 2026-08-16 的裁定改写**（CSV 选项 a，「wet market chicken to show the
+raw plucked chicken」）：目标词由 鸡 改为 **整鸡**（食物 · 肉与蛋），因此**干扰项现在是食材，
+不再是动物**。动物组的 鸡 维持活鸡不动，两者同字不同组不同义，与 鱼／热带鱼 是同一种有价值的对照。
+⚠️ **鸡腿已取消**（§4.1）。注意 鸡肉 的 sprite 本身就是那张鸡腿图，所以 整鸡（整只去毛）与
+鸡肉（一只鸡腿）在 肉与蛋 子类里靠形状区分——列为观察项，若 `stats.confused` 显示真的会混，
+再列入互斥干扰名单。
 
 ---
 
