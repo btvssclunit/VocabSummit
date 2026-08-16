@@ -192,7 +192,11 @@
     "学校": "xué xiào", "天气与自然": "tiān qì yǔ zì rán", "交通": "jiāo tōng",
     "陆上动物": "lù shàng dòng wù", "水中与空中": "shuǐ zhōng yǔ kōng zhōng",
     "熟食": "shú shí", "肉与蛋": "ròu yǔ dàn",
-    "水果与蔬菜": "shuǐ guǒ yǔ shū cài", "饮料": "yǐn liào"
+    "水果与蔬菜": "shuǐ guǒ yǔ shū cài", "饮料": "yǐn liào",
+    /* 组别 / 子类 —— 它们同时也是屏幕上的文字，所以两张表都要有 */
+    "地点": "dì diǎn", "数字": "shù zì",
+    "蔬菜与调料": "shū cài yǔ tiáo liào", "组屋区": "zǔ wū qū",
+    "去处": "qù chù", "买东西": "mǎi dōng xī"
   };
   /* the interface gloss. Missing keys return "" — silent by design, same as the
      mountain's pyl(), which is why the syllable self-check below exists. */
@@ -429,9 +433,12 @@
   var XH_GROUP_EN = {
     "动物": "Animals", "食物": "Food", "日常用品": "Everyday things",
     "学校": "School", "天气与自然": "Weather and nature", "交通": "Getting around",
+    "地点": "Places", "数字": "Numbers",
     "陆上动物": "Land animals", "水中与空中": "Water and sky",
     "水果与蔬菜": "Fruit and vegetables", "熟食": "Cooked food",
-    "肉与蛋": "Meat and eggs", "饮料": "Drinks"
+    "肉与蛋": "Meat and eggs", "饮料": "Drinks",
+    "蔬菜与调料": "Vegetables and seasonings", "组屋区": "Around the block",
+    "去处": "Places to go", "买东西": "Shopping"
   };
   /* ⚠️ One icon per 组别. The scope chips are the FIRST thing a zero-Chinese
      student meets, before any round starts and before they can read 天气与自然 —
@@ -442,6 +449,23 @@
     "动物": "🐾", "食物": "🍜", "日常用品": "🧺", "学校": "🎒",
     "天气与自然": "🌦️", "交通": "🚌", "地点": "📍", "数字": "🔢"
   };
+  /* ⚠️ COMPLETENESS SELF-CHECK. The syllable check below catches a WRONG pinyin;
+     it cannot catch a MISSING one, and a missing key is silent (xhPy returns "").
+     地点 and 数字 shipped with no pinyin and no English for exactly that reason.
+     This walks the real data and warns for any 组别/子类 that either table lacks. */
+  function checkGroupLabels() {
+    var seen = {}, miss = [];
+    WORDS.forEach(function (w) {
+      [w.组别, w.子类].forEach(function (k) {
+        if (!k || seen[k]) return;
+        seen[k] = 1;
+        if (!XH_PY[k] || !XH_GROUP_EN[k]) {
+          miss.push(k + (XH_PY[k] ? "" : " (无拼音)") + (XH_GROUP_EN[k] ? "" : " (无英文)"));
+        }
+      });
+    });
+    if (miss.length) console.warn("[xh] 组别/子类 缺少拼音或英文：", miss.join(" · "));
+  }
   function xhGroupIc(zh) {
     var ic = XH_GROUP_IC[zh];
     return ic ? '<span class="xh-gchip-ic">' + ic + "</span>" : "";
@@ -616,6 +640,15 @@
      Distractors now come from the target word's own 组别, exactly like every other
      mode here — this REMOVES a special case rather than adding one. */
   var PHRASES = [];
+  /* ⚠️ Scene backdrops (HANDOFF §2). A 传声筒 round is drawn from ONE scene so this
+     image can stay put for the whole round — a backdrop that changed every question
+     would be noise, and the scene is the reason the sentence sounds natural at all. */
+  var SCENE_BG = {
+    "学校": "scene_school", "交通": "scene_transport", "购物商场": "scene_mall",
+    "菜市场": "scene_market", "便利店": "scene_minimart", "熟食中心": "scene_hawker",
+    "组屋区": "scene_hdb", "动物园": "scene_zoo", "农场": "scene_farm",
+    "水族馆": "scene_aquarium"
+  };
   /* sentences that are shown for atmosphere but never asked (PATCH_02 §4.2/§4.3):
      the target is tile-only with no picture, or the line has no target at all. */
   function phraseAskable(p) { return p && !p.display && p.ask; }
@@ -1605,10 +1638,26 @@
          with the same state shape so render()/jetty()/renderResult() need no
          special cases. */
       if (mode === "phrase") {
-        var ph = shuffle(phrasesFor(pool).slice()).slice(0, need);
+        var all = phrasesFor(pool);
+        if (!all.length) return;
+        /* ⚠️ ONE SCENE PER ROUND — same idea as the 子类 theming for the other modes:
+           only scenes that can FILL the round are eligible, so a thin one (农场 has
+           4 sentences) is never the theme rather than being the reason a round comes
+           out mixed. If none can fill it, take the fullest and run a shorter round:
+           still coherent, still one backdrop. */
+        var byScene = {}, scenes = [];
+        all.forEach(function (q) {
+          if (!byScene[q.scene]) { byScene[q.scene] = []; scenes.push(q.scene); }
+          byScene[q.scene].push(q);
+        });
+        var big = scenes.filter(function (k) { return byScene[k].length >= need; });
+        var pickScene = big.length
+          ? big[Math.floor(Math.random() * big.length)]
+          : scenes.sort(function (a, b) { return byScene[b].length - byScene[a].length; })[0];
+        var ph = shuffle(byScene[pickScene].slice()).slice(0, need);
         if (!ph.length) return;
-        state = { grp: sub || scopeLabel(), mode: mode, seq: ph, i: 0, correct: 0,
-                  missed: [], firstTry: true, pool: pool };
+        state = { grp: pickScene, mode: mode, seq: ph, i: 0, correct: 0,
+                  missed: [], firstTry: true, pool: pool, scene: pickScene };
         ph.forEach(function (p) {
           var w = wordByText(p.ask), f = p.pic || (w && w.图档);
           if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
@@ -1904,9 +1953,19 @@
     var opts = shuffle([w].concat(distractors(w, optCount() - 1, "enmcq")));
     var pic = p.pic || (w && w.图档);
 
+    /* ⚠️ THE SCENE IS AN AMBIENT BACKDROP, NOT A STAGE (HANDOFF §2, which retired the
+       earlier model). Nothing is positioned against it: the target's sprite lives
+       INSIDE the panel as a word-card illustration, so the art needs no clear ground
+       area and all ten backgrounds are usable as delivered — including 熟食中心,
+       whose big round table sits dead centre and was a defect under the old model.
+       The dimming lives in CSS on ONE class, so a background that comes out too
+       bright is a single knob, never an art re-export. */
+    var bg = SCENE_BG[state.scene || p.scene];
     var h = '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(p.scene) + " · 传声筒</span></div>" +
-      '<div class="xh-board xh-stage xh-phrase">' +
+      (bg ? '<div class="xh-scene-bg" style="background-image:url(&quot;art/xh/' +
+            esc(bg) + '.png' + ASSET_V + '&quot;)"></div>' : "") +
+      '<div class="xh-board xh-stage xh-phrase' + (bg ? " on-scene" : "") + '">' +
       (pic ? '<img class="xh-ph-pic" src="art/xh/' + esc(pic) + ASSET_V + '" alt="" ' +
              "onerror=\"this.style.display='none'\">" : "") +
       '<div class="xh-ph-zh">' + phraseBlank(p) + "</div>" +
@@ -2439,6 +2498,7 @@
     .then(function (rows) {
       WORDS = rows;
       if (!store.mode) store.mode = "pic";
+      checkGroupLabels();
       renderMenu();
     })
     .catch(function () {

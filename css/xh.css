@@ -263,17 +263,18 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .xh-hero-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
 .xh-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:center 62%;image-rendering:pixelated}
-/* the scrim is what keeps the title legible over whatever part of the art the
-   crop lands on — the same trick the landing couplet uses */
+/* ⚠️ NO DARK SCRIM (owner 2026-08-16). This is the student's own beach — the thing
+   they buy berth items FOR — and a 74%/80% black wash was hiding it to make room
+   for a title. Text carries its own shadow instead; only a whisper of gradient is
+   left along the bottom edge, where the stat row sits. */
 .xh-hero::after{content:"";position:absolute;inset:0;
-  background:
-    linear-gradient(90deg,rgba(10,28,48,.74) 0%,rgba(10,28,48,.44) 54%,rgba(10,28,48,.08) 80%),
-    linear-gradient(180deg,rgba(10,28,48,.10) 0%,rgba(10,28,48,.52) 52%,rgba(10,28,48,.80) 100%)}
+  background:linear-gradient(180deg,rgba(10,28,48,0) 66%,rgba(10,28,48,.34) 100%)}
 /* the sub sits on the artwork's brightest band, so it needs its own lift on top of
    the scrim above — the English line was washing out entirely */
-.xh-hero-sub{text-shadow:0 1px 6px rgba(6,20,40,.95),0 0 2px rgba(6,20,40,.8)}
+.xh-hero-sub{text-shadow:0 2px 8px rgba(6,20,40,.98),0 0 3px rgba(6,20,40,.92),0 1px 1px rgba(6,20,40,.85)}
 .xh-hero-in{position:relative;z-index:1;width:100%;padding:16px 18px 14px;color:#fff}
 .xh-hero-t{font-family:var(--serif);font-weight:900;font-size:27px;letter-spacing:.04em;
+  text-shadow:0 2px 10px rgba(6,20,40,.98),0 0 4px rgba(6,20,40,.9),0 1px 1px rgba(6,20,40,.85);
   text-shadow:0 2px 6px rgba(6,20,40,.75)}
 .xh-hero-sub{font-size:13.5px;font-weight:700;margin-top:2px;margin-bottom:2px;color:#DCEBF7;
   text-shadow:0 1px 4px rgba(6,20,40,.7)}
@@ -1119,3 +1120,29 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   background:rgba(255,255,255,.82);border:1px solid var(--glass-line-2);
   border-radius:12px;padding:8px 12px;text-align:left;max-width:46ch;
   margin-left:auto;margin-right:auto}
+
+/* ---------- 生活空间：场景底图 + 玻璃面板 (HANDOFF §2) ----------
+   ⚠️ 底图是**氛围**，不是舞台：没有任何互动元素跟它对位，目标词的图在面板里面。
+   所以十张背景图原样可用，不必为「留白区」重画。 */
+.xh-scene-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-position:center;background-size:cover;background-repeat:no-repeat;
+  image-rendering:pixelated;
+  /* ⚠️ 压暗压灰只有这一个旋钮。哪张场景图偏亮就调这里，不要回头改美术——
+     十张图的亮度不一致是必然的，改美术等于把一个参数拆成十份。 */
+  filter:saturate(.62) brightness(.82);}
+/* 底图之上再压一层白纱：单靠 filter 仍不足以保证任意底图下的文字对比度 */
+.xh-scene-bg::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(rgba(247,250,252,.46),rgba(247,250,252,.60))}
+/* ⚠️ 面板必须有**不透明底色**，不能只靠 backdrop-filter。只有模糊时，可读性
+   取决于底图恰好是哪几个像素——不可控。.90 是这里的最低不透明度，别调低。 */
+.xh-phrase.on-scene{position:relative;z-index:1;
+  background:rgba(255,255,255,.90);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);box-shadow:var(--glass-lift),var(--glass-edge)}
+/* 回合条也要浮在底图之上，否则它会被场景图盖住 */
+.xh-round-bar{position:relative;z-index:1}
+/* ⚠️ 旧 iPad 上 backdrop-filter 很吃效能，而旧 iPad 正是 G1/G2 学生的主力机型。
+   没有 backdrop-filter 时直接给纯色，成本为零，可读性反而更稳。 */
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .xh-phrase.on-scene{background:rgba(255,255,255,.97)}
+}

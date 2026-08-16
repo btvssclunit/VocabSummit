@@ -339,7 +339,14 @@
      into G1. Re-verified 2026-08-16 after G3 moved up and HCL moved down: the
      corridor is now between G3's foot and G1's peak, so the waypoint moved with
      them. All 20 routes checked clear at 1920x990, 1366x768 and 1024x600. */
-  var SEA_DETOUR = { "G2_index.html|HCL_index.html": [52, 41] };
+  /* ⚠️ 横屏绕行航路点。二次贝塞尔在**半程**穿过这个点。
+     G2↔HCL：G3 摆到正中之后三点共线，任何弧高都清不掉，只能绕。
+     dock↔HCL：这条**本来就在压 G1**（不是 2026-08-16 那次错落调整造成的，
+     调整前的线上版本同样会压），本轮一并修掉。 */
+  var SEA_DETOUR = {
+    "G2_index.html|HCL_index.html": [52, 41],
+    "dock|HCL_index.html": [48, 38]
+  };
   /* ⚠️ PORTRAIT SEA LANES (owner 2026-08-16: 「the mobile sea map needs a more
      natural sail route」). Portrait used to take the default arc — a near-straight
      run down the middle channel, which read as teleporting in a line rather than
@@ -378,6 +385,7 @@
     var boat = document.getElementById("lpBoat");
     var busy = false;
     var BERTH_KEY = "ws_seamap_at";
+    var boatTurn = 0;          // interval that turns the bow along the curve
 
     function skipSail() {
       /* ⚠️ Portrait NO LONGER skips (owner 2026-08-16: 「on mobile the boat doesn't
@@ -471,10 +479,17 @@
       // read the OLD berth before overwriting it — it names where this voyage
       // departs from, which is what selects the detour
       var prev = readBerth();
-      try {
-        localStorage.setItem(BERTH_KEY,
-          JSON.stringify({ go: go, boat: h[0] + (h[1] ? " flip" : "") }));
-      } catch (e) {}
+      /* ⚠️ the berth stores the heading the boat will be facing WHEN IT ARRIVES,
+         not the chord heading. Those differ on every bent voyage, and this value
+         is what pageshow restores — get it wrong and the boat sits at its island
+         pointing the way it set off. Filled in below once the curve is known. */
+      function saveBerth(hh) {
+        try {
+          localStorage.setItem(BERTH_KEY,
+            JSON.stringify({ go: go, boat: hh[0] + (hh[1] ? " flip" : "") }));
+        } catch (e) {}
+      }
+      saveBerth(h);            // provisional: skipSail() below may return early
       if (skipSail()) { location.href = go; return; }
 
       boat.className = "sea-boat h-" + h[0] + (h[1] ? " flip" : "");
@@ -485,6 +500,7 @@
          pass THROUGH at the halfway mark, which for a quadratic means
          C = 2W - (start + end)/2. */
       var key = ((prev && prev.go) || "dock") + "|" + go;
+      var lastHeading = h;      // updated by faceAlong as the voyage bends
       var rkey = go + "|" + ((prev && prev.go) || "dock");
       /* portrait now has its own lane table; landscape keeps the two detour pairs */
       var alt = portrait()
@@ -508,6 +524,50 @@
       boat.classList.remove("sailing");
       void boat.offsetWidth;
       boat.classList.add("sailing");
+
+      /* ⚠️ THE BOW FOLLOWS THE CURVE, not the straight line between the two berths
+         (owner 2026-08-16: 「this boat was moving with its side leading the way」).
+         The heading used to be computed ONCE from the chord, but the track is a
+         quadratic: on a bent voyage the chord direction is not the direction of
+         travel at any point except the middle, so the boat crabbed sideways and
+         moored side-on.
+         Tangent of B(t)=(1-t)²S+2(1-t)tC+t²E is B'(t)=2(1-t)(C-S)+2t(E-C).
+         Position stays a pure CSS transform (animating left/top was the jank the
+         owner reported); this only swaps the sprite ~a dozen times, which is a
+         cheap img src change and never touches layout. */
+      var sx = fromX, sy = fromY, ex = toX, ey = toY, ccx = cx, ccy = cy;
+      function tangentAt(t) {
+        return [2 * (1 - t) * (ccx - sx) + 2 * t * (ex - ccx),
+                2 * (1 - t) * (ccy - sy) + 2 * t * (ey - ccy)];
+      }
+      if (boatTurn) clearInterval(boatTurn);
+      var t0 = Date.now(), lastH = "";
+      function faceAlong(t) {
+        var v = tangentAt(Math.max(0, Math.min(1, t)));
+        if (!v[0] && !v[1]) return;
+        var hh = boatHeading(v[0], v[1]);
+        var key = hh[0] + (hh[1] ? "|f" : "");
+        if (key === lastH) return;            // only touch the DOM when it changes
+        lastH = key;
+        boat.className = "sea-boat sailing h-" + hh[0] + (hh[1] ? " flip" : "");
+        boat.querySelector("img").src = boatArt(hh[0]);
+        lastHeading = hh;                      // what it is facing when it moors
+      }
+      faceAlong(0);
+      /* the tangent AT ARRIVAL is known now, so the berth can be corrected before
+         the voyage even starts — pageshow may fire before it finishes */
+      (function () {
+        var v = tangentAt(1);
+        if (v[0] || v[1]) saveBerth(boatHeading(v[0], v[1]));
+      })();
+      boatTurn = setInterval(function () {
+        var t = (Date.now() - t0) / 1700;
+        /* the CSS keyframes distribute t with ease-in-out; mirror that so the turn
+           reads in step with the movement rather than running ahead of it */
+        var e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        faceAlong(e);
+        if (t >= 1) { clearInterval(boatTurn); boatTurn = 0; }
+      }, 90);
 
       // navigate the moment it moors: no confirmation, no toast, no pause.
       var done = false;

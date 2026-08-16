@@ -1157,6 +1157,12 @@
            being able to read the interface it fixes. */
         enToggleHtml() +
         pyToggleHtml() +
+        /* ⚠️ 查词 = the FIVE-STATION search, and it is now the ONLY search on a
+           stream page (owner 2026-08-16). It sits in the topbar so it is in the
+           same place on all five lands — a student who learns it at the pier finds
+           it unchanged on a mountain. */
+        '<button class="tb-en" id="tbFind" title="查词语" aria-label="查词语">' +
+          '<span class="tb-en-ic">🔎</span><span class="tb-en-lab">查词</span></button>' +
         /* avatar + nickname in one pill: this is now the ONLY 我的档案 entry on a
            stream page (the duplicate chip under the stats bar was removed
            2026-08-13). Nickname hides under 520px so the topbar still fits. */
@@ -1164,6 +1170,11 @@
           '<span class="tb-av">' + tbAvatarHtml() + '</span>' +
           '<span class="tb-nick">' + esc((loadProfile() || {}).nickname || "我的档案") + '</span>' +
         '</button></div>';
+    var fb = document.getElementById("tbFind");
+    if (fb) fb.onclick = function () {
+      /* hand it OUR speak — search.js ships no TTS stack of its own on purpose */
+      if (window.WSSearch) window.WSSearch.open({ speak: speak });
+    };
     document.getElementById("tbBack").onclick = function () {
       if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
     };
@@ -1531,46 +1542,7 @@
   }
 
   /* ---------- home ---------- */
-  /* home search bar: look up ANY word in this stream by 词/拼音(去声调)/释义 */
-  function wireHomeSearch() {
-    var hs = document.getElementById("homeSearch");
-    if (!hs) return;
-    ensureIdIndex();
-    hs.oninput = function () {
-      var q = hs.value.trim();
-      var box = document.getElementById("hsResults");
-      if (!box) return;
-      if (!q) { box.innerHTML = ""; return; }
-      var ql = q.toLowerCase();
-      var matches = WORDS.filter(function (w) {
-        if (w.w.indexOf(q) !== -1) return true;
-        if (w.zh && w.zh.indexOf(q) !== -1) return true;
-        var py = (w.py || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-        return py.indexOf(ql) !== -1;
-      }).slice(0, 30);
-      if (!matches.length) { box.innerHTML = '<div class="hs-empty">没有找到相关词语。</div>'; return; }
-      box.innerHTML = matches.map(function (w) {
-        return '<button class="hs-row" data-id="' + esc(w.id) + '">' +
-          '<div class="hs-w"><b>' + esc(w.w) + '</b> <span class="hs-py">' + esc(w.py) + '</span>' +
-          ' <span class="hs-tag">' + esc(w.level) + '·' + esc(w.unit) + '</span></div>' +
-          '<div class="hs-zh">' + esc(w.zh) + '</div></button>';
-      }).join("");
-      Array.prototype.forEach.call(box.querySelectorAll(".hs-row[data-id]"), function (r) {
-        r.onclick = function () {
-          var w = WORDS[_idIndex[r.getAttribute("data-id")]];
-          if (w) speak(w.w);
-        };
-      });
-    };
-    /* 五站查词 (§3.3). ⚠️ Hand it OUR speak — search.js deliberately ships no TTS
-       stack of its own, because a third copy of the voice-scoring / cancel-then-
-       50ms / iOS-primer lessons would rot. */
-    var all = document.getElementById("hsAll");
-    if (all) all.onclick = function () {
-      if (window.WSSearch) window.WSSearch.open({ speak: speak });
-    };
-  }
-
+  /* ---------- home ---------- */
   function renderHome() {
     setFbCtx(null, null);      // a report from home is general, not about a word
     setTopbar("landing", "");
@@ -1587,16 +1559,12 @@
        now the banner itself. */
     var html = '<div class="home-grid"><div class="home-left">';
 
-    /* Two searches, deliberately NOT merged. This one is over THIS stream and
-       shows 释义 + 年级·单元 — richer, and what a student wants 95% of the time.
-       The 五站 one below it is read-only, shows 词语/拼音/英文 only, and reaches
-       the dock and the other three mountains (§3.3). Folding the second into the
-       first would either flood this box with 3,741 rows or strip the 释义 that
-       makes it useful. */
-    html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
-      'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div>' +
-      '<button class="hs-all" id="hsAll">🔎 也查其他学段和码头的词语' + pyl("也查其他学段和码头的词语") +
-      enl("也查其他学段和码头的词语") + "</button></div>";
+    /* ⚠️ THE IN-STREAM SEARCH CARD IS GONE (owner 2026-08-16). One search, in the
+       topbar, identical on all five lands. Known trade-off, accepted: that box
+       showed 释义 and 年级·单元 for the current stream, which the五站 index cannot —
+       it deliberately carries only 词/拼音/英文/所属站 so it stays 178KB and
+       lazy-loads on school wifi. If per-stream 释义 is wanted back, it belongs in
+       我的词语表, which already has the full word objects. */
 
     html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围 · 可多选") + enl("复习范围 · 可多选") + '</div>' +
       '<div class="card" id="scopeCard">' +
@@ -1808,7 +1776,6 @@
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
     document.getElementById("lbEntry").onclick = renderLeaderboard;
-    wireHomeSearch();
     document.getElementById("masteryInfo").onclick = showMasteryInfo;
     /* the banner IS 我的词山 now — tapping it opens the tall per-stream art (§3) */
     var lsc = document.getElementById("lscapeBtn");
@@ -2765,7 +2732,7 @@
     "词语汉兜": "Word Puzzle",
     "出发": "Start",
     "我的词语表": "My word list",
-    "也查其他学段和码头的词语": "Search other levels and the pier",
+    "查词": "Search",
     "词山风云榜": "Leaderboard",
     "成就徽章": "Badges",
     "题型": "Question type",
@@ -2908,7 +2875,7 @@
     "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
     "词雨灵露": "cí yǔ líng lù", "攀山竞速": "pān shān jìng sù", "组词挑战": "zǔ cí tiǎo zhàn",
     "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
-    "也查其他学段和码头的词语": "yě chá qí tā xué duàn hé mǎ tóu de cí yǔ",
+    "查词": "chá cí",
     "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     "学习支援": "xué xí zhī yuán", "填空挑战": "tián kòng tiǎo zhàn",
