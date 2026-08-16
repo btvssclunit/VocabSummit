@@ -398,14 +398,30 @@
         boat.style.setProperty("--hy", cs.getPropertyValue("--ty").trim());
         var h = (b.boat || "away_diag").split(" ");
         boat.className = "sea-boat h-" + h[0] + (h[1] === "flip" ? " flip" : "");
-        boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
+        boat.querySelector("img").src = boatArt(h[0]);
       } else {
         boat.style.removeProperty("--hx");     // fall back to the jetty
         boat.style.removeProperty("--hy");
         boat.className = "sea-boat h-away_diag";
-        boat.querySelector("img").src = "art/seamap/boat_away_diag.png";
+        boat.querySelector("img").src = boatArt("away_diag");
       }
     }
+    /* ⚠️ THE SEA-MAP BOAT IS THE STUDENT'S OWN BOAT (owner 2026-08-16 evening). It
+       was a fixed art/seamap/boat_*.png for everyone, unrelated to anything owned —
+       which is why the owner could not find「my boat」: a 400-shell purchase changed
+       one picture on one pier screen and nothing here.
+       Tier 2 (彩绘舢板) IS that old sprite, byte-identical, so buying it restores
+       exactly what the map used to show. A student with no boats sails tier 1, the
+       plain sampan: a visibly plainer default, accepted deliberately so there is
+       something to earn. Ownership is global (ws2_profile), so it works here even
+       though this page has no stream and no pier store.
+       ⚠️ This is a READ of a cosmetic choice, not a currency or progress transfer —
+       the waterline is untouched. */
+    function boatArt(dir) {
+      if (window.WSBoats && window.WSBoats.art) return window.WSBoats.art(window.WSBoats.pick(), dir);
+      return "art/seamap/boat_" + dir + ".png";     // profile.js absent: today's art
+    }
+
     // pageshow fires on a normal load AND on a bfcache restore (persisted:true),
     // which a plain load/DOMContentLoaded listener would miss entirely.
     window.addEventListener("pageshow", resetBoat);
@@ -435,7 +451,7 @@
       if (skipSail()) { location.href = go; return; }
 
       boat.className = "sea-boat h-" + h[0] + (h[1] ? " flip" : "");
-      boat.querySelector("img").src = "art/seamap/boat_" + h[0] + ".png";
+      boat.querySelector("img").src = boatArt(h[0]);
 
       /* control point for the quadratic the CSS draws. Default is the midpoint
          lifted into an arc; a detoured pair instead names a point the track must
@@ -518,7 +534,16 @@
         var av = (window.WSProfile && window.WSProfile.avatarImgHtml)
           ? window.WSProfile.avatarImgHtml(profile.avatarId) : "👤";
         greet.innerHTML = '<span class="lp-nick"><span class="lp-av">' + av + '</span>' + esc(profile.nickname) + '</span>' +
+          '<button class="code-link" id="lpFindBtn">🔎 查词语</button>' +
           '<button class="code-link" id="lpProfileBtn">👤 我的档案</button>';
+        /* 五站查词 (§3.3). ⚠️ NO speak is passed: the landing page loads no TTS
+           stack at all, so search.js renders no speaker buttons rather than
+           duplicating one badly. Same graceful-degrade habit as every sprite
+           onerror in this repo. */
+        var findBtn = document.getElementById("lpFindBtn");
+        if (findBtn) findBtn.onclick = function () {
+          if (window.WSSearch) window.WSSearch.open();
+        };
         var profBtn = document.getElementById("lpProfileBtn");
         if (profBtn) {
           profBtn.onclick = function () {

@@ -23,18 +23,21 @@ Firestore, hardcoded vocab arrays, a teacher dashboard, unit-level challenge scr
 service worker. Its files can surface in project searches and look similar. Its conventions do
 NOT apply here; never copy code or design assumptions between the two without checking.
 
-## File structure (FOLDERED since 2026-08-14 — the old FLAT rule is retired)
+## File structure (FOLDERED since 2026-08-14; code foldered 2026-08-16 — the old FLAT rule is retired)
 
 ⚠️ **This reverses the previous "FLAT — deliberately / do NOT introduce subfolders" rule.** The owner
 asked for it on 2026-08-14: 83 files at repo root (61 of them PNGs) made the GitHub file list
-unreadable. Code and entry points stay at root; assets and data moved down:
+unreadable. Assets and data moved down that day; **the CODE followed on 2026-08-16** (see the
+仓库再整理 section). Only the entry pages stay at root, because they are the published URLs:
 
     /                 index.html · G1/G2/G3/HCL_index.html · XH_index.html
-                      teacher.html · voices.html · sound.html
-                      app.js · app.css · arena.js · profile.js · nickname.js · firebase-init.js
-                      xh.js · xh.css                    ← 学海启航 码头, standalone
+                      teacher.html                       ← standalone, loads no shared JS
                       CLAUDE.md · README.md · firestore.rules · .gitignore
-    data/             g1/g2/g3/hcl.json · id_registry.json · xh_mvp.json
+    js/               app.js · arena.js · profile.js · nickname.js · firebase-init.js
+                      xh.js                              ← 学海启航 码头, standalone
+    css/              app.css · xh.css
+    tools/            voices.html · sound.html           ← device diagnostics
+    data/             g1/g2/g3/hcl.json · id_registry.json · xh_v3.json
     art/bg/           landing_hero_bg · hero_bg · study_bg · rain_bg · sprint_bg · mountain_bg
                       · climb-wall-tile · bg-01..05
     art/badge/        badge_shkj/hx/gg/jj/whz            ← A层 里程碑 (1092px, 不透明白底)
@@ -44,12 +47,21 @@ unreadable. Code and entry points stay at root; assets and data moved down:
     art/camp/         camp_bg · tent · gear_* (11) · deco_* (10) · pet_* (4) · linglu
     art/item/         consumable_* (7) · powerup_* (3)   ← 2026-08-14, system NOT built
     art/sprite/       sprite_g1/g2/g3/hcl_raw · tileset_raw   (8-bit art awaiting processing)
+    art/sprite/avatar/ *_sprite.png (21)                 ← 6 帧可玩精灵, 朝右 — 第三个资产家族
     art/seamap/       sea_tile · dock_jetty · island_g1/g2/g3/hcl · boat_* (5)
                                                         ← 2026-08-15 航海选择页
     art/mountain/     mtn_g1/g2/g3/hcl                  ← 2026-08-15 per-stream 我的词山
-    art/xh/           xh_*.png (142)                    ← 看图识词 sprites
+    art/xh/           xh_*.png (100 词 sprite + xh_atlas_cover) · dock_* · dock_bg · harbour_bg
+                      · boat_t1/t2/t3_* (3 级 × 5 向)
+    art/xh/badges/    xh_badge_{shell,coral,pearl,compass,lighthouse}   ← 五枚航海徽
     archived_art/     the 13 garden-era PNGs cut by the 便携化 pass
     docs/             HANDOFF_*.md
+
+⚠️ **Two path rules that are easy to break** (added 2026-08-16 when the code moved): a stylesheet's
+`url()` resolves against the **stylesheet**, so `css/*.css` climbs with `../art/…`; every path built
+in **JavaScript** resolves against the **page**, and the pages are still at root, so JS keeps
+`art/…` / `data/…` unchanged. The three files reading `document.currentScript.src` take only the
+`?v=` query off it, never the directory, so moving a script does not affect cache-busting.
 
 Every reference was rewritten mechanically and verified: **61 distinct asset paths, zero missing.**
 The four DYNAMIC stream-JSON fetches needed hand-editing and are the ones to remember if a new one
@@ -4167,3 +4179,121 @@ G1 显示 bg-02）。**横幅上的进度文字只属于段位／历练值**，�
 逐一核对正确；方向提示在 390×844 出现、在 834×1112（竖着的 iPad）与 844×390 都不出现；
 两个宽度都无横向滚动、零破图。Cache-bust `20260816n` → **`20260816p`**。
 ⚠️ 未在真设备上验：横幅在手机上的实际高度占比，以及方向提示条会不会在小屏上挤掉一行题目。
+
+## 通用搜索 · 船只四级 · 版面五改 · 码头脚手架 · 2026-08-16 (晚)
+
+输入是 `DESIGN_迭代规划_码头生活空间与传声筒_20260816.md` 加 owner 会话中的十余条追加要求。
+交接说明与美术清单另存 `docs/BRIEF_生活空间与传声筒_待办与美术需求_2026-08-16.md`。
+
+### 0. ⚠️ 设计文档与代码不符的四处（照做会出事，已在 BRIEF §A 展开）
+1. **§3.2「删掉图鉴的发现字段」——没做，也别做。** `store.done` 不是图鉴专用：
+   航程、**五枚航海徽的门槛**、组别 chip 的「学过了 N」、码头风云榜的识词数榜都读它。
+   删掉会同时清空徽章和榜单。
+2. **§3.2「船的第三个露出面会消失」——前提是错的。** 回合进度条用的是固定
+   `art/seamap/boat_broadside.png`，图鉴封面是静态 `xh_atlas_cover.png`，两者都与等级无关。
+   图鉴退役对船零影响。
+3. **§2.2 的 JSON 例子用 `"w"`**，实际 schema 是中文键 `词语/拼音/英文释义/图档/组别/子类`。
+4. **§3.2 的「词语表」大半已经存在**（2026-08-16 早些时候重建过图鉴）。文档像是对着更早那个
+   点不动的版本写的。真正缺的只有改名、生活空间筛选轴、搜索。
+
+### 1. 通用搜索 · 五站（§3.3，owner 定：六个页面都挂）
+- **`data/search_index.json`：2,095 条 / 174 KB**，覆盖 3,841 行（码头 100 + 四座山 3,741）。
+  跨学段同一个词合并成一条、`src` 记多站；读音真的不同的（绷 bēng/běng）保留两条。
+  字段只有 `w/p/en/src`（+ 码头的 `im` sprite 与 `g` 组别）。**没有释义、例句、单元、进度。**
+- 生成器 `local-admin/generate_search_index.py`（`--verify`/`--write`）。
+  ⚠️ **它读 `data/*.json` 而不是 Excel 母表**，比文档要求的更保险：从母表另生成一份可能和线上
+  不一致，从线上 JSON 生成不可能不一致。跑在 `generate_vocab_json.py --write` **之后**。
+- **新 `js/search.js`**，六个页面共用。⚠️ 独立成文件是因为 `XH_index.html` 从不加载 app.js、
+  `index.html` 也不加载——它和 profile.js 是仅有的两个六页共用模块。
+- ⚠️ **不自带 TTS**：app.js 和 xh.js 各自的 `speak()` 都压着设备教训（音色评分让 eSpeak 靠后、
+  cancel 后 50ms、iOS primer）。宿主页把自己的 speak 传进来；落地页没有 TTS，就**不渲染喇叭**。
+- 三路匹配：汉字 / **无声调**拼音 / 英文。两个规范化键在**加载时算一次**，不是每次敲键都算。
+- **按站分组、码头永远第一**（这是默认排序，不是筛选器）：一个码头学生搜「水」，
+  必须先看到自己那 100 个词，而不是被 3,741 个中学词埋掉。
+- ⚠️ **只读，必须保持只读**：不写任何存储、不发任何货币、**结果不可跳转进任何活动**。
+  一旦某个结果变成一扇门，码头学生就能从这里走进山上的计分系统。这条写在 `search.js` 抬头。
+- **首次敲键才 fetch**，不在首屏。
+
+### 2. 船只四级 · 双币 · 自由更换（owner 追加）
+起因：owner 找不到自己的船。查下来船**只在码头海滩一个画面上出现过**。
+- 四级 **朴素舢板（免费）· 彩绘舢板 · 简朴帆船 · 华丽帆船**，**零张新美术**：
+  彩绘舢板就是原来海图上那条固定的船（`art/seamap/boat_*` → `art/xh/boat_t2_*`，逐字节相同），
+  旧的 t2/t3 顺位上移成 t3/t4。
+- ⚠️ **贝壳 或 灵露 都能买**（80/250 · 200/550 · 400/1000）。这是对水线密封的**收窄，不是推翻**：
+  密封禁止的是**兑换**，两个独立标价不构成兑换（没有回售，价值过不去）。理由是船现在出现在
+  **落地海图**上，而多数华文学生根本不会进码头。⚠️ **不要推广成汇率，也不要在没有同样论证的
+  情况下再加第二件双币商品。**
+- **拥有记录在全局 `ws2_profile`**（和 `avatarsOwned` 并列），四科通用；`window.WSBoats` 是唯一写入者。
+  灵露走 app.js 既有的 `registerCodeProvider.spend()` 钩子，贝壳走 xh.js —— **deduct → verify → persist**。
+- **买按顺序，开哪一艘随便**（owner）。`boatsOwned` 记拥有，`boatPick` 记正在开。
+- ⚠️ **一次性迁移** `migrateDockBoat`：旧三级 `store.boat` 旧2→新3、旧3→新4。
+  不迁移的话，花 300 贝壳买了帆船的人会莫名变成低一级的船。幂等，只加不减。
+- 船现在出现在**三处**：落地海图（`nickname.js` 读 `WSBoats.pick()`）· 每回合的进度条 · 商店。
+  ⚠️ **海滩场景里的船已移除**（owner：和画好的高脚屋叠在一起，读起来是乱不是奖励）。
+- ⚠️ 进度条的船加了 `scaleX(-1)`：sprite 是船头朝左的 broadside，而进度条从左往右走，
+  不翻转就是**倒着开**。`translateX(-50%)` 必须写在 `scaleX(-1)` **前面**。
+
+### 3. 学段页版面（owner 逐条）
+- **地景横幅换成该学段自己的岛**（`art/mountain/mtn_*.png`），bg-01..05 **回到 body 当底图**。
+  ⚠️ 这是对 2026-08-16 handoff §3 的**有意反转**：§3 把图移出 body 是因为横幅画的是同一张图，
+  一屏出现两次；现在横幅画的是**另一张**，冲突消失，两者含义也不同——
+  **底图 = 你走了多远（掌握比例）· 横幅 = 你在哪座山（学段身份）**。
+  ⚠️ 横幅若被改回 `ambiencePlate()`，`applyAmbience()` 必须同时改回清空 body。
+- ⚠️ 岛 sprite 是**调色板透明**的，宽高比 1.17-1.63，所以横幅用 **`object-fit:contain` + 海面底**，
+  **绝不 cover**——cover 会把山顶裁掉，正是 2026-08-16 顶峰光环那一轮修过的毛病。
+- **④ 结伴 从动线里删除，两个房间入口变成横幅上的药丸**（owner：房间不是学生自己会做的事）。
+  ⚠️ 因此 `.lscape` **从 `<button>` 改成 `<div>`** + 一个透明的 `.lscape-hit` 覆盖层：
+  **按钮不能嵌套按钮**，浏览器会把内层拎出来，版面静默错位。同一天在码头刚踩过这个坑。
+- **入口行 `.home-entries` 改 auto-fit**：原本写死 `1.4fr 1fr 1fr`，而我的词语表早就搬进 ① 了，
+  于是第三条轨道空着、两张卡挤在左边。auto-fit 之后增删入口都不会再留下死列。
+- 「已选 N 个单元 · 共 M 词**（已筛去 K 个板块）**」删掉后半句：板块 chip 就在下面，是重复。
+
+### 4. 码头（owner 逐条）
+- **大图移到右栏**，①② 留左栏，与学段页同构（左 = 我要做什么，右 = 我走到哪了）。
+  ⚠️ 搬动时发现 `.xh-col-l` 有一个**孤儿 `</div>`**（③ 改成导航时留下的），
+  它提前关掉了左栏，于是 ② 变成两栏的兄弟节点。DOM 检查说「在右栏里」而画面在左边，就是这个。
+- **脚手架全面补齐**（owner：码头学生是初学者，需要很强的前置支撑）：
+  「返回」此前**九处手写、零注解** → 统一走 `quitBtn()`；组别／子类加英文（新 `XH_GROUP_EN`，
+  ⚠️ 组别是**数据**，英文不放在 `XH_PY` 这张界面标签表里）；上一个／下一个／各页标题／
+  静态顶栏（海图、启航码头）全部补注解。
+- ⚠️ **看图学词卡片的拼音和英文改成 `.xh-always`**：这是「先学再测」的那一面，
+  把读音和意思藏在开关后面等于让零基础学生盯着两个不认识的字。
+  `.xh-always` 此前只对拼音生效，已扩到英文和卡片字号。
+- ⚠️ **「零基础」全站删除**（owner）：会打击那些学过华文但很弱、想来找回信心的 G1/G2 学生。
+
+### 5. 手机海图：之字形恢复 + 泊位贴岸 + 船缩小
+owner：「lost the zig zag pattern … the boat still doesn't stop at the shore, it stopped at sea」。
+这两条**互相冲突过两次**（第一版之字形导致岛重叠且无水路；第二版单列+航道解决了水路却丢了
+之字形、泊位远在海中央）。第三版：**四座岛交替贴左右边缘**（真之字形）、缩到 31-36vw
+（难度阶梯仍在 G1<G2<G3<HCL），中间保住一条 **66px 直航道**，
+**每个泊位落在航道里、紧贴自家海岸 6px**。
+⚠️ **这是脚本验算的，不是眼估的**：岛 alpha 包围盒在 390×780 下零重叠，
+**20 条有序航线沿二次贝塞尔采样（两个弧向）全部不压第三座岛**。
+**改任何一个 `--cx/--by/--w/--tx/--ty` 都要重跑这个验算。**
+船在竖屏缩小约 40%（broadside 18vw → 11vw）：18vw 在 390 屏上是 70px，**比 66px 的航道还宽**，
+所以会视觉压岛——这是正确性约束，不是审美。
+
+### 6. 验证
+离屏 WKWebView（`shot.swift`）+ **no-store** server，1440×950 / 1280×900 / 1100×900 / 390×780。
+⚠️ 本次给 `shot.swift` 加了**轮询 `window.__R`**：Promise 过不了 `evaluateJavaScript` 桥
+（WKErrorDomain 5），异步测试把结果挂在 `window.__R` 上再轮询取回。这一招以后都能用。
+⚠️ 学段页在离屏环境仍会卡在「正在装载词库」，照旧用**不加载 firebase 的临时测试页**绕开（已删）。
+实测通过：搜索 20 条（含首屏不拉索引、首次敲键只拉一次、无声调==带声调、按站分组码头第一、
+山上行不含释义、只读不写 localStorage）· 船只 12 + 11 条（四级、双价、顺序购买、自由更换、
+全局落盘、迁移三种旧值且幂等）· 贝壳实购扣 80 且自动换上、免费换回不扣费 ·
+版面（横幅是本学段的岛、底图是 bg-0x、两者不同图、房间药丸不重叠且未被解析器拎出、
+入口行铺满且等宽）· 码头（大图在右、①② 在左、步骤仍是 ①②）· 手机海图（四岛交替、
+泊位距岸 6.8-6.9%、船 35px、无横向滚动）。
+⚠️ 一次真实的语法事故值得记：批量替换「返回」按钮时留下了 `+ quitBtn() + '` 后面直接换行，
+**八处未闭合字符串**，JavaScriptCore 只报 `Unexpected EOF`。批量改字符串拼接后必须立刻 parse。
+六个 JS 全部解析通过，CSS 括号 app 966/966 · xh 488/488。
+Cache-bust `20260816p` → **`20260816q`**（七处）。
+⚠️ **仍未在真设备上跑过**：iPad 上横幅岛的观感、手机海图的实际航行手感、码头三行注解后的页面高度。
+
+### 7. 没做（等 owner / chat，见 BRIEF）
+**生活空间 + 传声筒 整层**（内容与美术阻塞：场景清单、100 词的 `scenes` 标签、每场景 6-8 句、
+逐句干扰项与 `insight_en`、六张背景 + 30-50 张 sprite）。试点已定 **学校**，
+它已经是一个组别、12 词 12 图都在库，**第一版可能一张新 sprite 都不用，只差一张背景**。
+**航海徽章计分方式重新设计**——owner 要整个退掉集邮框架，理由是码头是开放的、词表会一直涨，
+而「灯塔徽 = 全部词语」是一个会往后跑的终点，等于凭空收回学生的努力。委托内容见 BRIEF §E。
+⚠️ 在新方案定下来之前**没有动**徽章和图鉴的代码：先拆旧的只会留下一个空屏幕。

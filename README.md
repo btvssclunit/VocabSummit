@@ -40,6 +40,7 @@ js/     app.js         the whole stream engine: data loading, study modes, games
         arena.js       结伴登峰 / 同伴挑战 live rooms (deliberately isolated from app.js)
         profile.js     我的档案, 头像目录, 进度码, 意见反馈 — the sole owner of ws2_profile
         nickname.js    landing gate, nickname picker, sea map + sailing
+        search.js      通用搜索 — one word lookup across all five stations, read-only
         firebase-init.js  anonymous auth + Firestore helpers
         xh.js          启航码头 (never loads app.js; its own store, its own economy)
 
@@ -49,6 +50,7 @@ css/    app.css        every stream-page style, incl. the BVSS palette tokens
 data/   g1|g2|g3|hcl.json   generated vocabulary, one file per stream
         id_registry.json    stable word IDs — always commit together with the JSON
         xh_v3.json          启航码头 word list (看图学词)
+        search_index.json   词/拼音/英文/所属站 only — the cross-station search index
 
 art/    bg/            scene + progression backdrops
         badge/         A层 里程碑徽章 (5) + B层 对战奖牌 (8)
@@ -64,6 +66,7 @@ tools/  voices.html    TTS voice diagnostic — run on a student device to check
         sound.html     audio diagnostic — WebAudio vs speech, for「no sound effects」reports
 
 docs/   HANDOFF_*.md   design handoffs
+        BRIEF_*.md     open questions and art requirements handed back to the designers
 archived_art/          retired art, kept rather than deleted
 ```
 
@@ -87,7 +90,13 @@ CLAUDE.md, 部署缓存版本号.
   mountains' 海拔 / 历练值 / 灵露.
 - Vocabulary loads from external JSON (no hardcoded arrays): 3,741 stream entries
   plus 100 at the pier.
-- 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default.
+- 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default. At the
+  pier both default ON, and the flashcard always shows them: its readers are beginners.
+- 通用搜索: look up any word from any of the five stations — 词, toneless 拼音 or English.
+  Read-only by design; a result speaks the word and never opens an activity, so the
+  pier's progress and currency stay sealed off from the mountains'.
+- 船只: four tiers shared by the pier and the landing sea map, bought with either
+  贝壳 (pier) or 灵露 (a level's camp shop), owned globally and freely swapped.
 - All example sentences are original departmental authorship. No third-party
   textbook material is used.
 
@@ -111,6 +120,8 @@ shows a friendly error, because browsers block `fetch` of local JSON files.
 2. Run `local-admin/generate_vocab_json.py` (kept with the masters, not in this repo)
    and check `--verify` before writing.
 3. Commit the changed `data/*.json` and `data/id_registry.json` **together**.
+   Then run `local-admin/generate_search_index.py --write` so the search index cannot
+   drift from what ships; it reads the published JSON, not the masters.
 4. New words are appended to the end of their component block, never inserted
    mid-block, so existing 进度码 keep decoding correctly.
 

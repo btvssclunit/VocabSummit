@@ -158,6 +158,11 @@ img{max-width:100%}
 .hs-tag{font-size:11px;color:#9FB3C0}
 .hs-zh{font-size:12.5px;color:#41576A;margin-top:2px}
 .hs-empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:12px}
+/* the 五站 search entry, under the in-stream box it complements */
+.hs-all{display:block;width:100%;margin-top:8px;padding:9px 12px;border-radius:10px;
+  font-size:12.5px;font-weight:700;color:var(--sea2);background:rgba(255,255,255,.85);
+  border:1px dashed #B9CEDD;cursor:pointer;touch-action:manipulation}
+.hs-all:active{transform:scale(.99)}
 
 .htabs{display:flex;gap:10px;margin-bottom:14px}
 .htab{flex:1;border:1px solid #B9CEDD;border-radius:14px;padding:12px 10px;font-size:16px;font-weight:700;
@@ -184,23 +189,29 @@ img{max-width:100%}
 /* 成就徽章 + 我的词语表 + 词山风云榜 in ONE row (owner 2026-08-14). The badge
    strip needs more width than the other two because it carries the badge art, so
    this is a 3-track grid weighted 1.4/1/1 rather than three equal columns. */
+/* ⚠️ auto-fit, NOT a fixed column count (owner 2026-08-16 evening:「this section is
+   janky, can they collectively take up the entire right column with the contents
+   centered」). It was `1.4fr 1fr 1fr` from when THREE entries lived here; 我的词语表
+   has since moved into the ① scope card, so the third track stayed declared and
+   empty and the two survivors huddled on the left. auto-fit makes whatever is
+   present share the full width, so removing or adding an entry can never strand a
+   dead column again. */
 .home-entries{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:14px}
-@media (min-width:760px){.home-entries{grid-template-columns:1.4fr 1fr 1fr}}
-.home-entries>*{margin-top:0}
+.home-entries>*{margin-top:0;justify-content:center;text-align:center}
 /* caption UNDER the art, never beside it (owner 2026-08-16): side-by-side, HCL's five
    36px badges left the note ~24px of card and it wrapped one character per line. */
-.badge-strip{display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-top:0;
+.badge-strip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;margin-top:0;
   background:var(--card);
-  border:1px solid var(--card-line);border-radius:16px;padding:11px 13px;width:100%;text-align:left;
+  border:1px solid var(--card-line);border-radius:16px;padding:11px 13px;width:100%;text-align:center;
   min-width:0;box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s}
 .badge-strip:hover{transform:translateY(-2px)}
-.badge-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;width:100%}
+.badge-chips{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;min-width:0;width:100%}
 .badge-chip{width:36px;height:36px;border-radius:50%;overflow:hidden;flex:none;background:#fff;
   border:2px solid var(--gold);box-shadow:0 3px 10px rgba(23,58,90,.18)}
 .badge-chip img{width:100%;height:100%;object-fit:cover;display:block}
 .badge-chip.locked{border-color:#C9DCE9}
 .badge-chip.locked img{filter:grayscale(1) opacity(.45)}
-.badge-note{font-size:12px;color:var(--ink-soft);text-align:left;line-height:1.4;
+.badge-note{font-size:12px;color:var(--ink-soft);text-align:center;line-height:1.4;
   flex:0 0 auto;min-width:0;max-width:100%}
 /* HUD/stat glosses must never widen their pill — wrap under, never push out */
 body.en-aid .harbour .enlab.i,body.en-aid .sprint-hud .enlab.i,body.en-aid .rain-hud .enlab.i,
@@ -1457,28 +1468,39 @@ body.lp-sea-on .lp-foot{display:none}
   /* --tx/--ty must be re-stated here, not just the positions: the boat now
      parks at its last berth, so a portrait layout inheriting the landscape
      moorings would leave it sitting in open water nowhere near its island. */
-  /* ⚠️ REBUILT 2026-08-16 (owner: 「G3 and HCL are too close」 + 「on mobile the boat
-     doesn't sail, it just teleports」). The old portrait layout zigzagged the four
-     islands across the full width at 46-66vw, which did two bad things at once:
-     G3's box (x129-371) and HCL's (x35-292) genuinely overlapped on a 390px screen,
-     and the zigzag left NO route from the jetty to the far peaks that stays on
-     water — which is why sailing was switched off in portrait at all.
+  /* ⚠️ ZIGZAG RESTORED, WITH THE CHANNEL KEPT — 2026-08-16 evening (owner: 「the
+     revised mobile layout lost the zig zag pattern … and the boat still doesn't
+     stop at the shore of each mountain, it stopped at sea」). Both complaints are
+     fixed together, and the reasoning matters because the two pull against each
+     other:
 
-     The fix is one idea: put the islands in a COLUMN down the left and keep a
-     clear CHANNEL down the right. Every island then has a berth in that channel,
-     so every one of the 20 voyages is a near-vertical run with open water the
-     whole way, and the gaps between islands become plain vertical gaps.
-     ⚠️ Islands must all end before x≈245px on a 390 screen (≈63%) or they eat the
-     channel. If any --w or --cx here grows, re-run the route check (see CLAUDE.md).
-     The size ladder still encodes difficulty: G1 36 < G2 40 < G3 44 < HCL 48vw. */
-  .i-g1  {--cx:27%; --by:27.5%; --w:36vw; --tx:74.4%; --ty:32.5%}   /* foot, not summit */
-  .i-g2  {--cx:30%; --by:41.9%; --w:40vw; --tx:76.9%; --ty:49.6%}
-  .i-g3  {--cx:33%; --by:60.9%; --w:44vw; --tx:76.9%; --ty:69.2%}
-  /* 48vw, not 66: at 66 the summit ran past the top edge AND into G3 */
-  .i-hcl {--cx:35%; --by:80.1%; --w:48vw; --tx:79.5%; --ty:89.3%}
-  .i-dock{--cx:21%; --by:-4%; --w:58vw; --tx:49.6%; --ty:9.8%}
+       · The FIRST portrait layout zigzagged across the full width at 46-66vw.
+         G3 and HCL genuinely overlapped on a 390px screen, and no route from the
+         jetty to the far peaks stayed on water — which is why sailing was off in
+         portrait at all.
+       · The SECOND put all four in a COLUMN down the left with a channel down the
+         right. Routes worked, but the zigzag was gone and every berth sat far out
+         in open water, nowhere near its island.
+
+     This is the third: islands ALTERNATE against the left and right edges (a real
+     zigzag), narrower (31-36vw, still a difficulty ladder G1<G2<G3<HCL), so a
+     straight 66px channel survives between the two columns at x 42%-59%. Each
+     berth then sits in that channel HARD AGAINST its own island's shore — 6px off
+     the painted edge, on the side facing the channel — so the boat moors at land
+     instead of stopping mid-sea.
+
+     ⚠️ VERIFIED BY SCRIPT, NOT BY EYE: island alpha bounding boxes composited at
+     390x780, zero pairwise overlap, and all 20 ordered voyages sampled along the
+     quadratic (both arc directions) clear of every THIRD island. Re-run that check
+     if ANY --cx / --by / --w / --tx / --ty below changes; a plausible-looking nudge
+     is exactly what silently re-blocks a route. */
+  .i-g1  {--cx:24%; --by:26%;   --w:31vw; --tx:46.4%; --ty:28.9%}
+  .i-g2  {--cx:76%; --by:42.5%; --w:33vw; --tx:52.6%; --ty:46.6%}
+  .i-g3  {--cx:25%; --by:60%;   --w:34vw; --tx:48.9%; --ty:64.2%}
+  .i-hcl {--cx:77%; --by:79.5%; --w:36vw; --tx:52.1%; --ty:84.1%}
+  .i-dock{--cx:21%; --by:-4%;   --w:58vw; --tx:50.5%; --ty:9.8%}
   .i-dock .sea-label{left:50%;bottom:29%}
-  .sea-boat{--hx:49.6%;--hy:9.8%}
+  .sea-boat{--hx:50.5%;--hy:9.8%}
   /* the pill and 返回首页 both live on the top row of a 390px screen, so the
      pill has to give up its comfortable sizing or the nickname gets clipped */
   body.lp-sea-on .lp-greeting{max-width:min(62vw,238px);padding:5px 8px 5px 6px;gap:6px}
@@ -1486,9 +1508,14 @@ body.lp-sea-on .lp-foot{display:none}
   body.lp-sea-on .lp-greeting .lp-av{width:26px;height:26px}
   body.lp-sea-on .lp-greeting .code-link{font-size:12px;padding:4px 9px}
   .sea-back{font-size:13px;padding:7px 12px}
-  .sea-boat.h-away,.sea-boat.h-toward{--bw:11vw}
-  .sea-boat.h-away_diag,.sea-boat.h-toward_diag{--bw:14vw}
-  .sea-boat.h-broadside{--bw:18vw}
+  /* ⚠️ ~40% smaller than the first portrait pass (owner 2026-08-16: 「the boat also
+     needs to be proportionally way smaller on mobile」). At 18vw the broadside hull
+     was 70px on a 390px screen — wider than the 66px sailing channel it has to fit
+     down, so it visually overlapped the islands it was passing. These widths keep
+     the hull inside the channel, which is a correctness constraint now, not taste. */
+  .sea-boat.h-away,.sea-boat.h-toward{--bw:7vw}
+  .sea-boat.h-away_diag,.sea-boat.h-toward_diag{--bw:9vw}
+  .sea-boat.h-broadside{--bw:11vw}
   .sea-label{padding:4px 10px 5px}
   .sea-label b{font-size:16px}
   .sea-label .lv{font-size:11px}}
@@ -1817,11 +1844,35 @@ button.m2pill{cursor:pointer}
    full-width at the top of a phone without any portrait special-casing (§7).
    ⚠️ The plate is the SAME image applyAmbience used to paint on the body — it is
    painted HERE and only here now, or the student sees it twice on one screen. */
+/* ⚠️ The banner art is the stream's OWN island (art/mountain/mtn_*.png), not a
+   bg-01..05 plate — owner, 2026-08-16 evening. Those PNGs are palette-TRANSPARENT
+   island portraits at 1.17-1.63 aspect, so they are staged on the sea exactly as
+   我的词山 stages them, and never cropped. */
 .lscape{position:relative;display:block;width:100%;aspect-ratio:16/9;overflow:hidden;
   border-radius:18px;padding:0;border:1px solid var(--glass-line);
-  box-shadow:var(--glass-lift);background:var(--sea1);cursor:pointer;
+  box-shadow:var(--glass-lift);cursor:pointer;
+  background:var(--sea1) url("../art/seamap/sea_tile.png") center/cover;
+  image-rendering:pixelated;
   touch-action:manipulation;margin-bottom:10px}
-.lscape-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* ⚠️ contain, NEVER cover. cover crops a 1.2-aspect island inside a 16/9 box and
+   takes the SUMMIT off — the same complaint that produced the 顶峰 crown pass.
+   The side gaps are sea, which is what an island sits in. */
+.lscape-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+/* whole-plate tap target, under the pills and over the art. Transparent on
+   purpose: the visible affordance is 全山纵览 in the corner. */
+.lscape-hit{position:absolute;inset:0;z-index:1;background:none;border:0;padding:0;
+  cursor:pointer;touch-action:manipulation}
+/* the caption must never eat the tap */
+.lscape-in,.lscape-go{pointer-events:none}
+.lscape-rooms{position:absolute;left:12px;top:12px;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+.lscape-room{font-size:12.5px;font-weight:700;color:var(--sea3);
+  background:rgba(255,255,255,.9);border:1px solid var(--glass-line);border-radius:999px;
+  padding:7px 13px;cursor:pointer;touch-action:manipulation;
+  box-shadow:0 2px 10px rgba(10,28,48,.28)}
+.lscape-room:active{transform:translateY(1px)}
+@media (max-width:560px){
+  .lscape-room{font-size:11.5px;padding:6px 10px}
+}
 .lscape::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(10,28,48,.05) 0%,rgba(10,28,48,.42) 62%,rgba(10,28,48,.78) 100%)}
 .lscape-in{position:absolute;left:14px;bottom:12px;z-index:1;text-align:left;color:#fff}
@@ -1869,7 +1920,73 @@ button.m2pill{cursor:pointer}
   padding:4px 10px;cursor:pointer;touch-action:manipulation}
 .orient-x + .orient-x{margin-left:0}
 
+/* ---------- 通用搜索 · 五站 (js/search.js, §3.3) ----------
+   ⚠️ DUPLICATED VERBATIM IN xh.css. That is deliberate and matches the standing
+   convention in this repo: XH_index.html never loads app.css, so the dock needs
+   its own copy, exactly as it already carries copies of the palette tokens and
+   of the rules profile.js needs. Change one, change the other.
+   z-index 72: above .pop-card (60) and the avatar info card (68) because it is a
+   top-level dialog, below arena (90) and the celebration layer (300). */
+.wss-overlay{position:fixed;inset:0;z-index:72;display:flex;align-items:flex-start;
+  justify-content:center;padding:6vh 16px 16px;background:rgba(20,44,68,.42);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+/* ⚠️ .95, NOT var(--glass-strong) (.72). CLAUDE.md warns against LOWERING the
+   glass alphas; this raises one, for the same reason .pop-card went .82 -> .95
+   on 2026-08-14: this is a dense list of small text sitting over busy pixel art
+   (the pier, the sea map, bg-01..05), and readability beats the effect here. */
+.wss-card{width:min(680px,100%);max-height:88vh;display:flex;flex-direction:column;
+  border-radius:22px;padding:16px 16px 8px;background:rgba(255,255,255,.95);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);box-shadow:var(--glass-lift),var(--glass-edge)}
+.wss-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.wss-title{flex:1 1 auto;min-width:0;font-family:var(--serif),serif;font-size:19px;
+  font-weight:700;color:var(--ink)}
+.wss-sub{display:block;font-family:var(--sans),sans-serif;font-size:12px;font-weight:600;
+  color:var(--ink-soft);margin-top:2px}
+.wss-x{flex:0 0 auto;width:38px;height:38px;border-radius:50%;font-size:16px;
+  color:var(--sea2);background:rgba(255,255,255,.8);border:1px solid var(--glass-line);
+  cursor:pointer;touch-action:manipulation}
+.wss-input{width:100%;box-sizing:border-box;padding:13px 15px;font-size:17px;
+  font-family:var(--sans),sans-serif;color:var(--ink);background:rgba(255,255,255,.88);
+  border:1.5px solid var(--glass-line-2);border-radius:14px;outline:none}
+.wss-input:focus{border-color:var(--gold)}
+.wss-results{flex:1 1 auto;min-height:0;overflow-y:auto;margin-top:10px;padding-bottom:8px}
+.wss-hint{padding:18px 6px;font-size:13.5px;font-weight:600;color:var(--ink-soft);
+  text-align:center;line-height:1.7}
+.wss-hint-en{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:3px}
+.wss-grp{margin-bottom:12px}
+.wss-grp-h{display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1;
+  padding:6px 8px;margin-bottom:4px;border-radius:10px;font-size:12.5px;font-weight:700;
+  color:var(--sea2);background:rgba(238,246,251,.96)}
+.wss-grp-n{margin-left:auto;font-weight:600;color:var(--ink-soft)}
+.wss-row{display:flex;align-items:center;gap:11px;padding:8px 9px;border-radius:12px}
+.wss-row + .wss-row{border-top:1px solid rgba(150,185,212,.28)}
+.wss-pic{flex:0 0 auto;width:42px;height:42px;object-fit:contain;
+  image-rendering:pixelated}
+.wss-txt{flex:1 1 auto;min-width:0}
+.wss-w{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.wss-w b{font-size:17px;font-weight:700;color:var(--ink)}
+.wss-py{font-size:13px;font-weight:600;color:var(--gold-ink)}
+.wss-chip{font-size:11px;font-weight:700;color:var(--sea2);background:rgba(255,255,255,.8);
+  border:1px solid var(--glass-line-2);border-radius:999px;padding:1px 8px}
+.wss-en{font-size:12.5px;color:var(--ink-soft);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ⚠️ Sibling button, never nested inside a tappable row — the 可及性 pass removed
+   exactly this near-miss trap from every MCQ surface. ::after widens the target
+   to ~46px without changing the visual size. */
+.wss-spk{position:relative;flex:0 0 auto;width:34px;height:34px;border-radius:50%;
+  font-size:15px;background:rgba(255,255,255,.85);border:1px solid var(--glass-line-2);
+  cursor:pointer;touch-action:manipulation}
+.wss-spk::after{content:"";position:absolute;inset:-6px}
+.wss-more{padding:7px 9px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+@media (max-width:520px){
+  .wss-overlay{padding:2vh 8px 8px}
+  .wss-card{max-height:94vh;border-radius:18px}
+}
+
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .wss-card{background:rgba(255,255,255,.97)}
+  .wss-overlay{background:rgba(20,44,68,.55)}
   .topbar{background:rgba(240,247,252,.96)}
   .card{background:rgba(255,255,255,.93)}
   .pop-card{background:rgba(255,255,255,.97)}

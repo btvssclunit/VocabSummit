@@ -463,6 +463,116 @@
     return true;
   }
 
+  /* ================= 船只 · 四级 (owner 2026-08-16) =================
+     Four hulls that already existed as art, unified into one family:
+       1 朴素舢板 · 2 彩绘舢板 · 3 简朴帆船 · 4 华丽帆船
+     ⚠️ TIER 2 IS THE OLD SEA-MAP BOAT. Until today art/seamap/boat_*.png sailed
+     the landing map for everyone and had no connection to anything owned, while
+     the pier sold a separate 3-tier chain. Tier 2 is that sprite, byte-identical,
+     so a student who buys it sees exactly the boat the map used to show.
+
+     ⚠️ DUAL CURRENCY — a deliberate, owner-approved narrowing of the waterline
+     rule, and the reasoning must survive: CLAUDE.md says 贝壳 and 灵露 "永不互换,
+     方向都不行". That still holds. The seal forbids CONVERSION, and two
+     independent prices are not a conversion: there is no resale, so value can
+     never move between the purses. What changed is only that a boat is now a
+     LANDING-PAGE cosmetic (it sails the sea map), so gating it behind dock-only
+     currency would lock it away from the CL students who never enter the pier.
+     ⚠️ Do NOT generalise this into an exchange rate, and do NOT add a second
+     dual-priced good without the same argument holding.
+
+     ⚠️ OWNERSHIP IS GLOBAL, in ws2_profile beside avatarsOwned — NOT in a stream
+     store and NOT in ws_xh. Bought once, sailed everywhere, whichever purse paid.
+     Same reason avatarsOwned lives here: a per-stream record would evaporate the
+     moment the student opened a different subject. */
+  var BOATS = [
+    { t: 1, zh: "朴素舢板", en: "Plain sampan",   shells: 0,   ling: 0 },
+    { t: 2, zh: "彩绘舢板", en: "Painted sampan", shells: 80,  ling: 250 },
+    { t: 3, zh: "简朴帆船", en: "Fishing junk",   shells: 200, ling: 550 },
+    { t: 4, zh: "华丽帆船", en: "Ornate junk",    shells: 400, ling: 1000 }
+  ];
+  function boatByTier(t) {
+    for (var i = 0; i < BOATS.length; i++) if (BOATS[i].t === t) return BOATS[i];
+    return null;
+  }
+  /* tier 1 is free and always owned, exactly as the camp's 帆布帐篷 is */
+  function ownsBoat(t) {
+    if (t === 1) return true;
+    var p = load() || {};
+    return !!(p.boatsOwned && p.boatsOwned[String(t)]);
+  }
+  function ownedBoats() {
+    return BOATS.filter(function (b) { return ownsBoat(b.t); }).map(function (b) { return b.t; });
+  }
+  /* Purchase stays SEQUENTIAL (you cannot skip to 华丽帆船), same contract as the
+     camp dwelling chain. DISPLAY is free: owner 2026-08-16 —「players who have
+     earned a higher level boat should be able to choose from any boat in their
+     collection」— so the ladder is about earning, not about what you must show. */
+  function boatBuyable(t) {
+    var b = boatByTier(t);
+    if (!b || !b.shells) return false;         // tier 1 is not for sale
+    if (ownsBoat(t)) return false;
+    return ownsBoat(t - 1);
+  }
+  function boatPick() {
+    var p = load() || {};
+    var t = parseInt(p.boatPick, 10);
+    /* clamp to something actually owned: a stale pick (or a hand-edited profile)
+       must never render a boat the student does not have */
+    if (!t || !ownsBoat(t)) {
+      var own = ownedBoats();
+      return own.length ? own[own.length - 1] : 1;
+    }
+    return t;
+  }
+  function setBoatPick(t) {
+    if (!ownsBoat(t)) return false;
+    save({ boatPick: t });
+    return true;
+  }
+  /* Record ownership. ⚠️ NEVER call this before the payment has actually gone
+     through — same deduct → verify → persist order as buyAvatar, because a debit
+     that fails to persist is the worst bug available here. */
+  function grantBoat(t) {
+    if (!boatByTier(t)) return false;
+    var p = load() || {}, owned = {};
+    if (p.boatsOwned) for (var k in p.boatsOwned) if (p.boatsOwned[k]) owned[k] = 1;
+    owned[String(t)] = 1;
+    save({ boatsOwned: owned, boatPick: t });    // wear what you just bought
+    return true;
+  }
+  /* 灵露 purchase, from the CURRENT stream's wallet via app.js's provider hook.
+     Identical shape to buyAvatar; the 贝壳 half lives in xh.js, which owns that purse. */
+  function buyBoatLingLu(t) {
+    var b = boatByTier(t);
+    if (!b || !b.ling || !boatBuyable(t)) return false;
+    if (!(_provider && _provider.spend && _provider.spend(b.ling))) return false;
+    grantBoat(t);
+    if (_provider.onChanged) _provider.onChanged();
+    return true;
+  }
+  function boatArt(t, dir) {
+    return "art/xh/boat_t" + (t || 1) + "_" + (dir || "broadside") + ".png";
+  }
+  /* ⚠️ ONE-TIME MIGRATION from the pier's old 3-tier store.boat. Old numbering was
+     舢板 1 / 渔船 2 / 帆船 3 = plain sampan / simple junk / ornate junk. The colourful
+     sampan was inserted at 2, so the two PAID boats shift up: 2 -> 3, 3 -> 4.
+     Without this a student who paid 300 贝壳 for the ornate junk would silently be
+     holding the simple one. Called by xh.js, which is the only file that can read
+     ws_xh. Idempotent: it only ever adds. */
+  function migrateDockBoat(oldTier) {
+    var t = parseInt(oldTier, 10);
+    if (!t || t < 2) return;                       // 1 (or nothing) needs no migration
+    var mapped = t === 2 ? 3 : 4;
+    var p = load() || {};
+    if (p.boatsOwned && p.boatsOwned[String(mapped)]) return;   // already migrated
+    var owned = {};
+    if (p.boatsOwned) for (var k in p.boatsOwned) if (p.boatsOwned[k]) owned[k] = 1;
+    /* sequential ownership: holding tier 4 implies you climbed through 3 */
+    for (var i = 2; i <= mapped; i++) owned[String(i)] = 1;
+    save({ boatsOwned: owned, boatPick: p.boatPick || mapped });
+  }
+
   /* ---------- load / save ---------- */
   function load() {
     var p;
@@ -1408,5 +1518,23 @@
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,
     openFeedback: openFeedback
+  };
+
+  /* 船只 — its own namespace rather than more keys on WSProfile, because FIVE very
+     different consumers touch it: nickname.js (sea map), xh.js (pier scene, shop,
+     贝壳 purchase), app.js (camp shop, 灵露 purchase). Ownership is global and this
+     is the only writer. */
+  window.WSBoats = {
+    list: function () { return BOATS.slice(); },
+    byTier: boatByTier,
+    owns: ownsBoat,
+    owned: ownedBoats,
+    buyable: boatBuyable,
+    pick: boatPick,
+    setPick: setBoatPick,
+    grant: grantBoat,            // ⚠️ call ONLY after payment has succeeded
+    buyLingLu: buyBoatLingLu,
+    art: boatArt,
+    migrateDockBoat: migrateDockBoat
   };
 })();

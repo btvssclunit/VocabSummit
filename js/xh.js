@@ -99,7 +99,13 @@
     if (typeof s.shells !== "number") s.shells = 0;
     if (!s.owned || typeof s.owned !== "object") s.owned = {};   // purchased item keys
     if (!s.berth || typeof s.berth !== "object") s.berth = {};    // slot -> item key
-    if (s.boat !== 2 && s.boat !== 3) s.boat = 1;                 // 舢板 is free
+    /* ⚠️ LEGACY FIELD, read once and never written again. store.boat was the pier's
+       own 3-tier chain (舢板 1 / 渔船 2 / 帆船 3). Boats are now a 4-tier family owned
+       GLOBALLY in ws2_profile, so this survives only to be migrated: the colourful
+       sampan was inserted at tier 2, pushing the two PAID boats up (2 -> 3, 3 -> 4).
+       Without the migration a student who spent 300 贝壳 on the ornate junk would
+       quietly be holding the simple one. See migrateDockBoat in profile.js. */
+    if (s.boat !== 2 && s.boat !== 3) s.boat = 1;
     if (s.lbScope !== "all") s.lbScope = "school";
     if (s.lbTab !== "pts") s.lbTab = "sailed";
     return s;
@@ -107,6 +113,14 @@
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
   }
+  /* ⚠️ Runs at boot, not in load(): load() is called during module init, and
+     profile.js may not have finished evaluating. Idempotent — it only ever adds. */
+  function migrateBoat() {
+    if (window.WSBoats && window.WSBoats.migrateDockBoat) {
+      window.WSBoats.migrateDockBoat(store.boat);
+    }
+  }
+
   function stat(w) {
     var k = w.词语;
     if (!store.stats[k]) store.stats[k] = { shown: 0, wrong: 0, confused: {} };
@@ -145,7 +159,7 @@
      Chinese — same immersion logic as the Chinese-only TTS rule. */
   var XH_PY = {
     "启航码头": "qǐ háng mǎ tóu",
-    "看图学词 · 零基础起航": "kàn tú xué cí · líng jī chǔ qǐ háng",
+    "看图学词 · 看图听音，慢慢来": "kàn tú xué cí · kàn tú tīng yīn，màn màn lái",
     "学习范围 · 可多选": "xué xí fàn wéi · kě duō xuǎn",
     "选择学习方式": "xuǎn zé xué xí fāng shì",
     "学词": "xué cí", "闯关": "chuǎng guān", "出发": "chū fā",
@@ -221,6 +235,8 @@
       '<button class="xh-tg' + (store.en ? " on" : "") + '" id="xhTgEn" ' +
         'aria-pressed="' + (store.en ? "true" : "false") + '" title="English">' +
         '<span class="xh-tg-ic">中</span><span class="xh-tg-lab">EN</span></button>' +
+      '<button class="xh-tg" id="xhTgFind" title="查词语" aria-label="查词语">' +
+        '<span class="xh-tg-ic">🔎</span><span class="xh-tg-lab">查词</span></button>' +
       '<button class="xh-prof" id="xhProf" title="我的档案" aria-label="我的档案">' +
         '<span class="xh-av">' + avatarHtml() + '</span>' +
         '<span class="xh-nick">' + esc(nick) + '</span></button>';
@@ -237,6 +253,15 @@
     }
     aid("xhTgPy", "py");
     aid("xhTgEn", "en");
+    /* 五站查词 (§3.3) — the dock is the station this was built for, so the entry
+       is permanent in the topbar rather than buried on one page. ⚠️ It is handed
+       OUR speak(), which carries the iOS primer; search.js ships no TTS of its
+       own on purpose. It is READ-ONLY: a result speaks and nothing else, so the
+       waterline is untouched. */
+    var find = document.getElementById("xhTgFind");
+    if (find) find.onclick = function () {
+      if (window.WSSearch) window.WSSearch.open({ speak: speak });
+    };
     document.getElementById("xhProf").onclick = openProfile;
   }
   function openProfile() {
@@ -381,6 +406,36 @@
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 3200);
+  }
+
+  /* ⚠️ ONE definition for the back button (owner 2026-08-16 evening: 「pier 返回 …
+     also need to respond to pinyin and english support … students who use the pier
+     are beginners, they need strong scaffolding upfront」). It was hand-written in
+     nine places with no gloss at all — the single most-used control on the pier and
+     the one a zero-Chinese beginner is least able to read. Add new screens through
+     this, never by copying the markup again. */
+  function quitBtn() {
+    return '<button class="xh-quit" id="xhQuit">‹ 返回' + xhPy("返回") +
+      '<span class="xh-en">back</span></button>';
+  }
+
+  /* ⚠️ 组别 / 子类 are DATA, so their English lives here rather than in XH_PY,
+     which is strictly an interface-label table. A beginner picking a study scope
+     must be able to read what「天气与自然」means before they commit to it — owner
+     2026-08-16: 「students who use the pier are beginners/very weak, they need
+     strong scaffolding upfront」.
+     ⚠️ Add a line here whenever data/xh_v3.json gains a 组别 or 子类. A missing key
+     degrades to no English, silently — same contract as xhPy(). */
+  var XH_GROUP_EN = {
+    "动物": "Animals", "食物": "Food", "日常用品": "Everyday things",
+    "学校": "School", "天气与自然": "Weather and nature", "交通": "Getting around",
+    "陆上动物": "Land animals", "水中与空中": "Water and sky",
+    "水果与蔬菜": "Fruit and vegetables", "熟食": "Cooked food",
+    "肉与蛋": "Meat and eggs", "饮料": "Drinks"
+  };
+  function xhGroupEn(zh) {
+    var en = XH_GROUP_EN[zh];
+    return en ? '<span class="xh-en">' + esc(en) + "</span>" : "";
   }
 
   /* ---------- distractors (spec §3, CHANGED from v1) ----------
@@ -591,25 +646,6 @@
        WRAPPED, never reordered, so the phone stack falls out of source order for
        free and the ①②③ numerals stay correct in both layouts. */
     var h = '<div class="xh-col-l">';
-    /* ⚠️ The hero IS the student's own beach (owner 2026-08-16:「beach should be
-       tucked into the upper-left image like the rest of the mountains」). The four
-       stream pages open on a mini-horizon of the student's own mountain which taps
-       through to it; the dock now does the same — same artwork as 我的海滩, the same
-       boat and the same berth items at the same percentage coordinates, so what is
-       bought is visible from the front page instead of two taps down. */
-    h += '<button class="xh-hero" id="xhHero" title="我的海滩">' +
-      '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
-        "onerror=\"this.style.display='none'\">" +
-      '<span class="xh-hero-scene">' + beachSpritesHtml() + '</span>' +
-      '<div class="xh-hero-in">' +
-        '<div class="xh-hero-t">启航码头</div>' +
-        '<div class="xh-hero-sub">看图学词 · 零基础起航' + xhPy("看图学词 · 零基础起航") +
-        '<span class="xh-en">Start here. Pictures first, characters second.</span></div>' +
-        '<div class="xh-stats">' +
-          statCell(st.met, "海里", "航程", "words met") +
-          statCell(st.acc === null ? "—" : st.acc + "%", "", "一次答对", "first-try correct") +
-          statCell(st.full + " / " + st.groups, "", "集齐的组", "chapters complete") +
-        "</div></div></button>";
 
     var sel = scopeNames(), selWords = scopedWords();
     /* ⚠️ the label AND its glosses must live in ONE flex item. xhPy/xh-en are
@@ -640,7 +676,8 @@
         var on = sel.indexOf(b.组别) >= 0;
         h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' +
-          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + "<span>" + b.done + " / " + b.n + "</span></button>";
+          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + xhGroupEn(b.组别) +
+          "<span>" + b.done + " / " + b.n + "</span></button>";
       });
       h += "</div>";
     }
@@ -678,7 +715,7 @@
       '<span class="xh-tile-txt"><b>我的海滩</b>' + xhPy("我的海滩") +
       '<span class="xh-en">your berth and the shop</span>' +
       '<span class="xh-tile-n">' + (store.shells || 0) + ' 贝壳 · ' +
-        esc(BOATS[(store.boat || 1) - 1].zh) + '</span></span>' +
+        esc(boatName(boatPick())) + '</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
     tiles += '<button class="xh-tile slim" id="xhBoards">' +
@@ -694,9 +731,7 @@
        two main buttons and a toggleable scope — so scope is now a persistent
        setting at the top, the two buttons pick the kind of activity, and the mode
        cards below are only the ones that belong to the chosen kind. */
-    h += "</div>";
 
-    h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
     /* ⚠️ ② is now NAVIGATION, not a filter (owner 2026-08-16: 「the 出发 buttons are
        redundant, just land the user in whichever page once they click on the
        category buttons」). Tapping 学词 or 闯关 opens that kind's own config screen —
@@ -713,6 +748,31 @@
         '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") +
         '<span class="xh-en">Play</span><span class="xh-tab-go">›</span></button>' +
       "</div></div>";
+
+    h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
+    /* ⚠️ The hero IS the student's own beach, and it sits at the TOP OF THE RIGHT
+       COLUMN (owner 2026-08-16 evening:「the pier must show the big picture on the
+       right like the mountains」). It was in the left column for one day.
+       This mirrors the stream pages exactly: 左 = 我要做什么 (the numbered flow),
+       右 = 我走到哪了 (identity and progress, no numerals). Same artwork as
+       我的海滩, the same boat and berth items at the same percentage coordinates,
+       so what has been bought is visible from the front page, not two taps down.
+       ⚠️ Keep it OUT of .xh-col-l: a numbered step and an identity banner in one
+       column is the mix the stream-page handoff §0 exists to prevent. */
+    h += '<button class="xh-hero" id="xhHero" title="我的海滩">' +
+      '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
+        "onerror=\"this.style.display='none'\">" +
+      '<span class="xh-hero-scene">' + beachSpritesHtml() + '</span>' +
+      '<div class="xh-hero-in">' +
+        '<div class="xh-hero-t">启航码头</div>' +
+        '<div class="xh-hero-sub">看图学词 · 看图听音，慢慢来' + xhPy("看图学词 · 看图听音，慢慢来") +
+        '<span class="xh-en">Pictures first, characters second. Go at your own pace.</span></div>' +
+        '<div class="xh-stats">' +
+          statCell(st.met, "海里", "航程", "words met") +
+          statCell(st.acc === null ? "—" : st.acc + "%", "", "一次答对", "first-try correct") +
+          statCell(st.full + " / " + st.groups, "", "集齐的组", "chapters complete") +
+        "</div></div></button>";
+
 
     h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below
     h += "</div>";                                   // close .xh-col-r
@@ -761,7 +821,7 @@
     var cur = modeById(store.mode);
     var pool = scopedWords();
 
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+    var h = '<div class="xh-round-bar">' + quitBtn() +
       '<span class="xh-block-tag">' + (isLearn ? "学词" : "闯关") + '</span></div>';
     h += '<div class="xh-board xh-cfg">';
     h += '<div class="xh-berth-title">' + (isLearn ? "📖 学词" : "🎮 闯关") +
@@ -878,8 +938,9 @@
     state = null;
     var met = sailStats().met;
     var got = SAIL_BADGES.filter(sailBadgeGot).length;
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回' +
-      xhPy("返回") + '</button><span class="xh-block-tag">航海徽</span></div>';
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      '<span class="xh-block-tag">航海徽' + xhPy("航海徽") +
+      '<span class="xh-en">badges</span></span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🎖️ 航海徽<span class="xh-en">Your badges</span></div>' +
       '<span class="beach-purse"><b>' + got + '</b> / ' + SAIL_BADGES.length + '</span></div>' +
@@ -952,13 +1013,24 @@
     { k: "flags",      slot: "sky",         zh: "彩旗",   en: "Bunting",      img: "dock_flags",      price: 30 },
     { k: "gull",       slot: "sky",         zh: "海鸥",   en: "Gull",         img: "dock_gull",       price: 45 }
   ];
-  /* 舢板 is free, exactly as the tent is. Tiers UPGRADE — buying 帆船 needs 渔船
-     first, and there is no downgrade (same contract as the camp's dwelling). */
-  var BOATS = [
-    { t: 1, zh: "舢板", en: "Sampan",  price: 0 },
-    { t: 2, zh: "渔船", en: "Fishing boat", price: 120 },
-    { t: 3, zh: "帆船", en: "Sailing junk", price: 300 }
-  ];
+  /* ⚠️ BOATS MOVED TO profile.js (owner 2026-08-16 evening). The catalogue is now
+     FOUR tiers, ownership is GLOBAL (ws2_profile, beside avatarsOwned), and every
+     boat is buyable with EITHER 贝壳 here or 灵露 on a stream page — because the
+     boat now sails the landing sea map, and most CL students never enter the pier.
+     Read the long note above WSBoats in profile.js before changing any of that.
+     This shim keeps the dock rendering if profile.js somehow failed to load, the
+     same graceful-degrade habit as every sprite onerror in this file. */
+  function boatList() {
+    return (window.WSBoats && window.WSBoats.list()) ||
+      [{ t: 1, zh: "朴素舢板", en: "Plain sampan", shells: 0, ling: 0 }];
+  }
+  function boatPick() { return (window.WSBoats && window.WSBoats.pick()) || 1; }
+  function ownsBoat(t) { return t === 1 || !!(window.WSBoats && window.WSBoats.owns(t)); }
+  function boatName(t) {
+    var l = boatList();
+    for (var i = 0; i < l.length; i++) if (l[i].t === t) return l[i].zh;
+    return "";
+  }
   function itemByKey(k) {
     for (var i = 0; i < BERTH_ITEMS.length; i++) if (BERTH_ITEMS[i].k === k) return BERTH_ITEMS[i];
     return null;
@@ -982,7 +1054,14 @@
   /* the boat + whatever is in each berth slot, as one absolutely-positioned layer.
      Shared by 我的海滩 and the menu hero so the two can never drift apart. */
   function beachSpritesHtml() {
-    var h = beachSprite("boat_t" + (store.boat || 1) + "_broadside", 88, 30, 26, "beach-boat");
+    /* ⚠️ NO BOAT IN THIS SCENE (owner 2026-08-16 evening: 「remove boat from beach
+       since it's now reflected on sea map」). The berth sprite used to be the only
+       place a bought boat appeared; now it sails the landing sea map and rides the
+       round progress bar, so drawing it here as well put a second hull on top of
+       the painted stilt house and read as clutter rather than reward.
+       The boat is still NAMED on the 我的海滩 tile and is bought/swapped in the shop
+       below — this removes the sprite, not the feature. */
+    var h = "";
     BERTH_SLOTS.forEach(function (sl) {
       var it = itemByKey(store.berth[sl.k]);
       if (it) h += beachSprite(it.img, sl.cx, sl.by, sl.w);
@@ -993,8 +1072,8 @@
   function renderBeach() {
     view().classList.remove("two-col");
     state = null;
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
-      '<span class="xh-block-tag">我的海滩</span></div>';
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      '<span class="xh-block-tag">我的海滩' + xhPy("我的海滩") + '<span class="xh-en">your berth</span></span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🏖️ 我的海滩' + xhPy("我的海滩") + '<span class="xh-en">Your berth</span></div>' +
       '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
@@ -1017,8 +1096,8 @@
   function renderBeachShop() {
     view().classList.remove("two-col");
     state = null;
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
-      '<span class="xh-block-tag">海滩小铺</span></div>';
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      '<span class="xh-block-tag">海滩小铺' + xhPy("海滩小铺") + '<span class="xh-en">the shop</span></span></div>';
     h += '<div class="xh-board"><div class="beach-head">' +
       '<div class="xh-berth-title">🛒 海滩小铺' + xhPy("海滩小铺") + '<span class="xh-en">Beach shop</span></div>' +
       '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' + xhPy("贝壳") +
@@ -1026,21 +1105,33 @@
       '<div class="xh-log-sub">答对题目就能捡到贝壳。每个位置只能摆一样，随时可以换。' +
       '<span class="xh-en">Answer questions to find shells. One item per spot, swap any time.</span></div>';
 
-    /* boats first: it is the one thing that shows up in three places at once */
-    h += '<div class="xh-log-sec">船只 · 一艘一艘往上换' + xhPy("船只 · 一艘一艘往上换") + '<span class="xh-en">Your boat — upgraded, not swapped</span></div>';
+    /* Boats first: it is the only purchase visible outside the pier — it sails the
+       landing sea map (owner 2026-08-16). Two separate things on this shelf:
+         BUYING is sequential, so the ladder still means something;
+         WEARING is free among everything owned. */
+    h += '<div class="xh-log-sec">船只 · 想开哪一艘都可以' + xhPy("船只 · 想开哪一艘都可以") +
+      '<span class="xh-en">Your boats — buy in order, sail whichever you like</span></div>';
+    h += '<div class="xh-log-sub">买下的船在海图上也看得见。贝壳买不起的话，也可以在学段的营地商店用灵露换。' +
+      '<span class="xh-en">Your boat also sails the sea map. Buy with shells here, or with 灵露 at a level camp shop.</span></div>';
     h += '<div class="beach-shelf">';
-    BOATS.forEach(function (b) {
-      var owned = (store.boat || 1) >= b.t;
-      var prev = b.t > 1 && (store.boat || 1) < b.t - 1;      // must climb in order
-      var afford = (store.shells || 0) >= b.price;
-      h += '<div class="beach-card' + (owned ? " owned" : "") + '">' +
+    var pick = boatPick();
+    boatList().forEach(function (b) {
+      var owned = ownsBoat(b.t), on = pick === b.t;
+      var prev  = b.t > 1 && !ownsBoat(b.t - 1);          // must climb in order
+      var afford = (store.shells || 0) >= b.shells;
+      h += '<div class="beach-card' + (on ? " on" : owned ? " owned" : "") + '">' +
         '<img src="art/xh/boat_t' + b.t + '_broadside.png' + ASSET_V + '" alt="" ' +
           "onerror=\"this.style.display='none'\">" +
         '<b>' + esc(b.zh) + '</b>' + xhPy(b.zh) + '<span class="xh-en">' + esc(b.en) + '</span>' +
-        (owned ? '<span class="beach-tag on">已拥有</span>'
-               : prev ? '<span class="beach-tag">先换上' + esc(BOATS[b.t - 2].zh) + '</span>'
-               : '<button class="beach-buy" data-boat="' + b.t + '"' + (afford ? "" : " disabled") +
-                 '>' + shellIcon() + b.price + '</button>') +
+        (on ? '<span class="beach-tag on">正在开' + xhPy("正在开") + '<span class="xh-en">sailing</span></span>'
+            : owned ? '<button class="beach-buy own" data-boatpick="' + b.t + '">开这艘' + xhPy("开这艘") + '<span class="xh-en">sail this</span></button>'
+            : prev ? '<span class="beach-tag">先买' + esc(boatName(b.t - 1)) + '</span>'
+            : '<button class="beach-buy" data-boat="' + b.t + '"' + (afford ? "" : " disabled") +
+              ' title="' + (afford ? "" : "贝壳不够，也可以到学段的营地商店用灵露换") + '">' +
+              shellIcon() + b.shells + '</button>') +
+        /* the other price is always shown, so a student who will never grind the
+           dock can see the boat is still reachable from their own level */
+        (owned ? "" : '<span class="beach-alt">或 ' + b.ling + ' 灵露</span>') +
         '</div>';
     });
     h += '</div>';
@@ -1055,8 +1146,8 @@
           '<img src="art/xh/' + it.img + '.png' + ASSET_V + '" alt="" ' +
             "onerror=\"this.style.display='none'\">" +
           '<b>' + esc(it.zh) + '</b>' + xhPy(it.zh) + '<span class="xh-en">' + esc(it.en) + '</span>' +
-          (on ? '<span class="beach-tag on">摆着</span>'
-              : owned ? '<button class="beach-buy own" data-eq="' + it.k + '">摆上</button>'
+          (on ? '<span class="beach-tag on">摆着' + xhPy("摆着") + '<span class="xh-en">placed</span></span>'
+              : owned ? '<button class="beach-buy own" data-eq="' + it.k + '">摆上' + xhPy("摆上") + '<span class="xh-en">place it</span></button>'
               : '<button class="beach-buy" data-buy="' + it.k + '"' + (afford ? "" : " disabled") +
                 (afford ? "" : ' title="贝壳不够，再去答几题"') + '>' + shellIcon() + it.price + '</button>') +
           '</div>';
@@ -1085,14 +1176,27 @@
         equipItem(it); renderBeachShop();
       };
     });
+    /* 贝壳 purchase. ⚠️ deduct → verify the grant landed → save, the same order
+       buyAvatar uses: a debit that fails to persist is the worst bug available
+       here. Ownership itself is written by profile.js (it is GLOBAL), never by
+       this file. */
     Array.prototype.forEach.call(view().querySelectorAll("[data-boat]"), function (el) {
       el.onclick = function () {
         var t = parseInt(el.getAttribute("data-boat"), 10);
-        var b = BOATS[t - 1];
-        if (!b || (store.boat || 1) >= t || (store.boat || 1) < t - 1) return;
-        if ((store.shells || 0) < b.price) return;
-        store.shells -= b.price; store.boat = t;
+        if (!window.WSBoats || !window.WSBoats.buyable(t)) return;
+        var b = null, l = boatList();
+        for (var i = 0; i < l.length; i++) if (l[i].t === t) b = l[i];
+        if (!b || (store.shells || 0) < b.shells) return;
+        store.shells -= b.shells;
+        if (!window.WSBoats.grant(t)) { store.shells += b.shells; return; }  // roll back
         save(); sfxOk(); renderBeachShop();
+      };
+    });
+    /* free swap among owned boats — no cost, no confirm: it is a hat, not a purchase */
+    Array.prototype.forEach.call(view().querySelectorAll("[data-boatpick]"), function (el) {
+      el.onclick = function () {
+        var t = parseInt(el.getAttribute("data-boatpick"), 10);
+        if (window.WSBoats && window.WSBoats.setPick(t)) { sfxOk(); renderBeachShop(); }
       };
     });
   }
@@ -1163,8 +1267,8 @@
     var sailed = WORDS.filter(function (w) { return store.done[w.词语]; }).length;
     var got = cur.words.filter(function (w) { return store.done[w.词语]; }).length;
 
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
-      '<span class="xh-block-tag">航海图鉴</span></div>' +
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      '<span class="xh-block-tag">航海图鉴' + xhPy("航海图鉴") + '<span class="xh-en">word log</span></span></div>' +
       '<div class="xh-board"><div class="xh-log-head">' +
       '<div class="xh-berth-title">🧭 航海图鉴' + xhPy("航海图鉴") + '<span class="xh-en">Your word log</span></div>' +
       '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" + xhPy("海里") +
@@ -1173,7 +1277,7 @@
     pages.forEach(function (p) {
       var n = p.words.filter(function (w) { return store.done[w.词语]; }).length;
       h += '<button class="xh-log-page' + (p === cur ? " on" : "") + '" data-p="' + esc(p.组别) + '">' +
-        esc(p.组别) + " " + n + "/" + p.words.length + "</button>";
+        esc(p.组别) + " " + n + "/" + p.words.length + xhPy(p.组别) + xhGroupEn(p.组别) + "</button>";
     });
     h += "</div></div>";
 
@@ -1191,12 +1295,13 @@
     h += '<div class="xh-log-act"><button class="xh-btn" id="xhLogLearn"' +
       (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' + xhPy("看图学词") +
       '<span class="xh-en">study these</span></button></div>';
-    if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。</div>';
+    if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。' +
+        '<span class="xh-en">Nothing here under this filter.</span></div>';
     cur.secs.forEach(function (sec) {
       if (!cur.byS[sec].filter(keep).length) return;   // hide a section the filter emptied
       // a one-section chapter (日常用品) needs no divider — the chapter title
       // already says it, and an identical subtitle underneath reads as a bug
-      if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + xhPy(sec) + "</div>";
+      if (cur.secs.length > 1) h += '<div class="xh-log-sec">' + esc(sec) + xhPy(sec) + xhGroupEn(sec) + "</div>";
       h += '<div class="xh-log-grid">';
       cur.byS[sec].filter(keep).forEach(function (w) {
         var have = !!store.done[w.词语];
@@ -1260,8 +1365,8 @@
         zh + '<span class="xh-en">' + en + "</span></button>";
     }
     view().innerHTML =
-      '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
-      '<span class="xh-block-tag">码头风云榜</span></div>' +
+      '<div class="xh-round-bar">' + quitBtn() +
+      '<span class="xh-block-tag">码头风云榜' + xhPy("码头风云榜") + '<span class="xh-en">the boards</span></span></div>' +
       '<div class="xh-board"><div class="xh-sec">🏆 码头风云榜' + xhPy("码头风云榜") +
       '<span class="xh-en">the dock boards</span></div>' +
       '<div class="xh-lb-tabs">' + tabBtn("sailed", "识词数", "words met") +
@@ -1379,12 +1484,14 @@
     var n = state.seq.length;
     var frac = n ? state.i / n : 0;
     return '<div class="xh-jetty"><div class="xh-jetty-line"></div>' +
+      /* the CHOSEN boat here too — this is the third surface it shows on (beach,
+         sea map, and now every round), which is the whole point of buying one */
       '<img class="xh-jetty-boat" style="left:' + (frac * 100).toFixed(1) + '%" ' +
-      'src="art/seamap/boat_broadside.png' + ASSET_V + '" alt="">' +
+      'src="art/xh/boat_t' + boatPick() + '_broadside.png' + ASSET_V + '" alt="">' +
       '<span class="xh-jetty-n">' + (state.i + 1) + " / " + n + "</span></div>";
   }
   function bar() {
-    return '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+    return '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(state.grp) + "</span></div>";
   }
 
@@ -1495,18 +1602,32 @@
      being asked a question. */
   function renderLearn() {
     var w = state.seq[state.i], n = state.seq.length;
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+    var h = '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 学词</span></div>" +
       '<div class="xh-board xh-stage xh-card">' +
       '<button class="xh-sprite big" id="xhSprite" title="点图听读音">' + img(w) + "</button>" +
+      /* ⚠️ .xh-always ON BOTH (owner 2026-08-16 evening: 「the pier's flashcards must
+         have pinyin and english displayed by default, not only when the toggle is
+         selected」). 看图学词 is the LEARN-BEFORE-YOU-ARE-TESTED surface, and the
+         reading plus the meaning ARE its content — gate them behind a toggle and a
+         zero-Chinese beginner is left staring at two characters they cannot read.
+         Everywhere else on the pier the two gates still rule; this card and the
+         拼音 revealed after a 词海垂钓 miss are the only exceptions. */
       '<div class="xh-card-word"><b>' + esc(w.词语) + "</b>" +
-      '<span class="xh-py">' + esc(w.拼音) + "</span>" +
-      '<span class="xh-en">' + esc(w.英文释义) + "</span>" + "</div>" +
+      '<span class="xh-py xh-always">' + esc(w.拼音) + "</span>" +
+      '<span class="xh-en xh-always">' + esc(w.英文释义) + "</span>" + "</div>" +
       '<button class="xh-btn xh-say" id="xhSay">🔊 再听一次' + xhPy("再听一次") +
       ' <span class="xh-en">hear it again</span>' + "</button>" +
+      /* the two nav buttons carried NO gloss at all while the button above them had
+         both — so a student who could not read 上一个 had nothing to go on */
       '<div class="xh-cardnav">' +
-      '<button class="xh-btn ghost" id="xhPrev"' + (state.i ? "" : " disabled") + '>‹ 上一个</button>' +
-      '<button class="xh-btn" id="xhNext">' + (state.i === n - 1 ? "学完了 ›" : "下一个 ›") + "</button></div></div>";
+      '<button class="xh-btn ghost" id="xhPrev"' + (state.i ? "" : " disabled") + '>‹ 上一个' +
+        xhPy("上一个") + '<span class="xh-en">previous</span></button>' +
+      '<button class="xh-btn" id="xhNext">' +
+        (state.i === n - 1
+          ? '学完了 ›' + xhPy("学完了") + '<span class="xh-en">done</span>'
+          : '下一个 ›' + xhPy("下一个") + '<span class="xh-en">next</span>') +
+        "</button></div></div>";
     view().innerHTML = h;
     wireQuit();
     speak(w.词语);
@@ -1839,7 +1960,7 @@
     var sel = null;          // {side:"pic"|"word", key:"老虎"}
     var graded = false;
 
-    var h = '<div class="xh-round-bar"><button class="xh-quit" id="xhQuit">‹ 返回</button>' +
+    var h = '<div class="xh-round-bar">' + quitBtn() +
       '<span class="xh-block-tag">' + esc(state.grp) + " · 连线 " + seq.length + "</span></div>" +
       '<div class="xh-board"><div class="xh-match" id="xhMatch">' +
       '<svg class="xh-links" id="xhLinks" aria-hidden="true"></svg><div class="xh-col">';
@@ -2038,6 +2159,7 @@
 
   /* ---------- boot ---------- */
   applyAids();     // before the first paint, so neither aid flashes in or out
+  migrateBoat();   // legacy 3-tier store.boat -> the global 4-tier family
   renderTop();     // topbar works even if the word list never arrives
 
   fetch("data/xh_v3.json" + ASSET_V)

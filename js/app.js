@@ -885,15 +885,25 @@
     var frac = Object.keys(store.mastered).length / WORDS.length;
     return AMBIENCE[Math.min(AMBIENCE.length - 1, Math.floor(frac * AMBIENCE.length))];
   }
-  /* ⚠️ The plate LEFT THE BODY on 2026-08-16 (handoff §3). It now renders once, in
-     the 地景横幅 at the top of the right column. Painting it on the body as well put
-     the identical 1672x941 image on screen twice — once behind the cards, once
-     inside the banner. The page keeps the quiet gradient app.css already defines.
-     ⚠️ Do NOT also lower .pop-card alpha in this pass: the alpha was raised on
-     2026-08-14 precisely because muted text was unreadable over these plates, and
-     the handoff asks for that to be a separate, separately-verified change. */
+  /* ⚠️ THE PLATE IS BACK ON THE BODY (owner, 2026-08-16 evening) — and this is a
+     deliberate reversal of the handoff §3 note that used to sit here, not a
+     regression. Read this before "restoring" either version.
+
+     §3 moved the plate OFF the body because the banner showed the SAME 1672x941
+     image, so it appeared twice on one screen. The owner has now made the banner
+     show 我的词山 — the stream's OWN mountain (art/mountain/mtn_{stream}.png) —
+     so the collision that justified §3 no longer exists, and the two images now
+     say different things:
+       body plate  = HOW FAR YOU HAVE COME (bg-01..05, mastery fraction)
+       banner      = WHICH MOUNTAIN YOU ARE ON (per-stream identity)
+     ⚠️ If the banner is ever pointed back at ambiencePlate(), this must go back
+     to clearing the body, or the duplication returns.
+     ⚠️ Still do NOT lower .pop-card alpha: it was raised on 2026-08-14 precisely
+     because muted text was unreadable over these plates, and with the plates back
+     on the body that reason is live again. */
   function applyAmbience() {
-    document.body.style.backgroundImage = "";
+    document.body.style.backgroundImage =
+      'linear-gradient(rgba(246,250,253,.55),rgba(246,250,253,.55)),url("' + ambiencePlate() + '")';
   }
 
   /* ---------- daily streak (连续学习天数) — device-local ---------- */
@@ -1163,29 +1173,57 @@
     wirePyToggle();
   }
 
-  /* 地景横幅 (handoff §3) — the emotional entry point of the page: the student sees
-     WHERE THEY ARE before they see what to do. 16:9, top of the right column, and
-     the plate is the one applyAmbience used to paint on the body.
-     Layers: plate → 营地 chip → overlay text. The overlay is never baked into art.
-     ⚠️ The progress line is 段位/历练值 ONLY (handoff §4). The plate itself moves on
-     mastery fraction, which is a different scale; showing the two as one ladder is
-     the specific mistake that section exists to prevent, so the plate carries no
-     caption and no percentage.
+  /* 地景横幅 (handoff §3; art changed by the owner 2026-08-16 evening) — the
+     emotional entry point of the page: the student sees WHERE THEY ARE before
+     they see what to do.
+
+     ⚠️ THE BANNER IS THE STREAM'S OWN MOUNTAIN, not a progression plate. It was
+     ambiencePlate() (bg-01..05) for one day; the owner replaced it with
+     art/mountain/mtn_{stream}.png so that the button showing「全山纵览」actually
+     shows THAT student's mountain — the same art 我的词山 opens into, and the same
+     island they picked on the sea map. bg-01..05 went back to the body in the
+     same change (see applyAmbience), so nothing is on screen twice.
+     ⚠️ Do NOT "unify" this back to ambiencePlate(): four streams sharing one
+     banner is exactly the identity this change exists to restore.
+
+     Layers: mountain → 营地 chip → overlay text. The overlay is never baked into art.
+     ⚠️ The progress line is 段位/历练值 ONLY (handoff §4). The banner art carries
+     no caption and no percentage, because it is identity, not a scale.
      ⚠️ The 灵露 PILL is the tap target for 营地, not any painted element — art
      positions shift with the plate, a pill does not (§3). */
+  function streamMountainArt() {
+    return "art/mountain/mtn_" + (STREAM || "g1") + ".png";
+  }
   function heroBanner() {
     var rk = currentRank();
     var togo = rk.next
       ? '再 ' + fmtNum(rk.next.at - rk.total) + ' → ' + esc(rk.next.name)
       : '已达最高段位';
-    return '<button class="lscape" id="lscapeBtn" title="点开看全山纵览">' +
-      '<img class="lscape-bg" src="' + ambiencePlate() + '" alt="" ' +
+    /* ⚠️ .lscape IS A <div>, NOT A <button>. It has to be: the 结伴 pills sit on top
+       of it (owner 2026-08-16 evening), and a <button> inside a <button> is invalid
+       HTML — the parser hoists the inner one out and the layout silently breaks.
+       That exact failure cost a debugging round on the pier the same day. So the
+       whole-plate tap target is its own transparent overlay button (.lscape-hit),
+       the caption is pointer-events:none, and each room pill is an independent
+       sibling stacked above the hit layer. */
+    return '<div class="lscape">' +
+      '<img class="lscape-bg" src="' + streamMountainArt() + '" alt="" ' +
         'onerror="this.style.display=\'none\'">' +
+      '<button class="lscape-hit" id="lscapeBtn" title="点开看全山纵览" ' +
+        'aria-label="全山纵览"></button>' +
       '<span class="lscape-in">' +
         '<span class="lscape-rank">🎖️ ' + esc(rk.name) + '</span>' +
         '<span class="lscape-pts">' + fmtNum(rk.total) + ' 历练值 · ' + togo + '</span>' +
       '</span>' +
-      '<span class="lscape-go">⛰️ 全山纵览 ›</span></button>' +
+      '<span class="lscape-go">⛰️ 全山纵览 ›</span>' +
+      /* 结伴登峰 / 同伴挑战 — occasional, social, and needing a teacher or a friend,
+         so they live ON the mountain rather than in the solo funnel. ONE flex row,
+         never two separately-positioned pills: they were absolutely positioned at
+         the same coordinates once and sat exactly on top of each other. */
+      '<div class="lscape-rooms">' +
+        '<button class="lscape-room" id="arenaPill">🏔️ 结伴登峰</button>' +
+        '<button class="lscape-room" id="pkPill">⚔️ 同伴挑战</button>' +
+      '</div></div>' +
       /* ONE chip. A 海拔 chip lived here for one render and duplicated the 数据条
          directly below it — the 数据条 is where the four numbers belong (§1). */
       '<div class="lscape-acts">' +
@@ -1524,6 +1562,13 @@
         };
       });
     };
+    /* 五站查词 (§3.3). ⚠️ Hand it OUR speak — search.js deliberately ships no TTS
+       stack of its own, because a third copy of the voice-scoring / cancel-then-
+       50ms / iOS-primer lessons would rot. */
+    var all = document.getElementById("hsAll");
+    if (all) all.onclick = function () {
+      if (window.WSSearch) window.WSSearch.open({ speak: speak });
+    };
   }
 
   function renderHome() {
@@ -1542,8 +1587,16 @@
        now the banner itself. */
     var html = '<div class="home-grid"><div class="home-left">';
 
+    /* Two searches, deliberately NOT merged. This one is over THIS stream and
+       shows 释义 + 年级·单元 — richer, and what a student wants 95% of the time.
+       The 五站 one below it is read-only, shows 词语/拼音/英文 only, and reaches
+       the dock and the other three mountains (§3.3). Folding the second into the
+       first would either flood this box with 3,741 rows or strip the 释义 that
+       makes it useful. */
     html += '<div class="home-search card"><input type="text" id="homeSearch" class="hs-input" ' +
-      'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div></div>';
+      'placeholder="🔎 搜索词语、拼音或释义…" autocomplete="off"><div class="hs-results" id="hsResults"></div>' +
+      '<button class="hs-all" id="hsAll">🔎 也查其他学段和码头的词语' + pyl("也查其他学段和码头的词语") +
+      enl("也查其他学段和码头的词语") + "</button></div>";
 
     html += '<div class="section-label">' + stepNo(1) + '复习范围 · 可多选' + pyl("复习范围 · 可多选") + enl("复习范围 · 可多选") + '</div>' +
       '<div class="card" id="scopeCard">' +
@@ -1631,14 +1684,14 @@
         camp("flash", "📖", "词语闪卡", "看词认义，点读发音") + '</div>';
     }
 
-    /* ④ 结伴 — the two live-room entries, out of the old hero card and into the
-       funnel where they belong: they are a fourth way to practise, not a status
-       display (handoff §1). */
-    html += '<div class="section-label">' + stepNo(4) + '结伴' + pyl("结伴") + enl("结伴") + '</div><div class="camps">' +
-      '<button class="camp" id="arenaPill"><span class="flag">🏔️</span>' +
-        '<div><b>结伴登峰' + pyl("结伴登峰") + enli("结伴登峰") + '</b>' + rewardTag("room") + '</div></button>' +
-      '<button class="camp" id="pkPill"><span class="flag">⚔️</span>' +
-        '<div><b>同伴挑战' + pyl("同伴挑战") + enli("同伴挑战") + '</b>' + rewardTag("room") + '</div></button></div>';
+    /* ⚠️ ④ 结伴 IS GONE FROM THE FUNNEL (owner 2026-08-16 evening:「the room modes
+       are very cluttered here … those won't be the regular features that students
+       do on their own」). The two live-room entries are back as PILLS ON THE
+       BANNER — see heroBanner(). handoff §1 had moved them into the funnel as「a
+       fourth way to practise」; in use they read as clutter, because a room needs
+       a teacher or a friend and is not something a student starts alone on a
+       Tuesday night. The funnel is now exactly the three solo steps ①②③.
+       ⚠️ Do not re-add a ④ here without moving them off the banner first. */
 
     /* ---- RIGHT COLUMN: identity & progress, no step numbers ---- */
     html += '</div><div class="home-right">';
@@ -1798,9 +1851,12 @@
     }
     function updateScopeSum() {
       var n = scopedWords().length;
-      var off = streamComps().filter(function (c) { return !compIsOn(c); }).length;
+      /* ⚠️ No「已筛去 N 个板块」suffix (owner 2026-08-16): the 板块 chips sit
+         directly below this line and already show which are off, so the count
+         restated the same fact in words. 共 N 词 is the number that actually
+         changes and cannot be read off the chips. */
       document.getElementById("scopeSum").textContent =
-        "已选 " + scope.size + " 个单元 · 共 " + n + " 词" + (off ? "（已筛去 " + off + " 个板块）" : "");
+        "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
       Object.keys(byLevel).forEach(function (lv) {
         var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
         if (!el) return;
@@ -2709,6 +2765,7 @@
     "词语汉兜": "Word Puzzle",
     "出发": "Start",
     "我的词语表": "My word list",
+    "也查其他学段和码头的词语": "Search other levels and the pier",
     "词山风云榜": "Leaderboard",
     "成就徽章": "Badges",
     "题型": "Question type",
@@ -2851,6 +2908,7 @@
     "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
     "词雨灵露": "cí yǔ líng lù", "攀山竞速": "pān shān jìng sù", "组词挑战": "zǔ cí tiǎo zhàn",
     "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
+    "也查其他学段和码头的词语": "yě chá qí tā xué duàn hé mǎ tóu de cí yǔ",
     "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     "学习支援": "xué xí zhī yuán", "填空挑战": "tián kòng tiǎo zhàn",
@@ -5489,11 +5547,43 @@
       return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key);
     }).join("");
 
+    /* ⚠️ 船只 ARE SOLD HERE TOO (owner 2026-08-16 evening). A boat now sails the
+       LANDING SEA MAP, which every student sees, but its only currency was 贝壳 —
+       earnable solely at the pier, which most CL students never enter. So each
+       boat carries a second, independent 灵露 price.
+       ⚠️ This is NOT a 贝壳↔灵露 exchange and must never become one: there is no
+       resale, so no value can cross the waterline. See the long note above
+       WSBoats in profile.js before touching it.
+       Ownership is GLOBAL (ws2_profile) and profile.js is its only writer — this
+       screen just calls buyLingLu and repaints. */
+    var boatHtml = "";
+    if (window.WSBoats) {
+      var bpick = window.WSBoats.pick();
+      boatHtml = '<div class="shop-tier-label">船只 <span class="shop-slot-note">· 在海图上开的船，买下的随时可以换</span></div>' +
+        '<div class="shop-grid">' + window.WSBoats.list().map(function (b) {
+          var own = window.WSBoats.owns(b.t), on = bpick === b.t;
+          var can = window.WSBoats.buyable(b.t) && store.lingLu >= b.ling;
+          return '<div class="shop-row' + (own ? " owned" : "") + '">' +
+            '<img class="shop-thumb" src="' + window.WSBoats.art(b.t) + '" alt="" ' +
+              'onerror="this.style.display=\'none\'">' +
+            '<div class="shop-info"><b>' + esc(b.zh) + '</b>' +
+              '<span class="shop-sub">' + esc(b.en) +
+              (b.shells ? ' · 或 ' + b.shells + ' 贝壳（启航码头）' : '') + '</span></div>' +
+            (on ? '<span class="shop-owned">正在开</span>'
+                : own ? '<button class="shop-equip" data-boatpick="' + b.t + '">换上</button>'
+                : !window.WSBoats.buyable(b.t)
+                  ? '<span class="shop-owned">先买' + esc((window.WSBoats.byTier(b.t - 1) || {}).zh || "") + '</span>'
+                  : '<button class="shop-buy" data-boatbuy="' + b.t + '"' + (can ? "" : " disabled") + '>' +
+                    campLingluIcon() + " " + fmtNum(b.ling) + '</button>') +
+            '</div>';
+        }).join("") + '</div>';
+    }
+
     var html = '<div class="camp2-wrap"><div class="shop2-card">' +
       '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
       '<div class="camp-wallet">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b> · 在词雨灵露中接住词语获得</div>' +
       '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
-      gearHtml +
+      gearHtml + boatHtml +
       '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button></div>' +
       '</div></div>';
@@ -5510,6 +5600,22 @@
         saveStore();
         toast("已兑换：" + it.name + " ✨");
         openShopScene();   // re-render with updated wallet + ownership
+      };
+    });
+    /* deduct → verify → persist lives inside WSBoats.buyLingLu, which spends through
+       our own registerCodeProvider hook, so app.js stays the only writer of the wallet */
+    Array.prototype.forEach.call(view().querySelectorAll("[data-boatbuy]"), function (btn) {
+      btn.onclick = function () {
+        var t = parseInt(btn.getAttribute("data-boatbuy"), 10);
+        if (!window.WSBoats || !window.WSBoats.buyLingLu(t)) return;
+        toast("已兑换：" + ((window.WSBoats.byTier(t) || {}).zh || "船") + " ⛵");
+        openShopScene();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll("[data-boatpick]"), function (btn) {
+      btn.onclick = function () {
+        var t = parseInt(btn.getAttribute("data-boatpick"), 10);
+        if (window.WSBoats && window.WSBoats.setPick(t)) openShopScene();
       };
     });
     Array.prototype.forEach.call(view().querySelectorAll(".shop-equip[data-eq]"), function (btn) {

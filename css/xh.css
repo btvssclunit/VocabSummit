@@ -20,6 +20,10 @@
   --sky1:#DFEDF7;--sky2:#BAD6E8;--sun:#F5C443;
   --sea1:#2E6391;--sea2:#1F4A70;--sea3:#12213F;
   --ink:#243B4A;--ink-soft:#5A7387;--gold:#E3A63C;--gold-lt:#F5C443;--gold-deep:#B7791F;
+  /* --gold-ink is the SMALL-TEXT gold: --gold-deep measures only 3.19:1 on a card,
+     fine for large serif numerals and short of 4.5:1 for anything small. Added
+     2026-08-16 with the search block, same value as app.css. */
+  --gold-ink:#8A5A0F;
   --wood:#8A5A32;--wood-lt:#B4794A;--wood-dk:#5C3A1E;
   --bad:#B44A3C;
   /* the glass tokens the copied 我的档案 panel styles at the bottom of this file
@@ -27,6 +31,7 @@
   --glass:rgba(255,255,255,.60);--glass-strong:rgba(255,255,255,.72);
   --glass-soft:rgba(255,255,255,.40);
   --glass-line:rgba(255,255,255,.65);
+  --glass-line-2:rgba(150,185,212,.45);
   --glass-lift:0 10px 34px rgba(23,58,90,.20);
   --glass-blur:saturate(165%) blur(20px);
   --glass-edge:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.30);
@@ -189,7 +194,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
 /* #46596A not --ink-soft (#5A7387): the soft token is ~4.3:1 on a glass card,
    under the 4.5:1 floor for text this small (owner 2026-08-16). Dark PLATES
    override this to a light colour further down — do not "simplify" them away. */
-body.xh-en-on .xh-en{display:block;font-size:12.5px;font-weight:600;color:#46596A}
+body.xh-en-on .xh-en,.xh-en.xh-always{display:block;font-size:12.5px;font-weight:600;color:#46596A}
 body.xh-py-on .xh-py,.xh-py.xh-always{display:block;font-size:13px;font-weight:600;color:var(--sea1)}
 /* interface pinyin (owner 2026-08-16). Smaller and quieter than the word 拼音 —
    it annotates a button, not the thing being learned. Same contrast floor as the
@@ -437,8 +442,12 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
 .xh-jetty-line{position:absolute;left:0;right:0;top:22px;height:7px;border-radius:3px;
   background:repeating-linear-gradient(90deg,var(--wood) 0 12px,var(--wood-lt) 12px 15px);
   box-shadow:0 2px 0 rgba(0,0,0,.3)}
+/* ⚠️ scaleX(-1) — the boat sprites are drawn bow-LEFT (broadside), but the jetty
+   runs left to right, so unflipped the boat sails backwards along its own progress
+   bar (owner 2026-08-16). The -50% translate must come FIRST or the flip moves it
+   half a boat off its position. */
 .xh-jetty-boat{position:absolute;bottom:8px;width:46px;height:auto;image-rendering:pixelated;
-  transform:translateX(-50%);transition:left .5s cubic-bezier(.4,0,.2,1);
+  transform:translateX(-50%) scaleX(-1);transition:left .5s cubic-bezier(.4,0,.2,1);
   filter:drop-shadow(0 2px 3px rgba(6,26,48,.4))}
 .xh-jetty-n{position:absolute;right:0;top:-2px;font-size:12px;font-weight:800;color:#fff;
   background:rgba(18,33,63,.72);border-radius:999px;padding:3px 10px}
@@ -696,8 +705,10 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
 .xh-sprite.big img{height:clamp(160px,32vh,280px)}
 .xh-card-word{margin:14px 0 4px}
 .xh-card-word b{display:block;font-family:var(--serif);font-size:clamp(30px,5vw,44px);font-weight:900;color:var(--ink)}
-body.xh-py-on .xh-card-word .xh-py{display:block;font-size:19px;margin-top:2px}
-body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
+/* ⚠️ .xh-always here too, or the card falls back to the 12.5px gloss size: the
+   flashcard's reading and meaning are its CONTENT, not an annotation on it. */
+body.xh-py-on .xh-card-word .xh-py,.xh-card-word .xh-py.xh-always{display:block;font-size:19px;margin-top:2px}
+body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;font-size:15px;margin-top:3px}
 .xh-say{padding:9px 20px;font-size:14.5px;margin-top:6px}
 .xh-cardnav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 
@@ -949,3 +960,84 @@ body.xh-en-on .xh-card-word .xh-en{display:block;font-size:15px;margin-top:3px}
 .qty-range::-moz-range-thumb{width:30px;height:30px;border-radius:50%;
   background:linear-gradient(180deg,#FFF6E0,#F5C443);
   border:2.5px solid var(--gold-deep);box-shadow:0 3px 10px rgba(23,58,90,.32)}
+
+
+/* ---------- 通用搜索 · 五站 (js/search.js, §3.3) ----------
+   ⚠️ DUPLICATED VERBATIM FROM app.css. That is deliberate and matches the standing
+   convention in this repo: XH_index.html never loads app.css, so the dock needs
+   its own copy, exactly as it already carries copies of the palette tokens and
+   of the rules profile.js needs. Change one, change the other.
+   z-index 72: above .pop-card (60) and the avatar info card (68) because it is a
+   top-level dialog, below arena (90) and the celebration layer (300). */
+.wss-overlay{position:fixed;inset:0;z-index:72;display:flex;align-items:flex-start;
+  justify-content:center;padding:6vh 16px 16px;background:rgba(20,44,68,.42);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+/* ⚠️ .95, NOT var(--glass-strong) (.72). CLAUDE.md warns against LOWERING the
+   glass alphas; this raises one, for the same reason .pop-card went .82 -> .95
+   on 2026-08-14: this is a dense list of small text sitting over busy pixel art
+   (the pier, the sea map, bg-01..05), and readability beats the effect here. */
+.wss-card{width:min(680px,100%);max-height:88vh;display:flex;flex-direction:column;
+  border-radius:22px;padding:16px 16px 8px;background:rgba(255,255,255,.95);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);box-shadow:var(--glass-lift),var(--glass-edge)}
+.wss-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.wss-title{flex:1 1 auto;min-width:0;font-family:var(--serif),serif;font-size:19px;
+  font-weight:700;color:var(--ink)}
+.wss-sub{display:block;font-family:var(--sans),sans-serif;font-size:12px;font-weight:600;
+  color:var(--ink-soft);margin-top:2px}
+.wss-x{flex:0 0 auto;width:38px;height:38px;border-radius:50%;font-size:16px;
+  color:var(--sea2);background:rgba(255,255,255,.8);border:1px solid var(--glass-line);
+  cursor:pointer;touch-action:manipulation}
+.wss-input{width:100%;box-sizing:border-box;padding:13px 15px;font-size:17px;
+  font-family:var(--sans),sans-serif;color:var(--ink);background:rgba(255,255,255,.88);
+  border:1.5px solid var(--glass-line-2);border-radius:14px;outline:none}
+.wss-input:focus{border-color:var(--gold)}
+.wss-results{flex:1 1 auto;min-height:0;overflow-y:auto;margin-top:10px;padding-bottom:8px}
+.wss-hint{padding:18px 6px;font-size:13.5px;font-weight:600;color:var(--ink-soft);
+  text-align:center;line-height:1.7}
+.wss-hint-en{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:3px}
+.wss-grp{margin-bottom:12px}
+.wss-grp-h{display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1;
+  padding:6px 8px;margin-bottom:4px;border-radius:10px;font-size:12.5px;font-weight:700;
+  color:var(--sea2);background:rgba(238,246,251,.96)}
+.wss-grp-n{margin-left:auto;font-weight:600;color:var(--ink-soft)}
+.wss-row{display:flex;align-items:center;gap:11px;padding:8px 9px;border-radius:12px}
+.wss-row + .wss-row{border-top:1px solid rgba(150,185,212,.28)}
+.wss-pic{flex:0 0 auto;width:42px;height:42px;object-fit:contain;
+  image-rendering:pixelated}
+.wss-txt{flex:1 1 auto;min-width:0}
+.wss-w{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.wss-w b{font-size:17px;font-weight:700;color:var(--ink)}
+.wss-py{font-size:13px;font-weight:600;color:var(--gold-ink)}
+.wss-chip{font-size:11px;font-weight:700;color:var(--sea2);background:rgba(255,255,255,.8);
+  border:1px solid var(--glass-line-2);border-radius:999px;padding:1px 8px}
+.wss-en{font-size:12.5px;color:var(--ink-soft);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ⚠️ Sibling button, never nested inside a tappable row — the 可及性 pass removed
+   exactly this near-miss trap from every MCQ surface. ::after widens the target
+   to ~46px without changing the visual size. */
+.wss-spk{position:relative;flex:0 0 auto;width:34px;height:34px;border-radius:50%;
+  font-size:15px;background:rgba(255,255,255,.85);border:1px solid var(--glass-line-2);
+  cursor:pointer;touch-action:manipulation}
+.wss-spk::after{content:"";position:absolute;inset:-6px}
+.wss-more{padding:7px 9px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+@media (max-width:520px){
+  .wss-overlay{padding:2vh 8px 8px}
+  .wss-card{max-height:94vh;border-radius:18px}
+}
+
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  .wss-card{background:rgba(255,255,255,.97)}
+  .wss-overlay{background:rgba(20,44,68,.55)}
+}
+
+/* the static topbar labels (海图 / 启航码头 / subtitle) carry their own gloss spans,
+   written into XH_index.html because they never pass through xhPy(). They must not
+   widen the bar — the three pills on the right already compete for it — so they
+   wrap underneath, exactly like the HUD glosses. */
+.xh-back .xh-uipy,.xh-back .xh-en,.xh-top h1 .xh-uipy,.xh-top h1 .xh-en{display:none}
+body.xh-py-on .xh-back .xh-uipy,body.xh-py-on .xh-top h1 .xh-uipy{display:block;
+  font-size:10.5px;font-weight:600;color:#6A5A21;line-height:1.25}
+body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
+  font-size:10.5px;font-weight:600;color:#46596A;line-height:1.25}
+.xh-top h1{line-height:1.15}
