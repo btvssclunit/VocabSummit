@@ -1394,6 +1394,100 @@ body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
 .xh-build .xh-ph-pic{width:clamp(104px,19vw,150px);margin-bottom:2px}
 body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 
+/* ---------- 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1, layer order §6.5) ----------
+   ⚠️ EVERYTHING MOVES ON --sx, ONE CUSTOM PROPERTY SET BY JS PER QUESTION. There is
+   no per-frame loop: a question is one step, so a transition is the whole animation.
+   That is also why it stays smooth on the old iPads G1/G2 study on — the compositor
+   gets four transforms a question, not sixty a second.
+   ⚠️ --sx lives on .xh-run (a CLASS), never inline per layer: a coordinate written
+   into style="" can never be overridden by a media query (§14).
+   ⚠️ IT IS A NORMAL BLOCK IN THE FLOW, not position:fixed. The topbar above it is
+   `position:sticky;top:0` and its height CHANGES with the 拼音/英文 gates — a fixed
+   band would need that height as a number, and the number would be wrong for exactly
+   the students who turn both aids on. In the flow it simply sits under the topbar at
+   whatever height that is. */
+.xh-run{--sx:0px;position:relative;height:clamp(150px,36vh,300px);
+  overflow:hidden;z-index:1;margin:0 0 14px;
+  background:#BAD6E8;border-bottom:2px solid rgba(10,40,66,.18);
+  box-shadow:0 6px 18px rgba(10,40,66,.22)}
+/* the four bands. ⚠️ background-size is written on EVERY one of them: an unsized
+   background tiles at its native pixel size and a 2048-wide sky sprouts a second sun
+   on a wide screen (§14「只设 background-image」). */
+.xh-run-sky,.xh-run-sea,.xh-run-sand,.xh-run-foam{position:absolute;left:0;right:0;
+  background-repeat:repeat-x;image-rendering:pixelated;pointer-events:none}
+/* sky: static, no scroll (§6.5 layer 1) */
+.xh-run-sky{top:0;height:62%;background-image:url("../art/xh/run/xh_run_sky.png");
+  background-size:auto 100%;background-position:center bottom}
+/* sea: slow scroll. The parallax factors are the layer order made visible — anything
+   nearer the camera moves faster, and the sand at 1.0 is the ground the runner is on. */
+.xh-run-sea{top:44%;height:30%;background-image:url("../art/xh/run/xh_run_sea.png");
+  background-size:auto 100%;background-position-x:calc(var(--sx) * -0.25);
+  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
+.xh-run-sand{bottom:0;height:34%;background-image:url("../art/xh/run/xh_run_sand.png");
+  background-size:auto 100%;background-position-x:calc(var(--sx) * -1);
+  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
+/* foam at the sea/sand seam, scrolling with the sand (§6.5 layer 3). ⚠️ The three
+   frames are stacked in ROWS, so the animation steps background-position-Y; the sheet
+   is 1408x768 and each row is 256 tall, aligned so the foam's underside sits on the
+   seam rather than its top. */
+.xh-run-foam{bottom:30%;height:64px;background-image:url("../art/xh/run/xh_foam_lap.png");
+  background-size:1408px 768px;background-position-x:calc(var(--sx) * -1);
+  animation:xhFoamLap 1.05s steps(1) infinite;
+  transition:background-position-x .62s cubic-bezier(.33,0,.2,1)}
+@keyframes xhFoamLap{
+  0%{background-position-y:-142px} 33%{background-position-y:-398px} 66%{background-position-y:-654px}}
+/* props, markers and the arch ride one track so they share the ground's speed exactly.
+   ⚠️ transform, not `left`: animating left is what the owner reported as jank on the
+   sea map, and for the same reason — it relayouts, transform composites. */
+.xh-run-track{position:absolute;inset:0;transform:translateX(calc(var(--sx) * -1));
+  transition:transform .62s cubic-bezier(.33,0,.2,1);pointer-events:none}
+.xh-run-prop{position:absolute;height:23%;width:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 3px 6px rgba(6,26,48,.28))}
+.xh-run-mark{position:absolute;bottom:2%;height:44%;width:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 3px 7px rgba(6,26,48,.32))}
+.xh-run-finish{position:absolute;bottom:4%;height:64%;width:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 5px 12px rgba(6,26,48,.34))}
+/* the runner holds a fixed x and lets the world move under it (§6.5 layer 7) */
+.xh-angler.xh-runner{left:26%;bottom:8%;height:38%;z-index:3}
+/* ⚠️ the stumble is a WOBBLE, not a knockback: nothing is lost for a wrong answer
+   anywhere in this tier, and moving the runner backwards would say otherwise. */
+.xh-angler.xh-runner.trip{animation:xhTrip .5s ease-out}
+@keyframes xhTrip{0%{transform:translateX(-50%) rotate(0)}
+  30%{transform:translateX(-50%) rotate(-9deg) translateY(4%)}
+  60%{transform:translateX(-50%) rotate(5deg)}
+  100%{transform:translateX(-50%) rotate(0)}}
+/* the 贝壳 pickup: a 4-cell strip stepped by JS, popping above the runner */
+.xh-run-shell{position:absolute;left:26%;bottom:30%;width:64px;height:64px;
+  transform:translateX(-50%);opacity:0;pointer-events:none;z-index:4;
+  background-image:url("../art/xh/run/xh_shell_pickup.png");
+  background-size:400% 100%;background-position:0 0;background-repeat:no-repeat;
+  image-rendering:pixelated;transition:opacity .18s}
+.xh-run-shell.on{opacity:1;animation:xhShellPop .62s ease-out}
+@keyframes xhShellPop{from{transform:translateX(-50%) translateY(14px) scale(.7)}
+  to{transform:translateX(-50%) translateY(-10px) scale(1)}}
+/* ⚠️ THE TIDE IS FEEDBACK, NOT A FAIL STATE (§1.4). --tide only ever nudges it a few
+   notches and the runner sits at 26%, so the wave cannot reach anyone. There is no
+   lose condition in this mode and nothing here should ever grow one. */
+/* ⚠️ visible FROM THE START, about 45px of it. A tide that only appears after a
+   wrong answer is not feedback, it is a punishment animation — and §1.4 is explicit
+   that it is the former. It creeps in and back out; at its furthest it is still less
+   than half way to the runner at 26%. */
+.xh-run-wave{--tide:0px;position:absolute;left:calc(-186px + var(--tide));bottom:0;
+  width:230px;height:74%;z-index:2;pointer-events:none;
+  background-image:url("../art/xh/run/xh_wave_chase.png");
+  background-size:400% 100%;background-repeat:no-repeat;
+  image-rendering:pixelated;opacity:.9;
+  animation:xhWaveRoll .9s steps(1) infinite;
+  transition:left .6s cubic-bezier(.33,0,.2,1)}
+@keyframes xhWaveRoll{
+  0%{background-position-x:0%} 25%{background-position-x:33.333%}
+  50%{background-position-x:66.666%} 75%{background-position-x:100%}}
+@media (prefers-reduced-motion:reduce){
+  .xh-run-foam,.xh-run-wave,.xh-run-shell.on{animation:none}
+  .xh-run-sea,.xh-run-sand,.xh-run-foam,.xh-run-track,.xh-run-wave{transition:none}
+  .xh-angler.xh-runner.trip{animation:none}
+}
+
 /* ---------- 意见反馈 floating button (owner 2026-08-16 晚) ----------
    ⚠️ DELIBERATE DUPLICATION, and it is the §17 kind: these rules also exist in
    app.css and the pier never loads app.css. Change one, change both — the symptom

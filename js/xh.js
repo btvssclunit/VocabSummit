@@ -124,6 +124,11 @@
        句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
        读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
     if (s.cardKind !== "sentence") s.cardKind = "word";
+    /* ①模式 — 普通闯关 vs 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1). ⚠️ 普通 is the default and
+       stays the default (§8): the run is a reward for knowing your way around, not a
+       first encounter, and a beginner meeting the pier for the first time should see
+       a question, not a beach. */
+    if (s.runMode !== "surf") s.runMode = "plain";
     if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
        ⚠️ It must NEVER merge with 航程: 航程 is what you know, 航海值 is what you
@@ -248,7 +253,8 @@
     "看图识词": "kàn tú shí cí", "听音识图": "tīng yīn shí tú",
     "词海垂钓": "cí hǎi chuí diào", "连线": "lián xiàn",
     "组字成词": "zǔ zì chéng cí", "多几个干扰字": "duō jǐ gè gān rǎo zì",
-    "难度": "nán dù",
+    "难度": "nán dù", "模式": "mó shì",
+    "普通闯关": "pǔ tōng chuǎng guān", "踏浪竞速": "tà làng jìng sù",
     /* ⚠️ 多几块干扰词 shipped with 重整句子 and has been missing from this table ever
        since — xhPy() returns "" for an absent key, so the 拼音 under that one slider
        heading has simply never been there and nothing said so (§10). */
@@ -1158,6 +1164,22 @@
      ⚠️ 重整句子's +6 step went with them. It has no fourth 难度 to sit on, and the
      owner chose keeping the ranges honest over keeping every step. */
 
+  /* ---------- 踏浪竞速 · which 题型 may be played as a run (HANDOFF §1.5) ----------
+     ⚠️ The test is「is one answer one tap」, not「is it easy」. A run advances one
+     stretch per question, so a mode whose answer arrives in pieces (连线's board of
+     pairs) or behind the on-screen keyboard (词海垂钓) has nothing to pace against.
+     组字成词 and 重整句子 ARE tap-based even though the student taps several times:
+     the ANSWER EVENT is single — 检查答案 — which is what the runner listens for.
+     ⚠️ Blocked types are GREYED, never hidden (§1.5): the student keeps the whole
+     list in their head and learns which ones the beach cannot take. */
+  var RUN_MODES = { pic: 1, listen: 1, enmcq: 1, phrase: 1, sort: 1, build: 1 };
+  function runAllowed(id) { return !!RUN_MODES[id]; }
+  function runBlockWhy(id) {
+    if (id === "match") return ["一次要连好几组，跑不成一题一步", "a whole board at once, not one answer"];
+    if (id === "type")  return ["打字时键盘会挡住海滩", "the keyboard covers the beach"];
+    return ["这个玩法没有答对答错", "nothing to answer here"];
+  }
+
   /* 动线编号 — the same gold numerals app.js puts on multi-step decision flows.
      Numbering restarts per screen, and optional settings are never numbered. */
   var STEP_N = ["①", "②", "③", "④"];
@@ -1184,6 +1206,7 @@
   /* ---------- menu ---------- */
   function renderMenu() {
     state = null;
+    runTeardown();                          // the beach never outlives its round
     setBack(null);                          // pier front page: back = the sea map
     view().classList.add("two-col");        // the ONLY screen laid out in two columns
     /* PATCH_liquid_glass listed five structural gaps behind「it looks boring」,
@@ -1541,6 +1564,27 @@
        ⚠️ 连线 shows no 每次题数 — its board size IS its round — so 难度 is the only
        thing it asks. */
     if (kind !== "cards") {
+      /* ---------- ①模式 — 普通闯关 vs 踏浪竞速 (HANDOFF §1, §3.1) ----------
+         ⚠️ It is a SKIN over the question type chosen above, not a type of its own,
+         which is why it is a row here rather than a sixth tile on the front page. The
+         same 看图识词 round is the same round either way: same questions, same 贝壳,
+         same 航程. Only the feedback differs.
+         ⚠️ GREYED, NEVER HIDDEN, when this 题型 cannot run (§1.5) — a student who has
+         seen the beach on 看图识词 must be able to see WHY 词海垂钓 will not do it. */
+      var canRun = runAllowed(cur.id), why = runBlockWhy(cur.id);
+      if (!canRun && store.runMode === "surf") { /* remembered, but not here */ }
+      h += sec("模式", "how it looks") +
+        '<div class="xh-modes two">' +
+        '<button class="xh-mode' + (store.runMode !== "surf" ? " on" : "") +
+          '" data-rm="plain"><span class="xh-mi">📋</span><b>普通闯关</b>' +
+          xhPy("普通闯关") + '<span class="xh-en">Plain round</span></button>' +
+        '<button class="xh-mode' + (store.runMode === "surf" && canRun ? " on" : "") +
+          (canRun ? "" : " na") + '" data-rm="surf"' + (canRun ? "" : " disabled") + '>' +
+          '<span class="xh-mi">🏃</span><b>踏浪竞速</b>' + xhPy("踏浪竞速") +
+          '<span class="xh-en">Beach run</span>' +
+          (canRun ? "" : '<span class="xh-mode-na">' + why[0] +
+                         '<span class="xh-en">' + why[1] + "</span></span>") +
+        "</button></div>";
       if (kind !== "match") {
         h += sec("每次题数", "questions per round") +
           qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
@@ -1568,6 +1612,12 @@
         if (mem) store[mem] = store.mode;
         save();
         renderModeConfig(kind);           // re-render: the sliders differ per type
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-rm]"), function (el) {
+      el.onclick = function () {
+        store.runMode = el.getAttribute("data-rm"); save();
+        renderModeConfig(kind);
       };
     });
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-ck]"), function (el) {
@@ -2270,6 +2320,7 @@
         if (!ps.length) return;
         state = { grp: sub || scopeLabel(), mode: mode, cards: "sentence", seq: ps,
                   i: 0, correct: 0, missed: [], firstTry: true, pool: pool };
+        runMaybe(mode);          // 词语闪卡 is never a run; this just clears a stale band
         ps.forEach(function (p) {
           var w = wordByText(p.ask), f = p.pic || (w && w.图档);
           if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
@@ -2322,6 +2373,11 @@
         if (!ph.length) return;
         state = { grp: pickScene, mode: mode, seq: ph, i: 0, correct: 0,
                   missed: [], firstTry: true, pool: pool, scene: pickScene };
+        /* ⚠️ THE SENTENCE MODES RETURN EARLY, so the run has to be set up here as well
+           as at the bottom of startRound. 看句选词 and 重整句子 are both allowed on the
+           beach (§1.5), and wiring it in only one of the two exits is how one of them
+           would silently never surf. */
+        runMaybe(mode);
         /* ⚠️ 重整句子 shows no sticker (§8.4), so there is nothing to prewarm for it:
            every word is already on a tile and the answer has no ambiguity to resolve.
            A picture there would only crowd the tray and pull the eye off word order. */
@@ -2357,6 +2413,7 @@
     if (!seq.length) return;
     state = { grp: sub || scopeLabel(), mode: mode, seq: seq, i: 0, correct: 0,
               missed: [], firstTry: true, pool: pool };
+    runMaybe(mode);
     // warm the round's sprites: each question swaps the image, and an undecoded
     // sprite shows as an empty frame for a beat — the picture IS the question
     var warm = (mode === "match" || mode === "learn") ? seq : seq.concat(distractors(seq[0], optCount() - 1));
@@ -2382,6 +2439,14 @@
   }
 
   function render() {
+    /* ⚠️ 踏浪竞速 paints AFTER the mode has drawn, and from a band that lives OUTSIDE
+       #xhView — every renderer here assigns innerHTML, which would wipe a child and
+       restart its transitions on every question. */
+    var out = renderInner();
+    if (state && state.surf) runPaint();
+    return out;
+  }
+  function renderInner() {
     view().classList.remove("two-col");     // round screens are a single centred column
     if (state.mode === "learn") {
       if (state.i >= state.seq.length) return renderLearnEnd();
@@ -2446,6 +2511,7 @@
      up, let them try again. This is first contact with a writing system they
      cannot read, so a wrong tap must be free. */
   function noteWrong(w, chosen) {
+    runNote(false);
     var s = stat(w);
     if (state.firstTry) {
       state.firstTry = false;
@@ -2523,6 +2589,7 @@
      ⚠️ 以前这里读词、调用方紧接着读句子，第二句 cancel() 掉第一句——
      学生听到半个词就被打断。 */
   function noteRight(w, quiet) {
+    runNote(true);                          // 踏浪竞速: a skin on this path, never a second one
     if (state.firstTry) state.correct++;
     awardSail(state.mode, state.firstTry);
     awardShells(state.mode, state.firstTry);
@@ -3313,6 +3380,149 @@
         t = setTimeout(function () { frame(0); el.classList.remove("cheer"); }, 1100);
       }
     };
+  }
+
+  /* ================= 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1) =================
+     A PRESENTATION LAYER, and the code says so: nothing below asks a question, marks
+     an answer, awards anything or writes to the store. The band is a sibling of
+     #xhView that reads `state` after every render and draws what it finds.
+
+     ⚠️ THE SCROLL IS DERIVED FROM state.i, NEVER ACCUMULATED. Advancing a counter on
+     each correct answer would drift out of step with the question number the moment
+     one mode took a path that does not call the hooks (看句选词's tile-only sentence
+     does exactly that), and the runner would then reach the arch a stretch early or
+     late. Position is a pure function of「which question are we on」, so it cannot.
+     Only the TIDE — pure feedback, §1.4 — is accumulated, and if it ever missed a
+     beat the worst case is a wave one notch off.
+
+     ⚠️ NO requestAnimationFrame AND NO CANVAS. Everything moves in discrete steps on
+     CSS transitions, because everything the mode does IS discrete: one question, one
+     stretch. That also keeps it off the old iPads' compositor, which is the fleet
+     G1/G2 actually study on.
+
+     ⚠️ THE TIDE NEVER CATCHES ANYONE AND THERE IS NO LOSE CONDITION (§1.4). The round
+     ends when the questions run out, full stop. Do not add a fail state here later —
+     a zero-background beginner must never be cut off mid-activity. */
+  var RUN_STRETCH = 230;              // px of world per question
+  var RUN_TIDE_STEP = 26;             // px the wave moves per notch
+  var RUN_TIDE_MAX = 5;               // notches; clamped so it never reaches the runner
+  var RUN_PROPS = ["palm", "rocks", "driftwood", "sandcastle", "starfish", "crab",
+                   "seagull", "basket", "post", "netrack", "boat", "shells"];
+
+  function runBand() { return document.getElementById("xhRunBand"); }
+  function runTeardown() {
+    var b = runBand();
+    if (b) b.parentNode.removeChild(b);
+  }
+  /* built once per round, then only nudged — rebuilding it per question would restart
+     every CSS transition and the beach would jump instead of scroll. */
+  function runBuild(n) {
+    runTeardown();
+    var b = document.createElement("div");
+    b.className = "xh-run";
+    b.id = "xhRunBand";
+    var track = "";
+    /* one marker per question, at the far end of that question's stretch (§6.5) */
+    for (var i = 1; i <= n; i++) {
+      track += '<img class="xh-run-mark" src="art/xh/run/xh_run_marker.png' + ASSET_V +
+        '" alt="" style="left:' + (i * RUN_STRETCH) + 'px">';
+    }
+    /* props scattered on the sand. ⚠️ Placed from a fixed walk, not Math.random per
+       paint: a prop that moved between two renders of the SAME question would read as
+       the beach glitching. The offsets are arbitrary but stable. */
+    /* ⚠️ SPACED WIDER THAN THE MARKERS (1.15 stretches vs 1), so the two never settle
+       into a rhythm — props at exactly one per stretch would read as part of the
+       milestone furniture instead of as scenery the runner passes. */
+    for (var k = 0; k < n + 2; k++) {
+      var nm = RUN_PROPS[(k * 5 + 3) % RUN_PROPS.length];
+      track += '<img class="xh-run-prop" src="art/xh/run/prop_' + nm + '.png' + ASSET_V +
+        '" alt="" style="left:' + Math.round(150 + k * RUN_STRETCH * 1.15) + 'px;' +
+        "bottom:" + (3 + ((k * 5) % 7)) + "%\">";
+    }
+    track += '<img class="xh-run-finish" src="art/xh/run/xh_run_finish.png' + ASSET_V +
+      '" alt="" style="left:' + (n * RUN_STRETCH + 40) + 'px">';
+    b.innerHTML =
+      '<div class="xh-run-sky"></div>' +
+      '<div class="xh-run-sea"></div>' +
+      '<div class="xh-run-sand"></div>' +
+      '<div class="xh-run-foam"></div>' +
+      '<div class="xh-run-track" id="xhRunTrack">' + track + "</div>" +
+      /* the avatar rides the SAME 6-frame strip 攀山竞速 and the angler use — §1.6:
+         zero new art, and any 生肖 or 神兽 added later inherits this mode for free. */
+      anglerHtml("xh-runner") +
+      '<div class="xh-run-shell" id="xhRunShell"></div>' +
+      '<div class="xh-run-wave" id="xhRunWave"></div>';
+    var host = view();
+    host.parentNode.insertBefore(b, host);
+
+    state.surf.angler = wireAngler();
+    return b;
+  }
+  /* ⚠️ ONE entry point, called from every exit of startRound. The 题型 gate lives
+     here and not only in the modal: a remembered「surf」 must not survive into a mode
+     the beach cannot pace, or the student presses 出发 and gets a band with nothing
+     moving in it. It also tears down an old band, so switching from a run to a plain
+     round in the same session leaves nothing behind. */
+  function runMaybe(mode) {
+    runTeardown();
+    if (store.runMode === "surf" && runAllowed(mode) && state && state.seq) {
+      state.surf = { tide: 0, angler: null };
+      runBuild(state.seq.length);
+    }
+  }
+  function runPaint() {
+    var b = runBand() || runBuild(state.seq.length);
+    var s = state.surf;
+    var x = Math.min(state.i, state.seq.length) * RUN_STRETCH;
+    b.style.setProperty("--sx", x + "px");
+    var wave = document.getElementById("xhRunWave");
+    if (wave) wave.style.setProperty("--tide", (s.tide * RUN_TIDE_STEP) + "px");
+  }
+  /* called from noteRight / noteWrong — the ONE answer path (§4.2), which is why the
+     runner needs no hooks of its own inside any mode. */
+  function runNote(ok) {
+    if (!state || !state.surf) return;
+    var s = state.surf;
+    s.tide = ok ? Math.max(0, s.tide - 1) : Math.min(RUN_TIDE_MAX, s.tide + 1);
+    var wave = document.getElementById("xhRunWave");
+    if (wave) wave.style.setProperty("--tide", (s.tide * RUN_TIDE_STEP) + "px");
+    var a = s.angler;
+    if (ok) {
+      /* the dash: two walk frames for the length of the scroll, then idle again.
+         ⚠️ setInterval, not rAF — six frames over 600ms needs no better clock, and
+         rAF is exactly what does not run when the tab is backgrounded mid-round. */
+      if (a) {
+        var f = 1, t = setInterval(function () { a.frame(f = (f === 1 ? 2 : 1)); }, 110);
+        setTimeout(function () { clearInterval(t); a.cheer(); }, 620);
+      }
+      runShell();
+    } else if (a) {
+      /* the stumble. ⚠️ Costs NOTHING — no lost ground, no lost 贝壳, no lost round.
+         It is a face, not a penalty (§1.4). */
+      a.frame(3);
+      var el = document.getElementById("xhAngler");
+      if (el) {
+        el.classList.remove("trip"); void el.offsetWidth; el.classList.add("trip");
+      }
+      setTimeout(function () { a.frame(0); if (el) el.classList.remove("trip"); }, 700);
+    }
+  }
+  /* the 贝壳 pickup — four frames of an even 4-cell strip, stepped by hand for the
+     same reason as above. It is decoration: the shells were already banked by
+     awardShells before this ever runs. */
+  function runShell() {
+    var el = document.getElementById("xhRunShell");
+    if (!el) return;
+    el.classList.add("on");
+    var i = 0;
+    var t = setInterval(function () {
+      i++;
+      el.style.backgroundPositionX = (i * 33.333) + "%";
+      if (i >= 3) {
+        clearInterval(t);
+        setTimeout(function () { el.classList.remove("on"); el.style.backgroundPositionX = "0%"; }, 180);
+      }
+    }, 130);
   }
 
   function renderType() {
