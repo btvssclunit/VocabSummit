@@ -333,7 +333,16 @@
      opposite edges with G3 exactly between them, so no arc in either direction
      clears — verified by checking all 20 routes at a range of arc heights.
      Values are % of the viewport, y measured from the BOTTOM. */
-  var SEA_DETOUR = { "G2_index.html|HCL_index.html": [40, 30] };
+  /* ⚠️ LANDSCAPE ONLY. Portrait stacks the islands in a column with a clear channel
+     down the right (app.css), so every voyage there is a straight run and this
+     waypoint — placed for the landscape geometry — would bend the boat straight
+     into G1. Re-verified 2026-08-16 after G3 moved up and HCL moved down: the
+     corridor is now between G3's foot and G1's peak, so the waypoint moved with
+     them. All 20 routes checked clear at 1920x990, 1366x768 and 1024x600. */
+  var SEA_DETOUR = { "G2_index.html|HCL_index.html": [52, 41] };
+  function portrait() {
+    return !!(window.matchMedia && window.matchMedia("(orientation: portrait)").matches);
+  }
 
   function initSeaMap(sea) {
     if (sea._wired) return;
@@ -344,14 +353,14 @@
     var BERTH_KEY = "ws_seamap_at";
 
     function skipSail() {
-      // Portrait stacks the islands with no clear sailing lane from the jetty,
-      // so a voyage would cut straight across land. The design doc's own answer
-      // where a route cannot stay on water is to drop it for that voyage.
-      if (window.matchMedia) {
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
-        if (window.matchMedia("(orientation: portrait)").matches) return true;
-      }
-      return false;
+      /* ⚠️ Portrait NO LONGER skips (owner 2026-08-16: 「on mobile the boat doesn't
+         sail, it just teleports」). It used to, because the old portrait layout
+         zigzagged the islands across the full width and left no route that stayed
+         on water. The portrait layout is now a column with a clear channel down the
+         right — all 20 routes verified clear at 390x844, 430x932 and 360x780 — so
+         the boat sails there too. Reduced-motion is the only remaining skip, and
+         that one is a preference, not a workaround. */
+      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     }
 
     /* The berth is where the student last sailed to — the boat stays there as a
@@ -433,7 +442,8 @@
          pass THROUGH at the halfway mark, which for a quadratic means
          C = 2W - (start + end)/2. */
       var key = ((prev && prev.go) || "dock") + "|" + go;
-      var alt = SEA_DETOUR[key] || SEA_DETOUR[go + "|" + ((prev && prev.go) || "dock")];
+      var alt = portrait() ? null
+        : (SEA_DETOUR[key] || SEA_DETOUR[go + "|" + ((prev && prev.go) || "dock")]);
       var cx, cy;
       if (alt) {
         cx = 2 * (alt[0] / 100 * W) - (fromX + toX) / 2;
