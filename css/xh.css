@@ -222,6 +222,42 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
   text-align:left;font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;
   -webkit-appearance:none;appearance:none}
 .xh-hero:active{transform:translateY(1px)}
+/* ⚠️ The beach grows to fill the right column at two-column widths (owner
+   2026-08-16). At min-height:190px it was a letterbox strip beside a ~640px left
+   rail, so the student's own beach — the thing they buy things FOR — was the
+   smallest element on the page. `flex:1` alone does nothing here because
+   .xh-col-r is a plain block; making the column a flex column and letting the
+   hero grow is what actually fills the height.
+   ⚠️ Only at >=900px. Below that the columns stack and a tall hero would push the
+   whole flow off the first screen. */
+@media (min-width:900px){
+  /* ⚠️ align-self:stretch is what actually does it. The grid sets align-items:start
+     (so the sticky left rail keeps its own height), which also stops the right
+     column growing to the row — flex:1 on the hero then had no slack to take and
+     it just sat at its min-height. Stretch the RIGHT column only. */
+  .xh-wrap.two-col .xh-col-r{align-self:stretch;display:flex;flex-direction:column}
+  /* ⚠️ CAPPED. dock_bg is a 1.78 wide beach scene; let the hero take all the slack
+     and it becomes ~700px of mostly empty sky, with the sand and stilt house — the
+     part worth showing — hidden behind the stats overlay. Cap it and hand the rest
+     to the tiles: the columns still finish level, which is what the ragged bottom
+     edge was about, without gutting the picture. */
+  .xh-wrap.two-col .xh-col-r .xh-hero{flex:0 1 auto;min-height:260px;max-height:470px;height:44vh}
+  /* ⚠️ Anchor the crop to the BOTTOM once the box is tall. dock_bg is a wide beach
+     scene: cover-cropping a 1.78 image into a ~0.9 box from the centre throws away
+     the sand, the stilt house and the jetty and leaves an empty stretch of sea —
+     i.e. it crops out the actual beach the card exists to show. The berth sprites
+     also sit on percentages measured from the bottom, so pinning that edge keeps
+     them over the sand rather than floating in water. */
+  .xh-wrap.two-col .xh-col-r .xh-hero-bg{object-position:center bottom}
+  /* the tiles keep their natural height so only the beach absorbs the slack */
+  /* the tiles take the remaining height so the column still ends level with the
+     left rail; four slightly taller tiles read as intentional, an empty gap does not */
+  .xh-wrap.two-col .xh-col-r .xh-tiles{flex:1 1 auto;align-content:stretch}
+}
+/* 学习范围 category emoji: a zero-Chinese beginner picks a scope before they can
+   read any of these names, so the icon is the only thing carrying meaning here. */
+.xh-gchip-ic{font-size:19px;line-height:1}
+
 /* the student's boat and berth items, same coordinates as 我的海滩. Under the scrim
    on purpose: the title has to stay readable, and a dimmed boat still reads. */
 .xh-hero-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
@@ -1065,3 +1101,21 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
 /* a mode with nothing to ask: dimmed, unclickable, and saying why */
 .xh-mode.na{opacity:.5;cursor:not-allowed}
 .xh-mode-na{display:block;margin-top:5px;font-size:11.5px;font-weight:700;color:#8A5A0F}
+
+/* ---------- 传声筒 (PATCH_02) ---------- */
+.xh-phrase{gap:10px}
+/* the target's picture: part of the question, shown from the start, exactly one */
+.xh-ph-pic{width:clamp(110px,22vw,168px);height:auto;image-rendering:pixelated;
+  align-self:center;filter:drop-shadow(0 6px 14px rgba(6,26,48,.28))}
+.xh-ph-zh{font-family:var(--serif),serif;font-size:clamp(21px,2.6vw,30px);font-weight:900;
+  color:var(--ink);text-align:center;line-height:1.55}
+/* the blank sits ON the text baseline so the sentence-final 。 stays attached
+   instead of drifting off as a stray circle */
+.xh-blank{display:inline-block;min-width:2.4em;color:var(--gold-deep);
+  border-bottom:3px solid var(--gold);margin:0 .04em;vertical-align:baseline}
+.xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);text-align:center;margin-top:-2px}
+/* the culture note only appears when a sentence actually has one (§5: optional) */
+.xh-ph-note{display:block;margin-top:7px;font-size:13px;font-weight:600;color:var(--ink);
+  background:rgba(255,255,255,.82);border:1px solid var(--glass-line-2);
+  border-radius:12px;padding:8px 12px;text-align:left;max-width:46ch;
+  margin-left:auto;margin-right:auto}

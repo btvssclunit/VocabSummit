@@ -433,6 +433,19 @@
     "水果与蔬菜": "Fruit and vegetables", "熟食": "Cooked food",
     "肉与蛋": "Meat and eggs", "饮料": "Drinks"
   };
+  /* ⚠️ One icon per 组别. The scope chips are the FIRST thing a zero-Chinese
+     student meets, before any round starts and before they can read 天气与自然 —
+     so the emoji is not decoration here, it is the only cue that carries. Add a
+     line whenever data/xh_v3.json gains a 组别; a missing key degrades to no icon,
+     silently, same contract as xhPy(). */
+  var XH_GROUP_IC = {
+    "动物": "🐾", "食物": "🍜", "日常用品": "🧺", "学校": "🎒",
+    "天气与自然": "🌦️", "交通": "🚌", "地点": "📍", "数字": "🔢"
+  };
+  function xhGroupIc(zh) {
+    var ic = XH_GROUP_IC[zh];
+    return ic ? '<span class="xh-gchip-ic">' + ic + "</span>" : "";
+  }
   function xhGroupEn(zh) {
     var en = XH_GROUP_EN[zh];
     return en ? '<span class="xh-en">' + esc(en) + "</span>" : "";
@@ -583,7 +596,37 @@
   function modeNeedsPic(mode) { return mode === "pic" || mode === "listen"; }
   /* the pool a given mode may draw from, answers AND distractors alike */
   function poolForMode(pool, mode) {
+    /* ⚠️ 传声筒 draws from the SENTENCE library, not the word list, so a scope can
+       be full of perfectly good words and still have nothing to ask (数字 has no
+       sentences at all). Narrowing the pool here is what makes the mode grey
+       itself out with a reason instead of dying on 出发. */
+    if (mode === "phrase") {
+      var ok = {};
+      phrasesFor(pool).forEach(function (p) { ok[p.ask] = 1; });
+      return pool.filter(function (w) { return ok[w.词语]; });
+    }
     return modeNeedsPic(mode) ? pool.filter(hasPic) : pool;
+  }
+
+  /* ---------- 传声筒 · 语句库 (PATCH_02) ----------
+     ⚠️ NO DISTRACTORS ARE STORED. The original design demanded every sentence's
+     distractors be hand-written and forbade drawing them from a pool. PATCH_02 §1
+     retires that: it was written when the library held ten sentences, and at 92 the
+     cost of honouring it was not「slightly worse quality」but 传声筒 never shipping.
+     Distractors now come from the target word's own 组别, exactly like every other
+     mode here — this REMOVES a special case rather than adding one. */
+  var PHRASES = [];
+  /* sentences that are shown for atmosphere but never asked (PATCH_02 §4.2/§4.3):
+     the target is tile-only with no picture, or the line has no target at all. */
+  function phraseAskable(p) { return p && !p.display && p.ask; }
+  function wordByText(t) {
+    for (var i = 0; i < WORDS.length; i++) if (WORDS[i].词语 === t) return WORDS[i];
+    return null;
+  }
+  function phrasesFor(pool) {
+    var have = {};
+    pool.forEach(function (w) { have[w.词语] = 1; });
+    return PHRASES.filter(function (p) { return phraseAskable(p) && have[p.ask]; });
   }
 
   /* ---------- modes (spec §4) ----------
@@ -609,6 +652,12 @@
        two that really are games: typing against a rising fish, and the match board. */
     { id: "pic", icon: "🖼️", zh: "看图识词", en: "Picture → word", learn: true, opts: true },
     { id: "listen", icon: "🔊", zh: "听音识图", en: "Listen → picture", learn: true, opts: true },
+    /* 传声筒 — a word from the scene is blanked out of a real sentence and the
+       student picks it. ⚠️ IT IS NOT A SENTENCE TEST. PATCH_02 §0: the goal is to
+       make a zero-start learner MEET these words again inside real language, not
+       to make them master the sentence. Not understanding the whole line is the
+       expected state; wherever「harder」and「more exposure」pull apart, take exposure. */
+    { id: "phrase", icon: "📣", zh: "传声筒", en: "Fill the sentence", learn: true, opts: true },
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
     { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
   ];
@@ -698,7 +747,7 @@
         var on = sel.indexOf(b.组别) >= 0;
         h += '<button class="xh-gchip' + (on ? " on" : "") + '" data-g="' + esc(b.组别) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' +
-          "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + xhGroupEn(b.组别) +
+          xhGroupIc(b.组别) + "<b>" + esc(b.组别) + "</b>" + xhPy(b.组别) + xhGroupEn(b.组别) +
           "<span>" + b.done + " / " + b.n + "</span></button>";
       });
       h += "</div>";
@@ -1551,6 +1600,21 @@
          answer's whole 组别. Narrowing them to the 子类 would turn a fruit question
          into a fruit-only quiz and defeat the point (§6, and PATCH_category_hierarchy). */
       var need = mode === "match" ? (store.matchN || 5) : (store.roundN || ROUND_N);
+      /* ⚠️ 传声筒's sequence is SENTENCES, not words — everything below (子类
+         theming, sprite prewarm) is about words and does not apply. Return early
+         with the same state shape so render()/jetty()/renderResult() need no
+         special cases. */
+      if (mode === "phrase") {
+        var ph = shuffle(phrasesFor(pool).slice()).slice(0, need);
+        if (!ph.length) return;
+        state = { grp: sub || scopeLabel(), mode: mode, seq: ph, i: 0, correct: 0,
+                  missed: [], firstTry: true, pool: pool };
+        ph.forEach(function (p) {
+          var w = wordByText(p.ask), f = p.pic || (w && w.图档);
+          if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
+        });
+        return render();
+      }
       var draw = pool;
       var gs = {}; pool.forEach(function (w) { gs[w.组别] = 1; });
       if (Object.keys(gs).length === 1) {
@@ -1603,6 +1667,7 @@
       return renderLearn();
     }
     if (state.i >= state.seq.length) return renderResult();
+    if (state.mode === "phrase") return renderPhrase();
     if (state.mode === "enmcq") return renderEnMcq();
     if (state.mode === "listen") return renderListen();
     if (state.mode === "type") return renderType();
@@ -1806,6 +1871,93 @@
         var hint = document.getElementById("xhHint");
         hint.className = "xh-hint show"; hint.innerHTML = reveal(w);
         advance();
+      };
+    });
+  }
+
+  /* ---------- 传声筒 (PATCH_02) ----------
+     A real sentence from the scene with one word blanked out; pick the word.
+
+     ⚠️ THE PICTURE IS PART OF THE QUESTION, NOT A HINT (PATCH_02 §2), and it is
+     shown FROM THE START, never revealed after answering. Without it the question
+     is often unanswerable:「这包＿＿多少钱？」admits 香料 · 龙虾 · 苹果 · 糖 equally.
+     With a picture of sweets the answer is unique.
+     ⚠️ EXACTLY ONE picture, the target's. Four would turn the sentence into a
+     picture-guessing game and crowd the card.
+     ⚠️ It also kills the accidental-correct failure of same-组别 distractors: if
+     「我要买两个＿＿」draws 苹果, 两个苹果 is perfectly good Chinese and the student
+     would be marked wrong for being right. The picture settles it — the picture IS
+     the answer.
+
+     ⚠️ MEASURE-WORD LEAKAGE IS DELIBERATE — DO NOT「fix」IT (PATCH_02 §3).
+    「这台＿＿多少钱？」does narrow the answer to phone-like things. On the mountain
+     that would be a giveaway; here it is the entire point of a measure word, and a
+     student who reasons from 台 to the answer has just learned 台. Never strip the
+     measure word out of the stem to make the question「harder」. */
+  function phraseBlank(p) {
+    /* the blank keeps the measure word and everything else intact */
+    return esc(p.zh).replace(esc(p.ask), '<span class="xh-blank">＿＿</span>');
+  }
+  function renderPhrase() {
+    var p = state.seq[state.i];
+    var w = wordByText(p.ask);
+    var opts = shuffle([w].concat(distractors(w, optCount() - 1, "enmcq")));
+    var pic = p.pic || (w && w.图档);
+
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      jetty() + '<span class="xh-block-tag">' + esc(p.scene) + " · 传声筒</span></div>" +
+      '<div class="xh-board xh-stage xh-phrase">' +
+      (pic ? '<img class="xh-ph-pic" src="art/xh/' + esc(pic) + ASSET_V + '" alt="" ' +
+             "onerror=\"this.style.display='none'\">" : "") +
+      '<div class="xh-ph-zh">' + phraseBlank(p) + "</div>" +
+      '<div class="xh-ph-en">' + esc(p.en) + "</div>" +
+      '<div class="xh-opts">';
+    opts.forEach(function (o, i) {
+      /* ⚠️ .xh-optrow / .xh-otts are the pier's EXISTING option-row classes (see
+         renderEnMcq). Inventing a parallel pair left the speakers unstyled and
+         floating below the buttons. */
+      h += '<div class="xh-optrow"><button class="xh-opt" data-i="' + i + '">' +
+        '<span class="xh-word">' + esc(o.词语) + "</span>" +
+        '<span class="xh-py">' + esc(o.拼音) + "</span></button>" +
+        '<button class="xh-otts" data-s="' + i + '" title="朗读" aria-label="朗读">🔊</button></div>';
+    });
+    h += '</div><div class="xh-hint" id="xhHint"></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+
+    var done = false;
+    function pick(i) {
+      var o = opts[i];
+      var btn = view().querySelector('.xh-opt[data-i="' + i + '"]');
+      if (o.词语 === p.ask) {
+        if (done) return;
+        done = true;
+        btn.classList.add("ok");
+        noteRight(w);
+        speak(p.zh);                       // the whole sentence, in context
+        var hint = document.getElementById("xhHint");
+        /* ⚠️ insight_en is OPTIONAL (PATCH_02 §5). Most sentences have nothing worth
+           saying and a forced note would be filler. Blank is the normal state. */
+        hint.innerHTML = "✅ " + esc(p.zh) +
+          (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
+        advance(1500);
+      } else {
+        /* answering wrong costs nothing anywhere in this tier: mark it, stay put */
+        btn.classList.add("no");
+        btn.disabled = true;
+        noteWrong(w, o.词语);
+        sfxNo();
+      }
+    }
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-opt"), function (b) {
+      b.onclick = function () { pick(parseInt(b.getAttribute("data-i"), 10)); };
+    });
+    /* ⚠️ sibling speaker buttons, never nested in the answer — and they read the
+       OPTION, so hearing them all gives nothing away. */
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-otts"), function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        speak(opts[parseInt(b.getAttribute("data-s"), 10)].词语);
       };
     });
   }
@@ -2272,6 +2424,15 @@
   applyAids();     // before the first paint, so neither aid flashes in or out
   migrateBoat();   // legacy 3-tier store.boat -> the global 4-tier family
   renderTop();     // topbar works even if the word list never arrives
+
+  /* the sentence library. Loaded up front and kept tiny (16KB): 传声筒 is one of
+     the ② 学词 modes, so waiting for a second fetch at 出发 would stall the round.
+     ⚠️ A failure here must NOT take the pier down — every other mode works without
+     it, so PHRASES simply stays empty and 传声筒 hides itself. */
+  fetch("data/xh_phrases.json" + ASSET_V)
+    .then(function (r) { return r.json(); })
+    .then(function (doc) { PHRASES = (doc && doc.phrases) || []; })
+    .catch(function () { PHRASES = []; });
 
   fetch("data/xh_v3.json" + ASSET_V)
     .then(function (r) { return r.json(); })
