@@ -383,6 +383,11 @@
                                        // an archived key stays put so a pre-便携化
                                        // purchase can still be refunded if it comes to that)
     s.equip = s.equip || {};           // 随身装备 EQUIPPED: slot -> key (one per slot)
+    /* 消耗品／道具库存与赛前所选的槽位。⚠️ localStorage-only in the same sense as
+       lingLu/deco: they ride to Firestore inside the whole-store write but are NOT
+       merged back and are NOT in 进度码 — a consumable is not transferable progress. */
+    s.items = s.items || {};           // key -> count owned
+    s.itemSlots = s.itemSlots || {};   // "rain" | "sprint" -> [key, ...] chosen pre-round
     s.decoPos = s.decoPos || {};       // 自由摆放: key -> {x,y} percent, 整理营地 clears it
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
@@ -5209,6 +5214,69 @@
      inherit from the archived equivalent where one exists (行军木箱←书箱 120,
      野餐垫←木桌椅茶具 150, 水壶架←水缸 35→60). Single numbers, trivial to
      retune — flagged for the owner like the old C-tier pricing was. */
+  /* ================= 消耗品与竞速道具 (HANDOFF_掌握闸门与消耗品_20260816 §2) ====
+     ⚠️ THE ONE BOUNDARY RULE, and every future item must pass it first:
+     an item may change the TEST CONDITIONS (time, margin for error, option count).
+     It may never replace or lower the requirement to know what the word means.
+     That is why none of these touch 海拔 and why none exist in 填空/华文解释/英文翻译.
+
+     ⚠️ 词雨 consumables are safe by construction: 词雨 produces 灵露 only, never
+     mastery, so a bought advantage cannot move anything that is ranked on knowing
+     words. 攀山竞速 is the exception that had to be argued — it DOES confer mastery,
+     so its three items are restricted to time and option-count, never to meaning.
+
+     ⚠️ REAL-TIME COMPETITION IS ITEM-FREE, and it needs no switch: 结伴登峰 and
+     同伴挑战 both run through WSArena.open(), and arena.js has its OWN renderers —
+     it never enters these game loops at all. Keep it that way. */
+  var CONSUMABLES = [
+    { key: "tanghulu",    zh: "糖葫芦",   en: "+1 life",            img: "consumable_tanghulu",    price: 60,  eff: "life" },
+    { key: "yushan",      zh: "羽扇",     en: "Slower fall",        img: "consumable_yushan",      price: 80,  eff: "slow" },
+    { key: "youzhisan",   zh: "油纸伞",   en: "Combo shield",       img: "consumable_youzhisan",   price: 90,  eff: "shield" },
+    { key: "suanpan",     zh: "算盘",     en: "+10% 灵露",          img: "consumable_suanpan",     price: 100, eff: "bonus" },
+    { key: "yuhulu",      zh: "玉葫芦",   en: "Missed words still pay", img: "consumable_yuhulu",  price: 110, eff: "salvage" },
+    { key: "dingfengzhu", zh: "定风珠",   en: "Freeze 5s",          img: "consumable_dingfengzhu", price: 120, eff: "freeze" },
+    { key: "jinnang",     zh: "锦囊",     en: "Random item",        img: "consumable_jinnang",     price: 70,  eff: "random" }
+  ];
+  var POWERUPS = [
+    { key: "tonghudilou", zh: "铜壶滴漏", en: "+8 seconds",         img: "powerup_tonghudilou",    price: 90,  eff: "time" },
+    { key: "hujing",      zh: "护膝",     en: "First slip is free", img: "powerup_hujing",         price: 80,  eff: "knee" },
+    { key: "sinan",       zh: "司南",     en: "Remove one wrong",   img: "powerup_sinan",          price: 110, eff: "compass" }
+  ];
+  /* ⚠️ PRICES ARE MINE — the handoff (§3 item 5) explicitly leaves them unset and
+     says to set them against the existing A/B/C ladder. They sit in the 小摆件 band
+     (45-75) up to just under the mid gear (90-200), because a consumable is spent
+     and a piece of gear is kept. Single numbers, retune freely. */
+  function itemByKey(k) {
+    for (var i = 0; i < CONSUMABLES.length; i++) if (CONSUMABLES[i].key === k) return CONSUMABLES[i];
+    for (var j = 0; j < POWERUPS.length; j++) if (POWERUPS[j].key === k) return POWERUPS[j];
+    return null;
+  }
+  function itemCount(k) { return (store.items && store.items[k]) || 0; }
+  function grantItem(k, n) {
+    if (!store.items) store.items = {};
+    store.items[k] = itemCount(k) + (n || 1);
+  }
+  /* ⚠️ Spend at the START of a round, never at the end: a student who closes the
+     tab mid-round has still had the benefit, and refunding on quit would make the
+     shop free to anyone who quits. */
+  function spendItem(k) {
+    if (itemCount(k) <= 0) return false;
+    store.items[k] = itemCount(k) - 1;
+    if (!store.items[k]) delete store.items[k];
+    return true;
+  }
+  var ITEM_SLOTS = 3;               // §2.1: 上限 3 个消耗品槽
+  function equippedItems(kind) {
+    var list = (store.itemSlots && store.itemSlots[kind]) || [];
+    /* drop anything no longer owned, so a slot can never spend what you do not have */
+    return list.filter(function (k) { return itemByKey(k) && itemCount(k) > 0; }).slice(0, ITEM_SLOTS);
+  }
+  function setEquippedItems(kind, list) {
+    if (!store.itemSlots) store.itemSlots = {};
+    store.itemSlots[kind] = list.slice(0, ITEM_SLOTS);
+    saveStore();
+  }
+
   var GEAR = [
     // 住所 is a TIER CHAIN (existing dwellingTier mechanic reused, §3), not a free swap
     { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "art/camp/tent.png",                w: 20, desc: "起点的家 · 免费" },
@@ -5558,11 +5626,32 @@
         }).join("") + '</div>';
     }
 
+    /* 消耗品与竞速道具：可重复购买，所以显示的是「持有数」而不是「已拥有」。
+       ⚠️ 它们不占装备格，也不进 store.deco —— deco 是「买过就永远拥有」的装饰，
+       这些是会被消耗掉的。 */
+    function itemRow(it, kind) {
+      var have = itemCount(it.key), afford = store.lingLu >= it.price;
+      return '<div class="shop-row">' +
+        '<img class="shop-thumb" src="art/item/' + it.img + '.png" alt="" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div class="shop-info"><b>' + esc(it.zh) + '</b>' +
+          '<span class="shop-sub">' + esc(it.en) + (have ? ' · 持有 ' + have : '') + '</span></div>' +
+        '<button class="shop-buy" data-item="' + it.key + '"' + (afford ? "" : " disabled") + '>' +
+          campLingluIcon() + " " + fmtNum(it.price) + '</button></div>';
+    }
+    var itemHtml =
+      '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉，赛前最多带 ' +
+        ITEM_SLOTS + ' 件</span></div><div class="shop-grid">' +
+      CONSUMABLES.map(function (it) { return itemRow(it, "rain"); }).join("") + '</div>' +
+      '<div class="shop-tier-label">攀山竞速道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字</span></div>' +
+      '<div class="shop-grid">' +
+      POWERUPS.map(function (it) { return itemRow(it, "sprint"); }).join("") + '</div>';
+
     var html = '<div class="camp2-wrap"><div class="shop2-card">' +
       '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
       '<div class="camp-wallet">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b> · 在词雨灵露中接住词语获得</div>' +
       '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
-      gearHtml + boatHtml +
+      gearHtml + boatHtml + itemHtml +
       '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
       '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button></div>' +
       '</div></div>';
@@ -5583,6 +5672,17 @@
     });
     /* deduct → verify → persist lives inside WSBoats.buyLingLu, which spends through
        our own registerCodeProvider hook, so app.js stays the only writer of the wallet */
+    Array.prototype.forEach.call(view().querySelectorAll("[data-item]"), function (btn) {
+      btn.onclick = function () {
+        var it = itemByKey(btn.getAttribute("data-item"));
+        if (!it || store.lingLu < it.price) return;
+        store.lingLu -= it.price;      // deduct, then record, same order as everywhere
+        grantItem(it.key, 1);
+        saveStore();
+        toast("已兑换：" + it.zh + "（持有 " + itemCount(it.key) + "）");
+        openShopScene();
+      };
+    });
     Array.prototype.forEach.call(view().querySelectorAll("[data-boatbuy]"), function (btn) {
       btn.onclick = function () {
         var t = parseInt(btn.getAttribute("data-boatbuy"), 10);
