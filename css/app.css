@@ -2005,6 +2005,68 @@ button.m2pill{cursor:pointer}
   .wss-card{max-height:94vh;border-radius:18px}
 }
 
+/* ---------- 房间：花名册与头像 (owner 2026-08-16) ---------- */
+.arena-roster{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+.arena-who{display:flex;align-items:center;gap:6px;padding:5px 11px 5px 5px;border-radius:999px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+  font-size:13px;font-weight:700;color:#EAF3FA;max-width:170px}
+.arena-who img,.arena-who-none{width:26px;height:26px;border-radius:50%;object-fit:contain;flex:none;
+  background:rgba(255,255,255,.9);border:1.5px solid var(--gold,#E3A63C)}
+.arena-who-none{display:flex;align-items:center;justify-content:center;font-size:14px}
+.arena-who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-who.me{background:rgba(227,166,60,.3);border-color:var(--gold,#E3A63C)}
+.arena-av{width:24px;height:24px;border-radius:50%;object-fit:contain;flex:none;
+  background:rgba(255,255,255,.9);border:1.5px solid rgba(255,255,255,.5);margin-right:2px}
+.arena-av.none{display:flex;align-items:center;justify-content:center;font-size:13px}
+
+/* ---------- 颁奖台 (js/podium.js) ----------
+   ⚠️ 这段在 app.css 与 teacher.html 各有一份：教师端不加载 app.css。改一处要改两处。 */
+/* 颁奖台底图 = 落地页那张登山图（owner 2026-08-16）。压淡是为了让名字和分数读得清：
+   底图只是气氛，台上的字才是内容。
+   ⚠️ url() 相对**样式表**解析，所以这里是 ../art/…；teacher.html 那一份的同一条规则
+   写的是 art/…（内联 <style> 相对**页面**解析）。这是两份拷贝唯一合理的差异。 */
+.pod-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;padding:20px;overflow:hidden;
+  background:linear-gradient(rgba(255,255,255,.55),rgba(255,255,255,.68)),
+    url("../art/bg/landing_hero_bg.png") center/cover no-repeat;
+  image-rendering:pixelated;animation:podFade .35s ease-out both}
+@keyframes podFade{from{opacity:0}to{opacity:1}}
+.pod-wrap{position:relative;z-index:2;width:min(900px,100%);display:flex;
+  flex-direction:column;align-items:center}
+.pod-x{margin-top:22px;font-size:15px;font-weight:800;color:#fff;
+  background:linear-gradient(180deg,#3E7FB0,#2E6391);border:0;border-radius:999px;
+  padding:11px 34px;cursor:pointer;touch-action:manipulation;
+  box-shadow:0 6px 18px rgba(10,28,48,.35)}
+.pod-x:active{transform:translateY(1px)}
+.pod-confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.pod-title{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(21px,2.8vw,40px);text-align:center;margin-bottom:12px}
+.pod-stage{display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,22px)}
+.pod-col{display:flex;flex-direction:column;align-items:center;flex:0 1 clamp(92px,21vw,210px);
+  animation:podRise .55s cubic-bezier(.22,1.2,.36,1) both;animation-delay:var(--d,0s)}
+@keyframes podRise{from{transform:translateY(26px);opacity:0}to{transform:none;opacity:1}}
+.pod-who{display:flex;flex-direction:column;align-items:center;gap:3px;margin-bottom:7px;min-width:0;width:100%}
+.pod-av{width:clamp(46px,7vw,96px);height:clamp(46px,7vw,96px);border-radius:50%;object-fit:contain;
+  background:rgba(255,255,255,.9);border:2.5px solid var(--gold,#E3A63C);
+  box-shadow:0 4px 14px rgba(10,28,48,.3)}
+.pod-av.none{display:flex;align-items:center;justify-content:center;font-size:26px}
+.pod-name{font-weight:800;font-size:clamp(12px,1.3vw,19px);text-align:center;line-height:1.25;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod-score{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(15px,1.8vw,26px);color:var(--gold-deep,#B7791F)}
+/* the block heights ARE the ranking — 1st tallest. Keep gold > silver > bronze. */
+.pod-block{width:100%;border-radius:12px 12px 0 0;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;gap:2px;padding-top:8px;
+  border:1px solid rgba(255,255,255,.5);border-bottom:0}
+.pod-col.gold   .pod-block{height:clamp(92px,13vw,182px);background:linear-gradient(180deg,#F7D774,#D9A02C)}
+.pod-col.silver .pod-block{height:clamp(68px,9.5vw,134px);background:linear-gradient(180deg,#E4EBF1,#B4C2CE)}
+.pod-col.bronze .pod-block{height:clamp(54px,7.5vw,106px);background:linear-gradient(180deg,#E6B489,#BE8151)}
+.pod-medal{font-size:clamp(20px,2.4vw,30px);line-height:1}
+.pod-rank{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(15px,1.7vw,21px);color:rgba(10,28,48,.62)}
+.pod-col.me .pod-av{border-color:#fff;box-shadow:0 0 0 3px var(--gold,#E3A63C),0 4px 14px rgba(10,28,48,.35)}
+@media (prefers-reduced-motion:reduce){.pod-col{animation:none}}
+
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
   .wss-card{background:rgba(255,255,255,.97)}
   .wss-overlay{background:rgba(20,44,68,.55)}

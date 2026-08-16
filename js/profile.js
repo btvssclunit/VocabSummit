@@ -1314,6 +1314,15 @@
      than rendering a locked one (§3.5). In practice the grandfather clause in
      avatarLock means a wearer keeps their own avatar, so this only fires for a
      stale / hand-edited avatarId. */
+  /* ⚠️ The FILE PATH, not the id. Room player rows publish this so teacher.html can
+     render the avatar without carrying a copy of AVATAR_CATALOG — it loads no
+     shared JS, and a duplicated 21-entry table would drift the first time an
+     avatar is added. Returns null when the id is unknown or still locked. */
+  function avatarFile(id) {
+    var a = id && avatarById(id);
+    if (!a || avatarLock(a.id)) return null;
+    return a.file;
+  }
   function avatarImgHtml(id) {
     var a = id && avatarById(id);
     if (a && avatarLock(a.id)) a = null;
@@ -1514,6 +1523,7 @@
     openAvatarPicker: openAvatarPicker,
     openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml,
+    avatarFile: avatarFile,
     /* app.js asks before drawing the 攀山竞速 sprite; keep the unlock rules in one place */
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,

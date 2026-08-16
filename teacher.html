@@ -229,6 +229,57 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 .fb-ban{margin-left:auto;color:#8C3A22;border-color:#EFC0B2}
 .fb-handled{margin-top:7px;font-size:11.5px;color:#7C8B98}
 
+
+/* ---------- 颁奖台 (js/podium.js) ----------
+   ⚠️ 这段在 app.css 与 teacher.html 各有一份：教师端不加载 app.css。改一处要改两处。 */
+/* 颁奖台底图 = 落地页那张登山图（owner 2026-08-16）。压淡是为了让名字和分数读得清。
+   ⚠️ 这里写 art/…（内联 <style> 相对**页面**解析）；app.css 那一份写 ../art/…
+   （相对**样式表**解析）。这是两份拷贝唯一合理的差异。 */
+.pod-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;padding:20px;overflow:hidden;
+  background:linear-gradient(rgba(255,255,255,.55),rgba(255,255,255,.68)),
+    url("art/bg/landing_hero_bg.png") center/cover no-repeat;
+  image-rendering:pixelated;animation:podFade .35s ease-out both}
+@keyframes podFade{from{opacity:0}to{opacity:1}}
+.pod-wrap{position:relative;z-index:2;width:min(900px,100%);display:flex;
+  flex-direction:column;align-items:center}
+.pod-x{margin-top:22px;font-size:15px;font-weight:800;color:#fff;
+  background:linear-gradient(180deg,#3E7FB0,#2E6391);border:0;border-radius:999px;
+  padding:11px 34px;cursor:pointer;touch-action:manipulation;
+  box-shadow:0 6px 18px rgba(10,28,48,.35)}
+.pod-x:active{transform:translateY(1px)}
+.pod-confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.pod-title{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(21px,2.8vw,40px);text-align:center;margin-bottom:12px}
+.pod-stage{display:flex;align-items:flex-end;justify-content:center;gap:clamp(8px,2vw,22px)}
+.pod-col{display:flex;flex-direction:column;align-items:center;flex:0 1 clamp(92px,21vw,210px);
+  animation:podRise .55s cubic-bezier(.22,1.2,.36,1) both;animation-delay:var(--d,0s)}
+@keyframes podRise{from{transform:translateY(26px);opacity:0}to{transform:none;opacity:1}}
+.pod-who{display:flex;flex-direction:column;align-items:center;gap:3px;margin-bottom:7px;min-width:0;width:100%}
+.pod-av{width:clamp(46px,7vw,96px);height:clamp(46px,7vw,96px);border-radius:50%;object-fit:contain;
+  background:rgba(255,255,255,.9);border:2.5px solid var(--gold,#E3A63C);
+  box-shadow:0 4px 14px rgba(10,28,48,.3)}
+.pod-av.none{display:flex;align-items:center;justify-content:center;font-size:26px}
+.pod-name{font-weight:800;font-size:clamp(12px,1.3vw,19px);text-align:center;line-height:1.25;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod-score{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(15px,1.8vw,26px);color:var(--gold-deep,#B7791F)}
+/* the block heights ARE the ranking — 1st tallest. Keep gold > silver > bronze. */
+.pod-block{width:100%;border-radius:12px 12px 0 0;display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;gap:2px;padding-top:8px;
+  border:1px solid rgba(255,255,255,.5);border-bottom:0}
+.pod-col.gold   .pod-block{height:clamp(92px,13vw,182px);background:linear-gradient(180deg,#F7D774,#D9A02C)}
+.pod-col.silver .pod-block{height:clamp(68px,9.5vw,134px);background:linear-gradient(180deg,#E4EBF1,#B4C2CE)}
+.pod-col.bronze .pod-block{height:clamp(54px,7.5vw,106px);background:linear-gradient(180deg,#E6B489,#BE8151)}
+.pod-medal{font-size:clamp(20px,2.4vw,30px);line-height:1}
+.pod-rank{font-family:var(--serif,"Noto Serif SC"),serif;font-weight:900;
+  font-size:clamp(15px,1.7vw,21px);color:rgba(10,28,48,.62)}
+.pod-col.me .pod-av{border-color:#fff;box-shadow:0 0 0 3px var(--gold,#E3A63C),0 4px 14px rgba(10,28,48,.35)}
+@media (prefers-reduced-motion:reduce){.pod-col{animation:none}}
+
+.ar-av{width:26px;height:26px;border-radius:50%;object-fit:contain;display:block;
+  background:#fff;border:1.5px solid var(--gold)}
+.ar-av.none{display:flex;align-items:center;justify-content:center;font-size:14px}
 </style>
 </head>
 <body class="gate">
@@ -321,6 +372,10 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
+     the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
+     the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
+<script src="js/podium.js?v=20260816v"></script>
 <script>
 (function () {
   "use strict";
@@ -328,7 +383,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260816u";
+  var ASSET_V = "?v=20260816v";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -1598,8 +1653,13 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       '<span class="hint" style="margin-left:auto">' + (STREAM_LABEL[room.stream] || "") + ' · ' + (ARENA_MODE_ZH[room.mode] || "") + ' · ' + (room.qCount || "") + ' 题 · ' + Math.round((room.durationS || 0) / 60) + ' 分钟</span></div>' +
       '<div class="arena-code">' + esc(_arena.code) + '</div>' +
       '<div class="row" style="justify-content:center;font-size:16px">👥 <b id="arPc">' + rows.length + '</b> 人 · <span id="arSt">' + statusZh(status) + '</span>' + (rem != null ? ' · ⏱ <b id="arRem">' + rem + 's</b>' : '') + '</div>' +
-      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>昵称</th><th>班级</th><th>答对/已答</th><th>得分</th></tr></thead><tbody>' +
-      (rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.nickname || "") + (r.late ? " ⏱" : "") + '</td><td>' + esc(r.mtlClass || "未填班级") + '</td><td>' + (r.correct || 0) + '/' + (r.answered || 0) + '</td><td><b>' + (r.score || 0) + '</b></td></tr>'; }).join("") || '<tr><td colspan="5" class="hint">等待学生加入…</td></tr>') +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th></th><th>昵称</th><th>班级</th><th>答对/已答</th><th>得分</th></tr></thead><tbody>' +
+      /* ⚠️ r.av is the avatar FILE PATH published by arena.js — this page has no
+         avatar catalogue, so an id would be unusable here. Missing/old rows just
+         show 👤 rather than a broken image. */
+      (rows.map(function (r, i) { return '<tr><td>' + (i + 1) + '</td>' +
+        '<td>' + (r.av ? '<img class="ar-av" src="' + esc(r.av) + '" alt="" onerror="this.style.display=\'none\'">' : '<span class="ar-av none">👤</span>') + '</td>' +
+        '<td>' + esc(r.nickname || "") + (r.late ? " ⏱" : "") + '</td><td>' + esc(r.mtlClass || "未填班级") + '</td><td>' + (r.correct || 0) + '/' + (r.answered || 0) + '</td><td><b>' + (r.score || 0) + '</b></td></tr>'; }).join("") || '<tr><td colspan="6" class="hint">等待学生加入…</td></tr>') +
       '</tbody></table></div>' +
       '<div class="row" style="margin-top:14px">' +
       (status === "lobby" ? '<button class="btn primary" id="arStart">开始</button>' : '') +
@@ -1612,6 +1672,15 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     el("arCsv").onclick = exportArenaCsv;
     el("arFs").onclick = function () { var c = el("arenaCard"); if (c && c.requestFullscreen) c.requestFullscreen().catch(function () {}); };
     el("arClose").onclick = closeArena;
+    /* 颁奖台：一结束就出现在投影上，和学生自己屏幕上的那一幕是同一个（owner）。
+       ⚠️ 只在 ended 时画，而且**每场只画一次** —— renderArena 会随每次 snapshot
+       重跑，不加这个闸门的话彩带会在老师每动一下时重新放一遍。 */
+    if (status === "ended" && window.WSPodium && rows.length && _arena.podiumFor !== _arena.code) {
+      _arena.podiumFor = _arena.code;
+      _arena.stopPodium = window.WSPodium.show(rows.slice(0, 3).map(function (r) {
+        return { uid: r.uid, name: r.nickname || "无名", av: r.av || "", score: r.score || 0 };
+      }), { unit: "分", title: "🏆 本场前三" });
+    }
     if (_arena.tick) clearInterval(_arena.tick);
     if (status === "running") _arena.tick = setInterval(function () {
       var r = arenaRemaining(), t = el("arRem"); if (t && r != null) t.textContent = r + "s";
@@ -1628,6 +1697,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     // best-effort cleanup (TTL removes the room in ~6h but doesn't cascade to players)
     _arena.players.forEach(function (r) { db.collection("rooms").doc(code).collection("players").doc(r.uid).delete().catch(function () {}); });
     db.collection("rooms").doc(code).delete().catch(function () {});
+    if (_arena.stopPodium) _arena.stopPodium();
     _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: _arena.json };
     renderArena(el("panel"));
   }

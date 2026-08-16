@@ -41,6 +41,7 @@ js/     app.js         the whole stream engine: data loading, study modes, games
         profile.js     我的档案, 头像目录, 进度码, 意见反馈 — the sole owner of ws2_profile
         nickname.js    landing gate, nickname picker, sea map + sailing
         search.js      通用搜索 — one word lookup across all five stations, read-only
+        podium.js      end-of-round podium + confetti — the one shared module teacher.html loads
         firebase-init.js  anonymous auth + Firestore helpers
         xh.js          启航码头 (never loads app.js; its own store, its own economy)
 

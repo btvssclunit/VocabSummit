@@ -149,7 +149,10 @@
     var ov = document.createElement("div");
     ov.className = "arena-ov";
     document.body.appendChild(ov);
-    function close() { detach(); ov.remove(); }
+    /* ⚠️ stopPodium too: the confetti runs on rAF and would outlive the overlay,
+       burning GPU on a projector left open for the rest of the lesson. */
+    var stopPodium = function () {};
+    function close() { detach(); stopPodium(); ov.remove(); }
 
     /* Backdrop: reuse the app's own scenery instead of a flat gradient. The body
        already carries the student's earned ambience (bg-01..05 via applyAmbience),
@@ -242,6 +245,10 @@
           }
           return pdoc.set({
             nickname: p.nickname || "无名登山客", mtlClass: p.mtlClass || "",
+            /* ⚠️ the avatar FILE PATH, not the id: teacher.html has no avatar
+               catalogue. No rules change needed — the players rules check uid
+               ownership and room status, never the field names. */
+            av: myAvatar(),
             joinedAt: prev ? (prev.joinedAt || ts()) : ts(),
             answered: myAnswered, correct: myCorrect, score: myScore, finished: false,
             late: prev ? !!prev.late : room.status === "running",
@@ -294,12 +301,19 @@
       if (!playersUnsub) {
         playersUnsub = db().collection("rooms").doc(code).collection("players")
           .onSnapshot(function (qs) {
+            /* ⚠️ roster first, and for EVERYONE. This listener used to bail out
+               immediately unless you were the host, so non-hosts never learned who
+               else was in the room. The playerCount write below is still host-only
+               (only the host may write the room doc). */
+            roster = [];
+            qs.forEach(function (d) { roster.push(Object.assign({ uid: d.id }, d.data())); });
+            roster.sort(function (a, b) { return (a.joinedAt && b.joinedAt) ? 0 : 0; });
+            if (!started && room && room.status === "lobby") renderLobby();
             if (!room || !myUid || room.hostUid !== myUid) return;
             var n = qs.size;
             if ((room.playerCount || 0) !== n && room.status !== "ended") {
               db().collection("rooms").doc(code).set({ playerCount: n }, { merge: true }).catch(function () {});
             }
-            if (!started && room.status === "lobby") renderLobby();
           }, function () {});
       }
       lobbyPollTimer = setInterval(pollRoomOnce, 4000);
@@ -307,6 +321,27 @@
       window.addEventListener("focus", onVisible);
     }
     function onVisible() { if (document.visibilityState === "visible") pollRoomOnce(); }
+
+    function myAvatar() {
+      var id = (ctx.profile && ctx.profile.avatarId) || null;
+      if (!id) return "";
+      return (window.WSProfile && window.WSProfile.avatarFile
+        && window.WSProfile.avatarFile(id)) || "";
+    }
+    /* the lobby roster: everyone sees who else is in the room, with their avatar
+       and nickname (owner 2026-08-16). Before this the lobby showed only a count,
+       so a student had no way to tell whether their friend had actually joined. */
+    var roster = [];
+    function rosterHtml() {
+      if (!roster.length) return '<div class="arena-sub">还没有人加入。</div>';
+      return '<div class="arena-roster">' + roster.map(function (r) {
+        var me = r.uid === myUid;
+        return '<div class="arena-who' + (me ? " me" : "") + '">' +
+          (r.av ? '<img src="' + esc(r.av) + '" alt="" onerror="this.style.display=\'none\'">'
+                : '<span class="arena-who-none">👤</span>') +
+          '<span>' + esc(r.nickname || "无名") + (me ? " · 你" : "") + "</span></div>";
+      }).join("") + "</div>";
+    }
 
     function scopeLine() {
       var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
@@ -323,6 +358,7 @@
         (host ? '把房间号告诉朋友，等大家都到齐就开始。' : (isPk ? "⏳ 等待房主开始…" : "⏳ 等待老师开始…")) + '</div>' +
         '<div class="arena-sub" style="margin-top:12px">当前 <b id="arPc">' + n + '</b> 人已加入' +
         (isPk ? '（至少 2 人，最多 ' + PK_MAX + ' 人）' : '') + '</div>' +
+        rosterHtml() +
         (host ? '<button class="arena-btn" id="arStart"' + (n < PK_MIN ? " disabled" : "") + '>' +
           (n < PK_MIN ? "还需要一位朋友…" : "开始 (" + n + " 人)") + '</button>' : "") +
         '<button class="arena-btn ghost" id="arLeave" style="margin-top:16px">' + (host ? "解散房间" : "离开") + '</button></div>';
@@ -702,10 +738,21 @@
         var html = rows.slice(0, 20).map(function (r, i) {
           var me = r.uid === myUid;
           return '<div class="arena-row' + (me ? " me" : "") + '"><span class="arena-rk">' + (i + 1) + '</span>' +
+            (r.av ? '<img class="arena-av" src="' + esc(r.av) + '" alt="" onerror="this.style.display=\'none\'">'
+                  : '<span class="arena-av none">👤</span>') +
             '<span>' + esc(r.nickname || "") + (r.late ? " ⏱" : "") + (me ? " · 你" : "") + '</span>' +
             '<span class="arena-sc">' + (isPk ? (r.correct || 0) + " 对" : (r.score || 0)) + '</span></div>';
         }).join("");
         var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = html || '<div class="arena-sub">暂无排名。</div>';
+        /* 颁奖台：学生自己的屏幕上也要有，不只是老师的投影（owner）。
+           ⚠️ 排名口径必须跟着上面那次 sort 走 —— 同伴挑战按答对数，结伴登峰按分数。
+           传 score 而不是名次，台上显示的才是学生刚刚看到的那个数字。 */
+        if (window.WSPodium && rows.length) {
+          stopPodium = window.WSPodium.show(rows.slice(0, 3).map(function (r) {
+            return { uid: r.uid, name: r.nickname || "无名", av: r.av || "",
+                     score: isPk ? (r.correct || 0) : (r.score || 0) };
+          }), { unit: isPk ? "对" : "分", me: myUid, title: isPk ? "🏆 对决结果" : "🏆 本场前三" });
+        }
       }).catch(function () { var b = ov.querySelector("#arBoard"); if (b) b.innerHTML = '<div class="arena-sub">排名读取失败。</div>'; });
     }
 
