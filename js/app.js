@@ -597,11 +597,26 @@
 
   /* 段位 ladder — per stream, at the same fractions of each stream's projected
      4-year total (LEADERBOARD_DESIGN §5.3). Distinct from badges/achievement tiers. */
+  /* ⚠️ FOUR rungs since 2026-08-16 (owner), down from six: 破雪士 and 摩天客 are
+     retired and 凌霄客 moves down to become the top. Rationale for the numbers —
+     they are a PROPOSAL, like every ladder number here, and CLAUDE.md's standing
+     note still applies: recalibrate after one real term before announcing them.
+       · 寻径人 and 踏云者 keep their EXACT old thresholds, so nobody is demoted by
+         this change and 白龙马's unlock (pegged to rung index 2 = 踏云者, and
+         mirrored in profile.js PTS_UNLOCK) needs no edit at all.
+       · 凌霄客 takes the old 摩天客 value, which keeps the step ratio at a steady
+         ~4.4x per rung in every stream instead of leaving a 7x plateau at the top.
+         At ~2/3 of each stream's projected 4-year total it stays reachable in the
+         final year rather than being ornamental.
+     ⚠️ PER STREAM, and deliberately so: the same student can be 踏云者 on G3 and
+     初行客 on HCL. 历练值 lives in ws2_{stream}, so ranks never pool across
+     mountains — and this ladder belongs to the MOUNTAINS only. 启航码头 has its own
+     航海值 and its own boards; it must never show a 段位. */
   var LADDER = {
-    g1:  [["初行客", 0], ["寻径人", 600], ["踏云者", 2500], ["破雪士", 5500], ["摩天客", 11000], ["凌霄客", 17500]],
-    g2:  [["初行客", 0], ["寻径人", 700], ["踏云者", 3100], ["破雪士", 7000], ["摩天客", 14000], ["凌霄客", 22000]],
-    g3:  [["初行客", 0], ["寻径人", 800], ["踏云者", 3500], ["破雪士", 8000], ["摩天客", 16000], ["凌霄客", 25000]],
-    hcl: [["初行客", 0], ["寻径人", 1000], ["踏云者", 4200], ["破雪士", 9500], ["摩天客", 18500], ["凌霄客", 29500]]
+    g1:  [["初行客", 0], ["寻径人", 600], ["踏云者", 2500], ["凌霄客", 11000]],
+    g2:  [["初行客", 0], ["寻径人", 700], ["踏云者", 3100], ["凌霄客", 14000]],
+    g3:  [["初行客", 0], ["寻径人", 800], ["踏云者", 3500], ["凌霄客", 16000]],
+    hcl: [["初行客", 0], ["寻径人", 1000], ["踏云者", 4200], ["凌霄客", 18500]]
   };
   function currentRank() {
     var lad = LADDER[STREAM] || LADDER.g1, tot = store.pts.total, cur = lad[0], next = null, i;

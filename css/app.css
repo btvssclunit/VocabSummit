@@ -117,7 +117,7 @@ img{max-width:100%}
 /* ---------- home ---------- */
 .home-grid{display:grid;grid-template-columns:1fr;gap:22px;align-items:start}
 .mini-horizon{border-radius:18px;height:230px;margin-bottom:16px;overflow:hidden;
-  background:url("art/seamap/sea_tile.png") left top/cover no-repeat,
+  background:url("../art/seamap/sea_tile.png") left top/cover no-repeat,
     linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 45%,var(--sky2) 100%)}
 .mini-horizon .sun{width:60px;height:60px;top:20px}
 .mini-horizon .app-zh{position:absolute;z-index:5;left:0;right:0;top:32%;text-align:center;
@@ -525,7 +525,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .rain-area{position:relative;flex:1;overflow:hidden;border-radius:16px;
   background:linear-gradient(180deg,rgba(234,244,250,.55) 0%,rgba(186,214,232,.5) 70%,rgba(46,99,145,.55) 100%);
   border:1px solid rgba(255,255,255,.5)}
-.rain-area{background-image:url("art/bg/rain_bg.png"),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));
+.rain-area{background-image:url("../art/bg/rain_bg.png"),linear-gradient(180deg,rgba(234,244,250,.55),rgba(46,99,145,.55));
   background-size:cover;background-position:center bottom;image-rendering:pixelated}
 /* 接雨的角色 (owner 2026-08-16): stands on the sea line and runs after the drop
    closest to landing. z-index above the sea, below the falling words so a word is
@@ -1126,7 +1126,7 @@ button.mtn-pill:active{transform:scale(.96)}
 /* ===== Landing v2 · 8-bit hero (landscape-first) ===== */
 .lp-body{margin:0;min-height:100vh;background:#12213F;font-family:"Noto Sans SC",sans-serif;overflow-y:auto;overflow-x:hidden}
 .lp-hero{position:relative;width:100vw;height:100vh;
-  background:url("art/bg/landing_hero_bg.png") center center/cover no-repeat;
+  background:url("../art/bg/landing_hero_bg.png") center center/cover no-repeat;
   image-rendering:pixelated}
 .lp-logo{position:absolute;left:50%;top:18vh;transform:translateX(-50%);width:min(44vw,560px);
   image-rendering:pixelated;filter:drop-shadow(0 4px 10px rgba(10,20,45,.55));
@@ -1246,7 +1246,7 @@ button.mtn-pill:active{transform:scale(.96)}
   .lp-body{overflow:auto}
   .lp-hero{position:relative;width:100%;height:auto;min-height:100vh;padding:0 0 26px;
     display:flex;flex-direction:column;align-items:center;
-    background:url("art/bg/landing_hero_bg.png") center top/cover no-repeat;background-color:#12213F}
+    background:url("../art/bg/landing_hero_bg.png") center top/cover no-repeat;background-color:#12213F}
   .lp-logo{position:relative;left:auto;top:auto;transform:none;display:block;
     margin:5vh auto 0;width:min(72vw,400px);animation:none}
   .lp-school{position:relative;left:auto;top:auto;transform:none;display:block;
@@ -1281,7 +1281,7 @@ button.mtn-pill:active{transform:scale(.96)}
    distance. G3 and HCL therefore sit higher up the frame AND render larger,
    which inverts real perspective on purpose. Do not "correct" it. */
 .lp-sea{position:fixed;inset:0;z-index:20;overflow:hidden;
-  background:url("art/seamap/sea_tile.png") left top/cover no-repeat;
+  background:url("../art/seamap/sea_tile.png") left top/cover no-repeat;
   image-rendering:pixelated}
 /* left top, not center: the tile carries a warm sun-glint in its upper-left and
    every other asset is lit from the left, so pinning that corner keeps the
@@ -1495,7 +1495,7 @@ body.lp-sea-on .lp-foot{display:none}
 
 /* ===== study ambience: campsite backdrop under all app pages ===== */
 body{background:#EAF2F8 no-repeat fixed center/cover;
-  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("art/bg/study_bg.png")}
+  background-image:linear-gradient(rgba(246,250,253,.5),rgba(246,250,253,.5)),url("../art/bg/study_bg.png")}
 /* the home card now shows this stream's OWN island (the one the student sailed
    to on the landing sea map) rather than the shared landing hero. contain, not
    cover: these are transparent island sprites, and cropping one would cut the
@@ -1632,7 +1632,7 @@ body{background:#EAF2F8 no-repeat fixed center/cover;
    aspect-ratio squashes the frame instead of shrinking it. */
 .mtn2-stage{position:relative;aspect-ratio:var(--ar,1.6);
   width:min(96vw,calc(70vh * var(--ar,1.6)));
-  margin:2px auto;background:url("art/seamap/sea_tile.png") left top/cover no-repeat;
+  margin:2px auto;background:url("../art/seamap/sea_tile.png") left top/cover no-repeat;
   image-rendering:pixelated;
   border-radius:14px;overflow:hidden;box-shadow:0 12px 34px rgba(12,30,48,.42)}
 /* the island itself is inset inside the stage so it reads as land IN the sea

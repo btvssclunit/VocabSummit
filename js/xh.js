@@ -9,13 +9,17 @@
    four streams depend on. The TTS stack is COPIED from app.js rather than
    shared, for the same reason.
 
-   ⚠️ SCOPE IS 36 WORDS, NOT 142 (spec §1). Sheets 07/09/10 were extracted with a
-   proximity merge that joined the wrong pairs, so every assignment after the
-   merge point shifted by one and 36 sprites show the wrong word. Only sheets
-   01/02/06 — 动物 and 日常用品 — matched counts without a merge and have been
-   verified file by file. The other sprites were removed from the repo rather
-   than left sitting unreferenced; they are in git history when re-extracted.
-   Standing rule: a matching count is not evidence of correct mapping.
+   ⚠️ SCOPE IS 100 WORDS in SIX 组别 (data/xh_v3.json), updated 2026-08-16. It was
+   36 for one day: the original 142-word extraction used a proximity merge on
+   sheets 07/09/10 that joined the wrong pairs, so every assignment after the merge
+   point shifted by one and 36 sprites showed the wrong word. Everything that had
+   been merged was cut, leaving the three sheets that matched counts without a
+   merge (动物, 日常用品), and the pool was then rebuilt to 100.
+   STANDING RULE, and the reason that incident is still written here: a matching
+   count is NOT evidence of correct mapping. Anything merged, re-cut or re-ordered
+   gets looked at, one image at a time, before it ships.
+   ✅ All 100 pairings re-checked image-by-image on 2026-08-16 (rendered as labelled
+   contact sheets, 词语 + 英文释义 under each sprite): no mismatches.
 
    Storage is one localStorage key, ws_xh. No Firestore, no login, no leaderboard.
 
