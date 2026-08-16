@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>词山学海 · 使用与设计指南 · Vocab Summit Guide</title>
+<meta name="description" content="词山学海 Vocab Summit — how to use the platform, and the pedagogical design behind it. Bukit View Secondary School, MTL Chinese Language Unit.">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<!--
+  词山学海 · 使用与设计指南
+  ⚠️ THIS PAGE IS DELIBERATELY SELF-CONTAINED: its own CSS, its own JS, no
+  css/app.css and no js/*.js. That keeps it OUT of the seven-place ?v= deploy
+  ritual (CLAUDE.md §3) — a document page that loads nothing shared can never
+  serve a new stylesheet with an old script. It reads art/ directly; art files
+  are not versioned anywhere in this repo.
+  ⚠️ The palette below is COPIED from css/app.css :root on purpose, the same
+  deliberate duplication teacher.html carries (CLAUDE.md §17). If the palette
+  changes there, change it here too.
+-->
+<style>
+:root{
+  --sky1:#DFEDF7; --sky2:#BAD6E8;
+  --sun-core:#FFEDA8; --sun:#F5C443;
+  --mtn-far:#9CC0A6; --mtn-mid:#79AB89; --mtn-front:#57906B; --ridge:#3F704F; --shade:#274A34;
+  --sea1:#2E6391; --sea2:#1F4A70; --sea3:#173A5A;
+  --ink:#243B4A; --ink-soft:#5A7080; --gold:#E3A63C; --gold-ink:#8A5A0F; --gold-deep:#B7791F;
+  --card:rgba(255,255,255,.92); --card-line:#C9DCE9;
+  --glass:rgba(255,255,255,.72); --glass-strong:rgba(255,255,255,.88);
+  --glass-line:rgba(255,255,255,.65); --glass-line-2:rgba(150,185,212,.45);
+  --glass-blur:saturate(165%) blur(20px);
+  --glass-lift:0 10px 34px rgba(23,58,90,.18);
+  --ok:#3E7D57; --bad:#B44A3C;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:118px}
+body{font-family:var(--sans);color:var(--ink);line-height:1.75;
+  background:linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 26%,var(--sky2) 52%,#8FB6CF 76%,var(--sea1) 100%);
+  background-attachment:fixed;min-height:100vh;-webkit-text-size-adjust:100%}
+img{max-width:100%;display:block}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{color:#245C86}
+
+/* ============ 语言闸门 ============
+   ⚠️ This is the SAME mechanism the platform itself uses for 拼音/英文 (CLAUDE.md
+   §10): both languages are always in the DOM and a body class decides what shows.
+   Nothing is re-rendered, so nothing can be re-drawn differently on a toggle.
+   §18 of this page explains why that matters more than performance. */
+.zh,.en{display:none}
+body.L-zh .zh, body.L-both .zh,
+body.L-en .en, body.L-both .en{display:block}
+body.L-zh li.zh, body.L-both li.zh,
+body.L-en li.en, body.L-both li.en{display:list-item}
+/* ⚠️ Blocks by DEFAULT, even for spans: in 双语 the two languages must stack, or
+   every label reads「山上词条stream words」. Add class `i` for the rare span that
+   really does sit mid-sentence. */
+body.L-zh span.zh.i, body.L-both span.zh.i,
+body.L-en span.en.i, body.L-both span.en.i{display:inline}
+body.L-both .en{color:var(--ink-soft);font-size:.94em}
+body.L-both h2 .en, body.L-both h3 .en{font-size:.5em;letter-spacing:.06em;
+  font-weight:500;font-family:var(--sans);color:var(--ink-soft);margin-top:2px}
+body.L-en .en{color:inherit}
+
+/* ============ 顶栏 ============ */
+.gd-top{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.82);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--glass-line-2);box-shadow:0 2px 14px rgba(23,58,90,.10)}
+.gd-topin{max-width:1120px;margin:0 auto;padding:8px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.gd-home{font-family:var(--serif);font-weight:700;font-size:16px;letter-spacing:.06em;
+  text-decoration:none;color:var(--ink);white-space:nowrap}
+.gd-home small{display:block;font-family:var(--sans);font-weight:400;font-size:10px;
+  letter-spacing:.22em;color:var(--ink-soft);text-transform:uppercase}
+.gd-langs{margin-left:auto;display:flex;gap:0;border:1px solid var(--card-line);
+  border-radius:999px;overflow:hidden;background:rgba(255,255,255,.7)}
+.gd-langs button{padding:5px 13px;font-size:12.5px;font-weight:500;color:var(--ink-soft)}
+.gd-langs button[aria-pressed="true"]{background:var(--sea1);color:#fff}
+.gd-tabs{display:flex;gap:8px;width:100%;padding-bottom:2px}
+.gd-tabs button{flex:1 1 0;min-width:0;padding:9px 10px;border-radius:12px 12px 0 0;
+  background:rgba(255,255,255,.55);border:1px solid var(--glass-line-2);border-bottom:none;
+  font-family:var(--serif);font-weight:700;font-size:15px;letter-spacing:.05em;color:var(--ink-soft)}
+.gd-tabs button .sub{display:block;font-family:var(--sans);font-weight:400;font-size:10.5px;
+  letter-spacing:.04em;margin-top:1px}
+.gd-tabs button[aria-selected="true"]{background:var(--sea2);color:#fff;border-color:var(--sea2)}
+.gd-tabs button[aria-selected="true"] .sub{color:rgba(255,255,255,.8)}
+
+/* ============ 页头 ============ */
+.gd-hero{position:relative;overflow:hidden;height:min(46vh,340px);min-height:250px}
+.gd-hero .sun{position:absolute;left:74%;top:15%;width:clamp(80px,11vw,120px);height:clamp(80px,11vw,120px);
+  border-radius:50%;background:radial-gradient(circle,var(--sun-core) 20%,var(--sun) 66%,rgba(245,196,67,0) 78%);
+  box-shadow:0 0 60px rgba(245,196,67,.55)}
+/* ⚠️ an explicit height, not the intrinsic viewBox ratio: at 100% width the
+   ridge line climbed into the title on a short viewport. preserveAspectRatio
+   is "none", so stretching flat colour shapes costs nothing. */
+.gd-hero svg{position:absolute;left:0;right:0;bottom:0;width:100%;height:58%;display:block}
+.gd-herotext{position:absolute;top:14%;left:0;right:0;text-align:center;z-index:5;padding:0 16px}
+.gd-herotext h1{font-family:var(--serif);font-weight:900;font-size:clamp(26px,5vw,44px);
+  letter-spacing:.14em;text-shadow:0 2px 18px rgba(255,255,255,.9),0 1px 3px rgba(255,255,255,.9)}
+.gd-herotext .en1{font-size:clamp(9px,1.3vw,12px);letter-spacing:.5em;color:#3A5A70;
+  margin-top:9px;text-transform:uppercase}
+.gd-herotext .sch{margin-top:12px;font-size:12.5px;color:#3A5A70;letter-spacing:.05em}
+.gd-couplet{position:absolute;top:12%;font-family:var(--serif);font-weight:700;
+  font-size:clamp(12px,1.6vw,16px);color:#3F6076;width:1.15em;word-break:break-all;
+  line-height:1.35;letter-spacing:.06em;text-shadow:0 1px 6px rgba(255,255,255,.95);z-index:5}
+.gd-couplet.l{left:5%}
+.gd-couplet.r{right:5%}
+
+/* ============ 统计条 ============ */
+.gd-stats{max-width:1120px;margin:-30px auto 0;padding:0 18px;position:relative;z-index:6;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px}
+.gd-stat{background:var(--glass-strong);border:1px solid var(--glass-line);border-radius:13px;
+  padding:11px 8px;text-align:center;box-shadow:var(--glass-lift);min-width:0}
+.gd-stat b{display:block;font-family:var(--serif);font-size:22px;color:var(--sea2);line-height:1.2}
+.gd-stat span{display:block;font-size:11px;color:var(--ink-soft);letter-spacing:.03em}
+
+/* ============ 版面 ============ */
+main{max-width:1120px;margin:0 auto;padding:26px 18px 10px}
+.tabpane[hidden]{display:none}
+.gd-lede{background:var(--glass);border:1px solid var(--glass-line);border-radius:16px;
+  padding:18px 20px;box-shadow:var(--glass-lift);margin-bottom:20px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+.gd-lede p{font-size:15.5px}
+.gd-lede p + p{margin-top:9px}
+
+.toc{position:sticky;top:96px;z-index:20;background:rgba(255,255,255,.86);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line-2);border-radius:12px;padding:7px 9px;margin-bottom:22px;
+  display:flex;gap:5px;overflow-x:auto;scrollbar-width:thin}
+.toc a{flex:0 0 auto;text-decoration:none;font-size:12px;color:var(--ink-soft);
+  padding:4px 10px;border-radius:999px;white-space:nowrap}
+.toc a:hover{background:rgba(46,99,145,.10);color:var(--sea2)}
+/* ⚠️ the ONE place 双语 shows a single language: this bar is sticky, and stacking
+   both would double the height of a strip that exists to get out of the way. */
+body.L-both .toc .en{display:none}
+
+section.gd{scroll-margin-top:150px;margin-bottom:30px}
+section.gd > h2{font-family:var(--serif);font-weight:900;font-size:clamp(20px,2.6vw,27px);
+  letter-spacing:.06em;color:var(--sea3);display:flex;flex-direction:column;
+  padding-bottom:9px;border-bottom:2px solid rgba(46,99,145,.22);margin-bottom:16px}
+section.gd > h2 .num{font-family:var(--sans);font-size:11px;letter-spacing:.22em;
+  color:var(--gold-ink);font-weight:700;margin-bottom:3px}
+h3{font-family:var(--serif);font-size:18px;letter-spacing:.04em;color:var(--ridge);margin-bottom:7px}
+p + p, p + ul, ul + p, .card + p{margin-top:10px}
+ul{padding-left:1.25em}
+li{margin-bottom:4px}
+.card{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
+  padding:16px 18px;box-shadow:0 8px 22px rgba(23,58,90,.12);margin:14px 0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))}
+.grid > .card{margin:0}
+
+/* rule callout — the ⚠️ boxes */
+.rule{border-left:4px solid var(--gold);background:rgba(255,246,225,.85);
+  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
+.rule b{color:var(--gold-ink)}
+.rule .en{color:#7A6234}
+.why{border-left:4px solid var(--sea1);background:rgba(232,242,249,.85);
+  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
+.why .lbl{display:block;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--sea2);font-weight:700;margin-bottom:4px}
+.cost{border-left:4px solid var(--bad);background:rgba(253,238,235,.8);
+  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
+.cost .lbl{display:block;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--bad);font-weight:700;margin-bottom:4px}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--card-line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}
+td b{font-family:var(--serif);letter-spacing:.03em}
+.tw{overflow-x:auto}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;
+  background:rgba(46,99,145,.12);color:var(--sea2);margin:2px 3px 2px 0;white-space:nowrap}
+.pill.gold{background:rgba(227,166,60,.2);color:var(--gold-ink)}
+.pill.grn{background:rgba(62,125,87,.16);color:#2F6244}
+.pill.no{background:rgba(180,74,60,.14);color:var(--bad)}
+
+/* ============ 演示面板 ============ */
+.demo{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(240,248,253,.95));
+  border:1px solid var(--glass-line-2);border-radius:16px;padding:0;overflow:hidden;
+  box-shadow:var(--glass-lift);margin:16px 0}
+.demo-head{background:var(--sea2);color:#fff;padding:9px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.demo-head .tag{font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  background:rgba(255,255,255,.2);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.demo-head b{font-family:var(--serif);font-size:15px;letter-spacing:.05em}
+.demo-head .en{color:rgba(255,255,255,.82);font-size:12px}
+.demo-body{padding:16px 18px}
+.demo-foot{padding:11px 18px;background:rgba(232,242,249,.7);border-top:1px solid var(--glass-line-2);font-size:13px}
+.demo-foot .lbl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--sea2);font-weight:700;display:block;margin-bottom:3px}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.btn{background:var(--sea1);color:#fff;border-radius:10px;padding:7px 15px;font-size:13.5px;font-weight:500;
+  box-shadow:0 3px 10px rgba(31,74,112,.25)}
+.btn:hover{background:var(--sea2)}
+.btn.ghost{background:rgba(255,255,255,.9);color:var(--sea2);border:1px solid var(--card-line);box-shadow:none}
+.btn.gold{background:var(--gold-deep)}
+.sw{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);
+  background:rgba(255,255,255,.9);border:1px solid var(--card-line);border-radius:999px;padding:4px 12px;
+  flex-wrap:wrap}
+/* ⚠️ a flex container BLOCKIFIES its children, so the English would sit beside the
+   Chinese however it is declared; it needs a full-width basis to drop to line two. */
+.sw .en{flex:0 0 100%;margin-left:22px}
+.demo-head .en{flex:0 0 100%}
+.sw input{accent-color:var(--sea1);width:15px;height:15px}
+.msg{font-size:13px;min-height:22px;margin-top:8px}
+.msg.ok{color:var(--ok);font-weight:500}
+.msg.no{color:var(--bad);font-weight:500}
+
+/* MCQ demo */
+.q{font-family:var(--serif);font-size:clamp(18px,2.6vw,24px);line-height:1.9;margin-bottom:14px}
+.q .blank{display:inline-block;min-width:2.4em;border-bottom:3px solid var(--gold);
+  text-align:center;color:var(--gold-ink);font-weight:700}
+.opts{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))}
+.opt{background:#fff;border:1.5px solid var(--card-line);border-radius:12px;padding:11px 12px;
+  text-align:center;transition:transform .12s ease,border-color .12s ease}
+.opt:hover{border-color:var(--sea1);transform:translateY(-2px)}
+.opt b{display:block;font-family:var(--serif);font-size:20px;letter-spacing:.05em}
+.opt .py{display:none;font-size:11.5px;color:var(--gold-ink);letter-spacing:.04em}
+.opt .eng{display:none;font-size:11px;color:var(--ink-soft)}
+body.aid-py .opt .py{display:block}
+body.aid-en .opt .eng{display:block}
+.opt.right{background:rgba(62,125,87,.14);border-color:var(--ok)}
+.opt.wrong{background:rgba(180,74,60,.12);border-color:var(--bad)}
+.opt.mark{box-shadow:0 0 0 3px rgba(227,166,60,.55)}
+.opt[disabled]{cursor:default;transform:none}
+.tally{font-size:12.5px;color:var(--ink-soft);margin-top:10px;line-height:1.9}
+.tally code{font-family:var(--serif);font-size:14px;color:var(--ink);background:rgba(46,99,145,.09);
+  padding:1px 7px;border-radius:6px;margin-right:5px}
+.tally .hit{background:rgba(227,166,60,.28);color:var(--gold-ink);font-weight:700}
+
+/* 连线 demo */
+.mb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.mtile{background:#fff;border:1.5px solid var(--card-line);border-radius:12px;padding:8px 6px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;min-height:96px;justify-content:center}
+.mtile img{width:52px;height:52px;object-fit:contain}
+.mtile b{font-family:var(--serif);font-size:17px;letter-spacing:.04em}
+.mtile .py{font-size:11px;color:var(--gold-ink)}
+.mtile.sel{border-color:var(--sea1);box-shadow:0 0 0 3px rgba(46,99,145,.2)}
+.mtile.done{background:rgba(62,125,87,.13);border-color:var(--ok);opacity:.65;cursor:default}
+.mtile.clash{border-color:var(--bad);box-shadow:0 0 0 3px rgba(180,74,60,.25)}
+
+/* 重整句子 demo */
+.tray{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+.tile{background:#fff;border:1.5px solid var(--card-line);border-radius:10px;padding:7px 13px;
+  font-family:var(--serif);font-size:18px;letter-spacing:.04em}
+.tile:hover{border-color:var(--sea1)}
+.slots{display:flex;flex-wrap:wrap;gap:7px;align-items:center;min-height:48px;
+  background:rgba(232,242,249,.7);border:1.5px dashed var(--glass-line-2);border-radius:12px;padding:9px}
+.slot{background:#fff;border:1.5px solid var(--card-line);border-radius:10px;padding:7px 13px;
+  font-family:var(--serif);font-size:18px;letter-spacing:.04em}
+.slot.lock{background:rgba(62,125,87,.16);border-color:var(--ok);color:#2F6244}
+.slot.bad{background:rgba(180,74,60,.12);border-color:var(--bad)}
+.punct{font-family:var(--serif);font-size:20px;color:var(--ink-soft);padding:0 2px}
+
+/* 三个数字 demo */
+.meters{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));margin-top:12px}
+.meter{border-radius:12px;padding:12px;border:1.5px solid var(--card-line);background:#fff;
+  text-align:center;transition:background .18s ease,border-color .18s ease}
+.meter .nm{font-family:var(--serif);font-size:17px;letter-spacing:.05em}
+.meter .df{font-size:11px;color:var(--ink-soft);line-height:1.5;margin-top:2px}
+.meter .st{font-size:13px;font-weight:700;margin-top:6px;color:var(--ink-soft)}
+.meter.on{background:rgba(62,125,87,.14);border-color:var(--ok)}
+.meter.on .st{color:var(--ok)}
+.meter.part{background:rgba(227,166,60,.18);border-color:var(--gold)}
+.meter.part .st{color:var(--gold-ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:rgba(255,255,255,.9);border:1px solid var(--card-line);border-radius:999px;
+  padding:5px 12px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--sea1);color:#fff;border-color:var(--sea1)}
+
+/* 水线 demo */
+.wl{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;margin:10px 0}
+.wl-side{background:#fff;border:1.5px solid var(--card-line);border-radius:14px;padding:14px;min-width:0}
+.wl-side h4{font-family:var(--serif);font-size:16px;letter-spacing:.05em;margin-bottom:8px}
+.wl-side.sea h4{color:var(--sea2)}
+.wl-side.mtn h4{color:var(--ridge)}
+.wl-side dl{font-size:13px}
+.wl-side dt{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);margin-top:7px}
+.wl-side dd{font-family:var(--serif);font-size:16px;letter-spacing:.04em}
+.wl-line{width:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.wl-line::before{content:"";position:absolute;top:6px;bottom:6px;width:4px;border-radius:3px;
+  background:repeating-linear-gradient(180deg,var(--sea1) 0 9px,transparent 9px 18px)}
+.wl-line span{writing-mode:vertical-rl;font-family:var(--serif);font-size:13px;letter-spacing:.3em;
+  color:var(--sea2);background:rgba(255,255,255,.9);padding:8px 2px;border-radius:6px;z-index:2}
+.gate{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+
+.foot{max-width:1120px;margin:0 auto;padding:26px 18px 44px;color:#DCEAF3;font-size:12.5px;line-height:1.9}
+.foot a{color:#EAF4FA}
+.foot .fl{border-top:1px solid rgba(255,255,255,.2);padding-top:14px}
+
+/* ============ 深色面上的注解 ============
+   ⚠️ CLAUDE.md §18e, and it caught this page too. `body.L-both .en` sets an
+   explicit light-panel grey, so an .en sitting on a dark chip, button or panel
+   header does NOT inherit that panel's white — it renders grey on dark blue.
+   Every override therefore has to carry the gate prefix to outrank it.
+   ⚠️ Any NEW dark surface that shows an annotation must be added here. */
+body.L-both .demo-head .en,
+/* ⚠️ :not(.ghost) — a ghost button is WHITE, so the dark-panel colour above
+   turned its English annotation invisible the moment it was added. */
+body.L-both .btn:not(.ghost) .en,
+body.L-both .chip[aria-pressed="true"] .en,
+body.L-both .gd-tabs button[aria-selected="true"] .sub,
+body.L-both .mtile.done .en{color:rgba(255,255,255,.9)}
+body.L-both .demo-head .en{font-size:12.5px}
+
+/* ⚠️ media queries LAST — same-specificity rules later in the file win, so a
+   breakpoint placed above the base rules is silently dead (CLAUDE.md §14). */
+@media (max-width:900px){
+  html{scroll-padding-top:150px}
+  .toc{top:132px}
+  .gd-tabs button{font-size:13.5px}
+  .wl{grid-template-columns:1fr}
+  .wl-line{width:auto;height:44px;flex-direction:row}
+  .wl-line::before{top:auto;left:6px;right:6px;height:4px;width:auto;bottom:auto;
+    background:repeating-linear-gradient(90deg,var(--sea1) 0 9px,transparent 9px 18px)}
+  .wl-line span{writing-mode:horizontal-tb;padding:2px 10px;letter-spacing:.2em}
+  .mb{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  /* ⚠️ Old iPads are the G1/G2 students' machines and have no backdrop-filter.
+     Without the blur, the plate alpha is the only thing between text and art. */
+  .gd-top{background:rgba(255,255,255,.96)}
+  .toc{background:rgba(255,255,255,.96)}
+  .gd-lede{background:rgba(255,255,255,.95)}
+}
+</style>
+</head>
+<body class="L-both aid-py aid-en" data-tab="use">
+
+<header class="gd-hero">
+  <div class="sun"></div>
+  <!-- ⚠️ same order as the landing page: 上联 书山有路勤为径 reads on the RIGHT. -->
+  <span class="gd-couplet l">学海无涯苦作舟</span>
+  <span class="gd-couplet r">书山有路勤为径</span>
+  <div class="gd-herotext">
+    <h1>词山学海 · 指南</h1>
+    <div class="en1">Vocab Summit · Guide</div>
+    <div class="sch">百德中学 母语部华文组 · BVSS MTL Chinese Language Unit</div>
+  </div>
+  <!-- 校徽语言：三座山峰，中间最高且在前；山海通到画面边缘；太阳在右。 -->
+  <svg viewBox="0 0 1200 260" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 190 L150 96 L300 190 Z" fill="#9CC0A6"/>
+    <path d="M760 190 L920 84 L1080 190 Z" fill="#9CC0A6"/>
+    <path d="M120 205 L340 78 L560 205 Z" fill="#79AB89"/>
+    <path d="M660 205 L880 88 L1100 205 Z" fill="#79AB89"/>
+    <path d="M330 215 L600 44 L870 215 Z" fill="#57906B"/>
+    <path d="M600 44 L730 126 L600 150 Z" fill="#3F704F" opacity=".55"/>
+    <path d="M0 196 C220 214 380 200 600 208 C830 216 1000 200 1200 210 L1200 260 L0 260 Z" fill="#2E6391"/>
+    <path d="M0 226 C260 240 420 226 660 234 C900 242 1020 228 1200 236 L1200 260 L0 260 Z" fill="#1F4A70"/>
+  </svg>
+</header>
+
+<div class="gd-stats" id="gdStats"></div>
+
+<div class="gd-top">
+  <div class="gd-topin">
+    <a class="gd-home" href="index.html">词山学海<small>Vocab Summit</small></a>
+    <div class="gd-langs" role="group" aria-label="语言 Language">
+      <button type="button" data-lang="zh" aria-pressed="false">中文</button>
+      <button type="button" data-lang="both" aria-pressed="true">双语</button>
+      <button type="button" data-lang="en" aria-pressed="false">English</button>
+    </div>
+    <div class="gd-tabs" role="tablist">
+      <button type="button" role="tab" data-tab="use" aria-selected="true" aria-controls="tab-use">
+        怎么用<span class="sub">How to use the site</span></button>
+      <button type="button" role="tab" data-tab="why" aria-selected="false" aria-controls="tab-why">
+        为什么这样设计<span class="sub">The design behind it</span></button>
+    </div>
+  </div>
+</div>
+
+<main>
+<section class="tabpane" id="tab-use" role="tabpanel">
+
+  <div class="gd-lede">
+    <p class="zh">词山学海是百德中学母语部华文组的华文词汇自主学习平台。它不是一套课，也不是一份作业：学生自己决定今天复习哪些单元、用哪种方式、练多久。这一页告诉你怎么用它。</p>
+    <p class="en">Vocab Summit is the self-directed Chinese vocabulary platform of the MTL Chinese Language Unit at Bukit View Secondary School. It is not a course and not an assignment: the student chooses which units to revise today, in which mode, and for how long. This tab tells you how to use it.</p>
+    <p class="zh"><b>不用注册，不用密码。</b>第一次进来只需要取一个昵称、选一个头像、选班级。进度存在这台设备上，并匿名同步到云端。</p>
+    <p class="en"><b>No sign-up, no password.</b> The first visit asks only for a nickname, an avatar and a class. Progress is kept on the device and synced anonymously to the cloud.</p>
+  </div>
+
+  <nav class="toc" aria-label="本页目录">
+    <a href="#u1"><span class="zh">① 五个入口</span><span class="en">① Destinations</span></a>
+    <a href="#u2"><span class="zh">② 第一次进来</span><span class="en">② First visit</span></a>
+    <a href="#u3"><span class="zh">③ 一页怎么读</span><span class="en">③ The three steps</span></a>
+    <a href="#u4"><span class="zh">④ 山上的玩法</span><span class="en">④ On the mountains</span></a>
+    <a href="#u5"><span class="zh">⑤ 码头的玩法</span><span class="en">⑤ At the pier</span></a>
+    <a href="#u6"><span class="zh">⑥ 试：填空挑战</span><span class="en">⑥ Try: cloze</span></a>
+    <a href="#u7"><span class="zh">⑦ 试：连线</span><span class="en">⑦ Try: matching</span></a>
+    <a href="#u8"><span class="zh">⑧ 试：重整句子</span><span class="en">⑧ Try: word order</span></a>
+    <a href="#u9"><span class="zh">⑨ 三个数字</span><span class="en">⑨ Three numbers</span></a>
+    <a href="#u10"><span class="zh">⑩ 拼音与英文</span><span class="en">⑩ Pinyin &amp; English</span></a>
+    <a href="#u11"><span class="zh">⑪ 没声音怎么办</span><span class="en">⑪ Troubleshooting</span></a>
+    <a href="#u12"><span class="zh">⑫ 给老师</span><span class="en">⑫ For teachers</span></a>
+  </nav>
+
+  <!-- ============ ① ============ -->
+  <section class="gd" id="u1">
+    <h2><span class="num">01</span><span class="zh b">从海图出发：五个入口</span><span class="en b">Five destinations, one sea map</span></h2>
+    <p class="zh">首页是一张海图。四座岛是四个华文源流，码头是给零起点学生的入门层。点一座岛，船会真的航过去。<b>先找自己的那一座就好</b>，其余四个不必管。</p>
+    <p class="en">The landing page is a sea map. The four islands are the four Chinese-language streams; the pier is the beginners' tier for students starting from zero. Tapping an island actually sails the boat there. <b>Find the one that is yours</b> and ignore the other four.</p>
+
+    <div class="grid" id="stationGrid"></div>
+
+    <div class="rule">
+      <p class="zh"><b>⚠️ 距离读成难度。</b>码头离得最近，高级华文最远。这不是排版随手放的：海图上的位置就是「从这里开始」的提示。</p>
+      <p class="en"><b>⚠️ Distance is meant to be read as difficulty.</b> The pier sits nearest and Higher Chinese furthest. The positions are not decorative — where an island sits on the map is the hint about where to start.</p>
+    </div>
+
+    <p class="zh">另有一个不在海图上的入口：<b>教师后台</b> <code>teacher.html</code>，用学校邮箱登录，由母语部主任审批。学生不需要它。</p>
+    <p class="en">One more entrance is not on the map: the <b>teacher dashboard</b> at <code>teacher.html</code>, which uses a school email sign-in and is approved by the HOD. Students never need it.</p>
+  </section>
+
+  <!-- ============ ② ============ -->
+  <section class="gd" id="u2">
+    <h2><span class="num">02</span><span class="zh b">第一次进来</span><span class="en b">Your first visit</span></h2>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">取昵称</span><span class="en">Pick a nickname</span></h3>
+        <p class="zh">昵称从<b>成语库</b>里选，例如「锲而不舍」「随机应变」。不填真名，也不能填真名——排行榜上出现的只有这个化名。</p>
+        <p class="en">Nicknames are chosen from a <b>library of Chinese idioms</b> — 锲而不舍, 随机应变 and so on. You do not type your real name and you cannot: the leaderboard only ever shows the pseudonym.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">选头像与班级</span><span class="en">Avatar and class</span></h3>
+        <p class="zh">头像有生肖、西游人物、瑞兽三组，一部分要用灵露买。班级用来分校内榜。身份（昵称／头像／班级）是山上与码头<b>共用</b>的，这样在码头就不会变成另一个人。</p>
+        <p class="en">Avatars come in three families — zodiac animals, Journey to the West characters, auspicious beasts — some bought with 灵露. The class is what the in-school board sorts by. Identity (nickname, avatar, class) is <b>shared</b> between the mountains and the pier, so you are not a different person at the pier.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">换设备</span><span class="en">Moving to another device</span></h3>
+        <p class="zh">进度会匿名同步。如果换了设备没同步上，用<b>「我的档案 → 进度码」</b>：复制一串码，在新设备贴上去。</p>
+        <p class="en">Progress syncs anonymously. If a new device does not pick it up, use <b>我的档案 → 进度码</b>: copy the code on the old device and paste it on the new one.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">遇到问题</span><span class="en">Something wrong?</span></h3>
+        <p class="zh">每一屏左下角都有<b>「💬 反馈」</b>。写清楚在哪一屏、按了什么、看到什么。这是报错最快的路，老师会看到。</p>
+        <p class="en">Every screen carries <b>💬 反馈 (tell us)</b> at the bottom-left. Say which screen, what you tapped, what you saw. It is the fastest route and a teacher reads it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ③ ============ -->
+  <section class="gd" id="u3">
+    <h2><span class="num">03</span><span class="zh b">一个学段页怎么读：①②③</span><span class="en b">Reading a stream page: the three steps</span></h2>
+    <p class="zh">每个学段页都是同一条动线，编号就印在屏幕上。<b>每一屏都从 ① 重新开始</b>，所以看到 ① 不代表回到最前面，只代表「这一屏的第一步」。</p>
+    <p class="en">Every stream page runs the same three steps, numbered on screen. <b>Each screen restarts at ①</b>, so seeing ① does not mean you went back to the beginning — it means "first step on this screen".</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3><span class="zh">① 复习范围</span><span class="en">① What to revise</span></h3>
+        <p class="zh">按<b>年级 → 单元</b>勾选。标题一行随时写着「已选 N 个单元 · 共 N 词」。右上角有 全选 / 清空。</p>
+        <p class="en">Tick by <b>year level → unit</b>. The heading always reads "N units selected · N words". 全选 / 清空 (all / none) sit at the top right.</p>
+        <p class="zh">底下折叠的<b>「筛选」</b>可以再收窄：板块（核心／生活空间／巩固／进阶／文化站，各学段不同）与来源。默认收起，但标题会写明生效的筛选，所以词数对不上时看得出原因。</p>
+        <p class="en">The collapsed <b>筛选 (filter)</b> below narrows further: component blocks (core / everyday life / consolidation / advanced / culture — the set differs by stream) and source. It is collapsed by default, but the heading still states what is in force, so a surprising word count is always explainable.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">② 选择学习方式</span><span class="en">② Learn or play</span></h3>
+        <p class="zh">两个按钮：<b>修行</b>（安静地练）与 <b>闯关</b>（游戏）。这只是切换，不会跳页。</p>
+        <p class="en">Two buttons: <b>修行 (practice)</b>, the quiet modes, and <b>闯关 (play)</b>, the games. It is a switch, not a page change.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">③ 就地铺出活动</span><span class="en">③ The activities appear</span></h3>
+        <p class="zh">卡片就在同一页展开。<b>教的那张排在考的那张前面</b>：词语闪卡 在 学习挑战 之前。设置（题数、难度、出题方式）在门后面，不在这一屏。</p>
+        <p class="en">The cards open on the same page. <b>The one that teaches comes before the one that tests</b>: flashcards sit ahead of the quiz. Settings — how many questions, how hard, which prompt — live behind the door, not on this screen.</p>
+      </div>
+    </div>
+
+    <div class="rule">
+      <p class="zh"><b>⚠️ 编号只用在真正多步的决定上。</b>排行榜、成就墙、我的词山 都<b>不编号</b>——它们是去处，没有正确顺序，随时可以去。</p>
+      <p class="en"><b>⚠️ Numbers appear only on genuine multi-step decisions.</b> The leaderboard, the badge wall and 我的词山 are <b>never numbered</b> — they are destinations, not steps, and there is no right order in which to visit them.</p>
+    </div>
+  </section>
+  <!-- ============ ④ ============ -->
+  <section class="gd" id="u4">
+    <h2><span class="num">04</span><span class="zh b">山上的玩法</span><span class="en b">What you can do on the mountains</span></h2>
+    <p class="zh">四座山（G1／G2／G3／高级华文）的玩法完全一样，只有词库不同。</p>
+    <p class="en">All four mountains (G1, G2, G3, Higher Chinese) offer the same activities; only the word list differs.</p>
+
+    <h3 style="margin-top:16px"><span class="zh">修行 · 安静地练</span><span class="en">修行 — the quiet modes</span></h3>
+    <div class="grid" id="mtnStudy"></div>
+
+    <h3 style="margin-top:18px"><span class="zh">闯关 · 游戏</span><span class="en">闯关 — the games</span></h3>
+    <div class="grid" id="mtnPlay"></div>
+
+    <h3 style="margin-top:18px"><span class="zh">其他去处 · 没有先后</span><span class="en">Destinations — no right order</span></h3>
+    <div class="grid" id="mtnElse"></div>
+  </section>
+
+  <!-- ============ ⑤ ============ -->
+  <section class="gd" id="u5">
+    <h2><span class="num">05</span><span class="zh b">启航码头的玩法</span><span class="en b">What you can do at the pier</span></h2>
+    <p class="zh">码头是给<b>零起点</b>学生的：没读过华文、刚转校、或者只想先认得几个字的人。这里的词是看图学的，题目从图片和声音出发，不假设你已经认得任何一个汉字。</p>
+    <p class="en">The pier is for students starting from <b>zero</b>: no prior Chinese, newly transferred, or simply wanting to recognise a few words first. Words are learned from pictures; questions start from an image or a sound and assume no character knowledge at all.</p>
+
+    <h3 style="margin-top:16px"><span class="zh">学习</span><span class="en">Learn</span></h3>
+    <div class="grid" id="xhLearn"></div>
+
+    <h3 style="margin-top:18px"><span class="zh">闯关</span><span class="en">Play</span></h3>
+    <div class="grid" id="xhPlay"></div>
+
+    <h3 style="margin-top:18px"><span class="zh">其他去处</span><span class="en">Destinations</span></h3>
+    <div class="grid" id="xhElse"></div>
+
+    <div class="rule">
+      <p class="zh"><b>⚠️ 踏浪竞速 是一层皮，不是另一种题目。</b>同一盘题，开不开踏浪竞速，题目、贝壳、航程<b>完全一样</b>，只有反馈不同：答对一题，沙滩上的小人往前跑一格，潮水在后面涨。<b>潮水永远追不上你，没有输的条件</b>，一局到题数结束就结束。</p>
+      <p class="en"><b>⚠️ Beach run is a skin, not a different game.</b> The same round with beach run on or off gives exactly the same questions, shells and progress — only the feedback changes: each correct answer moves a runner one step along the sand while the tide rises behind. <b>The tide never catches you and there is no way to lose</b>; the round ends when the questions run out.</p>
+    </div>
+
+    <div class="why">
+      <span class="lbl zh">水线</span><span class="lbl en">The waterline</span>
+      <p class="zh">码头的<b>航程 · 航海值 · 贝壳</b>和山上的<b>海拔 · 历练值 · 灵露</b>是<b>两套互不相通的系统</b>。在码头练不会让山上的数字动，反过来也一样，两边也不能兑换。为什么要这样，在另一个分页 ①。</p>
+      <p class="en">The pier's <b>航程 / 航海值 / 贝壳</b> and the mountains' <b>海拔 / 历练值 / 灵露</b> are <b>two economies that do not connect</b>. Practising at the pier moves no number on the mountain and vice versa, and neither currency converts. Why this matters is §1 of the other tab.</p>
+    </div>
+  </section>
+  <!-- ============ ⑥ ============ -->
+  <section class="gd" id="u6">
+    <h2><span class="num">06</span><span class="zh b">试一试：填空挑战</span><span class="en b">Try it: the cloze challenge</span></h2>
+    <p class="zh">这是山上最主要的一个模式，也是四个能推高<b>海拔</b>的模式之一。读句子，选出空格里该填的词。下面是真的题目，用的是 G3 中二单元一的词。</p>
+    <p class="en">This is the mountains' main mode and one of the four that can raise your <b>altitude</b>. Read the sentence, pick the word that belongs in the blank. The questions below are real, drawn from G3 Secondary 2 Unit 1.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>填空挑战</b><span class="en">Cloze challenge</span></div>
+      <div class="demo-body">
+        <div class="ctl">
+          <button class="btn ghost" type="button" id="clozeSpeak">🔊 <span class="zh">读题干</span><span class="en">Read the sentence</span></button>
+          <button class="btn ghost" type="button" id="clozeNext"><span class="zh">下一题 ›</span><span class="en">Next ›</span></button>
+          <span style="font-size:12px;color:var(--ink-soft)" id="clozeScore"></span>
+        </div>
+        <div class="q" id="clozeQ"></div>
+        <div class="opts" id="clozeOpts"></div>
+        <div class="msg" id="clozeMsg"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">注意看</span><span class="lbl en">Notice</span>
+        <p class="zh">喇叭读的是<b>题干</b>，空格处只读成一个停顿——它<b>永远不会把答案念出来</b>。整个平台都守这一条。另外：本页顶上的 拼音／英文 开关也管这些选项，试着开关看看。</p>
+        <p class="en">The speaker reads the <b>sentence</b>, with the blank rendered as a pause — it <b>never speaks the answer</b>. That rule holds everywhere on the platform. Also: the pinyin/English switches at the top of this page drive these options too — try toggling them.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ⑦ ============ -->
+  <section class="gd" id="u7">
+    <h2><span class="num">07</span><span class="zh b">试一试：连线</span><span class="en b">Try it: match them up</span></h2>
+    <p class="zh">码头的玩法之一：把图片和词语配成对。点一张图，再点它的词。下面是真的码头美术。</p>
+    <p class="en">One of the pier's games: pair each picture with its word. Tap a picture, then tap its word. The art below is the real pier art.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>连线</b><span class="en">Match them up</span></div>
+      <div class="demo-body">
+        <div class="ctl">
+          <button class="btn" type="button" id="mBoard"><span class="zh">换一板</span><span class="en">New board</span></button>
+          <label class="sw"><input type="checkbox" id="mBlack" checked>
+            <span class="zh">互斥黑名单</span><span class="en">confusable blacklist</span></label>
+        </div>
+        <div class="mb" id="mGrid"></div>
+        <div class="msg" id="mMsg"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">注意看</span><span class="lbl en">Notice</span>
+        <p class="zh">把<b>黑名单关掉</b>，多按几次「换一板」：迟早会同时出现 <b>猪肉</b> 和 <b>牛肉</b>，两张图长得几乎一样，学生答错不是因为不认得词，而是因为分不出图。黑名单开着就永远不会同框。这是一条<b>真实存在于线上的规则</b>，不是这一页编的例子。</p>
+        <p class="en">Turn the <b>blacklist off</b> and press "new board" a few times: sooner or later 猪肉 (pork) and 牛肉 (beef) appear together, and the two pictures are nearly identical — a wrong answer then means "could not tell the pictures apart", not "did not know the word". With the blacklist on they can never share a board. This rule is <b>live on the site</b>, not an example invented for this page.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ⑧ ============ -->
+  <section class="gd" id="u8">
+    <h2><span class="num">08</span><span class="zh b">试一试：重整句子</span><span class="en b">Try it: put the words in order</span></h2>
+    <p class="zh">按顺序点出句子的词。托盘里还混着几块<b>不属于这句</b>的干扰词。</p>
+    <p class="en">Tap out the words of the sentence in order. The tray also holds a few decoy tiles that <b>do not belong</b> in this sentence.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>重整句子</b><span class="en">Put the words in order</span></div>
+      <div class="demo-body">
+        <p style="font-size:15px;margin-bottom:6px" id="sortEn"></p>
+        <div class="slots" id="sortSlots"></div>
+        <div class="tray" id="sortTray"></div>
+        <div class="ctl" style="margin:6px 0 0">
+          <button class="btn" type="button" id="sortCheck"><span class="zh">检查答案</span><span class="en">Check</span></button>
+          <button class="btn ghost" type="button" id="sortReset"><span class="zh">重来</span><span class="en">Reset</span></button>
+        </div>
+        <div class="msg" id="sortMsg"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">注意看</span><span class="lbl en">Notice</span>
+        <p class="zh">这一题<b>有两个正确答案</b>：「农夫在喂<b>牛和鸡</b>」和「农夫在喂<b>鸡和牛</b>」都通顺，两个都算对。判分时会对<b>每一个</b>合法答案打分，取匹配最长的那个当参照——否则一个正在往另一个答案排的学生，会眼看着自己排对的一段被退回去。</p>
+        <p class="en">This item has <b>two correct answers</b>: 牛和鸡 and 鸡和牛 are both natural Chinese and both count. Scoring runs against <b>every</b> accepted answer and locks against whichever matches longest — otherwise a student heading for the second answer would watch a correct prefix get rejected.</p>
+        <p class="zh">还有：<b>答错不扣任何东西</b>。排对的部分锁成绿色，从第一个错位起退回托盘，并告诉你锁到第几格。学生看到的是<b>语序在哪一段断掉</b>，不是「全错」。</p>
+        <p class="en">And: <b>a wrong answer costs nothing</b>. The correct prefix locks green, everything from the first misplaced tile returns to the tray, and the message says how far the lock reached. The student sees <b>where the word order broke</b>, not "wrong".</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ⑨ ============ -->
+  <section class="gd" id="u9">
+    <h2><span class="num">09</span><span class="zh b">三个数字，各管各的</span><span class="en b">Three numbers that never merge</span></h2>
+    <p class="zh">平台<b>不给你一个总分</b>。每个学段有三个数字，各自回答一个不同的问题。点下面的模式，看它喂哪一个。</p>
+    <p class="en">The platform gives you <b>no overall score</b>. Each stream keeps three numbers, each answering a different question. Tap a mode below to see which ones it feeds.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>哪个模式喂哪个数字</b><span class="en">Which mode feeds which number</span></div>
+      <div class="demo-body">
+        <div class="ctl">
+          <button class="chip" type="button" data-side="mtn" aria-pressed="true"><span class="zh">四座山</span><span class="en">The mountains</span></button>
+          <button class="chip" type="button" data-side="xh" aria-pressed="false"><span class="zh">启航码头</span><span class="en">The pier</span></button>
+        </div>
+        <div class="chips" id="numModes"></div>
+        <div class="meters" id="numMeters"></div>
+        <div class="msg" id="numMsg"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">注意看</span><span class="lbl en">Notice</span>
+        <p class="zh">只有<b>四个模式</b>能推高海拔：填空挑战 · 攀山竞速 · 华文解释 · 英文翻译（房间对战另算）。词雨灵露 玩得再久，海拔也不动——它练的是反应，不是「认得这个词」。<b>打拼音档只给一成历练值、不给海拔</b>，所以没办法靠它刷便宜的连对倍率。</p>
+        <p class="en">Only <b>four modes</b> can raise altitude: cloze, mountain sprint, Chinese definition, English translation (live rooms count separately). No amount of word-rain moves it — that mode trains reaction speed, not "I know this word". The <b>pinyin-typing tier pays a tenth of the effort points and no altitude</b>, so it cannot be farmed for a cheap streak multiplier.</p>
+      </div>
+    </div>
+  </section>
+  <!-- ============ ⑩ ============ -->
+  <section class="gd" id="u10">
+    <h2><span class="num">10</span><span class="zh b">拼音与英文：两个开关</span><span class="en b">Pinyin and English: two switches</span></h2>
+    <p class="zh">顶栏有 <b>拼 拼音</b> 和 <b>中 EN</b> 两颗按钮。开着的时候，<b>导航和按钮</b>会多一行拼音或英文。</p>
+    <p class="en">The top bar carries a <b>拼 (pinyin)</b> and a <b>中/EN</b> button. When on, <b>navigation and buttons</b> gain a line of pinyin or English.</p>
+    <div class="ctl">
+      <label class="sw"><input type="checkbox" id="aidPy" checked>
+        <span class="zh">拼音（本页也听这个开关）</span><span class="en">pinyin (this page obeys it too)</span></label>
+      <label class="sw"><input type="checkbox" id="aidEn" checked>
+        <span class="zh">英文</span><span class="en">English</span></label>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 只有界面文字有注解，题目没有。</b>题干、释义、句子、选项<b>永远是纯中文</b>——这是刻意的，和「朗读只读中文」是同一个沉浸逻辑。唯一的例外是拼音可以注在句子上。</p>
+      <p class="en"><b>⚠️ Only the interface is annotated, never the questions.</b> Prompts, definitions, sentences and options stay <b>pure Chinese</b> on purpose — the same immersion logic as "only Chinese is ever spoken aloud". The single exception is that pinyin may be rubied over a sentence.</p>
+    </div>
+    <p class="zh">哪里有：<b>G1／G2／G3 有，高级华文一个字节都不发</b>（那一层的学生不需要）。<b>码头默认两个都开</b>，而且看图学词的卡片、词海垂钓答错后的拼音、重整句子的英文题干<b>永远显示</b>，不受开关影响——对零起点学生来说，把这几处藏起来等于让他盯着两个不认识的字。</p>
+    <p class="en">Where: <b>G1, G2 and G3 have them; Higher Chinese ships not one byte of either</b> — its students do not need them. <b>At the pier both default to ON</b>, and a few places ignore the switches entirely: the flashcard face, the pinyin shown after a wrong answer in the fishing game, and the English prompt in 重整句子. For a zero-start learner, hiding those would mean staring at two characters they cannot read.</p>
+  </section>
+
+  <!-- ============ ⑪ ============ -->
+  <section class="gd" id="u11">
+    <h2><span class="num">11</span><span class="zh b">常见问题</span><span class="en b">When something does not work</span></h2>
+    <div class="tw"><table>
+      <thead><tr>
+        <th><span class="zh">症状</span><span class="en">Symptom</span></th>
+        <th><span class="zh">先试这个</span><span class="en">Try this first</span></th>
+      </tr></thead>
+      <tbody>
+        <tr><td><b><span class="zh">朗读有声，音效没声</span><span class="en">Speech works, sound effects do not</span></b></td>
+          <td><span class="zh">先检查 iPad <b>侧面的静音开关</b>——它会掐掉网页音效但不影响朗读，症状一模一样。仍然没声就开 <code>tools/sound.html</code>。</span>
+              <span class="en">Check the <b>side mute switch</b> on the iPad first — it silences web audio but not speech, which looks identical. If it persists, open <code>tools/sound.html</code>.</span></td></tr>
+        <tr><td><b><span class="zh">完全没有朗读</span><span class="en">No speech at all</span></b></td>
+          <td><span class="zh">这台设备可能没装中文语音。开 <code>tools/voices.html</code> 看一眼；受管的 Chromebook 要 IT 管理员在后台启用「Google 普通话」。</span>
+              <span class="en">The device may have no Chinese voice installed. Open <code>tools/voices.html</code> to check; on a managed Chromebook the IT administrator has to enable Google 普通话.</span></td></tr>
+        <tr><td><b><span class="zh">读音听起来不对</span><span class="en">A word sounds wrong</span></b></td>
+          <td><span class="zh">多音字。平台带一张校正表，屏幕上的汉字不变，送给语音引擎的字串换成同音单音字。漏掉的请用 💬 反馈 告诉我们，写上是哪个词。</span>
+              <span class="en">A polyphonic character. The platform carries a correction table: the characters on screen never change, but the string handed to the speech engine swaps in a same-sound single-reading character. If one slipped through, report it with 💬 反馈 and name the word.</span></td></tr>
+        <tr><td><b><span class="zh">卡在「正在装载词库…」</span><span class="en">Stuck on "loading vocabulary…"</span></b></td>
+          <td><span class="zh">网络问题。六秒后会自行放行；仍然卡住就刷新一次。</span>
+              <span class="en">A network hiccup. It opens on its own after six seconds; refresh once if it does not.</span></td></tr>
+        <tr><td><b><span class="zh">改了却看不到新版</span><span class="en">An update is not showing</span></b></td>
+          <td><span class="zh">浏览器缓存最多十分钟。等一下或强制刷新。</span>
+              <span class="en">The browser caches for up to ten minutes. Wait, or force-refresh.</span></td></tr>
+        <tr><td><b><span class="zh">某个玩法是灰的</span><span class="en">An activity is greyed out</span></b></td>
+          <td><span class="zh"><b>它会写明原因</b>，例如「这组没有图片」或「这组没有两个字以上的词语」。换一个学习范围就好，不是坏了。</span>
+              <span class="en"><b>It states the reason</b> — "no pictures in this group", "no multi-character words here". Change the scope; nothing is broken.</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ ⑫ ============ -->
+  <section class="gd" id="u12">
+    <h2><span class="num">12</span><span class="zh b">给老师</span><span class="en b">For teachers</span></h2>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">教师后台</span><span class="en">The dashboard</span></h3>
+        <p class="zh"><code>teacher.html</code>，学校邮箱登录，母语部主任审批。可以看班级进度、审昵称、处理反馈工单。它是<b>独立的一页</b>，不加载学生端的任何程序。</p>
+        <p class="en"><code>teacher.html</code>, school email sign-in, approved by the HOD. Class progress, nickname approval, feedback tickets. It is a <b>standalone page</b> and loads none of the student-side code.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">课堂上用：结伴登峰</span><span class="en">In class: hosted rooms</span></h3>
+        <p class="zh">老师开房间，投影房号，学生输码进来一起答。结束时前三名会出现在<b>颁奖台</b>上，投影和学生自己的屏幕同时出现。房间照常计分，所以它不是捷径。</p>
+        <p class="en">The teacher opens a room, projects the code, students join and answer together. The top three appear on a <b>podium</b> at the end, on the projector and on each student's own screen. Rooms score normally, so they are not a shortcut.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">学生之间：同伴挑战</span><span class="en">Student to student: duels</span></h3>
+        <p class="zh">学生自己开房约朋友对战。奖牌和 结伴登峰 的<b>永不混算</b>：一个是正式的课堂活动，一个是自己约的。</p>
+        <p class="en">Students host their own duels. Those medals and the hosted-room medals are <b>never pooled</b>: one is the official classroom event, the other is self-arranged.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">排行榜上是谁</span><span class="en">Who appears on the boards</span></h3>
+        <p class="zh">只有档案标为<b>学生</b>的才发布到排行榜。老师、家长、公众只浏览。榜是<b>分开排</b>的：海拔一张、历练值一张，永远没有合计分。</p>
+        <p class="en">Only profiles marked <b>student</b> publish to the boards. Teachers, parents and the public browse only. The boards are <b>kept separate</b> — one for altitude, one for effort points — and there is never a combined score.</p>
+      </div>
+    </div>
+  </section>
+
+</section><!-- /tab-use -->
+
+<section class="tabpane" id="tab-why" role="tabpanel" hidden>
+  <div class="gd-lede">
+    <p class="zh">这一分页写给<b>任何科目</b>的老师。词山学海表面上是一个华文词汇 App，但它真正积累下来的，是一批<b>关于「学习系统该怎么设计」的裁定</b>——每一条都是被真实的学生、真实的设备、真实的失败逼出来的，而且每一条都有代价。下面每一节都是：<b>规则 → 为什么 → 它花了什么</b>。</p>
+    <p class="en">This tab is written for teachers in <b>any discipline</b>. Vocab Summit looks like a Chinese vocabulary app, but what it has actually accumulated is a set of <b>rulings about how a learning system should behave</b> — each forced by real students, real devices and real failures, and each with a price. Every section below reads: <b>the rule → why → what it cost</b>.</p>
+    <p class="zh">写这一页的人不是专业开发者，是一名母语部主任。所以这里没有「最佳实践」的口气，只有「我们试过，这条是对的，那条是错的」。</p>
+    <p class="en">The person who built this is not a professional developer but a Head of Department. So there is no best-practice voice here, only "we tried it; this one held and that one did not".</p>
+  </div>
+
+  <nav class="toc" aria-label="本页目录">
+    <a href="#w1"><span class="zh">① 水线</span><span class="en">① The waterline</span></a>
+    <a href="#w2"><span class="zh">② 三个数字</span><span class="en">② Three numbers</span></a>
+    <a href="#w3"><span class="zh">③ 什么算掌握</span><span class="en">③ What counts as mastery</span></a>
+    <a href="#w4"><span class="zh">④ 曝光 &gt; 难度</span><span class="en">④ Exposure &gt; difficulty</span></a>
+    <a href="#w5"><span class="zh">⑤ 泄题</span><span class="en">⑤ Answer leakage</span></a>
+    <a href="#w6"><span class="zh">⑥ 未认得优先</span><span class="en">⑥ Weak-first</span></a>
+    <a href="#w7"><span class="zh">⑦ 不静默失败</span><span class="en">⑦ No silent failure</span></a>
+    <a href="#w8"><span class="zh">⑧ 闸门不是重绘</span><span class="en">⑧ Gate, not redraw</span></a>
+    <a href="#w9"><span class="zh">⑨ 只读中文</span><span class="en">⑨ Chinese only</span></a>
+    <a href="#w10"><span class="zh">⑩ 里程表不是集邮</span><span class="en">⑩ Odometer, not album</span></a>
+    <a href="#w11"><span class="zh">⑪ 没有失败条件</span><span class="en">⑪ No fail state</span></a>
+    <a href="#w12"><span class="zh">⑫ 隐私与滥用</span><span class="en">⑫ Privacy and abuse</span></a>
+    <a href="#w13"><span class="zh">⑬ 工程即教学</span><span class="en">⑬ Engineering as pedagogy</span></a>
+    <a href="#w14"><span class="zh">⑭ 现况与未验证</span><span class="en">⑭ Status and gaps</span></a>
+    <a href="#w15"><span class="zh">⑮ 迁到你的科目</span><span class="en">⑮ Take it to your subject</span></a>
+    <a href="#w16"><span class="zh">⑯ 参考</span><span class="en">⑯ References</span></a>
+  </nav>
+
+  <!-- ============ ① 水线 ============ -->
+  <section class="gd" id="w1">
+    <h2><span class="num">01</span><span class="zh b">水线：两套经济，中间那条线不许跨</span><span class="en b">The waterline: two economies that must not meet</span></h2>
+    <p class="zh">平台上有两批完全不同的学生：在四座山上按课本单元复习的，和在码头从零开始认字的。它们各有一套进度与货币，中间那条线叫<b>水线</b>。</p>
+    <p class="en">The platform serves two populations: students revising textbook units on the four mountains, and students at the pier learning to recognise their first characters. Each has its own progress and its own currency, and the line between them is called the <b>waterline</b>.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>试着跨过水线</b><span class="en">Try to cross the waterline</span></div>
+      <div class="demo-body">
+        <div class="wl">
+          <div class="wl-side mtn">
+            <h4><span class="zh">四座山</span><span class="en">The four mountains</span></h4>
+            <dl>
+              <dt><span class="zh">掌握度</span><span class="en">mastery</span></dt><dd>海拔 <span style="font-size:12px;color:var(--ink-soft)">Altitude</span></dd>
+              <dt><span class="zh">努力值</span><span class="en">effort</span></dt><dd>历练值 <span style="font-size:12px;color:var(--ink-soft)">Tempering points</span></dd>
+              <dt><span class="zh">货币</span><span class="en">currency</span></dt><dd>灵露 <span style="font-size:12px;color:var(--ink-soft)">Dew</span></dd>
+            </dl>
+          </div>
+          <div class="wl-line"><span>水 线</span></div>
+          <div class="wl-side sea">
+            <h4><span class="zh">启航码头</span><span class="en">The pier</span></h4>
+            <dl>
+              <dt><span class="zh">掌握度</span><span class="en">mastery</span></dt><dd>航程 <span style="font-size:12px;color:var(--ink-soft)">Distance sailed</span></dd>
+              <dt><span class="zh">努力值</span><span class="en">effort</span></dt><dd>航海值 <span style="font-size:12px;color:var(--ink-soft)">Seafaring points</span></dd>
+              <dt><span class="zh">货币</span><span class="en">currency</span></dt><dd>贝壳 <span style="font-size:12px;color:var(--ink-soft)">Shells</span></dd>
+            </dl>
+          </div>
+        </div>
+        <div class="gate">
+          <button class="btn gold" type="button" data-cross="ex"><span class="zh">把贝壳换成灵露</span><span class="en">Convert shells to dew</span></button>
+          <button class="btn gold" type="button" data-cross="carry"><span class="zh">把码头进度带上山</span><span class="en">Carry pier progress up the mountain</span></button>
+          <button class="btn ghost" type="button" data-cross="id"><span class="zh">在码头用同一个昵称</span><span class="en">Keep my nickname at the pier</span></button>
+          <button class="btn ghost" type="button" data-cross="boat"><span class="zh">用贝壳买一条船</span><span class="en">Buy a boat with shells</span></button>
+        </div>
+        <div class="msg" id="wlMsg"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">结构性保证</span><span class="lbl en">A structural guarantee</span>
+        <p class="zh">这条线不是靠人记住的，是靠<b>代码里根本没有那条路径</b>：山上的程序从不读码头的存储，码头的程序从不写山上的存储。规则写在文件里会被忘记，写不出来的路径不会。</p>
+        <p class="en">The line is not maintained by remembering it. It is maintained by the fact that <b>the path does not exist in the code</b>: the mountain engine never reads the pier's store and the pier engine never writes the mountains'. A rule in a document gets forgotten; a route that was never written cannot be taken.</p>
+      </div>
+    </div>
+
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">码头的学生大多是<b>刚转来、家里不讲华文、或者过去几年一直在班上垫底</b>的那批。如果两套数字通用，他们在同一张榜上永远是最后一名，而且是在一把<b>他们从来没同意参加</b>的尺子上垫底。分开之后，码头学生的进度是<b>自己的</b>：航程从 0 走到 100 是一件完整的事，不是别人 3,741 里的 100。</p>
+      <p class="en">Pier students are mostly the ones who <b>just transferred in, speak no Chinese at home, or have been bottom of the class for years</b>. If the two sets of numbers were interchangeable they would sit last on a shared board forever — last on a ruler <b>they never agreed to be measured by</b>. Kept apart, a pier student's progress is <b>their own</b>: sailing from 0 to 100 is a whole thing, not 100 out of somebody else's 3,741.</p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">代价</span><span class="lbl en">The cost</span>
+      <p class="zh">写两遍。两套存储、两套货币、两套排行榜、两套徽章、两套费率表，以及一条「改一处要改两处」的长期负担。<b>并且我们接受了这个代价</b>——唯一允许跨线的三样东西（身份、只读的查词、可以用两种货币各自标价买的船）都是逐条论证过的收窄，不是先例。</p>
+      <p class="en">Writing it twice. Two stores, two currencies, two leaderboards, two badge families, two rate tables, and a permanent "change it here, change it there too" tax. <b>We accepted that cost.</b> The only three things allowed across — identity, the read-only word lookup, and boats that carry two independent price tags — were each argued individually and none of them is a precedent.</p>
+    </div>
+  </section>
+
+  <!-- ============ ② 三个数字 ============ -->
+  <section class="gd" id="w2">
+    <h2><span class="num">02</span><span class="zh b">三个数字永不相加</span><span class="en b">Three numbers that are never summed</span></h2>
+    <p class="zh"><b>海拔</b>＝掌握了多少词（广度，单调不减，一词一米）。<b>历练值</b>＝下了多少功夫（深度，可重复，随难度与连对放大）。<b>灵露</b>＝努力换来的货币（只在营地商店花）。三者<b>永不相加、永不互换、永不合成一个排名</b>。</p>
+    <p class="en"><b>Altitude</b> = how many words are mastered (breadth; never decreases; one word, one metre). <b>Tempering points</b> = how much work went in (depth; repeatable; scaled by difficulty and streak). <b>Dew</b> = the currency effort buys (spent only in the camp shop). The three are <b>never added, never exchanged, never merged into one ranking</b>.</p>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">一个总分会<b>掩盖它自己混进去的东西</b>。「广度」和「努力」奖励的是完全不同的行为：把两者相加，学生就会去找那个换算率最划算的行为，而那个行为几乎一定不是学习。分开之后，一个走得慢但每天来的学生，在<b>历练值</b>上是显眼的，即使他的海拔还很低——而这正是我们最想留住的那种学生。</p>
+      <p class="en">A composite score <b>hides what went into it</b>. Breadth and effort reward completely different behaviours; add them and the student goes hunting for whichever behaviour has the best exchange rate, which is almost never learning. Kept apart, the slow student who turns up every day is <b>visible on the effort board</b> even while their altitude is low — and that is exactly the student we most want to keep.</p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">代价</span><span class="lbl en">The cost</span>
+      <p class="zh">没有「第一名」。老师想问「谁最强」时，我们答不上来，只能反问「你要问的是认得最多，还是练得最勤？」——这个摩擦是<b>真实存在的</b>，我们选择留着它。</p>
+      <p class="en">There is no single "top student". When a teacher asks who is best, we cannot answer; we can only ask back "knows the most words, or works the hardest?" That friction is <b>real</b>, and we chose to keep it.</p>
+    </div>
+  </section>
+
+  <!-- ============ ③ 掌握 ============ -->
+  <section class="gd" id="w3">
+    <h2><span class="num">03</span><span class="zh b">什么算「掌握」，写死在四个模式上</span><span class="en b">What counts as mastery is pinned to four modes</span></h2>
+    <p class="zh">只有<b>填空挑战 · 攀山竞速 · 华文解释 · 英文翻译</b>会让一个词计入海拔（房间对战另经一条按词文本计分的路）。<b>词语闪卡不算</b>，<b>词雨灵露不算</b>，<b>打拼音不算</b>。</p>
+    <p class="en">Only <b>cloze, mountain sprint, Chinese definition and English translation</b> can mark a word as mastered (live rooms confer it by a separate, text-matched route). <b>Flashcards do not. Word-rain does not. Typing pinyin does not.</b></p>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">这四个模式的共同点是：学生必须<b>从词义那一端出发，把词生产出来或辨认出来</b>。翻一张闪卡是「见过」，在词雨里点掉一个下落的词是「反应快」，打对拼音是「会读」——三样都有价值，但都不是「认得这个词的意思」。<b>掌握度只应该记录一件事，否则它什么也不记录。</b></p>
+      <p class="en">What those four share is that the student must <b>start from the meaning and produce or identify the word</b>. Flipping a flashcard is "have seen it"; tapping a falling word is "reacted fast"; typing the pinyin is "can pronounce it". All three have value; none of them is "knows what this word means". <b>A mastery number should record one thing, or it records nothing.</b></p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">代价</span><span class="lbl en">The cost</span>
+      <p class="zh">有一段时间，<b>屏幕上的说明是对的，代码是错的</b>：说明写着四个模式，实际只有两个真的计入。裁定的方向是<b>让代码去追文案</b>，因为文案才是我们真正想要的设计。这类「文档与实现不一致」的缺陷，最难发现，也最伤信任。</p>
+      <p class="en">For a while the <b>on-screen explanation was right and the code was wrong</b>: the text named four modes, only two actually counted. The ruling was to <b>make the code catch up with the text</b>, because the text was the design we actually wanted. Divergence between what a system says and what it does is the hardest class of bug to spot and the most corrosive to trust.</p>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 打拼音只给一成历练值、不给海拔、不进连对。</b>否则它就是一条刷便宜连对倍率的路：同一个词反复打拼音，倍率一路涨，而学生根本没在想词义。</p>
+      <p class="en"><b>⚠️ The pinyin-typing tier pays a tenth of the points, no altitude, and does not feed the streak.</b> Otherwise it becomes a cheap multiplier farm: type the same word's pinyin over and over, watch the streak climb, and never once think about meaning.</p>
+    </div>
+  </section>
+  <!-- ============ ④ 曝光 ============ -->
+  <section class="gd" id="w4">
+    <h2><span class="num">04</span><span class="zh b">在「更难」与「更多曝光」之间，一律选曝光</span><span class="en b">Where "harder" and "more exposure" pull apart, take exposure</span></h2>
+    <p class="zh">码头的「看句选词」把一个词从真实句子里挖掉让学生选。<b>它不是句子测验。</b>学生看不懂整句是<b>正常状态</b>：句子是<b>语境</b>，不是考核对象。目标是让零起点学生<b>反复遇见这些词</b>。</p>
+    <p class="en">The pier's "fill the sentence" blanks one word out of a real sentence. <b>It is not a sentence test.</b> Not understanding the whole line is the <b>expected state</b>: the sentence is <b>context</b>, not the thing being assessed. The goal is to make a zero-start learner <b>meet these words again</b>.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">贴图不是提示，是题目的一部分</span><span class="en">The picture is not a hint</span></h3>
+        <p class="zh">「这包＿＿多少钱？」单看句子，香料、龙虾、苹果、糖全部成立——<b>这题无解</b>。配一张糖的图，答案才唯一。</p>
+        <p class="en">"How much is this packet of ＿＿?" On the sentence alone, spices, lobster, apples and sweets all work — <b>the item has no answer</b>. With a picture of sweets, it has exactly one.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">量词泄漏是刻意的</span><span class="en">Measure-word leakage is deliberate</span></h3>
+        <p class="zh">「这<b>支</b>＿＿多少钱？」会把答案收窄到手机一类。在山上这算送分；<b>在码头这正是量词的教学价值</b>——从「支」推出答案，就是学会了「支」。<b>永远不要为了「更难」把量词挖掉。</b></p>
+        <p class="en">"How much is this <b>支</b> ＿＿?" narrows the answer to phone-like objects. On the mountains that would be a giveaway; <b>at the pier it is exactly what measure words are for</b> — inferring the answer from 支 <i>is</i> having learned 支. <b>Never remove the measure word to make it harder.</b></p>
+      </div>
+    </div>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">词汇不是靠一次高难度的检索学会的，是靠<b>足够多次、足够低门槛的相遇</b>。对一个零起点学生，「难度」这个旋钮拧过头的代价不是学得慢，是<b>不再来了</b>。所以这一层的设计问题永远不是「这题够不够难」，而是「这题会不会让他明天还想再开一次」。</p>
+      <p class="en">Vocabulary is not acquired through one hard retrieval but through <b>enough encounters at a low enough threshold</b>. For a zero-start learner, over-turning the difficulty dial does not cost slower learning — it costs <b>not coming back</b>. So the design question at this tier is never "is this hard enough" but "will this student open it again tomorrow".</p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">代价</span><span class="lbl en">The cost</span>
+      <p class="zh">这一层<b>测不准</b>。码头的「认得」是很浅的认得，它不能拿去证明任何学业成效。我们知道，并且没有假装它可以。</p>
+      <p class="en">This tier <b>measures badly</b>. "Recognised" at the pier is a shallow recognition and cannot be used as evidence of attainment. We know that, and we do not pretend otherwise.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑤ 泄题 ============ -->
+  <section class="gd" id="w5">
+    <h2><span class="num">05</span><span class="zh b">泄题是设计缺陷，不是学生作弊</span><span class="en b">Answer leakage is a design defect, not cheating</span></h2>
+    <p class="zh">曾经有一个缺陷：切换 拼音／难度／出题方式 会<b>重新抽一次干扰项</b>，而正确答案是唯一每次都活下来的那个。<b>切两次就能看出答案。</b>没有学生需要懂技术就能发现它。</p>
+    <p class="en">There was once a defect: toggling pinyin, difficulty or prompt type <b>re-rolled the distractors</b>, and the correct answer was the only option that survived every roll. <b>Toggle twice and the answer is visible.</b> No technical knowledge required to find it.</p>
+
+    <div class="demo">
+      <div class="demo-head"><span class="tag">试一试 · live</span>
+        <b>切两次就看出答案</b><span class="en">Toggle twice and read the answer off</span></div>
+      <div class="demo-body">
+        <div class="ctl">
+          <button class="chip" type="button" id="leakOld" aria-pressed="true"><span class="zh">旧做法：每次重抽</span><span class="en">Old: re-roll every toggle</span></button>
+          <button class="chip" type="button" id="leakNew" aria-pressed="false"><span class="zh">现在：缓存干扰池</span><span class="en">Now: cached pool</span></button>
+        </div>
+        <div class="q" id="leakQ"></div>
+        <div class="opts" id="leakOpts"></div>
+        <div class="ctl" style="margin:12px 0 0">
+          <button class="btn gold" type="button" id="leakToggle">🔤 <span class="zh">切换一下拼音</span><span class="en">Toggle pinyin</span></button>
+          <button class="btn ghost" type="button" id="leakReset"><span class="zh">换一题</span><span class="en">New item</span></button>
+        </div>
+        <div class="tally" id="leakTally"></div>
+      </div>
+      <div class="demo-foot">
+        <span class="lbl zh">修法</span><span class="lbl en">The fix</span>
+        <p class="zh">每题<b>缓存</b>干扰池，加宽难度时只<b>追加</b>选项、不重抽。所以这个平台上的语言支援开关只做一次 class 翻转、<b>什么都不重画</b>——这不只是性能考虑，<b>会重绘的开关就会重抽</b>。</p>
+        <p class="en">Cache the distractor pool per item; widening the difficulty only <b>appends</b> options and never re-rolls. Which is why the language switches on this platform flip one class and <b>redraw nothing</b> — not for performance, but because <b>a switch that redraws is a switch that re-rolls</b>.</p>
+      </div>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 同一类缺陷的其他形态，都真实发生过：</b>码头有三个玩法曾经「点了图片就把答案念出来」；喇叭按钮曾经嵌在选项<b>里面</b>，手指偏两毫米就等于提交了那个选项；组字成词答题前逐字朗读，等于把答案按顺序念一遍。<b>规则：喇叭读的是选项或题干，永远不读答案。</b></p>
+      <p class="en"><b>⚠️ The same defect keeps reappearing in other shapes:</b> three pier activities once spoke the answer aloud when the picture was tapped; the speaker button once sat <i>inside</i> the option, so a finger two millimetres off submitted that option; reading a word character-by-character before the answer is given recites the answer in order. <b>Rule: the speaker reads the options or the prompt, never the answer.</b></p>
+    </div>
+  </section>
+
+  <!-- ============ ⑥ 未认得优先 ============ -->
+  <section class="gd" id="w6">
+    <h2><span class="num">06</span><span class="zh b">未认得优先，干扰项从同组抽</span><span class="en b">Weak-first sampling, same-group distractors</span></h2>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">未认得的先出</span><span class="en">Unknown words come first</span></h3>
+        <p class="zh">出题时先分两桶：<b>还没答对过的</b>和<b>已经认得的</b>，桶内打乱，未认得的先取。以前是纯随机，结果是：一个已经认得八十个词的学生，一轮五题可能一个新词都碰不到，而徽章的门槛直接数「认得几个词」——<b>进度看起来卡住了，其实是抽样的问题。</b></p>
+        <p class="en">Items are bucketed before they are drawn: <b>never answered correctly</b> and <b>already known</b>, shuffled within each bucket, unknown first. It used to be uniformly random, and the result was that a student who already knew eighty words could meet no new word at all in a five-item round — while the badge thresholds count known words. <b>Progress looked stuck; the sampling was the cause.</b></p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">干扰项永远同组</span><span class="en">Distractors always come from the same group</span></h3>
+        <p class="zh">干扰项从目标词的<b>同一个组别</b>抽，没有例外。用「苹果」当「巴士」的干扰项，学生排除它靠的不是词汇知识，是常识——那道题什么也没测到。</p>
+        <p class="en">Distractors are drawn from the target's <b>own group</b>, without exception. Offering "apple" against "bus" lets the student eliminate it with common sense rather than vocabulary knowledge, and the item has measured nothing.</p>
+      </div>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 同组之后还有一层互斥黑名单</b>（包子/饺子、猪肉/牛肉、汤/面、茶/咖啡…），因为有些同组词的<b>图片</b>几乎一样。⚠️ 黑名单的维护依据是<b>学生真实的混淆数据</b>，不是凭感觉加预防性条目。⚠️ 如果黑名单把可用词压到不足一板，<b>宁可开一块小板，也不重新放行被禁的一对</b>。</p>
+      <p class="en"><b>⚠️ A mutual-exclusion blacklist sits on top of the same-group rule</b> (bao/jiaozi, pork/beef, soup/noodles, tea/coffee…), because some same-group words have <b>near-identical pictures</b>. ⚠️ It is maintained from <b>real confusion data</b>, never from hunches about what might confuse. ⚠️ If the blacklist leaves too few words for a full board, <b>open a smaller board rather than re-admit a banned pair</b>.</p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">代价</span><span class="lbl en">The cost</span>
+      <p class="zh">黑名单起初<b>只管选择题，管不到连线</b>——因为连线的板面就是回合词表，从不走抽干扰项那条路。同一条规则要在<b>每一条产生「同屏出现的词」的路径</b>上各实现一次，这是这类规则的固有成本。</p>
+      <p class="en">The blacklist originally <b>governed multiple-choice only and missed the matching board</b>, because a match board is the round's word list and never passes through distractor selection. A rule like this has to be implemented on <b>every path that puts words on screen together</b> — that is its inherent cost.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑦ 不静默失败 ============ -->
+  <section class="gd" id="w7">
+    <h2><span class="num">07</span><span class="zh b">不静默失败：灰掉，并且写明原因</span><span class="en b">Never fail silently: grey it out and say why</span></h2>
+    <p class="zh">码头的「数字」组<b>没有图片</b>，而且是刻意没有：<b>数字本身就是符号，画三个苹果教「三」，教的是苹果。</b>于是「看图识词」和「听音识图」在这一组下无题可出。</p>
+    <p class="en">The pier's 数字 (numbers) group <b>has no pictures</b>, deliberately: <b>a numeral is already a symbol, and drawing three apples to teach "three" teaches apples.</b> So the two picture-led modes have nothing to ask under that group.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">只过滤 = 静默失败</span><span class="en">Filtering alone fails silently</span></h3>
+        <p class="zh">第一版只是把这些词过滤掉。结果：学生选了模式、按下出发、<b>什么都不发生</b>。没有报错，没有提示，就是没反应——学生只会认为「坏了」或者「我按错了」。</p>
+        <p class="en">The first version simply filtered those words out. The result: the student picked the mode, pressed go, and <b>nothing happened</b>. No error, no message, just nothing — from which a student concludes "it's broken" or "I did it wrong".</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">现在</span><span class="en">Now</span></h3>
+        <p class="zh">这两个玩法在无图范围下<b>变灰并写明「这组没有图片」</b>；记忆中的模式若被封锁，自动切到可用的。而且理由是<b>每扇门自己的</b>——「组字成词」灰掉时写的是「这组没有两个字以上的词语」，如果它也写「没有图片」，学生会跑去找图。</p>
+        <p class="en">Both modes <b>grey out and state "no pictures in this group"</b>, and a remembered mode that is blocked switches to an available one. The reason is <b>per door</b>: when the word-building game greys out it says "no multi-character words here" — telling that student to go find pictures would send them looking for the wrong thing.</p>
+      </div>
+    </div>
+    <div class="why">
+      <span class="lbl zh">推广</span><span class="lbl en">Generalised</span>
+      <p class="zh">任何有筛选、有范围、有前置条件的学习工具都会撞上这个：<b>「没有内容」和「坏了」在学生眼里长得一模一样。</b>唯一的分辨方式是系统自己说出来。</p>
+      <p class="en">Any learning tool with filters, scopes or prerequisites meets this: <b>"no content" and "broken" look identical to a student.</b> The only way to tell them apart is for the system to say which it is.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑧ 闸门 ============ -->
+  <section class="gd" id="w8">
+    <h2><span class="num">08</span><span class="zh b">语言支援是闸门，不是重绘</span><span class="en b">The language aids are a gate, not a redraw</span></h2>
+    <p class="zh">拼音和英文<b>永远都在页面里</b>，一个 class 决定显不显示。切换只是一次开关翻转，<b>没有任何东西被重新生成</b>。<b>这一页用的是同一套机制</b>——顶栏的 中文／双语／English 就是它。</p>
+    <p class="en">The pinyin and English are <b>always present in the page</b>; one class decides whether they show. Toggling flips a switch and <b>regenerates nothing</b>. <b>This page uses the same mechanism</b> — the 中文/双语/English switch at the top is it.</p>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">性能只是次要理由。真正的理由在第 ⑤ 节：<b>会重绘的开关就会重抽干扰项，那就是泄题。</b>把「显示」和「生成」分开，是一条能防住一整类缺陷的结构决定。</p>
+      <p class="en">Performance is the lesser reason. The real one is §5: <b>a switch that redraws is a switch that re-rolls the distractors, and that is answer leakage.</b> Separating "what is shown" from "what is generated" is a structural decision that closes a whole class of defects.</p>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 拼音是手写的，不是生成的。</b>固定字符串手写就绕开了所有多音字陷阱。每加一条英文标签就补一条拼音标签，并有一个自检遍历真实数据：<b>缺了拼音是静默的</b>（查不到就返回空字符串），所以必须有程序去数。有两个组别就是这样上线时既没有拼音也没有英文，没人发现。</p>
+      <p class="en"><b>⚠️ The pinyin is hand-written, not generated.</b> A hand-written fixed string sidesteps every polyphonic-character trap. Every English label gets a pinyin label added alongside it, and a self-check walks the real data: <b>a missing pinyin is silent</b> (a lookup miss returns an empty string), so something has to count them. Two groups shipped with neither pinyin nor English and nobody noticed.</p>
+    </div>
+  </section>
+  <!-- ============ ⑨ 只读中文 ============ -->
+  <section class="gd" id="w9">
+    <h2><span class="num">09</span><span class="zh b">只有中文会被读出来</span><span class="en b">Only Chinese is ever spoken</span></h2>
+    <p class="zh">这是华文 App，所以<b>英文释义一律静音</b>。喇叭只读汉字。而且<b>永远不把拼音字符串喂给语音引擎</b>——它会被读成一串没有声调的英文。真读错的词只能用<b>同音汉字</b>修。</p>
+    <p class="en">This is a Chinese app, so <b>English glosses are never spoken</b>. The speaker reads characters only. And <b>a pinyin string is never handed to the speech engine</b> — it comes out as toneless English. A genuinely mispronounced word is corrected with a <b>same-sound character</b>, never with pinyin.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">读音以数据为准</span><span class="en">The data decides the reading</span></h3>
+        <p class="zh">「姐姐长得清秀」屏幕上写 zhǎng，声音却是 cháng。现在朗读函数<b>同时收到汉字和这一句的拼音</b>，把多音字换成同音的单音字（长 zhǎng → 掌）再送出去，<b>屏幕上的汉字一个都不动</b>。</p>
+        <p class="en">One sentence showed zhǎng on screen and spoke cháng. The speak function now <b>receives the characters and that sentence's pinyin together</b>, swaps the polyphonic character for a same-sound single-reading one before handing it over, and <b>changes not one character on screen</b>.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">每个字只钉一个读音</span><span class="en">Pin one reading per character</span></h3>
+        <p class="zh">两个方向都钉过，结果「长时间」变成了「常时肩」——引擎拿到一串非词，只能逐字念，语调全散。<b>只钉引擎最容易猜错的那一个。</b>替换字必须：只有一个读音 · 声韵调完全相同 · 常用字。自动从字典挑会挑出生僻字，已废弃，表是手工维护的。</p>
+        <p class="en">Pinning both directions turned a common word into a non-word; the engine could then only read it character by character and the prosody collapsed. <b>Pin only the reading the engine most often gets wrong.</b> A substitute must have exactly one reading, identical sound and tone, and be a common character. Picking substitutes automatically from a dictionary surfaced obscure characters; that was abandoned and the table is maintained by hand.</p>
+      </div>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 音节数对不上就整句不动。</b>宁可维持引擎默认，也不让后面的读音整体错位。同一条判断也用在注音上。</p>
+      <p class="en"><b>⚠️ If the syllable count does not line up, the whole string is left alone.</b> Better the engine's default than a substitution that shifts every reading after it. The same test guards the ruby annotations.</p>
+    </div>
+    <div class="cost">
+      <span class="lbl zh">设备现实</span><span class="lbl en">Device reality</span>
+      <p class="zh">这些规则一半是<b>被设备逼出来的</b>：受管 Chromebook 装的语音会自称中文却没有声调，所以音色要<b>评分</b>而不能取第一个；苹果平台上朗读会把整个音频通道抢走，所以音效要能<b>把通道要回来</b>；iPad 需要在用户的第一次点击里同步发一句空白语音，否则整节课都没有声音。<b>一条也不能靠「应该没问题」。</b></p>
+      <p class="en">Half of these rules were <b>forced by the devices</b>: the voice on a managed Chromebook reports itself as Chinese but has no tones, so voices must be <b>scored</b> rather than taken in order; on Apple platforms speech seizes the entire audio channel, so the sound effects must be able to <b>take it back</b>; an iPad needs a silent utterance fired synchronously inside the student's first tap or there is no sound for the rest of the lesson. <b>Not one of these could be assumed away.</b></p>
+    </div>
+  </section>
+
+  <!-- ============ ⑩ 里程表 ============ -->
+  <section class="gd" id="w10">
+    <h2><span class="num">10</span><span class="zh b">徽章是开放式里程表，不是集邮</span><span class="en b">Badges are an open odometer, not a stamp album</span></h2>
+    <p class="zh">码头的九级航海徽章按<b>绝对值</b>发：10 / 25 / 50 / 75 / 100 / 150 / 200 / 300 / 400 词。<b>永不重新编号，也没有终点徽章</b>——破 400 就加一级。</p>
+    <p class="en">The pier's nine sailing badges are awarded at <b>absolute</b> counts: 10, 25, 50, 75, 100, 150, 200, 300, 400 words. They are <b>never renumbered and there is no final badge</b> — pass 400 and a level is added.</p>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">因为词表会长大。码头的词表<b>一天之内从 36 涨到 100 再到 150</b>。如果徽章是「集齐全部」，那条终点线就会<b>往后跑</b>——等于凭空收回学生已经付出的努力。一个百分比进度条在内容还会增加的系统里是<b>一个会背叛学生的承诺</b>。</p>
+      <p class="en">Because the word list grows. The pier's list went <b>from 36 to 100 to 150 within a single day</b>. If a badge means "collect them all", the finish line <b>moves away from the student</b> — which retroactively confiscates work they had already done. In any system whose content keeps growing, a percentage-complete bar is <b>a promise that will betray the learner</b>.</p>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 同一条逻辑推翻了「图鉴」。</b>未认得的词曾经显示成一个黑影加问号。那是收藏家的吊胃口，而<b>未认得的那个词，恰恰是最值得读的那一个</b>。现在它是一行普通的列表：缩略图 · 词语 · 拼音 · 英文 · 还不认得。</p>
+      <p class="en"><b>⚠️ The same logic overturned the "collection" screen.</b> Unlearned words used to appear as a silhouette with a question mark. That is a collector's tease, and <b>the word you do not know is precisely the one most worth reading</b>. It is now an ordinary list row: thumbnail, word, pinyin, English, "not yet known".</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑪ 没有失败条件 ============ -->
+  <section class="gd" id="w11">
+    <h2><span class="num">11</span><span class="zh b">给零起点学生的模式，没有失败条件</span><span class="en b">The beginners' mode has no fail state</span></h2>
+    <p class="zh">「踏浪竞速」里，跑者在沙滩上前进，潮水在后面涨。<b>潮水永远追不上</b>：跑者固定在四分之一处，潮水最远也不到一半。<b>不要给它加失败条件。</b></p>
+    <p class="en">In "beach run" a runner moves along the sand while the tide rises behind. <b>The tide never catches up</b>: the runner is pinned at about a quarter of the track and the tide never reaches half. <b>Do not give it a fail state.</b></p>
+    <div class="why">
+      <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
+      <p class="zh">潮水是<b>反馈</b>，不是追兵。它告诉学生「你在动」，不是「你要被淘汰了」。<b>零起点学生永远不该被半途掐掉</b>——一局到题数结束就结束。追赶的紧张感对已经有把握的学生是燃料，对刚起步的学生是退出按钮。</p>
+      <p class="en">The tide is <b>feedback</b>, not a pursuer. It says "you are moving", not "you are about to be eliminated". <b>A zero-start learner should never be cut off mid-round</b>; the round ends when the questions do. The tension of being chased is fuel for a confident student and an exit button for a beginner.</p>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 它是一层皮，不是第二条管线。</b>整段代码不出题、不判分、不发货币、不写存储。同一盘题开不开它，<b>题目与收益完全相同</b>。⚠️ 而且跑者的位置是「现在第几题」的<b>纯函数</b>，不按答对次数累加——只要有一个玩法走了不调用钩子的路径，累加就会让跑者早一格或晚一格到终点。</p>
+      <p class="en"><b>⚠️ It is a skin, not a second pipeline.</b> None of its code asks questions, scores, awards currency or writes to the store. The same round with it on or off yields <b>identical questions and identical rewards</b>. ⚠️ And the runner's position is a <b>pure function of "which question am I on"</b>, never an accumulator — with an accumulator, any activity that reaches an answer by a path that skips the hook lands the runner one step early or late.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑫ 隐私 ============ -->
+  <section class="gd" id="w12">
+    <h2><span class="num">12</span><span class="zh b">隐私与滥用：署名，而不是验证码</span><span class="en b">Privacy and abuse: attribution, not CAPTCHAs</span></h2>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">不收学生个人资料</span><span class="en">No student personal data</span></h3>
+        <p class="zh">匿名登录，<b>昵称从成语库里选</b>，学生打不出真名。云端存的是进度，不是人。</p>
+        <p class="en">Anonymous sign-in; <b>nicknames are picked from an idiom library</b>, so a real name cannot be typed. What is stored in the cloud is progress, not a person.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">为什么不加验证码</span><span class="en">Why no CAPTCHA</span></h3>
+        <p class="zh"><b>威胁模型对不上。</b>验证码防的是机器人，实际发生的是<b>无聊的学生手打垃圾</b>——验证码一个也拦不住。纯前端的可绕过，第三方的涉及未成年人数据。真正管用的是<b>署名 + 可停用的额度</b>。</p>
+        <p class="en"><b>The threat model does not match.</b> A CAPTCHA stops robots; what actually happens is <b>a bored student typing rubbish by hand</b>, which it does not stop at all. A front-end one is trivially bypassed and a third-party one sends minors' data offsite. What works is <b>attribution plus a quota that can be switched off</b>.</p>
+      </div>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 额度数字不显示在表单上。</b>「今天还可以提交 20 次」对最可能灌垃圾的那批学生读起来是<b>一个待破的记录</b>。限制照旧生效，只是不宣传；用完时的提示也不带数字。</p>
+      <p class="en"><b>⚠️ The quota number is not printed on the form.</b> "You may submit 20 more times today" reads, to exactly the students most likely to spam it, as <b>a record waiting to be broken</b>. The limit still applies; it is simply not advertised, and the message when it runs out carries no number either.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑬ 工程即教学 ============ -->
+  <section class="gd" id="w13">
+    <h2><span class="num">13</span><span class="zh b">工程约束就是教学约束</span><span class="en b">The engineering constraints are pedagogical constraints</span></h2>
+    <div class="tw"><table>
+      <thead><tr>
+        <th><span class="zh">约束</span><span class="en">Constraint</span></th>
+        <th><span class="zh">它其实是一个教学决定</span><span class="en">Why it is really a teaching decision</span></th>
+      </tr></thead>
+      <tbody>
+        <tr><td><b><span class="zh">横屏优先</span><span class="en">Landscape first</span></b></td>
+          <td><span class="zh">学生用的是<b>带键盘的 iPad 和 Chromebook</b>（学校配发）。竖屏手机是可用的次要回退，永不锁定方向。为想象中的设备设计，等于为没有人设计。</span>
+              <span class="en">Students use <b>school-issued iPads with keyboards and Chromebooks</b>. Portrait phones remain a working fallback and orientation is never locked. Designing for an imagined device is designing for nobody.</span></td></tr>
+        <tr><td><b><span class="zh">旧 iPad 是主力机</span><span class="en">Old iPads are the main machines</span></b></td>
+          <td><span class="zh">最花哨的那些视觉效果<b>在低年级学生的机器上最慢</b>，而低年级正是最需要视觉支持的一层。所有玻璃面板都有一套不带模糊的回退。</span>
+              <span class="en">The showiest visual effects are <b>slowest on the youngest students' machines</b> — and the youngest are the tier that most needs visual support. Every glass panel ships a no-blur fallback.</span></td></tr>
+        <tr><td><b><span class="zh">没有构建步骤</span><span class="en">No build step</span></b></td>
+          <td><span class="zh">纯静态页面，改一个字就能上线。<b>继任者只要会改 HTML 就能接手</b>——对一个由一名老师维护、要活得比这名老师久的项目，这比任何技术优雅都重要。</span>
+              <span class="en">Plain static pages; change one word and deploy. <b>A successor who can edit HTML can take it over</b> — for a project maintained by one teacher and meant to outlast that teacher, that matters more than any technical elegance.</span></td></tr>
+        <tr><td><b><span class="zh">每次部署推进版本号</span><span class="en">A version bump on every deploy</span></b></td>
+          <td><span class="zh">托管方给每个文件十分钟缓存，<b>而且每个文件各自老化</b>，于是设备上会出现新样式配旧程序。真实症状：新徽章有悬停效果，点了没反应。<b>这不是洁癖，是学生会看到的故障。</b></span>
+              <span class="en">The host caches each file for ten minutes and <b>each file ages separately</b>, so a device can hold a new stylesheet with an old script. Real symptom: the new badges had hover states but did nothing when tapped. <b>Not fastidiousness — a fault the students see.</b></span></td></tr>
+        <tr><td><b><span class="zh">断言证明不了事件</span><span class="en">Assertions do not prove events</span></b></td>
+          <td><span class="zh">有两个功能通过了<b>全部</b>自动化检查，却在真浏览器里第一次接触就失败。自动化能证明数据流对，证明不了手指按下去有没有反应。<b>几何、手感、触摸目标，只能上真设备。</b></span>
+              <span class="en">Two features passed <b>every</b> automated check and failed on first contact in a real browser. Automation proves the data flows; it cannot prove that a finger press arrives anywhere. <b>Geometry, feel and touch targets need a real device.</b></span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+  <!-- ============ ⑭ 现况 ============ -->
+  <section class="gd" id="w14">
+    <h2><span class="num">14</span><span class="zh b">现况、未完成、以及还没有证据的部分</span><span class="en b">What is done, what is not, and what has no evidence yet</span></h2>
+    <p class="zh">这一节存在的理由是：<b>一个只列成绩的项目介绍是不可信的。</b></p>
+    <p class="en">This section exists because <b>a project write-up that lists only achievements is not credible.</b></p>
+    <div class="grid">
+      <div class="card">
+        <h3 style="color:var(--ok)"><span class="zh">已经在跑</span><span class="en">Shipped and running</span></h3>
+        <ul>
+          <li class="zh">四座山各 23 个单元，共 3,741 个词条；码头 149 个词、90 句生活语句</li>
+          <li class="en">23 units per stream, 3,741 stream entries; 149 pier words and 90 everyday sentences</li>
+          <li class="zh">五站通用查词（2,142 条索引，只读）</li>
+          <li class="en">Cross-station word lookup, read-only, 2,142 entries</li>
+          <li class="zh">课堂实时房间与同伴对战、颁奖台</li>
+          <li class="en">Live classroom rooms, student duels, end-of-round podium</li>
+          <li class="zh">教师后台：进度、昵称审批、反馈工单</li>
+          <li class="en">Teacher dashboard: progress, nickname approval, feedback tickets</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--gold-ink)"><span class="zh">建了一半</span><span class="en">Half built</span></h3>
+        <ul>
+          <li class="zh">生活空间只逐场景验过 <b>学校</b> 一个，其余九个尚未过一遍</li>
+          <li class="en">Of the ten everyday-life scenes, only <b>school</b> has been walked through scene by scene</li>
+          <li class="zh">消耗品与竞速道具：目录、库存、商店已建，<b>效果逻辑与赛前选择未建</b></li>
+          <li class="en">Consumables and race power-ups: catalogue, inventory and shop exist; <b>the effects and the pre-race picker do not</b></li>
+          <li class="zh">部分云端安全规则尚未发布，对应功能会显示读取失败</li>
+          <li class="en">Some cloud security rules are unpublished; the matching features report a read error</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--bad)"><span class="zh">还没有证据</span><span class="en">No evidence yet</span></h3>
+        <ul>
+          <li class="zh"><b>没有前后测评量表。</b>目前无法证明平台上的掌握增长与考试成绩相关——<b>基线没有建立</b>，这是最大的缺口</li>
+          <li class="en"><b>There is no pre/post instrument.</b> We cannot currently show that mastery gains on the platform relate to attainment — <b>no baseline was established</b>, and this is the biggest gap</li>
+          <li class="zh">尚未在真设备上验过：iPad 上的滑杆手感、手机上的海图航行、Chromebook 上的玻璃面板性能</li>
+          <li class="en">Not yet verified on real hardware: slider feel on iPad, sea-map sailing on a phone, glass-panel performance on Chromebooks</li>
+          <li class="zh">段位与积分的<b>数值仍是提案</b>，要跑满一个学期的真实数据后重新校准</li>
+          <li class="en">The rank and points <b>numbers are still proposals</b>, to be recalibrated after a full term of real data</li>
+        </ul>
+      </div>
+    </div>
+    <div class="rule">
+      <p class="zh"><b>⚠️ 一条刻意保留的偏差。</b>「重整句子」教的是<b>语序</b>，而记录里存的是<b>词</b>。学生可能已经认得某个词，却从没排对过那句话，出题时会当成复习。要精确就得新建一份「排对过的句子」记录——而当前阶段的原则是<b>先加词，别再加系统</b>。这个偏差是知情的，写下来，不假装它不存在。</p>
+      <p class="en"><b>⚠️ One bias we knowingly keep.</b> The sentence-ordering game teaches <b>word order</b>, but the record it consults stores <b>words</b>. A student may know a word and never have ordered that sentence correctly, and the sampler will treat it as revision. Fixing it properly means a second record of "sentences ordered correctly" — and the current principle is <b>add words, not more systems</b>. The bias is documented rather than denied.</p>
+    </div>
+  </section>
+
+  <!-- ============ ⑮ 迁移 ============ -->
+  <section class="gd" id="w15">
+    <h2><span class="num">15</span><span class="zh b">如果你想搬到自己的科目</span><span class="en b">If you want to take this to your own subject</span></h2>
+    <p class="zh">下面十条与华文无关，任何有「一堆要记的东西 + 一批起点差距很大的学生」的科目都适用。</p>
+    <p class="en">None of the ten below is about Chinese. They apply to any subject with a body of material to retain and a cohort whose starting points differ widely.</p>
+    <div class="tw"><table>
+      <thead><tr><th style="width:34%"><span class="zh">规则</span><span class="en">Rule</span></th><th><span class="zh">在你的科目里问自己</span><span class="en">Ask yourself</span></th></tr></thead>
+      <tbody>
+        <tr><td><b><span class="zh">给落后最多的那批学生一套自己的尺子</span><span class="en">Give the furthest-behind their own ruler</span></b></td><td><span class="zh">我的入门层学生，是在和高年级同一张榜上垫底吗？</span><span class="en">Are my beginners bottom of the same board as everyone else?</span></td></tr>
+        <tr><td><b><span class="zh">不要合成总分</span><span class="en">Do not compute a composite score</span></b></td><td><span class="zh">我这个分数把「学会了」和「做得多」混在一起了吗？</span><span class="en">Does my score mix "has learned" with "has done a lot"?</span></td></tr>
+        <tr><td><b><span class="zh">写死「什么算学会」</span><span class="en">Pin down what counts as learned</span></b></td><td><span class="zh">哪些活动能推进它？为什么是这几个，不是别的？</span><span class="en">Which activities advance it, and why those and not others?</span></td></tr>
+        <tr><td><b><span class="zh">曝光优先于难度</span><span class="en">Exposure before difficulty</span></b></td><td><span class="zh">我把题调难，是为了测得更准，还是为了显得严谨？</span><span class="en">Am I making it harder to measure better, or to look rigorous?</span></td></tr>
+        <tr><td><b><span class="zh">审一遍泄题</span><span class="en">Audit for leakage</span></b></td><td><span class="zh">有没有哪个开关、哪个提示、哪段朗读，把答案说了出来？</span><span class="en">Does any toggle, hint or audio give the answer away?</span></td></tr>
+        <tr><td><b><span class="zh">干扰项必须是真的干扰</span><span class="en">Distractors must actually distract</span></b></td><td><span class="zh">学生排除错项靠的是知识，还是常识？</span><span class="en">Do students eliminate wrong options with knowledge, or with common sense?</span></td></tr>
+        <tr><td><b><span class="zh">先出没学会的</span><span class="en">Serve the unlearned first</span></b></td><td><span class="zh">我的随机出题，会不会让学得多的人反复碰到已经会的？</span><span class="en">Does random selection keep re-serving what the strong student already knows?</span></td></tr>
+        <tr><td><b><span class="zh">不静默失败</span><span class="en">Never fail silently</span></b></td><td><span class="zh">「没有内容」和「坏了」在学生眼里分得出来吗？</span><span class="en">Can a student tell "no content" from "broken"?</span></td></tr>
+        <tr><td><b><span class="zh">进度条不要承诺会跑掉的终点</span><span class="en">No finish line that moves</span></b></td><td><span class="zh">内容还会增加吗？那百分比就是一个会失效的承诺。</span><span class="en">Will the content grow? Then the percentage is a promise that will break.</span></td></tr>
+        <tr><td><b><span class="zh">入门层不设失败条件</span><span class="en">No fail state at the entry tier</span></b></td><td><span class="zh">我的「紧张感」，对最弱的那个学生是燃料还是退出按钮？</span><span class="en">Is my "tension" fuel, or an exit button, for my weakest student?</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============ ⑯ 参考 ============ -->
+  <section class="gd" id="w16">
+    <h2><span class="num">16</span><span class="zh b">设计参考的框架</span><span class="en b">Frameworks the design draws on</span></h2>
+    <p class="zh">下面是设计时参考的文献。<b>它们是设计的依据，不是本平台成效的证据</b>——本平台自己的成效数据见第 ⑭ 节，目前是空的。</p>
+    <p class="en">These informed the design. <b>They are grounds for the design, not evidence of this platform's effectiveness</b> — for that see §14, which is currently empty.</p>
+    <div class="grid two">
+      <div class="card">
+        <h3><span class="zh">检索练习与间隔</span><span class="en">Retrieval practice and spacing</span></h3>
+        <p class="zh">Karpicke &amp; Roediger (2008)、Roediger &amp; Butler (2011)、Cepeda 等 (2006)。<b>对应本平台：</b>四个掌握模式全部要求学生把答案<b>取出来</b>，而不是重读；待巩固队列与未认得优先是间隔的粗略实现。</p>
+        <p class="en">Karpicke &amp; Roediger (2008); Roediger &amp; Butler (2011); Cepeda et al. (2006). <b>Where it shows:</b> all four mastery modes require the student to <b>produce</b> the answer rather than re-read it; the review queue and weak-first sampling are a coarse implementation of spacing.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">自主学习动机</span><span class="en">Self-determination theory</span></h3>
+        <p class="zh">Deci &amp; Ryan (2000)：自主 · 胜任 · 归属。<b>对应本平台：</b>学生自己选范围与模式（自主）；没有失败条件与分开的三个数字（胜任）；房间、颁奖台与班级榜（归属）。</p>
+        <p class="en">Deci &amp; Ryan (2000): autonomy, competence, relatedness. <b>Where it shows:</b> the student chooses scope and mode (autonomy); no fail state and three separate numbers (competence); rooms, podium and class boards (relatedness).</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">形成性评价</span><span class="en">Assessment for learning</span></h3>
+        <p class="zh">Black &amp; Wiliam (1998)。<b>对应本平台：</b>前缀锁定告诉学生<b>语序在哪一段断掉</b>，而不是「错」；答错不扣任何东西；反馈即时且具体。</p>
+        <p class="en">Black &amp; Wiliam (1998). <b>Where it shows:</b> prefix locking tells the student <b>where the word order broke</b> rather than "wrong"; a wrong answer costs nothing; feedback is immediate and specific.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">图文双码与词汇习得</span><span class="en">Dual coding and vocabulary acquisition</span></h3>
+        <p class="zh">Paivio (1986)、Mayer (2009)、Nation (2001)。<b>对应本平台：</b>码头一律图词并置；Nation 关于「同一个词需要多次相遇」的论述，正是第 ④ 节「曝光优先」的直接依据。</p>
+        <p class="en">Paivio (1986); Mayer (2009); Nation (2001). <b>Where it shows:</b> every pier item pairs a picture with a word; Nation's account of the number of encounters a word needs is the direct basis for §4.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">技术整合层次</span><span class="en">Levels of technology integration</span></h3>
+        <p class="zh">RAT 框架（Hughes, Thomas &amp; Scharber, 2006）：替代 · 放大 · 转化。<b>诚实的自评：</b>大部分模式属于<b>放大</b>；真正称得上<b>转化</b>的只有码头那一层——它让一批过去无法参与词汇课的学生第一次有了自己的进度。</p>
+        <p class="en">The RAT framework (Hughes, Thomas &amp; Scharber, 2006): Replacement, Amplification, Transformation. <b>An honest self-assessment:</b> most modes are <b>amplification</b>; the only part that genuinely reaches <b>transformation</b> is the pier tier, which gave a group of students who could not previously take part in vocabulary lessons a progression of their own.</p>
+      </div>
+      <div class="card">
+        <h3><span class="zh">内容归属</span><span class="en">Content provenance</span></h3>
+        <p class="zh">发布的每一句释义与填空句都是<b>本组自撰</b>，课文例句已从发布文件中彻底移除，所以站点可以公开分享。恢复例句需要<b>书面许可与登录层</b>，在那之前不会重新引入。</p>
+        <p class="en">Every published definition and cloze sentence is <b>original departmental authorship</b>; textbook example sentences were removed from the published files entirely, which is what makes the site freely shareable. Restoring them would require <b>written permission and a login layer</b>, and until then they stay out.</p>
+      </div>
+    </div>
+  </section>
+
+</section><!-- /tab-why -->
+</main>
+
+<footer class="foot">
+  <div class="fl">
+    <p class="zh">词山学海 · Vocab Summit 由百德中学母语部华文组设计与开发，母语部主任郑凯欣主导。所有释义与例句均为本组自撰，不使用第三方教材内容。学生个人资料一律不收集，昵称为化名。</p>
+    <p class="en">词山学海 · Vocab Summit is designed and built by the Mother Tongue Languages Chinese Language Unit at Bukit View Secondary School, led by HOD/MTL Chun Kai Xin. Every definition and example sentence is original departmental authorship; no third-party textbook material is used. No student personal data is collected and nicknames are pseudonyms.</p>
+    <p style="margin-top:10px"><a href="index.html">← 回到海图 · Back to the sea map</a></p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var body = document.body;
+
+  /* =================== 数据 ===================
+     ⚠️ EVERY list a reader sees is declared here rather than written into the
+     prose above. The activity line-up changes; prose surgery is how a guide
+     goes stale. Updating this block is the whole edit. */
+
+  var STATS = [
+    { n: "3,741", zh: "山上词条", en: "stream words" },
+    { n: "149",   zh: "码头词条", en: "pier words" },
+    { n: "5",     zh: "个入口",   en: "destinations" },
+    { n: "23",    zh: "单元／学段", en: "units per stream" },
+    { n: "90",    zh: "生活语句", en: "everyday sentences" },
+    { n: "2,142", zh: "查词索引", en: "lookup entries" }
+  ];
+
+  var STATIONS = [
+    { img: "art/seamap/dock_jetty.png", zh: "启航码头", en: "The Departure Pier",
+      lv: "学海启航 · pre-G1", href: "XH_index.html",
+      dzh: "零起点。看图学词，从第一个汉字开始。149 个词，八个组别。",
+      den: "Starting from zero. Words learned from pictures, from the very first character. 149 words in eight groups." },
+    { img: "art/seamap/island_g1.png", zh: "词星大冒险", en: "G1 · 基础华文",
+      lv: "426 词", href: "G1_index.html",
+      dzh: "G1 基础华文。三个板块：核心 · 生活空间 · 文化站。",
+      den: "G1 Foundation Chinese. Three component blocks: core, everyday life, culture." },
+    { img: "art/seamap/island_g2.png", zh: "词将竞技场", en: "G2 · 华文",
+      lv: "814 词", href: "G2_index.html",
+      dzh: "G2 华文。四个板块，多一层「巩固」。",
+      den: "G2 Chinese. Four component blocks, adding consolidation." },
+    { img: "art/seamap/island_g3.png", zh: "词王淬炼坊", en: "G3 · 快捷华文",
+      lv: "1,069 词", href: "G3_index.html",
+      dzh: "G3 快捷华文。四个板块，另有 词语汉兜 猜字游戏。",
+      den: "G3 Express Chinese. Four component blocks, plus the character-guessing game." },
+    { img: "art/seamap/island_hcl.png", zh: "词圣鸿文苑", en: "Higher Chinese",
+      lv: "1,432 词", href: "HCL_index.html",
+      dzh: "高级华文。五个板块，多一层「进阶」。⚠️ 这一层不发拼音与英文注解。",
+      den: "Higher Chinese. Five component blocks, adding an advanced tier. ⚠️ This tier ships no pinyin or English aids." }
+  ];
+
+  var MTN_STUDY = [
+    { i: "📇", zh: "词语闪卡", en: "Flashcards", dzh: "先学再测的那一面。翻卡看词、拼音、释义。不计分。", den: "The learn-before-you-are-tested face: flip through word, pinyin, meaning. Not scored." },
+    { i: "✍️", zh: "填空挑战", en: "Cloze challenge", dzh: "读句子填词。⭐2 / ⭐⭐3 / ⭐⭐⭐4 个选项，⭐⭐⭐⭐ 要打字，另有打拼音一档。计入海拔。", den: "Read the sentence, supply the word. Two, three or four options; a fourth tier requires typing, and a pinyin tier sits alongside. Counts toward altitude." },
+    { i: "🔎", zh: "华文解释", en: "Chinese definition", dzh: "看中文释义选词。计入海拔。", den: "Pick the word from its Chinese definition. Counts toward altitude." },
+    { i: "🌐", zh: "英文翻译", en: "English translation", dzh: "看英译选词。计入海拔。", den: "Pick the word from its English gloss. Counts toward altitude." }
+  ];
+  var MTN_PLAY = [
+    { i: "🌧️", zh: "词雨灵露", en: "Word rain", dzh: "词从天上落，接住对的。限时。练反应，不计海拔。", den: "Words fall; catch the right one. Timed. Trains reaction, not altitude." },
+    { i: "🏔️", zh: "攀山竞速", en: "Mountain sprint", dzh: "限时四选一，三种题型。计入海拔。", den: "Timed four-option questions in three flavours. Counts toward altitude." },
+    { i: "🧩", zh: "组词挑战", en: "Build the word", dzh: "从一盘字里按顺序点出词语，2–8 字。滑杆上写几块，屏幕上就是几块。", den: "Tap the characters of a word in order, two to eight characters. The slider reads in tiles, and the board holds exactly that many." },
+    { i: "🀄", zh: "词语汉兜", en: "Character guess", dzh: "猜字游戏，12 次机会，两栏。仅 G3 与高级华文。", den: "A twelve-guess character game in two columns. G3 and Higher Chinese only." }
+  ];
+  var MTN_ELSE = [
+    { i: "⛰️", zh: "我的词山", en: "My mountain", dzh: "自己那座山，海拔越高走得越上面。带年度试炼与待巩固队列。", den: "Your own mountain; the higher the altitude, the further up you stand. Carries the yearly trial and the review queue." },
+    { i: "🏕️", zh: "营地与商店", en: "Camp and shop", dzh: "灵露在这里花：装备、宠物、头像、船。", den: "Where dew is spent: gear, pets, avatars, boats." },
+    { i: "🎖️", zh: "成就墙", en: "Badge wall", dzh: "里程碑徽章五枚与对战奖牌八枚，两个家族永不混算。", den: "Five milestone badges and eight battle medals, two families that never pool." },
+    { i: "📊", zh: "词山风云榜", en: "Leaderboards", dzh: "海拔一张榜、历练值一张榜，分开排，没有合计分。", den: "One board for altitude, one for effort points. Separate, never combined." },
+    { i: "📖", zh: "我的词语表", en: "My word list", dzh: "范围内所有词的列表，含释义与年级单元。", den: "Every word in scope, with meanings and its year and unit." },
+    { i: "🤝", zh: "结伴登峰 · 同伴挑战", en: "Rooms and duels", dzh: "老师开房或学生自己约。照常计分，所以不是捷径。", den: "Teacher-hosted rooms or student-arranged duels. Scored normally, so not a shortcut." }
+  ];
+
+  /* ⚠️ 码头的活动清单正在改版（owner 2026-08-17）。改版落地后只需要改这三个
+     数组，正文不必动。 */
+  var XH_LEARN = [
+    { i: "📖", zh: "词语闪卡", en: "Flashcards", dzh: "两面：词语卡（图＋词＋拼音＋英文）与句子卡（整句读完，不挖空）。不计航程。", den: "Two faces: word cards (picture, word, pinyin, English) and sentence cards, read whole with nothing blanked. Does not count toward distance." },
+    { i: "🎯", zh: "词语挑战", en: "Quiz yourself", dzh: "词的层面，三种题型：英文选词 · 看图识词 · 听音识图。", den: "At the word level, three question types: English to word, picture to word, listen and pick the picture." },
+    { i: "💬", zh: "学以致用", en: "Put it to use", dzh: "句的层面，两种题型：看句选词（从真实句子里挖掉一个词）· 重整句子（按顺序点出句子的词）。", den: "At the sentence level, two types: fill the sentence, and put the words in order." }
+  ];
+  var XH_PLAY = [
+    { i: "🎣", zh: "词海垂钓", en: "Reel it in", dzh: "打出拼音，把鱼钓上来。", den: "Type the pinyin to land the catch." },
+    { i: "🪢", zh: "连线", en: "Match them up", dzh: "图片与词语配对，一板 3／5／8 组。", den: "Pair pictures with words; three, five or eight pairs to a board." },
+    { i: "🧱", zh: "组字成词", en: "Build the word", dzh: "按顺序点出词语的字。⚠️ 只收两个字以上的词，所以「数字」组整组灰掉。", den: "Tap out the characters of a word in order. ⚠️ Two characters minimum, so the numbers group greys out entirely." }
+  ];
+  var XH_ELSE = [
+    { i: "🏖️", zh: "我的海滩与小铺", en: "My beach and shop", dzh: "贝壳在这里花：摆件与船。", den: "Where shells are spent: beach ornaments and boats." },
+    { i: "⚓", zh: "航海徽章", en: "Sailing badges", dzh: "九级，按认得的词数发：10 / 25 / 50 / 75 / 100 / 150 / 200 / 300 / 400。", den: "Nine levels awarded by words known: 10, 25, 50, 75, 100, 150, 200, 300, 400." },
+    { i: "📖", zh: "我的词语表", en: "My word list", dzh: "缩略图 · 词语 · 拼音 · 英文 · 已认得／还不认得。可筛。", den: "Thumbnail, word, pinyin, English, known or not yet known. Filterable." },
+    { i: "📊", zh: "码头风云榜", en: "Pier boards", dzh: "识词数与航海值，分开排。", den: "Words known and seafaring points, kept apart." }
+  ];
+
+  /* =================== 语言闸门 =================== */
+  var LANGKEY = "ws_guide_lang";
+  function setLang(l) {
+    body.className = body.className.replace(/\bL-\w+\b/g, "").trim() + " L-" + l;
+    var bs = document.querySelectorAll(".gd-langs button");
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-lang") === l ? "true" : "false");
+    }
+    try { localStorage.setItem(LANGKEY, l); } catch (e) {}
+  }
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem(LANGKEY); } catch (e) {}
+    setLang(saved === "zh" || saved === "en" ? saved : "both");
+    var bs = document.querySelectorAll(".gd-langs button");
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].addEventListener("click", function () { setLang(this.getAttribute("data-lang")); });
+    }
+  })();
+
+  /* =================== 分页 =================== */
+  function setTab(t) {
+    body.setAttribute("data-tab", t);
+    $("tab-use").hidden = t !== "use";
+    $("tab-why").hidden = t !== "why";
+    var bs = document.querySelectorAll(".gd-tabs button");
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].setAttribute("aria-selected", bs[i].getAttribute("data-tab") === t ? "true" : "false");
+    }
+    if (location.hash !== "#" + t) history.replaceState(null, "", "#" + t);
+  }
+  (function () {
+    var bs = document.querySelectorAll(".gd-tabs button");
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].addEventListener("click", function () {
+        setTab(this.getAttribute("data-tab"));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    }
+    var h = (location.hash || "").replace("#", "");
+    /* a deep link to a section inside the other tab must open that tab first */
+    if (h === "why" || /^w\d+$/.test(h)) setTab("why"); else setTab("use");
+    if (/^[uw]\d+$/.test(h)) {
+      var el = $(h);
+      if (el) setTimeout(function () { el.scrollIntoView(); }, 60);
+    }
+  })();
+
+  /* =================== 朗读 ===================
+     ⚠️ Same three rules the platform itself follows (CLAUDE.md §8): score the
+     voices instead of taking the first zh-*, wait 50ms after cancel() before
+     speak(), and prime with a silent utterance inside a real user gesture. */
+  var primed = false, voices = [];
+  function loadVoices() {
+    try { voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; } catch (e) { voices = []; }
+  }
+  if (window.speechSynthesis) {
+    loadVoices();
+    speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    setTimeout(loadVoices, 200);
+  }
+  function pickVoice() {
+    if (!voices.length) loadVoices();
+    var best = null, bestScore = -1;
+    for (var i = 0; i < voices.length; i++) {
+      var v = voices[i], lang = (v.lang || "").toLowerCase(), name = (v.name || "").toLowerCase();
+      if (lang.indexOf("zh") !== 0 && lang.indexOf("cmn") !== 0) continue;
+      var s = 1;
+      if (lang.indexOf("cn") > -1 || lang.indexOf("hans") > -1) s += 3;
+      if (name.indexOf("google") > -1) s += 4;
+      if (name.indexOf("ting") > -1 || name.indexOf("mei-jia") > -1 || name.indexOf("yu-shu") > -1) s += 3;
+      /* ⚠️ eSpeak reports zh/cmn but has no tones; it scores last and is only ever a fallback. */
+      if (name.indexOf("espeak") > -1 || name.indexOf("eSpeak") > -1) s -= 10;
+      if (s > bestScore) { bestScore = s; best = v; }
+    }
+    return best;
+  }
+  function primeTTS() {
+    /* ⚠️ this speak() must stay SYNCHRONOUS inside the gesture — wrapping it in
+       any timer is the same as not having done it at all. */
+    if (primed || !window.speechSynthesis) return;
+    primed = true;
+    try {
+      var u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0; u.lang = "zh-CN";
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  document.addEventListener("click", primeTTS, { once: true, capture: true });
+  function speak(text) {
+    if (!window.speechSynthesis || !text) return;
+    try {
+      speechSynthesis.cancel();
+      setTimeout(function () {                 /* ⚠️ 50ms — same tick is dropped */
+        var u = new SpeechSynthesisUtterance(text);
+        var v = pickVoice();
+        if (v) u.voice = v;
+        u.lang = (v && v.lang) || "zh-CN";
+        u.rate = 0.9;
+        speechSynthesis.speak(u);
+      }, 50);
+    } catch (e) {}
+  }
+
+  /* =================== 渲染：卡片列表 =================== */
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+  function cards(el, list) {
+    if (!el) return;
+    el.innerHTML = list.map(function (m) {
+      return '<div class="card"><h3><span class="zh">' + m.i + " " + esc(m.zh) + '</span>' +
+        '<span class="en">' + m.i + " " + esc(m.en) + "</span></h3>" +
+        '<p class="zh">' + esc(m.dzh) + "</p><p class=\"en\">" + esc(m.den) + "</p></div>";
+    }).join("");
+  }
+  cards($("mtnStudy"), MTN_STUDY); cards($("mtnPlay"), MTN_PLAY); cards($("mtnElse"), MTN_ELSE);
+  cards($("xhLearn"), XH_LEARN);   cards($("xhPlay"), XH_PLAY);   cards($("xhElse"), XH_ELSE);
+
+  $("gdStats").innerHTML = STATS.map(function (s) {
+    return '<div class="gd-stat"><b>' + s.n + "</b>" +
+      '<span class="zh">' + s.zh + '</span><span class="en">' + s.en + "</span></div>";
+  }).join("");
+
+  $("stationGrid").innerHTML = STATIONS.map(function (s) {
+    return '<div class="card" style="display:flex;gap:13px;align-items:flex-start">' +
+      '<img src="' + s.img + '" alt="" style="width:70px;flex:0 0 70px;align-self:center;object-fit:contain">' +
+      '<div style="min-width:0">' +
+      '<h3 style="margin-bottom:2px"><a href="' + s.href + '" style="text-decoration:none">' + esc(s.zh) + " ›</a></h3>" +
+      '<div style="font-size:11.5px;color:var(--ink-soft);letter-spacing:.05em;margin-bottom:5px">' +
+        esc(s.en) + " · " + esc(s.lv) + "</div>" +
+      '<p class="zh" style="font-size:13.5px">' + esc(s.dzh) + "</p>" +
+      '<p class="en" style="font-size:13.5px">' + esc(s.den) + "</p></div></div>";
+  }).join("");
+
+  /* =================== 拼音／英文 闸门 =================== */
+  function aid(cls, on) { body.classList[on ? "add" : "remove"](cls); }
+  $("aidPy").addEventListener("change", function () { aid("aid-py", this.checked); });
+  $("aidEn").addEventListener("change", function () { aid("aid-en", this.checked); });
+
+  /* =================== 共用 =================== */
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function pickN(pool, n, notId) {
+    var out = [];
+    var s = shuffle(pool);
+    for (var i = 0; i < s.length && out.length < n; i++) if (s[i].w !== notId) out.push(s[i]);
+    return out;
+  }
+
+  /* =================== ⑥ 填空挑战 ===================
+     Real G3 中二 单元一 生活空间 entries. Distractors come from the SAME
+     component block, which is the platform's own rule. */
+  var CLOZE = [
+    { w: "犹豫", py: "yóu yù", en: "to hesitate", cloze: "他__了很久，最终决定报名参加比赛。" },
+    { w: "教训", py: "jiào xùn", en: "a lesson; to reprimand", cloze: "这次的失败给了他一个深刻的__，让他学会了谨慎。" },
+    { w: "叛逆", py: "pàn nì", en: "rebellious", cloze: "青少年有时会有__的心理，想挑战权威。" },
+    { w: "委屈", py: "wěi qū", en: "to feel wronged", cloze: "他明明努力了，成绩却不理想，心里感到十分__。" },
+    { w: "内疚", py: "nèi jiù", en: "to feel guilty", cloze: "他因为说了伤人的话而感到__，想道歉。" },
+    { w: "不妨", py: "bù fáng", en: "might as well", cloze: "你__试试这个方法，也许会有效果。" },
+    { w: "匿名", py: "nì míng", en: "anonymous", cloze: "他以__的方式捐款，不愿透露姓名。" },
+    { w: "监督", py: "jiān dū", en: "to supervise", cloze: "老师__学生完成作业，确保质量。" },
+    { w: "不分青红皂白", py: "bù fēn qīng hóng zào bái", en: "indiscriminately", cloze: "他__地责骂了同学，事后才发现搞错了。" },
+    /* ⚠️ the whole block, not a sample of it. With only nine words a DECOY
+       survives four draws about one time in seven, which quietly ruins §5's
+       demonstration; with all fifteen it is about one in thirty. */
+    { w: "代沟", py: "dài gōu", en: "generation gap", cloze: "父母与子女之间存在__，需要互相理解。" },
+    { w: "上瘾", py: "shàng yǐn", en: "to be addicted", cloze: "他对游戏__了，每天玩到深夜才睡觉。" },
+    { w: "疏远", py: "shū yuǎn", en: "to drift apart", cloze: "因为误会，他们的关系渐渐__了。" },
+    { w: "迎刃而解", py: "yíng rèn ér jiě", en: "to be solved readily", cloze: "找到了问题的关键，难题便__了。" },
+    { w: "体谅", py: "tǐ liàng", en: "to make allowances for", cloze: "我们要__父母的辛苦，多帮忙做家务。" },
+    { w: "无可厚非", py: "wú kě hòu fēi", en: "pardonable", cloze: "他这样做是出于好意，__。" }
+  ];
+  var cz = { i: -1, item: null, opts: [], done: false, right: 0, total: 0 };
+  function optHtml(o, idx) {
+    return '<button class="opt" type="button" data-i="' + idx + '">' +
+      "<b>" + o.w + '</b><span class="py">' + o.py + '</span><span class="eng">' + o.en + "</span></button>";
+  }
+  function clozeDraw() {
+    cz.i = (cz.i + 1) % CLOZE.length;
+    cz.item = CLOZE[cz.i];
+    cz.done = false;
+    /* ⚠️ the pool is drawn ONCE per item and then cached on cz.opts — §5. */
+    cz.opts = shuffle(pickN(CLOZE, 3, cz.item.w).concat([cz.item]));
+    $("clozeQ").innerHTML = cz.item.cloze.replace("__", '<span class="blank">？</span>');
+    $("clozeOpts").innerHTML = cz.opts.map(optHtml).join("");
+    $("clozeMsg").textContent = ""; $("clozeMsg").className = "msg";
+    var bs = $("clozeOpts").querySelectorAll(".opt");
+    for (var i = 0; i < bs.length; i++) bs[i].addEventListener("click", clozeAnswer);
+  }
+  function clozeAnswer(e) {
+    if (cz.done) return;
+    cz.done = true; cz.total++;
+    var o = cz.opts[+e.currentTarget.getAttribute("data-i")];
+    var ok = o.w === cz.item.w;
+    if (ok) cz.right++;
+    var bs = $("clozeOpts").querySelectorAll(".opt");
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].disabled = true;
+      if (cz.opts[i].w === cz.item.w) bs[i].classList.add("right");
+      else if (bs[i] === e.currentTarget) bs[i].classList.add("wrong");
+    }
+    var m = $("clozeMsg");
+    m.className = "msg " + (ok ? "ok" : "no");
+    m.textContent = ok ? "✓ 答对了 · correct" : "答案是「" + cz.item.w + "」 · the answer is " + cz.item.w;
+    /* ⚠️ speaking the WHOLE sentence is only safe after the answer is shown. */
+    speak(cz.item.cloze.replace("__", cz.item.w));
+    $("clozeScore").textContent = cz.right + " / " + cz.total;
+  }
+  $("clozeNext").addEventListener("click", clozeDraw);
+  $("clozeSpeak").addEventListener("click", function () {
+    /* ⚠️ the blank becomes a PAUSE, never the answer — CLAUDE.md §8.7. */
+    speak(cz.item.cloze.replace("__", "，"));
+  });
+  clozeDraw();
+
+  /* =================== ⑤ 泄题演示 =================== */
+  var lk = { old: true, item: null, opts: null, rolls: 0, seen: {} };
+  function leakItem() {
+    lk.item = CLOZE[Math.floor(Math.random() * CLOZE.length)];
+    lk.opts = null; lk.rolls = 0; lk.seen = {};
+    $("leakQ").innerHTML = lk.item.cloze.replace("__", '<span class="blank">？</span>');
+    leakRender();
+  }
+  function leakRender() {
+    /* old behaviour: re-roll on every toggle. new behaviour: draw once, reuse. */
+    if (lk.old || !lk.opts) lk.opts = shuffle(pickN(CLOZE, 3, lk.item.w).concat([lk.item]));
+    for (var i = 0; i < lk.opts.length; i++) {
+      var w = lk.opts[i].w;
+      lk.seen[w] = (lk.seen[w] || 0) + 1;
+    }
+    var max = lk.rolls + 1;
+    $("leakOpts").innerHTML = lk.opts.map(function (o, idx) {
+      var hot = lk.old && lk.rolls >= 2 && lk.seen[o.w] === max;
+      return '<button class="opt' + (hot ? " mark" : "") + '" type="button" disabled>' +
+        "<b>" + o.w + '</b><span class="py">' + o.py + '</span><span class="eng">' + o.en + "</span></button>";
+    }).join("");
+    var names = Object.keys(lk.seen);
+    var tal = names.sort(function (a, b) { return lk.seen[b] - lk.seen[a]; }).map(function (w) {
+      var hit = lk.seen[w] === max && max > 1;
+      return '<code class="' + (hit ? "hit" : "") + '">' + w + " · " + lk.seen[w] + "/" + max + "</code>";
+    }).join("");
+    var note = "";
+    if (lk.old && lk.rolls >= 2) {
+      /* ⚠️ a decoy CAN survive every roll by luck. Say the weaker true thing
+         when that happens rather than the strong false one. */
+      var survivors = names.filter(function (w) { return lk.seen[w] === max; });
+      note = survivors.length === 1
+        ? '<br><b style="color:var(--bad)">每次都活下来的那个，就是答案。</b> ' +
+          '<span style="color:var(--bad)">The one that survives every roll is the answer.</span>'
+        : '<br><b style="color:var(--bad)">选项从 ' + names.length + ' 个收窄到 ' + survivors.length +
+          ' 个，答案一定在里面。</b> <span style="color:var(--bad)">Narrowed from ' + names.length +
+          " options to " + survivors.length + "; the answer is certainly among them.</span>";
+    } else if (!lk.old && lk.rolls >= 2) {
+      note = '<br><b style="color:var(--ok)">四个选项一起活下来，切多少次都一样。</b> ' +
+             '<span style="color:var(--ok)">All four survive; toggling tells you nothing.</span>';
+    }
+    $("leakTally").innerHTML = "出现次数 · times shown（切换 " + lk.rolls + " 次）：<br>" + tal + note;
+  }
+  $("leakToggle").addEventListener("click", function () {
+    lk.rolls++;
+    body.classList.toggle("aid-py");
+    $("aidPy").checked = body.classList.contains("aid-py");
+    leakRender();
+  });
+  $("leakReset").addEventListener("click", leakItem);
+  function leakMode(isOld) {
+    lk.old = isOld;
+    $("leakOld").setAttribute("aria-pressed", isOld ? "true" : "false");
+    $("leakNew").setAttribute("aria-pressed", isOld ? "false" : "true");
+    leakItem();
+  }
+  $("leakOld").addEventListener("click", function () { leakMode(true); });
+  $("leakNew").addEventListener("click", function () { leakMode(false); });
+  leakItem();
+
+  /* =================== ⑦ 连线 ===================
+     Real pier words and real pier art, 食物 group. */
+  var FOOD = [
+    { w: "猪肉", py: "zhū ròu", img: "xh_pork" },   { w: "牛肉", py: "niú ròu", img: "xh_beef" },
+    { w: "鸡肉", py: "jī ròu", img: "xh_chickenmeat" }, { w: "鱼", py: "yú", img: "xh_fish" },
+    { w: "包子", py: "bāo zi", img: "xh_bao" },     { w: "饺子", py: "jiǎo zi", img: "xh_jiaozi" },
+    { w: "汤", py: "tāng", img: "xh_soup" },        { w: "面", py: "miàn", img: "xh_noodles" },
+    { w: "茶", py: "chá", img: "xh_tea" },          { w: "咖啡", py: "kā fēi", img: "xh_coffee" },
+    { w: "苹果", py: "píng guǒ", img: "xh_apple" }, { w: "西瓜", py: "xī guā", img: "xh_watermelon" },
+    { w: "蛋糕", py: "dàn gāo", img: "xh_cake" },   { w: "米饭", py: "mǐ fàn", img: "xh_rice" }
+  ];
+  /* the live blacklist, verbatim for this group */
+  var BLACK = [["包子", "饺子"], ["猪肉", "牛肉"], ["汤", "面"], ["茶", "咖啡"]];
+  function clashes(a, b) {
+    for (var i = 0; i < BLACK.length; i++) {
+      if ((BLACK[i][0] === a && BLACK[i][1] === b) || (BLACK[i][0] === b && BLACK[i][1] === a)) return true;
+    }
+    return false;
+  }
+  var mt = { board: [], sel: null, left: 0, clash: [] };
+  function mDraw() {
+    var useBlack = $("mBlack").checked, pool = shuffle(FOOD), board = [];
+    for (var i = 0; i < pool.length && board.length < 3; i++) {
+      var ok = true;
+      if (useBlack) {
+        /* ⚠️ admitted one at a time against the words ALREADY on the board — the
+           same check the MCQ distractor picker runs. A board is not a distractor
+           draw, which is exactly why this rule once missed it. */
+        for (var j = 0; j < board.length; j++) if (clashes(pool[i].w, board[j].w)) { ok = false; break; }
+      }
+      if (ok) board.push(pool[i]);
+    }
+    mt.board = board; mt.sel = null; mt.left = board.length; mt.clash = [];
+    for (var a = 0; a < board.length; a++) {
+      for (var b = a + 1; b < board.length; b++) {
+        if (clashes(board[a].w, board[b].w)) { mt.clash = [board[a].w, board[b].w]; }
+      }
+    }
+    var pics = shuffle(board), words = shuffle(board);
+    var html = pics.map(function (o) {
+      return '<button class="mtile" type="button" data-k="p" data-w="' + o.w + '">' +
+        '<img src="art/xh/' + o.img + '.png" alt=""></button>';
+    }).join("") + words.map(function (o) {
+      return '<button class="mtile" type="button" data-k="w" data-w="' + o.w + '">' +
+        "<b>" + o.w + '</b><span class="py">' + o.py + "</span></button>";
+    }).join("");
+    $("mGrid").innerHTML = html;
+    var ts = $("mGrid").querySelectorAll(".mtile");
+    for (var t = 0; t < ts.length; t++) ts[t].addEventListener("click", mTap);
+    var msg = $("mMsg");
+    if (mt.clash.length) {
+      msg.className = "msg no";
+      msg.textContent = "⚠️ 这一板同时出现「" + mt.clash[0] + "」和「" + mt.clash[1] +
+        "」——两张图几乎一样。 Both on one board; the two pictures are near-identical.";
+      var cs = $("mGrid").querySelectorAll(".mtile");
+      for (var c = 0; c < cs.length; c++) {
+        var w = cs[c].getAttribute("data-w");
+        if (w === mt.clash[0] || w === mt.clash[1]) cs[c].classList.add("clash");
+      }
+    } else {
+      msg.className = "msg"; msg.textContent = "";
+    }
+  }
+  function mTap(e) {
+    var el = e.currentTarget;
+    if (el.classList.contains("done")) return;
+    var kind = el.getAttribute("data-k"), w = el.getAttribute("data-w");
+    if (!mt.sel) {
+      mt.sel = { el: el, kind: kind, w: w };
+      el.classList.add("sel");
+      if (kind === "w") speak(w);   /* ⚠️ speaking a WORD tile is safe; speaking a
+                                       PICTURE tile would announce the answer. */
+      return;
+    }
+    if (mt.sel.el === el) { el.classList.remove("sel"); mt.sel = null; return; }
+    if (mt.sel.kind === kind) { mt.sel.el.classList.remove("sel"); mt.sel = { el: el, kind: kind, w: w }; el.classList.add("sel"); return; }
+    var msg = $("mMsg");
+    if (mt.sel.w === w) {
+      mt.sel.el.classList.remove("sel"); mt.sel.el.classList.add("done"); el.classList.add("done");
+      mt.sel = null; mt.left--;
+      speak(w);
+      msg.className = "msg ok";
+      msg.textContent = mt.left ? "✓ 配对成功 · matched（还剩 " + mt.left + "）" : "✓ 全部连上了 · board cleared";
+    } else {
+      mt.sel.el.classList.remove("sel"); mt.sel = null;
+      msg.className = "msg no"; msg.textContent = "不是这一对 · not a pair";
+    }
+  }
+  $("mBoard").addEventListener("click", mDraw);
+  $("mBlack").addEventListener("change", mDraw);
+  mDraw();
+
+  /* =================== ⑧ 重整句子 ===================
+     scene_farm-3, verbatim from data/xh_phrases.json including its accepted_zh. */
+  var SEG = ["农夫", "在", "喂", "牛", "和", "鸡"];
+  var ACCEPT = ["农夫在喂牛和鸡", "农夫在喂鸡和牛"];
+  var EXTRA = ["马", "羊", "兔子"];
+  var so = { tray: [], placed: [], locked: 0 };
+  function soReset() {
+    so.tray = shuffle(SEG.concat(EXTRA)).map(function (t, i) { return { t: t, id: i }; });
+    so.placed = []; so.locked = 0;
+    $("sortEn").textContent = "The farmer is feeding the cows and chickens.";
+    soRender();
+    $("sortMsg").className = "msg"; $("sortMsg").textContent = "";
+  }
+  function soRender() {
+    $("sortSlots").innerHTML = so.placed.map(function (p, i) {
+      return '<button class="slot' + (i < so.locked ? " lock" : "") + '" type="button" data-i="' + i + '">' +
+        p.t + "</button>";
+    }).join("") + '<span class="punct">。</span>';
+    $("sortTray").innerHTML = so.tray.map(function (p, i) {
+      return '<button class="tile" type="button" data-i="' + i + '">' + p.t + "</button>";
+    }).join("");
+    var ts = $("sortTray").querySelectorAll(".tile");
+    for (var i = 0; i < ts.length; i++) ts[i].addEventListener("click", function () {
+      var k = +this.getAttribute("data-i");
+      so.placed.push(so.tray[k]); so.tray.splice(k, 1); soRender();
+    });
+    var ss = $("sortSlots").querySelectorAll(".slot");
+    for (var j = 0; j < ss.length; j++) ss[j].addEventListener("click", function () {
+      var k = +this.getAttribute("data-i");
+      if (k < so.locked) return;                       /* locked tiles stay put */
+      so.tray.push(so.placed[k]); so.placed.splice(k, 1); soRender();
+    });
+  }
+  function prefixLen(placed, ans) {
+    var at = 0;
+    for (var i = 0; i < placed.length; i++) {
+      if (ans.substr(at, placed[i].t.length) !== placed[i].t) return i;
+      at += placed[i].t.length;
+    }
+    return placed.length;
+  }
+  $("sortCheck").addEventListener("click", function () {
+    var txt = so.placed.map(function (p) { return p.t; }).join("");
+    var msg = $("sortMsg");
+    if (ACCEPT.indexOf(txt) > -1) {
+      so.locked = so.placed.length; soRender();
+      msg.className = "msg ok";
+      msg.textContent = "✓ 排对了 · correct" + (txt === ACCEPT[1] ? "（这是第二个正确答案 · the second accepted answer）" : "");
+      speak(txt);                                     /* only AFTER it is right */
+      return;
+    }
+    /* ⚠️ score against EVERY accepted answer and lock to the longest match. */
+    var best = 0;
+    for (var i = 0; i < ACCEPT.length; i++) best = Math.max(best, prefixLen(so.placed, ACCEPT[i]));
+    for (var k = so.placed.length - 1; k >= best; k--) { so.tray.push(so.placed[k]); so.placed.splice(k, 1); }
+    so.locked = best; soRender();
+    msg.className = "msg no";
+    msg.textContent = best
+      ? "前 " + best + " 格是对的，锁住了；其余退回。 First " + best + " locked, the rest came back."
+      : "第一格就不对，再想想。 The very first tile is not right yet.";
+  });
+  $("sortReset").addEventListener("click", soReset);
+  soReset();
+
+  /* =================== ⑨ 三个数字 ===================
+     full = feeds it · part = feeds it at a reduced rate · none = does not */
+  var NUM = {
+    mtn: {
+      meters: [
+        { k: "a", nm: "海拔", en: "Altitude", dzh: "掌握了多少词", den: "words mastered" },
+        { k: "p", nm: "历练值", en: "Tempering", dzh: "下了多少功夫", den: "effort put in" },
+        { k: "c", nm: "灵露", en: "Dew", dzh: "营地商店的货币", den: "camp-shop currency" }
+      ],
+      modes: [
+        { zh: "词语闪卡", en: "Flashcards", a: 0, p: 0, c: 0,
+          note: "纯学习，不计分。 A pure learning surface; nothing is scored." },
+        { zh: "填空挑战", en: "Cloze", a: 2, p: 2, c: 2,
+          note: "掌握闸门四个模式之一。 One of the four mastery modes." },
+        { zh: "填空挑战 · 打拼音档", en: "Cloze · pinyin tier", a: 0, p: 1, c: 1,
+          note: "⚠️ 只给一成历练值、不给海拔、不进连对——否则它就是刷连对倍率的路。 A tenth of the points, no altitude, no streak: otherwise it is a multiplier farm." },
+        { zh: "华文解释", en: "Chinese definition", a: 2, p: 2, c: 2,
+          note: "掌握闸门四个模式之一。 One of the four mastery modes." },
+        { zh: "英文翻译", en: "English translation", a: 2, p: 2, c: 2,
+          note: "掌握闸门四个模式之一。 One of the four mastery modes." },
+        { zh: "攀山竞速", en: "Mountain sprint", a: 2, p: 2, c: 2,
+          note: "掌握闸门四个模式之一，三种题型全是四选一。 One of the four; all three of its question types are four-option items." },
+        { zh: "词雨灵露", en: "Word rain", a: 0, p: 2, c: 2,
+          note: "练的是反应速度，不是词义——所以不动海拔。 Trains reaction speed, not meaning, so it moves no altitude." },
+        { zh: "组词挑战", en: "Build the word", a: 0, p: 2, c: 2,
+          note: "组装，不是从词义生产，所以不动海拔。 Assembly rather than production from meaning; no altitude." },
+        { zh: "词语汉兜", en: "Character guess", a: 0, p: 2, c: 2,
+          note: "仅 G3 与高级华文。 G3 and Higher Chinese only." },
+        { zh: "结伴登峰 · 同伴挑战", en: "Rooms and duels", a: 2, p: 2, c: 2,
+          note: "⚠️ 房间照常计分，所以不是捷径；跨学段房间按词文本而不是按 id 计分。 Rooms score normally, so they are no shortcut; cross-stream rooms match on the word text, not its id." }
+      ]
+    },
+    xh: {
+      meters: [
+        { k: "a", nm: "航程", en: "Distance", dzh: "认得多少词", den: "words recognised" },
+        { k: "p", nm: "航海值", en: "Seafaring", dzh: "下了多少功夫", den: "effort put in" },
+        { k: "c", nm: "贝壳", en: "Shells", dzh: "海滩小铺的货币", den: "beach-shop currency" }
+      ],
+      modes: [
+        { zh: "词语闪卡 · 词语卡", en: "Flashcards · words", a: 0, p: 0, c: 0,
+          note: "先学再测的那一面，不计分。 The learn-first face; nothing scored." },
+        { zh: "词语闪卡 · 句子卡", en: "Flashcards · sentences", a: 0, p: 0, c: 0,
+          note: "⚠️ 读一句话不是「认得一个词」，所以不记航程。 Reading a sentence is not recognising a word, so it books no distance." },
+        { zh: "英文选词", en: "English → word", a: 2, p: 2, c: 2, note: "航海值 2 · 贝壳 1。 2 points, 1 shell." },
+        { zh: "看图识词", en: "Picture → word", a: 2, p: 2, c: 2, note: "航海值 2 · 贝壳 1。⚠️ 无图组别整组封锁。 2 points, 1 shell; blocked entirely for groups without pictures." },
+        { zh: "听音识图", en: "Listen → picture", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。 3 points, 1 shell." },
+        { zh: "看句选词", en: "Fill the sentence", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。⚠️ 这个模式曾经因为费率表缺了一个键，上线后一颗贝壳都没发过。 3 points, 1 shell — this mode paid nothing at all for a while because its key was missing from both rate tables." },
+        { zh: "重整句子", en: "Words in order", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，产出型。 4 points, 2 shells; a productive mode." },
+        { zh: "词海垂钓", en: "Reel it in", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，要打字。 4 points, 2 shells; typed." },
+        { zh: "连线", en: "Match them up", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。 3 points, 1 shell." },
+        { zh: "组字成词", en: "Build the word", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2。 4 points, 2 shells." }
+      ]
+    }
+  };
+  var nSide = "mtn", nPick = 1;
+  function numRender() {
+    var d = NUM[nSide], m = d.modes[nPick] || d.modes[0];
+    $("numModes").innerHTML = d.modes.map(function (x, i) {
+      return '<button class="chip" type="button" data-i="' + i + '" aria-pressed="' + (i === nPick) + '">' +
+        '<span class="zh">' + x.zh + '</span><span class="en">' + x.en + "</span></button>";
+    }).join("");
+    var cs = $("numModes").querySelectorAll(".chip");
+    for (var i = 0; i < cs.length; i++) cs[i].addEventListener("click", function () {
+      nPick = +this.getAttribute("data-i"); numRender();
+    });
+    $("numMeters").innerHTML = d.meters.map(function (mt) {
+      var v = m[mt.k], cls = v === 2 ? "on" : (v === 1 ? "part" : "");
+      var st = v === 2 ? "✓ 计入" : (v === 1 ? "◐ 一成" : "— 不计");
+      var sten = v === 2 ? "counts" : (v === 1 ? "a tenth" : "no");
+      return '<div class="meter ' + cls + '"><div class="nm">' + mt.nm + "</div>" +
+        '<div class="df"><span class="zh">' + mt.dzh + '</span><span class="en">' + mt.den + "</span></div>" +
+        '<div class="st"><span class="zh">' + st + '</span><span class="en">' + sten + "</span></div></div>";
+    }).join("");
+    $("numMsg").className = "msg";
+    $("numMsg").textContent = m.note;
+  }
+  (function () {
+    var bs = document.querySelectorAll('.chip[data-side]');
+    for (var i = 0; i < bs.length; i++) bs[i].addEventListener("click", function () {
+      nSide = this.getAttribute("data-side"); nPick = 1;
+      for (var j = 0; j < bs.length; j++) bs[j].setAttribute("aria-pressed", bs[j] === this ? "true" : "false");
+      numRender();
+    });
+  })();
+  numRender();
+
+  /* =================== ① 水线 =================== */
+  var WL = {
+    ex: { ok: false,
+      zh: "✗ 不行。两套货币之间没有汇率，而且永远不会有。有了汇率，码头就变成山上的刷分场，那正是水线要挡住的事。",
+      en: "✗ No. There is no exchange rate between the two currencies and there never will be. With one, the pier becomes a farming ground for the mountains — precisely what the waterline exists to prevent." },
+    carry: { ok: false,
+      zh: "✗ 不行。程序里根本没有这条路径：山上的引擎从不读码头的存储。这不是靠人记住的规则，是写不出来的路。",
+      en: "✗ No. The route does not exist in the code: the mountain engine never reads the pier's store. This is not a remembered rule but an unwritable path." },
+    id: { ok: true,
+      zh: "✓ 可以。身份（昵称／头像／班级）是唯一完全共用的东西——在码头变成另一个人，比任何重复代码都糟。",
+      en: "✓ Yes. Identity — nickname, avatar, class — is the one thing fully shared. Being a different person at the pier would be worse than any amount of duplicated code." },
+    boat: { ok: true,
+      zh: "✓ 可以，但这是对水线的收窄，不是推翻：船有两个独立标价，贝壳能买，灵露也能买，没有回售，价值过不去。理由是船会出现在落地海图上，而多数华文学生根本不进码头。⚠️ 不要推广成汇率，也不要在没有同样论证的情况下再加第二件双币商品。",
+      en: "✓ Yes — but this narrows the waterline rather than overturning it. A boat carries two independent price tags, one in shells and one in dew; there is no resale, so no value crosses. The reason is that boats appear on the landing sea map, which most Chinese-stream students see without ever visiting the pier. ⚠️ Not a precedent for an exchange rate, and not for a second dual-priced item without the same argument." }
+  };
+  (function () {
+    var bs = document.querySelectorAll("[data-cross]");
+    for (var i = 0; i < bs.length; i++) bs[i].addEventListener("click", function () {
+      var r = WL[this.getAttribute("data-cross")];
+      var m = $("wlMsg");
+      m.className = "msg " + (r.ok ? "ok" : "no");
+      m.innerHTML = '<span class="zh">' + r.zh + '</span><span class="en">' + r.en + "</span>";
+    });
+  })();
+
+})();
+</script>
+</body>
+</html>
