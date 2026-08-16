@@ -1603,9 +1603,16 @@
         comps.map(function (c) {
           /* the five 板块 names are a fixed, navigational set (they filter the
              scope), so they gloss like any other chip. A stream that ever ships
-             a new 板块 simply gets no gloss until a line is added. */
+             a new 板块 simply gets no gloss until a line is added.
+             ⚠️ 徽章美术 + 小字，不再是纯文字药丸（owner 2026-08-16 晚）：这五个板块
+             在 成就墙 和首页徽章条上本来就各有一枚徽章，学生认得的是那张图，而这一排
+             却只写字，同一件东西在站内有两种长相。用的是同一份 `BADGE_IMG`，
+             没有新美术。关掉的板块走灰度锁，和 成就墙 的「未得」是同一套视觉语言。
+             ⚠️ 英文用 `enl()`（成块）不是 `enli()`（同行）：现在是竖排小卡，
+             同行英文会把每张卡撑成不同宽度。 */
           return '<button class="comp-chip' + (compIsOn(c) ? " on" : "") + '" data-comp="' + esc(c) + '">' +
-            esc(c) + pyl(c) + enli(c) + '</button>';
+            '<img class="comp-chip-img" src="' + (BADGE_IMG[c] || "art/badge/badge_hx.png") + '" alt="">' +
+            '<span class="comp-chip-lab">' + esc(c) + pyl(c) + enl(c) + '</span></button>';
         }).join("") + '</div>';
     }
     var byLevel = {};
@@ -4213,32 +4220,35 @@
     var n = store.asmChips || 9;
     return ASM_SIZES.indexOf(n) === -1 ? 9 : n;
   }
-  /* §2.2 — the decoy count must RISE with the target length, not stay flat.
-     A fixed total does the opposite of what it looks like: at 16 chips a 2-character
-     word carries 14 decoys and a 7-character idiom only 9, so the longest words
-     came out the easiest, exactly backwards for opening the mode to G3/HCL.
-
-     ⚠️ The rule is MINE. The doc gives a table of suggested totals but predates the
-     字块数量 slider (owner 2026-08-14) and says to reconcile the two. So the slider
-     is read as「how many chips for a TWO-character word」and every extra character
-     adds two: one for itself, one more decoy. At the slider's 12 that reproduces the
-     doc's table almost exactly (2字 12 · 4字 16 · 5字 18 · 6字 20), while a student
-     who deliberately set 6 because 16 overwhelms them still gets a smaller board.
-     Floored at len+2 so there are always at least two decoys — without it a slider
-     of 6 against an 8-character word would lay out the answer and nothing else. */
-  function asmChipsFor(targetLen) {
-    var n = asmChipCount() + (targetLen - 2) * 2;
-    return Math.max(targetLen + 2, Math.min(ASM_MAX_CHIPS, n));
+  /* ⚠️ 字块数量 是字面数字（owner 2026-08-16）：滑杆上写 6 块，屏幕上就是 6 块。
+     旧规则把滑杆读成「两字词语要几块」，每多一个字加两块，于是滑杆 6 配四字词语
+     铺出 10 块、滑杆 9 铺出 13 块。旁边虽然有一行「本题 N 块」的说明，owner 仍然
+     一眼判定是 bug：滑杆是量词控件，读数与画面不符就是坏的，一行注解救不回来。
+     唯一保留的覆盖是**下限 len+2**：一个词至少要有两个干扰字，否则整块盘面就是
+     答案按顺序摊在那里。下限顶上去时那行说明会讲明原因。
+     ⚠️ 已知取舍，owner 已裁定接受：同一个设定下，长词的干扰字比短词少
+     （八字成语 24 块只有 16 个干扰字，两字词语 24 块有 22 个），所以长词略容易。
+     旧规则正是为了修这一点，但它是用「读数说谎」换来的，不划算。
+     ⚠️ pool 是复习范围里的**不重复汉字总数**：范围很窄时（十个两字词语最多 20 个字）
+     根本凑不出 24 块，`asmChips` 会静默少铺几块，读数又对不上了。所以上限也要跟着收，
+     由调用方把 `state.chars.length` 传进来。 */
+  function asmChipsFor(targetLen, pool) {
+    var n = Math.max(targetLen + 2, Math.min(ASM_MAX_CHIPS, asmChipCount()));
+    if (pool) n = Math.min(n, Math.max(targetLen, pool));
+    return n;
   }
   function asmChipFmt(n) { return n + " 块"; }
-  function asmSizeSelector(w) {
-    var eff = w ? asmChipsFor(w.w.length) : asmChipCount();
-    /* the readout shows the student's own setting; when a long word pushes the
-       board past it, say so rather than letting the label contradict the screen */
-    var note = (w && eff !== asmChipCount())
-      ? '<div class="asm-eff">本题 ' + eff + ' 块（' + w.w.length + ' 字词语）</div>' : "";
+  function asmSizeSelector(w, pool) {
+    var set = asmChipCount();
+    var eff = w ? asmChipsFor(w.w.length, pool) : set;
+    /* 读数就是画面上的块数，所以这行说明只在**读数被覆盖**时才出现，两种情况各有说法：
+       下限顶上去（词太长，至少要留两个干扰字），或者复习范围里的字根本不够铺。 */
+    var note = "";
+    if (w && eff > set) note = '本题 ' + eff + ' 块：' + w.w.length + ' 字词语，至少要留 2 个干扰字';
+    else if (w && eff < set) note = '本题 ' + eff + ' 块：复习范围里只有 ' + pool + ' 个不同的字';
     return '<div class="diff-label">字块数量' + pyl("字块数量") + enl("字块数量") + '</div>' +
-      qtySlider("asmSize", ASM_SIZES, asmChipCount(), asmChipFmt) + note;
+      qtySlider("asmSize", ASM_SIZES, set, asmChipFmt) +
+      (note ? '<div class="asm-eff">' + note + '</div>' : "");
   }
   /* Column count for the chip grid: always a FULL rectangle, never a row with one
      orphan tile (owner 2026-08-14 — 16 chips at 3 columns gave 5 rows plus a
@@ -4294,7 +4304,7 @@
     setTopbar("home", "");
     var w = state.seq[state.i];
     var target = w.w.split("");
-    var chips = asmChips(state, w, asmChipsFor(w.w.length));
+    var chips = asmChips(state, w, asmChipsFor(w.w.length, state.chars.length));
 
     /* prompt mode: def(释义) | en(英文) | cloze(填空) | py(拼音, practice-only).
        Per-word fallback to 释义 when the chosen field is missing. Chinese-only
@@ -4324,7 +4334,7 @@
       '<div class="mode-desc">' + mdLine("按顺序点出词语的字。") + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
-      asmPromptSelector() + asmSizeSelector(w) + '</div>' +
+      asmPromptSelector() + asmSizeSelector(w, state.chars.length) + '</div>' +
       '<div class="stage"><div class="q-card">' +
       qTag(promptTag) +
       '<div class="q-text mcq' + qCls(promptHtml) + '">' + promptHtml + '</div>' +

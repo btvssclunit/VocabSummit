@@ -90,6 +90,10 @@
        without this, coming back from flashcards would forget the question type.
        ⚠️ literal, not a MODES lookup: load() runs before MODES is assigned. */
     if (["enmcq", "pic", "listen", "phrase"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
+    /* 闪卡 的两面（owner 2026-08-16 晚）：词语卡 走 xh_v3 的 150 个词，
+       句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
+       读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
+    if (s.cardKind !== "sentence") s.cardKind = "word";
     if (typeof s.scopeOpen !== "boolean") s.scopeOpen = false;
     /* 航海值 — the dock's effort metric (SPEC_XH_dock_economy_and_TTS §1).
        ⚠️ It must NEVER merge with 航程: 航程 is what you know, 航海值 is what you
@@ -168,9 +172,12 @@
     "看图学词 · 看图听音，慢慢来": "kàn tú xué cí · kàn tú tīng yīn，màn màn lái",
     "学习范围 · 可多选": "xué xí fàn wéi · kě duō xuǎn",
     "选择学习方式": "xuǎn zé xué xí fāng shì",
-    "学词": "xué cí", "闯关": "chuǎng guān", "出发": "chū fā",
-    "词语游乐场": "cí yǔ yóu lè chǎng",
-    "学词方式": "xué cí fāng shì", "英文选词": "yīng wén xuǎn cí",
+    /* ⚠️ 学词 → 学习（owner 2026-08-16 晚）。旧名是「学词语」的缩写，可是这一边
+       现在也放句子闪卡，「词」把它自己框死了；山上那一侧叫 修行，两边都不必逐字对齐，
+       但都得说得通。旧 key 留着：`store.tab` 存的仍是 "learn"/"play"，与文案无关。 */
+    "学习": "xué xí", "闯关": "chuǎng guān", "出发": "chū fā",
+    "词语游乐场": "cí yǔ yóu lè chǎng", "今天学什么": "jīn tiān xué shén me",
+    "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
     /* 传声筒 had no line, so it was the one mode card on the 学词 screen with no
@@ -179,8 +186,15 @@
     "传声筒": "chuán shēng tǒng",
     "一次连几组": "yī cì lián jǐ zǔ", "返回码头": "fǎn huí mǎ tóu",
     /* 看图学词 had no entry while every other mode name did — invisible until the
-       学词 tab held two cards side by side and only one carried its 拼音. */
+       学词 tab held two cards side by side and only one carried its 拼音.
+       ⚠️ 2026-08-16 晚改名 词语闪卡：owner「rename learn the words to flashcards」。
+       山上那张卡就叫 词语闪卡，码头本来也是同一件事，两个名字没有理由。
+       旧 key 留着，句子闪卡的标题里还会用到「看图学词」这四个字吗？不会，
+       但 hero 副标题「看图学词 · 看图听音，慢慢来」仍在用，所以不能删。 */
     "看图学词": "kàn tú xué cí",
+    "词语闪卡": "cí yǔ shǎn kǎ", "闪卡": "shǎn kǎ",
+    /* 闪卡 的两面：词语卡 与 句子卡（owner 2026-08-16 晚）。 */
+    "看什么卡": "kàn shén me kǎ", "词语卡": "cí yǔ kǎ", "句子卡": "jù zi kǎ",
     "全选": "quán xuǎn", "清空": "qīng kōng",
     /* ⚠️ RENAMED 2026-08-16 evening (owner:「just make it simple … for easy
        understanding」). The screen once called 航海图鉴 is now 我的词语表 — the
@@ -747,7 +761,10 @@
      看图学词 (id "learn") is the flashcard walk and is special-cased in startRound;
      every other mode, including 英文选词, runs the ordinary 5-question round. */
   var MODES = [
-    { id: "learn", icon: "📖", zh: "看图学词", en: "Learn the words", learn: true },
+    /* ⚠️ 看图学词 → 词语闪卡 (owner 2026-08-16 evening). Same card, the name the
+       mountains already use. It now has TWO faces, 词语卡 and 句子卡 — see
+       store.cardKind and the sentence branch in startRound/renderLearn. */
+    { id: "learn", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true },
     /* 英文选词 — the plain meaning→词语 MCQ the rest of the platform has (owner
        2026-08-16: 学词 was flashcards and nothing else). Every other dock mode is
        picture- or sound-led, so this is the only one that makes the student read
@@ -769,6 +786,58 @@
     { id: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin" },
     { id: "match", icon: "🪢", zh: "连线", en: "Match them up" }
   ];
+  /* ---------- ③ 的入口 (owner 2026-08-16 evening) ----------
+     The tiles on the front page. ⚠️ They are NOT the same list as MODES: 词语挑战
+     is one door with four question types behind it, exactly as the mountain's
+     学习挑战 holds 填空/华文解释/英文翻译. Keeping the four apart out here was the
+     「clunky」the owner reported — a beginner had to tell 看图识词 from 听音识图
+     before meeting a single word.
+     `k` is the door, not a mode id: startRound is still driven by store.mode. */
+  var ENTRIES = [
+    { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true,
+      sub: "词语卡 · 句子卡", subEn: "words or sentences" },
+    { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true,
+      sub: "英文选词 · 看图识词 · 听音识图 · 传声筒", subEn: "four question types" },
+    { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false },
+    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: false }
+  ];
+  function entryByKey(k) {
+    for (var i = 0; i < ENTRIES.length; i++) if (ENTRIES[i].k === k) return ENTRIES[i];
+    return ENTRIES[0];
+  }
+  /* the mode ids a door can start. 词语挑战 owns the four question types; every
+     other door owns exactly one mode. */
+  function entryModes(k) {
+    if (k === "cards") return ["learn"];
+    if (k === "quiz") return ["enmcq", "pic", "listen", "phrase"];
+    return [k];
+  }
+  /* ⚠️ A door that cannot run under the current 学习范围 must SAY SO here rather
+     than open onto a dead config screen. Same rule §4.4 already applies one level
+     down: 看图识词/听音识图 need a picture, 传声筒 needs a sentence. */
+  function entryUsable(pool, k) {
+    return entryModes(k).some(function (m) { return poolForMode(pool, m).length > 0; });
+  }
+  function entryTilesHtml(isLearn) {
+    var pool = scopedWords();
+    return ENTRIES.filter(function (e) { return e.learn === isLearn; }).map(function (e) {
+      var ok = entryUsable(pool, e.k);
+      /* ⚠️ NOT `.big`. These sit in the left rail under ①学习范围 and ②, and at
+         `.big`'s 20px padding the three boards ran to 1074px — taller than the hero
+         column, which then stretched its tiles to fill and left the 我的词语表 cover
+         floating in the middle of a 330px card. Two ordinary-sized tiles read as
+         doors just as well and give the column back ~70px. */
+      return '<button class="xh-mode' + (ok ? "" : " na") + '" data-e="' + e.k + '"' +
+        (ok ? "" : " disabled") + '>' +
+        '<span class="xh-mi">' + e.icon + "</span><b>" + e.zh + "</b>" + xhPy(e.zh) +
+        '<span class="xh-en">' + e.en + "</span>" +
+        (ok
+          ? (e.sub ? '<span class="xh-mode-sub">' + e.sub +
+                     '<span class="xh-en">' + e.subEn + "</span></span>" : "")
+          : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+        "</button>";
+    }).join("");
+  }
   /* `opts:true` = the mode shows the ③挑战难度 slider (how many options are on
      screen). 看图学词 asks nothing, 词海垂钓 is typed, and 连线's difficulty is its
      board size — none of them have an option count to set. */
@@ -900,13 +969,15 @@
     tiles += '<button class="xh-tile slim" id="xhBadges">' +
       '<span class="xh-tile-txt"><b>航海徽章</b>' + xhPy("航海徽章") +
       '<span class="xh-en">your badges</span>' +
-      '<span class="xh-badgestrip">' + SAIL_BADGES.map(function (b) {
+      /* ⚠️ 计数与徽章同一行（owner 2026-08-16 晚）：九枚放得下就一整行，
+         「0 / 9」挪到旁边，美术不必再挤成两行。窄屏放不下时计数自己掉到下一行。 */
+      '<span class="xh-badgerow"><span class="xh-badgestrip">' + SAIL_BADGES.map(function (b) {
         return '<img class="' + (sailBadgeGot(b) ? "got" : "") + '" src="art/xh/badges/' +
           b.img + '.png' + ASSET_V + '" alt="" title="' + esc(b.zh) + '" ' +
           "onerror=\"this.style.display='none'\">";
       }).join("") + '</span>' +
       '<span class="xh-tile-n">' + SAIL_BADGES.filter(sailBadgeGot).length + ' / ' +
-        SAIL_BADGES.length + '</span></span>' +
+        SAIL_BADGES.length + '</span></span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
     tiles += '<button class="xh-tile slim" id="xhBoards">' +
@@ -923,22 +994,36 @@
        setting at the top, the two buttons pick the kind of activity, and the mode
        cards below are only the ones that belong to the chosen kind. */
 
-    /* ⚠️ ② is now NAVIGATION, not a filter (owner 2026-08-16: 「the 出发 buttons are
-       redundant, just land the user in whichever page once they click on the
-       category buttons」). Tapping 学词 or 闯关 opens that kind's own config screen —
-       the same shape as the mountain's 学习挑战 card — instead of revealing a third
-       block and a second start button on this page. store.tab still remembers which
-       one they used last, so the config screen opens on the familiar side. */
+    /* ⚠️ ② IS A TOGGLE AGAIN, AND ③ IS BACK ON THIS PAGE (owner 2026-08-16 evening:
+       「follow the mountains — the selection shows the corresponding tiles, and only
+       when the player clicks in do they get the difficulty controls. right now the
+       pier interface is too clunky」).
+       For one day ② was navigation: tapping 学词 opened a config screen that had to
+       carry BOTH「which activity」and「how hard」, so the first thing a beginner met
+       after two taps was a page of sliders. The mountain never does that: ② picks
+       修行/闯关, ③ lays the activities out as tiles right there, and the settings
+       live inside whichever activity you walk into.
+       store.tab still remembers the side, and it is now what ③ renders from. */
+    var isLearnTab = store.tab !== "play";
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
       '选择学习方式' + xhPy("选择学习方式") + ' <span class="xh-en">learn or play</span></div>' +
       '<div class="xh-tabs">' +
-      '<button class="xh-tab go" data-t="learn">' +
-        '<span class="xh-mi">📖</span><b>学词</b>' + xhPy("学词") +
-        '<span class="xh-en">Learn</span><span class="xh-tab-go">›</span></button>' +
-      '<button class="xh-tab go" data-t="play">' +
+      '<button class="xh-tab' + (isLearnTab ? " on" : "") + '" data-t="learn">' +
+        '<span class="xh-mi">📖</span><b>学习</b>' + xhPy("学习") +
+        '<span class="xh-en">Learn</span></button>' +
+      '<button class="xh-tab' + (isLearnTab ? "" : " on") + '" data-t="play">' +
         '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") +
-        '<span class="xh-en">Play</span><span class="xh-tab-go">›</span></button>' +
+        '<span class="xh-en">Play</span></button>' +
       "</div></div>";
+
+    /* ③ — the activities for whichever side ② is on. ⚠️ These are DOORS, not
+       settings: one tap each, and the difficulty/round-length controls are on the
+       other side of the door. A tile that cannot run under the current 学习范围
+       greys out with the reason, exactly as the mode buttons did before. */
+    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
+      (isLearnTab ? '今天学什么' + xhPy("今天学什么") + ' <span class="xh-en">pick an activity</span>'
+                  : '词语游乐场' + xhPy("词语游乐场") + ' <span class="xh-en">pick a game</span>') +
+      '</div><div class="xh-modes acts">' + entryTilesHtml(isLearnTab) + "</div></div>";
 
     h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
     /* ⚠️ The hero IS the student's own beach, and it sits at the TOP OF THE RIGHT
@@ -983,13 +1068,19 @@
       setScope(allGroupNames()); renderMenu();
     };
     document.getElementById("xhScopeNone").onclick = function () { setScope([]); renderMenu(); };
+    /* ② only switches which tiles ③ shows — it never leaves the page any more. */
     Array.prototype.forEach.call(view().querySelectorAll(".xh-tab"), function (el) {
+      el.onclick = function () {
+        store.tab = el.getAttribute("data-t"); save();
+        renderMenu();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-e]"), function (el) {
       el.onclick = function () {
         /* an empty 学习范围 is allowed as a state but obviously not as a round: say so
            at the door rather than letting them configure something unstartable */
         if (!scopedWords().length) { toast("请先选一组词语 · Pick a group first"); return; }
-        store.tab = el.getAttribute("data-t"); save();
-        renderModeConfig(store.tab);
+        renderModeConfig(el.getAttribute("data-e"));
       };
     });
   }
@@ -1005,112 +1096,119 @@
   function renderModeConfig(kind) {
     state = null;
     view().classList.remove("two-col");
-    var isLearn = kind !== "play";
-    var list = MODES.filter(function (m) { return !!m.learn === isLearn; });
-    if (!list.some(function (m) { return m.id === store.mode; })) { store.mode = list[0].id; save(); }
-    var cur = modeById(store.mode);
+    /* ⚠️ ONE DOOR PER SCREEN (owner 2026-08-16 evening). It used to take a
+       "learn"/"play" SIDE and re-show the whole mode grid, so the student picked the
+       activity twice: once on the front page, once again here. `kind` is now an
+       ENTRIES key and this screen only asks the questions that活动 actually has.
+       Old side values are still accepted so a stale call cannot land on nothing. */
+    if (kind === "learn") kind = "cards";
+    if (kind === "play") kind = "type";
+    var ent = entryByKey(kind);
     var pool = scopedWords();
+    var modes = entryModes(kind);
+
+    /* which mode will actually run. 词语挑战 restores the remembered question type;
+       every other door owns exactly one. ⚠️ If the scope has since blocked it (数字
+       has no pictures) fall to the first usable sibling rather than opening on a
+       dead selection. */
+    var want = kind === "quiz" ? store.quizMode : modes[0];
+    if (!poolForMode(pool, want).length) {
+      var alt = null;
+      modes.forEach(function (m) { if (!alt && poolForMode(pool, m).length) alt = m; });
+      want = alt || modes[0];
+    }
+    if (store.mode !== want) { store.mode = want; }
+    if (kind === "quiz") store.quizMode = want;
+    save();
+    var cur = modeById(store.mode);
 
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      '<span class="xh-block-tag">' + (isLearn ? "学词" : "闯关") + '</span></div>';
+      '<span class="xh-block-tag">' + esc(ent.zh) + '</span></div>';
     h += '<div class="xh-board xh-cfg">';
-    h += '<div class="xh-berth-title">' + (isLearn ? "📖 学词" : "🎮 闯关") +
-      xhPy(isLearn ? "学词" : "闯关") +
-      '<span class="xh-en">' + (isLearn ? "Learn the words" : "Play a game") + '</span></div>';
+    h += '<div class="xh-berth-title">' + ent.icon + " " + ent.zh + xhPy(ent.zh) +
+      '<span class="xh-en">' + ent.en + '</span></div>';
     h += '<div class="xh-cfg-scope">范围：' + esc(scopeLabel()) + " · " + pool.length + " 词" +
       '<span class="xh-en">' + pool.length + ' words in scope</span></div>';
 
-    /* ⚠️ A mode whose pool is empty must SAY SO, not fail on 出发. 看图识词 and
-       听音识图 need a picture as the answer, so with a picture-less scope (数字)
-       they have nothing to ask. Left enabled, the student picks one, presses 出发,
-       and nothing happens — which is precisely the silent failure §4.4 warns about,
-       just relocated. Disabled + a reason is the honest version. */
-    var blocked = 0;
-    function modeBtn(m, cls) {
-      var usable = poolForMode(pool, m.id).length > 0;
-      if (!usable) blocked++;
-      return '<button class="xh-mode' + (cls ? " " + cls : "") +
-        (store.mode === m.id ? " on" : "") + (usable ? "" : " na") +
-        '" data-m="' + m.id + '"' + (usable ? "" : " disabled") +
-        ' title="' + (usable ? "" : "这些词语没有图片，换成有图的词语组才能玩") + '">' +
-        '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
-        '<span class="xh-en">' + m.en + "</span>" +
-        (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
-        "</button>";
-    }
-    h += '<div class="xh-sec">' + stepNo(1) + '题型' + xhPy("题型") +
-      ' <span class="xh-en">which kind</span></div>';
-    if (isLearn) {
-      /* ⚠️ TWO BIG CARDS, not five (owner 2026-08-16 evening: 「collapse into 2 big
-         categories — flashcards vs challenge — just like the mountains」). The
-         mountain's 修行 offers exactly 词语闪卡 and 学习挑战, and the three question
-         types live INSIDE 学习挑战 rather than beside it. The dock had all five side
-         by side, so a beginner had to tell 看图识词 from 听音识图 from 英文选词 before
-         they had met a single word — five near-identical cards, one of which is not
-         a test at all.
-         ⚠️ store.mode still holds the REAL mode id; the two cards only choose which
-         family it comes from. store.quizMode remembers the last question type so
-         going flashcards → back → 挑战 lands where the student left off. */
-      var quizModes = list.filter(function (m) { return m.id !== "learn"; });
-      var isQuiz = store.mode !== "learn";
-      var quizOk = quizModes.some(function (m) { return poolForMode(pool, m.id).length > 0; });
-      h += '<div class="xh-modes two">' +
-        modeBtn(modeById("learn"), "big") +
-        '<button class="xh-mode big' + (isQuiz ? " on" : "") + (quizOk ? "" : " na") +
-          '" data-k="quiz"' + (quizOk ? "" : " disabled") + '>' +
-          '<span class="xh-mi">🎯</span><b>词语挑战</b>' + xhPy("词语挑战") +
-          '<span class="xh-en">Quiz yourself</span>' +
-          (quizOk ? '<span class="xh-mode-sub">英文选词 · 看图识词 · 听音识图 · 传声筒' +
-                    '<span class="xh-en">four question types</span></span>'
-                  : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
-        "</button></div>";
-      /* the four types, only once 词语挑战 is the chosen card. Unnumbered on purpose
-         (§7 动线编号): ① is「flashcards or a challenge」— this row is what KIND of
-         challenge, a refinement of that same step, not a new one. */
-      if (isQuiz) {
-        h += '<div class="xh-subsec">挑战方式' + xhPy("挑战方式") +
-          ' <span class="xh-en">which question</span></div>' +
-          '<div class="xh-modes sub">' +
-          quizModes.map(function (m) { return modeBtn(m, "sm"); }).join("") + "</div>";
-      } else {
-        /* still count the blocked ones so the 数字 note below is accurate */
-        quizModes.forEach(function (m) { if (!poolForMode(pool, m.id).length) blocked++; });
-      }
-    } else {
-      h += '<div class="xh-modes">' + list.map(function (m) { return modeBtn(m); }).join("") + "</div>";
-    }
-    if (blocked) {
-      h += '<div class="xh-cfg-note">「数字」这一组没有图片，所以看图和听音的玩法用不上。' +
-        '数字可以用 看图学词、拼音打字 和 连线 来练。' +
-        '<span class="xh-en">Numbers have no pictures, so picture and listening rounds are off ' +
-        'for them. Use flashcards, typing or matching instead.</span></div>';
-    }
-    /* if the remembered mode is one of the blocked ones, move to a usable one so the
-       page never opens on a dead selection */
-    if (!poolForMode(pool, store.mode).length) {
-      var alt = null;
-      list.forEach(function (m) { if (!alt && poolForMode(pool, m.id).length) alt = m.id; });
-      if (alt) { store.mode = alt; save(); return renderModeConfig(kind); }
+    var step = 0;
+    function sec(zh, en) {
+      step++;
+      return '<div class="xh-sec">' + stepNo(step) + zh + xhPy(zh) +
+        ' <span class="xh-en">' + en + '</span></div>';
     }
 
-    if (cur.id === "learn") {
-      /* 看图学词 walks the whole group in data order — it is a lesson, not a sample,
-         so a 题数 slider would be a control that does nothing. */
-      h += '<div class="xh-cfg-note">看图学词会把选中的词一张一张看完（' + pool.length + ' 张）。' +
-        '<span class="xh-en">Flashcards run through every word in scope.</span></div>';
-    } else if (cur.id === "match") {
-      h += '<div class="xh-sec">' + stepNo(2) + '一次连几组' + xhPy("一次连几组") +
-        ' <span class="xh-en">pairs on the board</span></div>' +
+    if (kind === "cards") {
+      /* ⚠️ 词语卡 / 句子卡 (owner 2026-08-16 evening: 「in flashcards, divide into
+         vocab and sentences」). The sentence side reads the 生活空间 lines the
+         传声筒 asks about — the SAME library, with nothing blanked out. That is
+         deliberate: §11 says wherever「harder」and「more exposure」pull apart, take
+         exposure, and reading the line whole is the most exposure it can give.
+         ⚠️ 句子卡 records NO progress. 航程 counts words a student recognises, and
+         reading a sentence is not that. */
+      var nPhr = phrasesFor(pool).length;
+      /* ⚠️ a remembered 句子卡 must not survive into a scope with no sentences
+         (数字 has none at all): 出发 would call startRound, find an empty sequence
+         and return, and the student would be left pressing a button that does
+         nothing — the same silent failure §4.4 exists to prevent. */
+      if (!nPhr && store.cardKind === "sentence") { store.cardKind = "word"; save(); }
+      h += sec("看什么卡", "words or sentences") +
+        '<div class="xh-modes two">' +
+        '<button class="xh-mode big' + (store.cardKind === "word" ? " on" : "") +
+          '" data-ck="word"><span class="xh-mi">🖼️</span><b>词语卡</b>' + xhPy("词语卡") +
+          '<span class="xh-en">Word cards</span>' +
+          '<span class="xh-mode-sub">' + pool.length + ' 张<span class="xh-en">' +
+          pool.length + ' cards</span></span></button>' +
+        '<button class="xh-mode big' + (store.cardKind === "sentence" ? " on" : "") +
+          (nPhr ? "" : " na") + '" data-ck="sentence"' + (nPhr ? "" : " disabled") + '>' +
+          '<span class="xh-mi">💬</span><b>句子卡</b>' + xhPy("句子卡") +
+          '<span class="xh-en">Sentence cards</span>' +
+          (nPhr ? '<span class="xh-mode-sub">' + nPhr + ' 句<span class="xh-en">' +
+                  nPhr + ' sentences</span></span>'
+                : '<span class="xh-mode-na">这组没有句子<span class="xh-en">no sentences</span></span>') +
+        "</button></div>";
+      h += '<div class="xh-cfg-note">' +
+        (store.cardKind === "sentence"
+          ? '句子卡会把选中范围里的句子一句一句读完（' + nPhr + ' 句）。句子卡不记航程。'
+          : '词语卡会把选中的词一张一张看完（' + pool.length + ' 张）。') +
+        '<span class="xh-en">' +
+        (store.cardKind === "sentence"
+          ? 'Sentence cards run through every sentence in scope. They do not count towards 航程.'
+          : 'Word cards run through every word in scope.') + '</span></div>';
+    } else if (kind === "quiz") {
+      /* the four question types. ⚠️ Numbered now: on this screen it really IS the
+         first decision the student makes, not a refinement of a card they picked
+         one screen earlier. */
+      h += sec("挑战方式", "which question") + '<div class="xh-modes sub">';
+      var blocked = 0;
+      modes.forEach(function (id) {
+        var m = modeById(id), usable = poolForMode(pool, id).length > 0;
+        if (!usable) blocked++;
+        h += '<button class="xh-mode sm' + (store.mode === id ? " on" : "") +
+          (usable ? "" : " na") + '" data-m="' + id + '"' + (usable ? "" : " disabled") + '>' +
+          '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
+          '<span class="xh-en">' + m.en + "</span>" +
+          (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+          "</button>";
+      });
+      h += "</div>";
+      if (blocked) {
+        h += '<div class="xh-cfg-note">「数字」这一组没有图片，所以看图和听音的玩法用不上。' +
+          '数字可以用 词语闪卡、词海垂钓 和 连线 来练。' +
+          '<span class="xh-en">Numbers have no pictures, so picture and listening rounds are off ' +
+          'for them. Use flashcards, typing or matching instead.</span></div>';
+      }
+    }
+
+    if (kind === "match") {
+      h += sec("一次连几组", "pairs on the board") +
         qtySlider("xhMatchN", MATCH_SIZES, store.matchN, function (n) {
           return n + " 组 · " + (n === 3 ? "容易" : n === 5 ? "普通" : "有挑战");
         });
-    } else {
-      h += '<div class="xh-sec">' + stepNo(2) + '每次题数' + xhPy("每次题数") +
-        ' <span class="xh-en">questions per round</span></div>' +
+    } else if (kind !== "cards") {
+      h += sec("每次题数", "questions per round") +
         qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
       if (cur.opts) {
-        h += '<div class="xh-sec">' + stepNo(3) + '挑战难度' + xhPy("挑战难度") +
-          ' <span class="xh-en">how many choices</span></div>' +
+        h += sec("挑战难度", "how many choices") +
           qtySlider("xhOptsN", OPT_TIERS, store.optsN, optTierLabel);
       }
     }
@@ -1126,26 +1224,14 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-m]"), function (el) {
       el.onclick = function () {
         store.mode = el.getAttribute("data-m");
-        /* remember the question type separately — see load(). Picking 看图学词 must
-           not wipe it, or the 挑战 card would always reopen on the default. */
-        if (store.mode !== "learn" && isLearn) store.quizMode = store.mode;
+        store.quizMode = store.mode;      // remembered per §load()
         save();
-        renderModeConfig(kind);      // re-render: ②/③ differ per mode
+        renderModeConfig(kind);           // re-render: 挑战难度 differs per type
       };
     });
-    /* the 词语挑战 card itself carries no mode — it restores the remembered one, or
-       the first usable one if the scope has since blocked it */
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-k]"), function (el) {
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-ck]"), function (el) {
       el.onclick = function () {
-        var want = store.quizMode;
-        if (!poolForMode(pool, want).length) {
-          want = null;
-          list.forEach(function (m) {
-            if (!want && m.id !== "learn" && poolForMode(pool, m.id).length) want = m.id;
-          });
-        }
-        if (!want) return;
-        store.mode = want; store.quizMode = want; save();
+        store.cardKind = el.getAttribute("data-ck"); save();
         renderModeConfig(kind);
       };
     });
@@ -1783,6 +1869,24 @@
     if (!pool.length) return;
     var seq;
     if (mode === "learn") {
+      /* ⚠️ 句子卡 (owner 2026-08-16 evening) returns EARLY with a sentence sequence.
+         It reuses the 传声筒 library with nothing blanked out, and it walks the whole
+         set in data order for the same reason the word cards do: it is a lesson, not
+         a sample. `cards:"sentence"` is what renderLearn branches on — the state
+         shape is otherwise identical so quitBtn/jetty need no special case.
+         ⚠️ NO PROGRESS IS WRITTEN from either face of the flashcard; that was already
+         true of the word cards and stays true here. */
+      if (store.cardKind === "sentence") {
+        var ps = phrasesFor(pool);
+        if (!ps.length) return;
+        state = { grp: sub || scopeLabel(), mode: mode, cards: "sentence", seq: ps,
+                  i: 0, correct: 0, missed: [], firstTry: true, pool: pool };
+        ps.forEach(function (p) {
+          var w = wordByText(p.ask), f = p.pic || (w && w.图档);
+          if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
+        });
+        return render();
+      }
       // the flashcard walks the WHOLE group in data order: it is a lesson, not a
       // sample, and a stable order means the second visit is the same lesson
       seq = pool.slice();
@@ -2012,10 +2116,61 @@
      student has actually produced an answer for. Looking at a card is not that,
      and letting it count would let someone finish the whole 码头 without ever
      being asked a question. */
+  /* ---------- 句子卡 (owner 2026-08-16 evening) ----------
+     ⚠️ NOTHING IS BLANKED OUT. 传声筒 asks about these same lines; this face just
+     shows them whole, with the target word's picture, its reading, and the English.
+     §11: the goal is「meet these words again inside real language」— not understanding
+     the whole line is the expected state, so the card gives every scaffold it has.
+     ⚠️ The Chinese is read aloud; the English never is (§8). */
+  function renderSentenceCard() {
+    var p = state.seq[state.i], n = state.seq.length;
+    var w = wordByText(p.ask);
+    var file = p.pic || (w && w.图档);
+    var h = '<div class="xh-round-bar">' + quitBtn() +
+      jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 句子卡</span></div>" +
+      '<div class="xh-board xh-stage xh-card">' +
+      (file
+        /* ⚠️ 图档 / pic already carry the .png — img() does not append one either. */
+        ? '<button class="xh-sprite big" id="xhSprite" title="点一下听句子">' +
+          '<img src="art/xh/' + esc(file) + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\"></button>"
+        : "") +
+      '<div class="xh-card-word"><b class="xh-card-sent">' + esc(p.zh) + "</b>" +
+      /* ⚠️ .xh-always, same as the word card: this is the learn-before-you-are-tested
+         surface, and hiding the English behind a toggle leaves a zero-Chinese beginner
+         staring at a sentence they cannot read. */
+      '<span class="xh-en xh-always">' + esc(p.en) + "</span>" +
+      (w ? '<span class="xh-card-target">' + esc(w.词语) +
+           '<span class="xh-py xh-always">' + esc(w.拼音) + "</span></span>" : "") +
+      (p.insight_en ? '<span class="xh-card-note">' + esc(p.insight_en) + "</span>" : "") +
+      "</div>" +
+      '<button class="xh-btn xh-say" id="xhSay">🔊 再听一次' + xhPy("再听一次") +
+      ' <span class="xh-en">hear it again</span>' + "</button>" +
+      '<div class="xh-cardnav">' +
+      '<button class="xh-btn ghost" id="xhPrev"' + (state.i ? "" : " disabled") + '>‹ 上一个' +
+        xhPy("上一个") + '<span class="xh-en">previous</span></button>' +
+      '<button class="xh-btn" id="xhNext">' +
+        (state.i === n - 1
+          ? '学完了 ›' + xhPy("学完了") + '<span class="xh-en">done</span>'
+          : '下一个 ›' + xhPy("下一个") + '<span class="xh-en">next</span>') +
+        "</button></div></div>";
+    view().innerHTML = h;
+    wireQuit();
+    /* ⚠️ no per-character 拼音 for these lines (§8.8), so the engine's own reading
+       stands — the same call 传声筒 makes for the identical sentence. */
+    speak(p.zh);
+    if (document.getElementById("xhSprite")) {
+      document.getElementById("xhSprite").onclick = function () { speak(p.zh); };
+    }
+    document.getElementById("xhSay").onclick = function () { speak(p.zh); };
+    document.getElementById("xhPrev").onclick = function () { if (state.i) { state.i--; render(); } };
+    document.getElementById("xhNext").onclick = function () { state.i++; render(); };
+  }
   function renderLearn() {
+    if (state.cards === "sentence") return renderSentenceCard();
     var w = state.seq[state.i], n = state.seq.length;
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 学词</span></div>" +
+      jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 词语卡</span></div>" +
       '<div class="xh-board xh-stage xh-card">' +
       /* ⚠️ a pictureless word (数字) shows its ARABIC NUMERAL in the sprite's place,
          not an empty frame. §4.4: 汉字 + 阿拉伯数字 + 拼音 + 英文 is the complete card
@@ -2062,16 +2217,24 @@
      primary button starts one on the SAME group rather than returning to a menu */
   function renderLearnEnd() {
     view().classList.remove("two-col");
+    /* ⚠️ the follow-up test must match the face they just read: after 句子卡 that is
+       传声筒 (the same sentences, with one word blanked), not a picture round the
+       cards never showed. */
+    var isSent = state.cards === "sentence";
     var h = '<div class="xh-board xh-result"><div class="xh-berth-title">📖 这一组看完了</div>' +
-      '<div class="xh-score">' + esc(state.grp) + ' · <b>' + state.seq.length + "</b> 个词语" +
-      ' <span class="xh-en">words in this group</span>' + "</div>" +
+      '<div class="xh-score">' + esc(state.grp) + ' · <b>' + state.seq.length + "</b> " +
+      (isSent ? "个句子" : "个词语") +
+      ' <span class="xh-en">' + (isSent ? "sentences" : "words") + ' in this group</span>' + "</div>" +
       '<div class="xh-sub">现在试试看，你记住了几个？' +
       '<span class="xh-en">Now see how many you remember.</span>' + "</div>" +
-      '<div class="xh-result-btns"><button class="xh-btn" id="xhTest">🖼️ 开始测验</button>' +
+      '<div class="xh-result-btns"><button class="xh-btn" id="xhTest">' +
+      (isSent ? "📣 开始测验" : "🖼️ 开始测验") + "</button>" +
       '<button class="xh-btn ghost" id="xhAgain">再看一次</button>' +
       '<button class="xh-btn ghost" id="xhBack">换一组</button></div></div>';
     view().innerHTML = h;
-    document.getElementById("xhTest").onclick = function () { startRound(state.grp, "pic", state.pool); };
+    document.getElementById("xhTest").onclick = function () {
+      startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
+    };
     document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn", state.pool); };
     document.getElementById("xhBack").onclick = renderMenu;
   }

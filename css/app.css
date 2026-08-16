@@ -397,11 +397,28 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* ---------- 板块 filter row (2026-08-14) ----------
    One compact row above the level accordions. Deliberately small type and tight
    chips: this narrows an existing selection, it is not the primary control. */
-.comp-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 10px}
-.comp-lab{font-size:12px;font-weight:700;color:var(--ink-soft);margin-right:2px}
-.comp-chip{border:1.5px solid #C4D5E2;background:rgba(255,255,255,.6);color:#7C8B98;
-  border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;
-  touch-action:manipulation;transition:background .12s,color .12s,border-color .12s}
+/* ⚠️ GRID, not wrapping flex, now that the chips carry art (owner 2026-08-16 evening).
+   As flex items they size to their own text, so 「生活空间 / Everyday life」 came out
+   104px and 「核心 / Core」 66px, the line broke after the first chip, and four chips
+   took three ragged rows. A grid gives every 板块 the same box and packs them evenly.
+   `stretch` levels each row to its tallest chip: only 生活空间 wraps its English. */
+.comp-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
+  gap:6px;align-items:stretch;margin:2px 0 10px}
+.comp-lab{grid-column:1 / -1;font-size:12px;font-weight:700;color:var(--ink-soft)}
+/* 徽章 + 小字 (owner 2026-08-16 evening). The chip is now a little COLUMN: the same
+   medallion the 成就墙 uses on top, the 板块 name under it.
+   ⚠️ The <img> needs BOTH `align-self:center` and `object-fit:contain` — as a plain
+   flex child it inherits `stretch` and the medallion comes out as a tall oval
+   (the same trap as the 我的词语表 cover, §14). */
+.comp-chip{display:flex;flex-direction:column;align-items:center;gap:3px;
+  border:1.5px solid #C4D5E2;background:rgba(255,255,255,.6);color:#7C8B98;
+  border-radius:14px;padding:6px 8px 7px;font-size:12.5px;font-weight:600;cursor:pointer;
+  min-width:0;touch-action:manipulation;
+  transition:background .12s,color .12s,border-color .12s}
+.comp-chip-img{width:28px;height:28px;flex:none;align-self:center;object-fit:contain;
+  display:block;border-radius:50%;filter:grayscale(1) opacity(.45);transition:filter .12s}
+.comp-chip.on .comp-chip-img{filter:drop-shadow(0 1px 3px rgba(23,58,90,.28))}
+.comp-chip-lab{display:block;line-height:1.25;text-align:center}
 .comp-chip.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
 .comp-chip:active{transform:scale(.96)}
 /* .lv-acts / .lv-act (全选本级 · 清空本级) removed 2026-08-16 evening — see the

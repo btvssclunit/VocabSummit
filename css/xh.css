@@ -160,6 +160,11 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
      re-measure if anything is ever added ABOVE them. */
   .xh-tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
   .xh-tiles .xh-tile{margin-bottom:0;height:100%}
+  /* ⚠️ Centre the text once the tile can be TALLER than its content. The tiles take
+     the column's slack, so 我的词语表 is routinely 200px+ while its text block is
+     ~90px — top-aligned that reads as art floating in an empty card, which is what
+     the stretched column looked broken for. */
+  .xh-tiles .xh-tile-txt{display:flex;flex-direction:column;justify-content:center}
   /* ⚠️ 我的海滩 is NOT a tile any more (owner 2026-08-16 evening: the hero IS the
      beach), which left three. 我的词语表 takes the full row and the other two share
      the one below, so the grid never ends on a stray half-width card. */
@@ -262,6 +267,30 @@ body.xh-py-on .xh-block-tag .xh-uipy{color:#CFE0F0}
      column growing to the row — flex:1 on the hero then had no slack to take and
      it just sat at its min-height. Stretch the RIGHT column only. */
   .xh-wrap.two-col .xh-col-r{align-self:stretch;display:flex;flex-direction:column}
+  /* ⚠️ BOTH columns stretch now (owner 2026-08-16 evening: 「make the vertical height
+     of the panels take up equal height on both the left and right column」). Only the
+     right one did, so whichever column happened to be shorter stopped early and the
+     page ended on a ragged step. Stretching alone is not enough — a stretched column
+     with three natural-height boards just holds a gap at the bottom — so the slack
+     goes to ①学习范围, the one board with a list in it that reads better tall.
+     ⚠️ `min-height:0` on the growing board or its scroll content cannot shrink;
+     same grid/flex trap as everywhere else in this file. */
+  .xh-wrap.two-col .xh-col-l{align-self:stretch;display:flex;flex-direction:column}
+  .xh-wrap.two-col .xh-col-l > .xh-board{margin-bottom:0}
+  .xh-wrap.two-col .xh-col-l > .xh-board + .xh-board{margin-top:12px}
+  .xh-wrap.two-col .xh-col-l > .xh-board:first-child{flex:1 1 auto;min-height:0;
+    display:flex;flex-direction:column}
+  /* ⚠️ ①学习范围 IS A SCROLL BOX in the rail, the same device §18d gave the
+     mountain's 复习范围. Eight groups run to 288px of chips, and once ③ moved back
+     onto this page the three boards stacked to 1074px — taller than the hero column,
+     which then had to stretch its three destination tiles to 664px to stay level.
+     ⚠️ `flex` + `min-height:0`, not a fixed `height`: here the box must also GROW
+     when the right column is the taller one, which is the half a fixed height
+     cannot do. `min-height:0` is what actually lets it shrink (§14 grid/flex trap).
+     ⚠️ Rail only. On a phone the page is one column and a scroll box inside a scroll
+     box is worse than a long card, exactly as on the mountain. */
+  .xh-wrap.two-col .xh-col-l .xh-scopewrap{overflow-y:auto;min-height:120px;
+    max-height:250px;flex:1 1 auto;-webkit-overflow-scrolling:touch}
   /* ⚠️ CAPPED. dock_bg is a 1.78 wide beach scene; let the hero take all the slack
      and it becomes ~700px of mostly empty sky, with the sand and stilt house — the
      part worth showing — hidden behind the stats overlay. Cap it and hand the rest
@@ -506,14 +535,25 @@ body.xh-en-on .xh-gchip .xh-en{font-size:11px;line-height:1.3}
 .xh-gchip.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.55);color:#3A2A08}
 .xh-gchip.on span{color:#5C4409}
-/* the two main buttons: deliberately bigger than a mode card, because they are the
-   fork in the road rather than one of several equal choices */
+/* the two main buttons: still the fork in the road, but no longer a pair of tall
+   cards. ⚠️ Once ③ came back onto this page (owner 2026-08-16 evening) the rail held
+   three boards; at 16px padding in a column layout these two alone were 150px, and
+   ② is the least informative of the three — it says「learn or play」and nothing else.
+   Icon and label share a LINE now, glosses under, which is also how the mountain's
+   修行/闯关 pair reads. */
 .xh-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.xh-tab{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  touch-action:manipulation;padding:16px 12px;border-radius:16px;
+/* ⚠️ WRAPPING ROW, not a column. The icon and the label are SIBLINGS in xh.js, and a
+   flex container blockifies its children — `display:inline` on them does nothing.
+   Row + wrap puts those two on one line and the two gloss spans, forced to full
+   width, on the lines under it, with no change to the markup. */
+.xh-tab{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;
+  gap:0 6px;cursor:pointer;
+  touch-action:manipulation;padding:10px 12px;border-radius:16px;
   border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
   font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
 .xh-tab b{font-size:17.5px}
+.xh-tab .xh-mi{font-size:19px}
+.xh-tab .xh-uipy,.xh-tab .xh-en{flex:0 0 100%;text-align:center}
 .xh-tab.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.55);color:#3A2A08;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
@@ -669,11 +709,24 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
    uses, so the strip reads as「how far along」rather than as nine identical coins.
    ⚠️ flex-wrap, and the images are flex:none — a nine-image strip in a half-width
    tile must wrap, never squeeze each medallion into a sliver. */
-.xh-badgestrip{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 6px}
-.xh-badgestrip img{width:26px;height:26px;flex:none;object-fit:contain;
-  filter:grayscale(1) opacity(.38)}
-.xh-badgestrip img.got{filter:none;
-  filter:drop-shadow(0 1px 3px rgba(23,58,90,.3))}
+/* ⚠️ 九枚一整行，计数放在旁边（owner 2026-08-16 晚）。原来是 flex-wrap，按可用宽度
+   断行，在这块 tile 上正好断成 8 + 1，第二行只剩一枚孤零零的徽章。
+   固定九列而不是让它断行：徽章总数 9 是固定的（门槛是绝对值，见 CLAUDE.md §12），
+   不随视口变，所以一行永远排得下这个数目。窄屏放不下 26px 时整排等比缩小
+   （`minmax(0,26px)` + `width:100%`），仍然是一行，不会再出现孤儿。
+   ⚠️ 将来加到第十级时这里要跟着改成 10 列，或者改回分行并重挑列数。 */
+.xh-badgerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 6px}
+.xh-badgestrip{display:grid;grid-template-columns:repeat(9,minmax(0,26px));gap:4px;
+  justify-content:start;flex:1 1 210px;max-width:266px;min-width:0}
+/* ⚠️ `height:auto` + `aspect-ratio` 而不是写死 26px：等比缩小时高度要跟着走，
+   否则窄屏上圆形徽章会被压成横的椭圆（§14 的「flex 子项被拉伸」同一类陷阱）。 */
+/* ⚠️ 首页这一排全部上色（owner 2026-08-16 晚），灰度锁只留在 航海徽章 墙上。
+   和四座山同一条规矩：dashboard 的徽章条是「这套徽章长什么样」的预告，
+   「得到没有」的分别在点进去那一屏才画。旁边的「N / 9」已经把进度说清楚了，
+   把八枚灰掉换来的信息量为零，损失的是九张美术本身。 */
+.xh-badgestrip img{width:100%;height:auto;aspect-ratio:1 / 1;object-fit:contain}
+.xh-badgestrip img.got{filter:drop-shadow(0 1px 3px rgba(23,58,90,.3))}
+.xh-badgerow .xh-tile-n{flex:none;margin:0}
 
 /* ---------- 词海垂钓 (addendum §5) ----------
    ⚠️ This water panel is deliberately a DARK surface, not a glass card:
@@ -826,6 +879,19 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
    flashcard's reading and meaning are its CONTENT, not an annotation on it. */
 body.xh-py-on .xh-card-word .xh-py,.xh-card-word .xh-py.xh-always{display:block;font-size:19px;margin-top:2px}
 body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;font-size:15px;margin-top:3px}
+/* ---------- 句子卡 (owner 2026-08-16 evening) ----------
+   ⚠️ A sentence is not a headword: the word card's clamp(30px,5vw,44px) put four
+   or five characters per line and turned 「这包糖多少钱？」 into a poster. Smaller,
+   with a sane max width, so the line reads as a line. */
+.xh-card-sent{font-size:clamp(21px,3.1vw,30px) !important;line-height:1.55;
+  max-width:22em;margin:0 auto}
+/* the target word under the sentence: this is the thing the card is teaching, so it
+   gets its own small plate rather than being lost inside the line above it */
+.xh-card-target{display:inline-block;margin-top:12px;padding:7px 16px;border-radius:12px;
+  background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
+  font-family:var(--serif);font-size:23px;font-weight:900;color:var(--ink)}
+.xh-card-target .xh-py.xh-always{display:block;font-family:var(--sans);font-size:14px;
+  font-weight:600;margin-top:1px}
 .xh-say{padding:9px 20px;font-size:14.5px;margin-top:6px}
 .xh-cardnav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 
@@ -1071,11 +1137,16 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .xh-mode.sm{padding:9px 8px}
 .xh-mode.sm .xh-mi{font-size:19px}
 .xh-mode.sm b{font-size:14px}
-/* the ② category buttons navigate now, so they carry a chevron like every other
-   entry on this page */
-.xh-tab.go{position:relative}
-.xh-tab-go{position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  font-size:18px;color:var(--sea2);opacity:.6}
+/* ⚠️ ② navigates no more (owner 2026-08-16 evening), so the chevron is gone with it:
+   the tabs are a toggle again and ③ below them is where the doors are. `.xh-tab.go`
+   and `.xh-tab-go` are removed rather than left dangling — a chevron on a control
+   that stays put is a promise it cannot keep. */
+/* ---------- ③ 的入口卡 (owner 2026-08-16 evening) ----------
+   The activity tiles on the FRONT page, two-up. They reuse .xh-mode.big so a door
+   looks the same whether it is met here or inside 词语挑战 — but they carry no `.on`
+   state: nothing is being selected, each one is a way in. */
+.xh-modes.acts{grid-template-columns:repeat(2,1fr);margin-bottom:0}
+@media (max-width:479px){ .xh-modes.acts{grid-template-columns:1fr} }
 .qty{margin:2px 0 6px}
 .qty-val{display:block;font-family:var(--serif);font-weight:800;font-size:17.5px;
   color:#8A5A0F;line-height:1.35;margin:0 0 6px;min-height:22px}
