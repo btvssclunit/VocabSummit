@@ -1,8 +1,8 @@
 # 词山学海 · Vocab Summit
 
-词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，覆盖 G1 基础华文、G2 华文、G3 华文及高级华文四大源流，另设「学海启航 · 启航码头」零基础入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山竞速等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
+词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，涵盖 G1 至 G3 高级华文四大源流，另设「学海启航 · 启航码头」看图学词入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山竞速等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
 
-Vocab Summit is developed by the Mother Tongue Languages (MTL) Chinese Language Unit at Bukit View Secondary School (BVSS), led by HOD/MTL Chun Kai Xin. It is a gamified Chinese vocabulary self-directed learning platform spanning four curriculum streams — G1 Foundation Chinese, G2 Chinese, G3 Chinese, Higher Chinese (HCL) — plus a pre-G1 beginners' tier, 学海启航, for students starting from zero. Students climb a persistent "word mountain" through flashcards, cloze challenges, word-rain, a Wordle-style character game and a mountain-sprint mode, grounded in self-determination theory (SDT) and assessment-for-learning (AfL) principles.
+Vocab Summit is developed by the Mother Tongue Languages (MTL) Chinese Language Unit at Bukit View Secondary School (BVSS), led by HOD/MTL Chun Kai Xin. It is a gamified Chinese vocabulary self-directed learning platform spanning the four curriculum streams from G1 to G3 Higher Chinese, plus a pre-G1 beginners' tier, 学海启航, for students starting from zero. Students climb a persistent "word mountain" through flashcards, cloze challenges, word-rain, a Wordle-style character game and a mountain-sprint mode, grounded in self-determination theory (SDT) and assessment-for-learning (AfL) principles.
 
 名取「书山有路勤为径，学海无涯苦作舟」：攀词山，渡学海。
 
@@ -18,7 +18,7 @@ The landing page is a sea map. Each island is one destination:
 | 词将竞技场 | `G2_index.html` | G2 华文 |
 | 词王淬炼坊 | `G3_index.html` | G3 快捷华文 |
 | 词圣鸿文苑 | `HCL_index.html` | 高级华文 |
-| 启航码头 | `XH_index.html` | 学海启航 · 零基础看图学词 |
+| 启航码头 | `XH_index.html` | 学海启航 · 看图学词入门层 |
 
 `teacher.html` is a separate teacher dashboard (email sign-in, HOD approval), and
 `tools/` holds two device diagnostics.
@@ -66,7 +66,8 @@ art/    bg/            scene + progression backdrops
 tools/  voices.html    TTS voice diagnostic — run on a student device to check the Chinese voice
         sound.html     audio diagnostic — WebAudio vs speech, for「no sound effects」reports
 
-docs/   HANDOFF_*.md   design handoffs
+docs/   ARCHIVE_工程日志_2026-08.md   the engineering log — history, not spec
+        HANDOFF_*.md   design handoffs
         BRIEF_*.md     open questions and art requirements handed back to the designers
         DECISIONS_*.csv  per-word rulings awaiting the owner, pre-filled with a recommendation
 archived_art/          retired art, kept rather than deleted
@@ -133,7 +134,6 @@ shows a friendly error, because browsers block `fetch` of local JSON files.
 - Consumables / powerups (art is in `art/item/`, the system is not built).
 - PWA packaging (manifest + service worker + offline queue).
 - Pre/post assessment instrument for the learning-evidence base.
-- SLS integration as a long-term pathway, pending ETD/DXD support.
 - Succession: repository and Firebase ownership anchored to the BVSS MTL CL Unit
   account for continuity beyond any one teacher.
 
