@@ -1992,7 +1992,9 @@
         if (done) return;
         done = true;
         btn.classList.add("ok");
-        noteRight(w);
+        /* ⚠️ a tile-only answer records NO progress: 素食摊 is not a word entry, so
+           marking it would invent a 航程 entry for a word that does not exist. */
+        if (!p.tileOnly) noteRight(w);
         speak(p.zh);                       // the whole sentence, in context
         var hint = document.getElementById("xhHint");
         /* ⚠️ insight_en is OPTIONAL (PATCH_02 §5). Most sentences have nothing worth
@@ -2004,7 +2006,7 @@
         /* answering wrong costs nothing anywhere in this tier: mark it, stay put */
         btn.classList.add("no");
         btn.disabled = true;
-        noteWrong(w, o.词语);
+        if (!p.tileOnly) noteWrong(w, o.词语);
         sfxNo();
       }
     }
