@@ -1,7 +1,7 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-08-17（第四批：句子层可发现性 · 读过 N 句 · 两个 owner bug）。
+Last updated: 2026-08-17（第五批：CPDD 英文名 · 船的对角精灵镜像修复）。
 
 > **历史在别处。** 「当初为什么这么做」「什么试过但失败了」在
 > `docs/ARCHIVE_工程日志_2026-08.md`（80 节，2026-08-10 → 08-16，带目录）。
@@ -71,7 +71,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260817d`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260817e`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -1442,6 +1442,40 @@ player avatar」。`drawClimber` 里那句
   ⚠️ 新 key 音节数按 §10 数过：`词语闪卡 · 看图听音，慢慢来` = 11 汉字 / 11 音节。
   ⚠️ 实测 `XH_PY` 全表 **106 条，音节数不符 0 条，重复 key 0 条**。
 - ⚠️ **注释与 CSS 类名里仍有「看图学词」四个字，那是代码内部的历史，不上屏幕，不要清。**
+
+### CPDD 英文名（owner 2026-08-17）
+owner：「for the translations - we need to align with CPDD」。英文一律改成 CPDD 的说法，
+**中文一个字没动**：
+`The Beginner's Pier` · `G1 Basic Chinese` · `G2 Chinese` · `G3 Chinese` · `G3 Higher Chinese`
+（原为 Setting sail — the beginner tier · Foundation Chinese · Chinese · Express Chinese ·
+Higher Chinese）。
+- 落点：`index.html` 落地卡 4 处 + 海图牌 5 处 · `XH_index.html` 顶栏 1 处 ·
+  `guide.html` 的 `STATIONS` 表 8 处。**共 18 处，改完逐条 assert 过唯一性。**
+- ⚠️ **英文现在带年级前缀，与中文那行的「G1 基础华文」重复了一次 G1**——这是 owner 要的口径，
+  **不要「顺手」去重**：CPDD 的正式名称本身就含年级。
+
+### 🐛 船用侧舷在走：三个 tier 的 `away_diag` 精灵是镜像反的
+owner：「from pier to G3 the boat moves with the side leading the way, I need the top of
+the boat to lead the way」。
+⚠️ **航向数学是对的，`headingAt` 一行都不用改**——错的是**美术**。
+- 码头→G3 的方位角是 **−38.8°**（右上），落进 `away_diag` 桶、不翻转。
+  而 `art/xh/boat_t1_away_diag.png` 画的船身轴是 **+27°（右下）**——**整整反了一个镜像**。
+  船身与航向差 **65.8°**，那正是「侧舷在前」。
+- ⚠️ **只有码头→G3 这一条会踩到**：dock 出发的另外三条落在 `broadside` 与 `away` 桶里
+  （G1 +13.7° · HCL −14.4° · G2 −104°），所以 owner 只报了这一条。**不是巧合。**
+- **`t2` 是对的**（它与旧的 `art/seamap/boat_*.png` 逐字节相同，代码当初就是照着它写的）。
+  `t1 / t3 / t4` 三套新美术的 `away_diag` 全部反了；`toward_diag` 四套都对。
+- 修法：把三个 `away_diag` **水平镜像**（`FLIP_LEFT_RIGHT`，无重采样、无调色板变化，
+  所以不碰 §14 的像素画缩放陷阱）。原件留在
+  `archived_art/boat_t*_away_diag_MIRRORED_20260817.png`。
+- ⚠️ **PCA 要量船身，不能量整张图**（§15：几何的东西用脚本验算）。
+  t3/t4 是带桅杆的帆船，整张 alpha 的主轴被**桅杆和帆**主导，量出来是 −87°／+79° 这种垂直值，
+  完全看不出问题；**只取画面下 45%（船身）** 才读得到真实的 +26.3°／+20.6°。
+  第一遍我就是被桅杆骗过去、差点判 t3/t4「没问题」。
+- 实测：码头→G3 的船身／航向夹角 **65.8° → 11.8°**；其余航线一度未变。
+  四个 tier 的 away_diag 与 toward_diag 现在符号一致（全为负）。
+- ⚠️ **t3/t4 的对角视图本来就画得偏侧**（船身轴 −26°／−21°，而桶心是 −45°）：
+  这是那两套美术的固有限制，不是这次的 bug。真要更准就得重画，**不要用旋转去凑**。
 
 ### 海图的船在某些机器上不动 = `prefers-reduced-motion`，**不是 bug**
 owner 报：学生 iPad、Chromebook、同事的 ThinkPad 都看得到船在开，**她自己的 ThinkPad 不会**。
