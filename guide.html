@@ -13,28 +13,59 @@
   ritual (CLAUDE.md §3) — a document page that loads nothing shared can never
   serve a new stylesheet with an old script. It reads art/ directly; art files
   are not versioned anywhere in this repo.
-  ⚠️ The palette below is COPIED from css/app.css :root on purpose, the same
-  deliberate duplication teacher.html carries (CLAUDE.md §17). If the palette
-  changes there, change it here too.
+  ⚠️ The palette AND the shared components below are COPIED from css/app.css on
+  purpose, the same deliberate duplication teacher.html carries (CLAUDE.md §17).
+  Change them there, change them here. Copied verbatim, marked ⟨app.css⟩ at each
+  rule: :root · .topbar/.back/.tb-name/.tb-sub · .section-label · .card ·
+  .nav-btn / .nav-btn.primary · --glass-edge.
+  ⚠️ ONE deliberate difference, and it is measured, not taste: every plate on
+  this page is raised roughly .90-.94 where app.css ships .56-.74. This page is
+  solid dense bilingual prose, and in 双语 every English line is --ink-soft
+  (#5A7080). The body gradient is background-attachment:fixed and bottoms out at
+  --sea1, so a panel at the foot of the viewport sits on #2E6391: app.css's card
+  alphas put --ink-soft at 2.54:1 there, below AA. The raised plates hold it at
+  4.3-4.7:1. This is the same exception app.css itself makes for .pop-card and
+  搜索结果 (CLAUDE.md §7: dense small text goes UP, not down). The gradient shape,
+  the lit top edge and the lift shadow are unchanged — those are what read as
+  the site, not the alpha.
 -->
 <style>
+/* ⟨app.css :root⟩ — verbatim. */
 :root{
   --sky1:#DFEDF7; --sky2:#BAD6E8;
   --sun-core:#FFEDA8; --sun:#F5C443;
-  --mtn-far:#9CC0A6; --mtn-mid:#79AB89; --mtn-front:#57906B; --ridge:#3F704F; --shade:#274A34;
+  --mtn-haze:#A9C9B1; --mtn-far:#9CC0A6; --mtn-mid:#79AB89; --mtn-mid2:#4F8560;
+  --mtn-front:#57906B; --mtn-deep:#2F5A3F; --ridge:#3F704F; --shade:#274A34;
   --sea1:#2E6391; --sea2:#1F4A70; --sea3:#173A5A;
   --ink:#243B4A; --ink-soft:#5A7080; --gold:#E3A63C; --gold-ink:#8A5A0F; --gold-deep:#B7791F;
   --card:rgba(255,255,255,.92); --card-line:#C9DCE9;
-  --glass:rgba(255,255,255,.72); --glass-strong:rgba(255,255,255,.88);
-  --glass-line:rgba(255,255,255,.65); --glass-line-2:rgba(150,185,212,.45);
+  --glass:rgba(255,255,255,.60); --glass-strong:rgba(255,255,255,.72);
+  --glass-soft:rgba(255,255,255,.40); --glass-line:rgba(255,255,255,.65);
+  --glass-line-2:rgba(150,185,212,.45);
   --glass-blur:saturate(165%) blur(20px);
-  --glass-lift:0 10px 34px rgba(23,58,90,.18);
+  --glass-lift:0 10px 34px rgba(23,58,90,.20);
+  /* ⚠️ THE lit top edge. This one line is the difference between「a glass pane」
+     and「a white rectangle」, and its absence was why this page read flat. */
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.30);
   --ok:#3E7D57; --bad:#B44A3C;
   --serif:"Noto Serif SC","Songti SC","STSong",serif;
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+
+  /* PAGE-LOCAL, not in app.css: the raised plate this page's dense bilingual
+     prose needs. Same three stops and the same 150deg as app.css's .card, just
+     lifted — see the ⚠️ in the header comment for the measured reason. */
+  --gd-plate:linear-gradient(150deg,rgba(255,255,255,.95),rgba(255,255,255,.92) 46%,rgba(232,243,251,.93));
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:118px}
+/* ⚠️ 118px / 150px / 96px / 132px used to be four hand-typed guesses at the
+   height of the sticky bar, and every one of them was already wrong before this
+   pass (the bar measured 134px against a 118px allowance, so the sticky 目录
+   sat BEHIND it and an anchor jump landed under it). The bar's height depends on
+   whether the top row wraps, which depends on the viewport AND the label
+   lengths — it is not a number anyone can keep correct by hand. It is measured
+   at runtime into --gd-topbar-h; these are only the pre-JS fallbacks. */
+:root{--gd-topbar-h:142px}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--gd-topbar-h) + 8px)}
 body{font-family:var(--sans);color:var(--ink);line-height:1.75;
   background:linear-gradient(180deg,#EAF4FA 0%,var(--sky1) 26%,var(--sky2) 52%,#8FB6CF 76%,var(--sea1) 100%);
   background-attachment:fixed;min-height:100vh;-webkit-text-size-adjust:100%}
@@ -57,32 +88,63 @@ body.L-en li.en, body.L-both li.en{display:list-item}
    really does sit mid-sentence. */
 body.L-zh span.zh.i, body.L-both span.zh.i,
 body.L-en span.en.i, body.L-both span.en.i{display:inline}
+/* ⚠️ NEVER write a `display` on anything that can be a .zh/.en. The gate is
+   `.zh,.en{display:none}` at (0,1,0) and `body.L-* .zh{display:block}` at
+   (0,2,1) — so ANY rule with a `display` and two selectors (`.gd-stat span`,
+   `.why .lbl`, `.demo-foot .lbl`) outranks the OFF half while losing to the ON
+   half, and the label is then permanently visible in BOTH languages. That is
+   what those three did: 27 labels rendered 「注意看 NOTICE」 stacked in 中文-only
+   and in English-only alike. Style the label; let the gate decide display. */
 body.L-both .en{color:var(--ink-soft);font-size:.94em}
 body.L-both h2 .en, body.L-both h3 .en{font-size:.5em;letter-spacing:.06em;
   font-weight:500;font-family:var(--sans);color:var(--ink-soft);margin-top:2px}
 body.L-en .en{color:inherit}
 
-/* ============ 顶栏 ============ */
-.gd-top{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.82);
+/* ============ 顶栏 ============
+   ⟨app.css .topbar / .back / .tb-name / .tb-sub⟩ — the same component every
+   stream and pier page carries, so arriving here from a stream page does not
+   read as switching apps. The gradient, the --glass-line hairline and the inset
+   lit edge in the shadow are app.css's; only the two alphas are raised (.82/.70
+   for .66/.48) because this bar sits over prose, not over painted art. */
+.gd-top{position:sticky;top:0;z-index:40;
+  background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.70));
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
-  border-bottom:1px solid var(--glass-line-2);box-shadow:0 2px 14px rgba(23,58,90,.10)}
-.gd-topin{max-width:1120px;margin:0 auto;padding:8px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.gd-home{font-family:var(--serif);font-weight:700;font-size:16px;letter-spacing:.06em;
-  text-decoration:none;color:var(--ink);white-space:nowrap}
-.gd-home small{display:block;font-family:var(--sans);font-weight:400;font-size:10px;
-  letter-spacing:.22em;color:var(--ink-soft);text-transform:uppercase}
-.gd-langs{margin-left:auto;display:flex;gap:0;border:1px solid var(--card-line);
-  border-radius:999px;overflow:hidden;background:rgba(255,255,255,.7)}
+  border-bottom:1px solid var(--glass-line);
+  box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
+.gd-topin{max-width:1120px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* ⟨app.css .topbar .back⟩ — verbatim, plus the <a> bits app.css's <button>
+   version does not need. Every other page's back control is this circle. */
+.gd-top .back{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
+  color:#3A5A70;font-size:16px;flex:none;
+  display:grid;place-items:center;text-decoration:none}
+/* ⟨app.css .topbar .tb-name / .tb-sub⟩ — verbatim. */
+.gd-top .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em}
+.gd-top .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
+.gd-langs{margin-left:auto;display:flex;gap:0;border:1px solid var(--glass-line);
+  border-radius:999px;overflow:hidden;background:var(--glass-strong);
+  box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.12)}
 .gd-langs button{padding:5px 13px;font-size:12.5px;font-weight:500;color:var(--ink-soft)}
-.gd-langs button[aria-pressed="true"]{background:var(--sea1);color:#fff}
+/* ⚠️ the site's「this is the one that is on」is the gold gradient (app.css
+   .nav-btn.primary / .prof-chip.on / .wchip.got), never a flat blue fill. */
+.gd-langs button[aria-pressed="true"]{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  color:#3A2A08;font-weight:700}
 .gd-tabs{display:flex;gap:8px;width:100%;padding-bottom:2px}
-.gd-tabs button{flex:1 1 0;min-width:0;padding:9px 10px;border-radius:12px 12px 0 0;
-  background:rgba(255,255,255,.55);border:1px solid var(--glass-line-2);border-bottom:none;
-  font-family:var(--serif);font-weight:700;font-size:15px;letter-spacing:.05em;color:var(--ink-soft)}
+/* ⟨app.css .nav-btn⟩ vocabulary: glass plate, --glass-line hairline, inset lit
+   edge. Squared off at the bottom because these are tabs, not free buttons. */
+.gd-tabs button{flex:1 1 0;min-width:0;padding:9px 10px;border-radius:13px 13px 0 0;
+  background:rgba(255,255,255,.62);border:1px solid var(--glass-line);border-bottom:none;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12);
+  font-family:var(--serif);font-weight:700;font-size:15px;letter-spacing:.05em;color:#3A5A70}
 .gd-tabs button .sub{display:block;font-family:var(--sans);font-weight:400;font-size:10.5px;
   letter-spacing:.04em;margin-top:1px}
-.gd-tabs button[aria-selected="true"]{background:var(--sea2);color:#fff;border-color:var(--sea2)}
-.gd-tabs button[aria-selected="true"] .sub{color:rgba(255,255,255,.8)}
+/* ⟨app.css .nav-btn.primary⟩ — verbatim gold. */
+.gd-tabs button[aria-selected="true"]{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.55);color:#3A2A08;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
+.gd-tabs button[aria-selected="true"] .sub{color:#4A3505}
 
 /* ============ 页头 ============ */
 .gd-hero{position:relative;overflow:hidden;height:min(46vh,340px);min-height:250px}
@@ -99,32 +161,45 @@ body.L-en .en{color:inherit}
 .gd-herotext .en1{font-size:clamp(9px,1.3vw,12px);letter-spacing:.5em;color:#3A5A70;
   margin-top:9px;text-transform:uppercase}
 .gd-herotext .sch{margin-top:12px;font-size:12.5px;color:#3A5A70;letter-spacing:.05em}
-.gd-couplet{position:absolute;top:12%;font-family:var(--serif);font-weight:700;
+/* ⚠️ NOT app.css's .lp-couplet, and deliberately so — two reasons, both real:
+   (1) .lp-couplet stacks with writing-mode:vertical-rl, which CLAUDE.md §7 bans
+       outright as unreliable; the width:1.15em + word-break below is the
+       documented way. (2) .lp-couplet is #FFE9B0 gold with heavy dark shadows
+       because it sits on the dark painterly landing photo; on this page's pale
+       sky it would be a gold line on near-white.
+   What IS taken from it: weight 900, the wider column rhythm, and the same
+   both-couplets-share-a-floor position. 上联 书山有路勤为径 reads on the RIGHT. */
+.gd-couplet{position:absolute;top:12%;font-family:var(--serif);font-weight:900;
   font-size:clamp(12px,1.6vw,16px);color:#3F6076;width:1.15em;word-break:break-all;
-  line-height:1.35;letter-spacing:.06em;text-shadow:0 1px 6px rgba(255,255,255,.95);z-index:5}
+  line-height:1.5;letter-spacing:.06em;text-shadow:0 1px 6px rgba(255,255,255,.95);z-index:5}
 .gd-couplet.l{left:5%}
 .gd-couplet.r{right:5%}
 
 /* ============ 统计条 ============ */
 .gd-stats{max-width:1120px;margin:-30px auto 0;padding:0 18px;position:relative;z-index:6;
   display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px}
-.gd-stat{background:var(--glass-strong);border:1px solid var(--glass-line);border-radius:13px;
-  padding:11px 8px;text-align:center;box-shadow:var(--glass-lift);min-width:0}
+.gd-stat{background:var(--gd-plate);border:1px solid var(--glass-line);border-radius:13px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  padding:11px 8px;text-align:center;box-shadow:var(--glass-lift),var(--glass-edge);min-width:0}
 .gd-stat b{display:block;font-family:var(--serif);font-size:22px;color:var(--sea2);line-height:1.2}
-.gd-stat span{display:block;font-size:11px;color:var(--ink-soft);letter-spacing:.03em}
+/* ⚠️ NO `display` here. See the 语言闸门 note at the top: the gate turns a
+   .zh/.en on with (0,2,1); a `display:block` written at (0,1,1) outranks the
+   gate's OFF rule (0,1,0) and the label leaks in single-language mode. */
+.gd-stat span{font-size:11px;color:var(--ink-soft);letter-spacing:.03em}
 
 /* ============ 版面 ============ */
 main{max-width:1120px;margin:0 auto;padding:26px 18px 10px}
 .tabpane[hidden]{display:none}
-.gd-lede{background:var(--glass);border:1px solid var(--glass-line);border-radius:16px;
-  padding:18px 20px;box-shadow:var(--glass-lift);margin-bottom:20px;
+.gd-lede{background:var(--gd-plate);border:1px solid var(--glass-line);border-radius:18px;
+  padding:18px 20px;box-shadow:var(--glass-lift),var(--glass-edge);margin-bottom:20px;
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
 .gd-lede p{font-size:15.5px}
 .gd-lede p + p{margin-top:9px}
 
-.toc{position:sticky;top:96px;z-index:20;background:rgba(255,255,255,.86);
+.toc{position:sticky;top:var(--gd-topbar-h);z-index:20;background:var(--gd-plate);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
-  border:1px solid var(--glass-line-2);border-radius:12px;padding:7px 9px;margin-bottom:22px;
+  border:1px solid var(--glass-line);border-radius:14px;padding:7px 9px;margin-bottom:22px;
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14);
   display:flex;gap:5px;overflow-x:auto;scrollbar-width:thin}
 .toc a{flex:0 0 auto;text-decoration:none;font-size:12px;color:var(--ink-soft);
   padding:4px 10px;border-radius:999px;white-space:nowrap}
@@ -137,31 +212,55 @@ section.gd{scroll-margin-top:150px;margin-bottom:30px}
 section.gd > h2{font-family:var(--serif);font-weight:900;font-size:clamp(20px,2.6vw,27px);
   letter-spacing:.06em;color:var(--sea3);display:flex;flex-direction:column;
   padding-bottom:9px;border-bottom:2px solid rgba(46,99,145,.22);margin-bottom:16px}
-section.gd > h2 .num{font-family:var(--sans);font-size:11px;letter-spacing:.22em;
-  color:var(--gold-ink);font-weight:700;margin-bottom:3px}
+/* ⟨app.css .section-label⟩ — verbatim, and for the same reason it exists there:
+   a small wide-tracked eyebrow sitting directly on the painted ambience needs a
+   glass pill under it, not just a colour.
+   ⚠️ align-self is this page's addition and is load-bearing: the h2 is a COLUMN
+   flex container, so the default `stretch` would run the pill the full width of
+   the section and it would read as a stripe, not a label. */
+section.gd > h2 .num{align-self:flex-start;
+  display:inline-block;font-family:var(--sans);font-size:12.5px;font-weight:700;letter-spacing:.2em;
+  color:var(--ink);margin:0 2px 8px;padding:6px 15px;border-radius:999px;
+  background:rgba(255,255,255,.86);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
 h3{font-family:var(--serif);font-size:18px;letter-spacing:.04em;color:var(--ridge);margin-bottom:7px}
 p + p, p + ul, ul + p, .card + p{margin-top:10px}
 ul{padding-left:1.25em}
 li{margin-bottom:4px}
-.card{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
-  padding:16px 18px;box-shadow:0 8px 22px rgba(23,58,90,.12);margin:14px 0}
+/* ⟨app.css .card⟩ — the 150deg plate, the --glass-line hairline, r18, and
+   --glass-lift + --glass-edge together. The lit top edge is the whole point:
+   without it a glass panel is a white rectangle. Alphas raised, see header. */
+.card{background:var(--gd-plate);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:18px;
+  padding:16px 18px;box-shadow:var(--glass-lift),var(--glass-edge);margin:14px 0}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))}
 .grid.two{grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))}
 .grid > .card{margin:0}
 
-/* rule callout — the ⚠️ boxes */
-.rule{border-left:4px solid var(--gold);background:rgba(255,246,225,.85);
-  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
+/* rule callout — the ⚠️ boxes.
+   The three of them are ONE base (the same glass plate the .card carries, so
+   they read as the same material) with an accent border and a tint layered on
+   top — not three panels each redefining background, border and shadow. */
+.rule,.why,.cost{border:1px solid var(--glass-line);border-left-width:4px;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:0 18px 18px 0;padding:12px 16px;margin:13px 0;font-size:14px;
+  box-shadow:var(--glass-lift),var(--glass-edge)}
+/* ⚠️ NO `display` — same trap as .gd-stat span above. */
+.rule .lbl,.why .lbl,.cost .lbl{font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.rule{border-left-color:var(--gold);
+  background:linear-gradient(150deg,rgba(255,250,238,.95),rgba(255,246,225,.90) 46%,rgba(255,243,216,.92))}
 .rule b{color:var(--gold-ink)}
 .rule .en{color:#7A6234}
-.why{border-left:4px solid var(--sea1);background:rgba(232,242,249,.85);
-  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
-.why .lbl{display:block;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--sea2);font-weight:700;margin-bottom:4px}
-.cost{border-left:4px solid var(--bad);background:rgba(253,238,235,.8);
-  border-radius:0 12px 12px 0;padding:12px 16px;margin:13px 0;font-size:14px}
-.cost .lbl{display:block;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--bad);font-weight:700;margin-bottom:4px}
+.rule .lbl{color:var(--gold-ink)}
+.why{border-left-color:var(--sea1);
+  background:linear-gradient(150deg,rgba(244,250,254,.95),rgba(232,242,249,.90) 46%,rgba(226,239,249,.92))}
+.why .lbl{color:var(--sea2)}
+.cost{border-left-color:var(--bad);
+  background:linear-gradient(150deg,rgba(255,247,245,.95),rgba(253,238,235,.90) 46%,rgba(252,234,230,.92))}
+.cost .lbl{color:var(--bad)}
 
 table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--card-line);vertical-align:top}
@@ -175,10 +274,29 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .pill.grn{background:rgba(62,125,87,.16);color:#2F6244}
 .pill.no{background:rgba(180,74,60,.14);color:var(--bad)}
 
+/* ============ 真美术 ============
+   Repo art, at the sizes the platform itself uses — not decoration bolted on.
+   ⚠️ image-rendering:pixelated and NO upscaling: every sprite in this repo is
+   handed to CSS at its own resolution (CLAUDE.md §14, 像素画缩放). */
+.badgerow{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:8px;margin:14px 0}
+.badgerow figure{text-align:center;min-width:0}
+.badgerow img{width:100%;max-width:52px;height:auto;margin:0 auto 4px;
+  image-rendering:pixelated;aspect-ratio:1/1;object-fit:contain}
+.badgerow b{display:block;font-family:var(--serif);font-size:12.5px;letter-spacing:.02em;line-height:1.3}
+.badgerow .en{font-size:10.5px;color:var(--ink-soft);line-height:1.3}
+.badgerow i{display:block;font-style:normal;font-size:11px;font-weight:700;color:var(--gold-ink);margin-top:2px}
+/* ⟨app.css .ling-icon / xh.css .shell-icon⟩ — the same 14/17px inline chip the
+   platform draws wherever a currency is named. */
+.cur-icon{display:inline-block;width:16px;height:auto;vertical-align:-3px;
+  margin-right:5px;image-rendering:pixelated}
+
 /* ============ 演示面板 ============ */
-.demo{background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(240,248,253,.95));
-  border:1px solid var(--glass-line-2);border-radius:16px;padding:0;overflow:hidden;
-  box-shadow:var(--glass-lift);margin:16px 0}
+/* the demo CONTAINER is a .card like any other panel on the site (its insides
+   are bespoke to this page and stay that way). */
+.demo{background:var(--gd-plate);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:18px;padding:0;overflow:hidden;
+  box-shadow:var(--glass-lift),var(--glass-edge);margin:16px 0}
 .demo-head{background:var(--sea2);color:#fff;padding:9px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .demo-head .tag{font-size:10px;letter-spacing:.22em;text-transform:uppercase;
   background:rgba(255,255,255,.2);padding:2px 8px;border-radius:999px;white-space:nowrap}
@@ -186,16 +304,28 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .demo-head .en{color:rgba(255,255,255,.82);font-size:12px}
 .demo-body{padding:16px 18px}
 .demo-foot{padding:11px 18px;background:rgba(232,242,249,.7);border-top:1px solid var(--glass-line-2);font-size:13px}
+/* ⚠️ NO `display` — same trap as .gd-stat span above. */
 .demo-foot .lbl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--sea2);font-weight:700;display:block;margin-bottom:3px}
+  color:var(--sea2);font-weight:700;margin-bottom:3px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.btn{background:var(--sea1);color:#fff;border-radius:10px;padding:7px 15px;font-size:13.5px;font-weight:500;
-  box-shadow:0 3px 10px rgba(31,74,112,.25)}
-.btn:hover{background:var(--sea2)}
-.btn.ghost{background:rgba(255,255,255,.9);color:var(--sea2);border:1px solid var(--card-line);box-shadow:none}
-.btn.gold{background:var(--gold-deep)}
+/* ⟨app.css .nav-btn / .nav-btn.primary⟩ — the site's actual button pair. This
+   page shipped flat --sea1 blue buttons, which appear NOWHERE on the platform:
+   a primary action is the gold gradient and a secondary is a glass plate. */
+.btn{background:linear-gradient(180deg,#EEBC5E,var(--gold));border:1px solid rgba(183,121,31,.55);
+  color:#3A2A08;font-weight:700;border-radius:13px;padding:7px 15px;font-size:13.5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
+.btn:hover{filter:brightness(1.04)}
+.btn.ghost{background:rgba(255,255,255,.78);border:1px solid var(--glass-line);color:#3A5A70;font-weight:500;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
+/* the「试着做一件平台不允许的事」buttons in ①水线 and ⑤泄题. Not a third colour:
+   the glass plate with a gold hairline, so it reads as a variant of ghost. */
+.btn.gold{background:rgba(255,250,238,.88);border:1px solid rgba(183,121,31,.5);
+  color:var(--gold-ink);font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(227,166,60,.28)}
 .sw{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);
-  background:rgba(255,255,255,.9);border:1px solid var(--card-line);border-radius:999px;padding:4px 12px;
+  background:rgba(255,255,255,.82);border:1px solid var(--glass-line);border-radius:999px;padding:4px 12px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.10);
   flex-wrap:wrap}
 /* ⚠️ a flex container BLOCKIFIES its children, so the English would sit beside the
    Chinese however it is declared; it needs a full-width basis to drop to line two. */
@@ -206,12 +336,19 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .msg.ok{color:var(--ok);font-weight:500}
 .msg.no{color:var(--bad);font-weight:500}
 
+/* ⚠️ The demo widgets below stay bespoke — they teach things nothing else on the
+   site does. But their PLATES follow app.css's rule for controls inside a glass
+   card:「Inner controls are translucent too, or the card looks like glass with
+   opaque stickers on it.」That is why .opt / .mtile / .tile / .slot / .meter /
+   .wl-side are rgba(255,255,255,.80) + --glass-line + a lit top edge and no
+   longer flat #fff on --card-line. Nothing about their behaviour moved. */
+
 /* MCQ demo */
 .q{font-family:var(--serif);font-size:clamp(18px,2.6vw,24px);line-height:1.9;margin-bottom:14px}
 .q .blank{display:inline-block;min-width:2.4em;border-bottom:3px solid var(--gold);
   text-align:center;color:var(--gold-ink);font-weight:700}
 .opts{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))}
-.opt{background:#fff;border:1.5px solid var(--card-line);border-radius:12px;padding:11px 12px;
+.opt{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:12px;padding:11px 12px;
   text-align:center;transition:transform .12s ease,border-color .12s ease}
 .opt:hover{border-color:var(--sea1);transform:translateY(-2px)}
 .opt b{display:block;font-family:var(--serif);font-size:20px;letter-spacing:.05em}
@@ -230,7 +367,7 @@ body.aid-en .opt .eng{display:block}
 
 /* 连线 demo */
 .mb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.mtile{background:#fff;border:1.5px solid var(--card-line);border-radius:12px;padding:8px 6px;
+.mtile{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:12px;padding:8px 6px;
   display:flex;flex-direction:column;align-items:center;gap:5px;min-height:96px;justify-content:center}
 .mtile img{width:52px;height:52px;object-fit:contain}
 .mtile b{font-family:var(--serif);font-size:17px;letter-spacing:.04em}
@@ -241,12 +378,12 @@ body.aid-en .opt .eng{display:block}
 
 /* 重整句子 demo */
 .tray{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
-.tile{background:#fff;border:1.5px solid var(--card-line);border-radius:10px;padding:7px 13px;
+.tile{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:10px;padding:7px 13px;
   font-family:var(--serif);font-size:18px;letter-spacing:.04em}
 .tile:hover{border-color:var(--sea1)}
 .slots{display:flex;flex-wrap:wrap;gap:7px;align-items:center;min-height:48px;
   background:rgba(232,242,249,.7);border:1.5px dashed var(--glass-line-2);border-radius:12px;padding:9px}
-.slot{background:#fff;border:1.5px solid var(--card-line);border-radius:10px;padding:7px 13px;
+.slot{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:10px;padding:7px 13px;
   font-family:var(--serif);font-size:18px;letter-spacing:.04em}
 .slot.lock{background:rgba(62,125,87,.16);border-color:var(--ok);color:#2F6244}
 .slot.bad{background:rgba(180,74,60,.12);border-color:var(--bad)}
@@ -254,7 +391,7 @@ body.aid-en .opt .eng{display:block}
 
 /* 三个数字 demo */
 .meters{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));margin-top:12px}
-.meter{border-radius:12px;padding:12px;border:1.5px solid var(--card-line);background:#fff;
+.meter{border-radius:12px;padding:12px;border:1.5px solid var(--glass-line);background:rgba(255,255,255,.80);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
   text-align:center;transition:background .18s ease,border-color .18s ease}
 .meter .nm{font-family:var(--serif);font-size:17px;letter-spacing:.05em}
 .meter .df{font-size:11px;color:var(--ink-soft);line-height:1.5;margin-top:2px}
@@ -264,13 +401,17 @@ body.aid-en .opt .eng{display:block}
 .meter.part{background:rgba(227,166,60,.18);border-color:var(--gold)}
 .meter.part .st{color:var(--gold-ink)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{background:rgba(255,255,255,.9);border:1px solid var(--card-line);border-radius:999px;
-  padding:5px 12px;font-size:13px}
-.chip[aria-pressed="true"]{background:var(--sea1);color:#fff;border-color:var(--sea1)}
+/* ⟨app.css .prof-chip / .prof-chip.on⟩ — verbatim, at this page's smaller size. */
+.chip{background:rgba(255,255,255,.78);border:1px solid var(--glass-line);border-radius:999px;
+  padding:5px 12px;font-size:13px;color:#3A5A70;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.1)}
+.chip[aria-pressed="true"]{background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.5);color:#3A2A08;font-weight:700;
+  box-shadow:0 3px 12px rgba(227,166,60,.4)}
 
 /* 水线 demo */
 .wl{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;margin:10px 0}
-.wl-side{background:#fff;border:1.5px solid var(--card-line);border-radius:14px;padding:14px;min-width:0}
+.wl-side{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:14px;padding:14px;min-width:0}
 .wl-side h4{font-family:var(--serif);font-size:16px;letter-spacing:.05em;margin-bottom:8px}
 .wl-side.sea h4{color:var(--sea2)}
 .wl-side.mtn h4{color:var(--ridge)}
@@ -293,21 +434,27 @@ body.aid-en .opt .eng{display:block}
    explicit light-panel grey, so an .en sitting on a dark chip, button or panel
    header does NOT inherit that panel's white — it renders grey on dark blue.
    Every override therefore has to carry the gate prefix to outrank it.
-   ⚠️ Any NEW dark surface that shows an annotation must be added here. */
-body.L-both .demo-head .en,
-/* ⚠️ :not(.ghost) — a ghost button is WHITE, so the dark-panel colour above
-   turned its English annotation invisible the moment it was added. */
-body.L-both .btn:not(.ghost) .en,
+   ⚠️ Any NEW surface that shows an annotation and is not an ordinary light
+   panel — dark OR gold — must be added to one of the two rules below. */
+body.L-both .demo-head .en{color:rgba(255,255,255,.9);font-size:12.5px}
+/* ⚠️ THE OTHER HALF OF THE SAME TRAP, and it is the reason this block is not
+   just「dark surfaces」any more. The three「on」states below used to be flat
+   --sea1/--sea2 fills and lived in the rule above; they are now the site's gold
+   gradient (app.css .nav-btn.primary), which is LIGHT. Left in the white list
+   they would have gone invisible — exactly the failure the block exists to
+   prevent, arriving from the opposite direction.
+   ⚠️ Every one of these still needs the body.L-both prefix: a bare
+   `.btn .en` is (0,2,0) and loses to `body.L-both .en` (0,2,0, later in file). */
+body.L-both .btn .en,
 body.L-both .chip[aria-pressed="true"] .en,
-body.L-both .gd-tabs button[aria-selected="true"] .sub,
-body.L-both .mtile.done .en{color:rgba(255,255,255,.9)}
-body.L-both .demo-head .en{font-size:12.5px}
+body.L-both .gd-tabs button[aria-selected="true"] .sub{color:#4A3505}
+/* ⚠️ .ghost is a pale glass plate, so it takes the ordinary light-panel grey and
+   must NOT be swept into either list above. */
+body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
 /* ⚠️ media queries LAST — same-specificity rules later in the file win, so a
    breakpoint placed above the base rules is silently dead (CLAUDE.md §14). */
 @media (max-width:900px){
-  html{scroll-padding-top:150px}
-  .toc{top:132px}
   .gd-tabs button{font-size:13.5px}
   .wl{grid-template-columns:1fr}
   .wl-line{width:auto;height:44px;flex-direction:row}
@@ -315,6 +462,18 @@ body.L-both .demo-head .en{font-size:12.5px}
     background:repeating-linear-gradient(90deg,var(--sea1) 0 9px,transparent 9px 18px)}
   .wl-line span{writing-mode:horizontal-tb;padding:2px 10px;letter-spacing:.2em}
   .mb{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* nine across is 34px a medallion on a phone — the art stops being readable
+     long before the row stops fitting. */
+  .badgerow{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media (max-width:560px){
+  .badgerow{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* ⚠️ on a phone the top row wrapped and the sticky bar grew to 184px — a fifth
+     of the screen, permanently. The 副标题 is the line to lose: 词山学海 Vocab
+     Summit is already the destination of the ← next to it. */
+  .gd-top .tb-sub{display:none}
+  .gd-top .tb-name{font-size:16px}
+  .gd-langs button{padding:5px 10px;font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -322,10 +481,18 @@ body.L-both .demo-head .en{font-size:12.5px}
 }
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   /* ⚠️ Old iPads are the G1/G2 students' machines and have no backdrop-filter.
-     Without the blur, the plate alpha is the only thing between text and art. */
+     Without the blur, the plate alpha is the only thing between text and art.
+     ⚠️ EVERY new glass surface has to be added here — the same standing rule as
+     the block at the bottom of app.css. A panel left out of this list is not
+     visibly broken on a modern machine, which is exactly why it gets missed. */
   .gd-top{background:rgba(255,255,255,.96)}
   .toc{background:rgba(255,255,255,.96)}
-  .gd-lede{background:rgba(255,255,255,.95)}
+  .gd-lede,.card,.demo,.gd-stat{background:rgba(255,255,255,.95)}
+  section.gd > h2 .num,.gd-langs,.gd-tabs button,.btn.ghost,.sw{background:rgba(255,255,255,.95)}
+  .rule{background:rgba(255,248,232,.96)}
+  .why{background:rgba(236,245,251,.96)}
+  .cost{background:rgba(254,242,239,.96)}
+  .opt,.mtile,.tile,.slot,.meter,.wl-side{background:rgba(255,255,255,.95)}
 }
 </style>
 </head>
@@ -358,7 +525,13 @@ body.L-both .demo-head .en{font-size:12.5px}
 
 <div class="gd-top">
   <div class="gd-topin">
-    <a class="gd-home" href="index.html">词山学海<small>Vocab Summit</small></a>
+    <!-- ⚠️ the site has exactly ONE back control and it lives in the top bar as a
+         circle (CLAUDE.md §18h). It stays an <a> so it works with JS dead. -->
+    <a class="back" href="index.html" aria-label="返回首页 · Back to the front page">←</a>
+    <div>
+      <div class="tb-name">使用与设计指南</div>
+      <div class="tb-sub">词山学海 Vocab Summit · Guide</div>
+    </div>
     <div class="gd-langs" role="group" aria-label="语言 Language">
       <button type="button" data-lang="zh" aria-pressed="false">中文</button>
       <button type="button" data-lang="both" aria-pressed="true">双语</button>
@@ -982,6 +1155,22 @@ body.L-both .demo-head .en{font-size:12.5px}
     <h2><span class="num">10</span><span class="zh b">徽章是开放式里程表，不是集邮</span><span class="en b">Badges are an open odometer, not a stamp album</span></h2>
     <p class="zh">码头的九级航海徽章按<b>绝对值</b>发：10 / 25 / 50 / 75 / 100 / 150 / 200 / 300 / 400 词。<b>永不重新编号，也没有终点徽章</b>——破 400 就加一级。</p>
     <p class="en">The pier's nine sailing badges are awarded at <b>absolute</b> counts: 10, 25, 50, 75, 100, 150, 200, 300, 400 words. They are <b>never renumbered and there is no final badge</b> — pass 400 and a level is added.</p>
+
+    <!-- the real art, in the real order. ⚠️ That order is deliberate and reads
+         生物 → 器物 → 船 → 器物 → 船: no two neighbouring levels are the same
+         kind of thing, so a student can tell at a glance that they moved up. -->
+    <div class="badgerow">
+      <figure><img src="art/xh/badges/xh_badge_shell.png" alt=""><b>贝壳徽</b><span class="en i">Shell</span><i>10</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_coral.png" alt=""><b>珊瑚徽</b><span class="en i">Coral</span><i>25</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_pearl.png" alt=""><b>珍珠徽</b><span class="en i">Pearl</span><i>50</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_starfish.png" alt=""><b>海星徽</b><span class="en i">Starfish</span><i>75</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_compass.png" alt=""><b>罗盘徽</b><span class="en i">Compass</span><i>100</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_dragonboat.png" alt=""><b>龙舟徽</b><span class="en i">Dragon boat</span><i>150</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_starboard.png" alt=""><b>牵星板徽</b><span class="en i">Star boards</span><i>200</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_sailship.png" alt=""><b>帆船徽</b><span class="en i">Sailing ship</span><i>300</i></figure>
+      <figure><img src="art/xh/badges/xh_badge_lighthouse.png" alt=""><b>灯塔徽</b><span class="en i">Lighthouse</span><i>400</i></figure>
+    </div>
+
     <div class="why">
       <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
       <p class="zh">因为词表会长大。码头的词表<b>一天之内从 36 涨到 100 再到 150</b>。如果徽章是「集齐全部」，那条终点线就会<b>往后跑</b>——等于凭空收回学生已经付出的努力。一个百分比进度条在内容还会增加的系统里是<b>一个会背叛学生的承诺</b>。</p>
@@ -1260,6 +1449,25 @@ body.L-both .demo-head .en{font-size:12.5px}
     { i: "📊", zh: "码头风云榜", en: "Pier boards", dzh: "识词数与航海值，分开排。", den: "Words known and seafaring points, kept apart." }
   ];
 
+  /* =================== 顶栏高度 ===================
+     ⚠️ Two things hang off the height of the sticky bar: how far an anchor jump
+     has to clear it (scroll-padding-top) and where the sticky 目录 parks
+     (.toc top). Both were hand-typed numbers and both were already wrong — the
+     bar measured 134px against a 118px allowance, so the 目录 docked BEHIND it.
+     The height is not knowable in advance: the top row wraps or does not
+     depending on the viewport AND on how long the labels are, and the labels
+     change with the 语言 switch. So measure it, and measure it again after
+     anything that can reflow that row. */
+  function syncTopbarH() {
+    var t = document.querySelector(".gd-top");
+    if (!t) return;
+    var h = Math.round(t.getBoundingClientRect().height);
+    if (h > 0) document.documentElement.style.setProperty("--gd-topbar-h", h + "px");
+  }
+  window.addEventListener("resize", syncTopbarH);
+  /* webfonts land after first paint and change the wrap point */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncTopbarH);
+
   /* =================== 语言闸门 =================== */
   var LANGKEY = "ws_guide_lang";
   function setLang(l) {
@@ -1269,6 +1477,7 @@ body.L-both .demo-head .en{font-size:12.5px}
       bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-lang") === l ? "true" : "false");
     }
     try { localStorage.setItem(LANGKEY, l); } catch (e) {}
+    syncTopbarH();
   }
   (function () {
     var saved = null;
@@ -1290,6 +1499,7 @@ body.L-both .demo-head .en{font-size:12.5px}
       bs[i].setAttribute("aria-selected", bs[i].getAttribute("data-tab") === t ? "true" : "false");
     }
     if (location.hash !== "#" + t) history.replaceState(null, "", "#" + t);
+    syncTopbarH();
   }
   (function () {
     var bs = document.querySelectorAll(".gd-tabs button");
@@ -1702,7 +1912,7 @@ body.L-both .demo-head .en{font-size:12.5px}
       meters: [
         { k: "a", nm: "海拔", en: "Altitude", dzh: "掌握了多少词", den: "words mastered" },
         { k: "p", nm: "历练值", en: "Tempering", dzh: "下了多少功夫", den: "effort put in" },
-        { k: "c", nm: "灵露", en: "Dew", dzh: "营地商店的货币", den: "camp-shop currency" }
+        { k: "c", nm: "灵露", en: "Dew", dzh: "营地商店的货币", den: "camp-shop currency", ic: "art/camp/linglu.png" }
       ],
       modes: [
         { zh: "词语闪卡", en: "Flashcards", a: 0, p: 0, c: 0,
@@ -1731,7 +1941,7 @@ body.L-both .demo-head .en{font-size:12.5px}
       meters: [
         { k: "a", nm: "航程", en: "Distance", dzh: "认得多少词", den: "words recognised" },
         { k: "p", nm: "航海值", en: "Seafaring", dzh: "下了多少功夫", den: "effort put in" },
-        { k: "c", nm: "贝壳", en: "Shells", dzh: "海滩小铺的货币", den: "beach-shop currency" }
+        { k: "c", nm: "贝壳", en: "Shells", dzh: "海滩小铺的货币", den: "beach-shop currency", ic: "art/xh/dock_shell.png" }
       ],
       modes: [
         { zh: "词语闪卡 · 词语卡", en: "Flashcards · words", a: 0, p: 0, c: 0,
@@ -1764,7 +1974,9 @@ body.L-both .demo-head .en{font-size:12.5px}
       var v = m[mt.k], cls = v === 2 ? "on" : (v === 1 ? "part" : "");
       var st = v === 2 ? "✓ 计入" : (v === 1 ? "◐ 一成" : "— 不计");
       var sten = v === 2 ? "counts" : (v === 1 ? "a tenth" : "no");
-      return '<div class="meter ' + cls + '"><div class="nm">' + mt.nm + "</div>" +
+      /* the real currency sprite, at the same inline size the platform uses. */
+      var ic = mt.ic ? '<img class="cur-icon" src="' + mt.ic + '" alt="">' : "";
+      return '<div class="meter ' + cls + '"><div class="nm">' + ic + mt.nm + "</div>" +
         '<div class="df"><span class="zh">' + mt.dzh + '</span><span class="en">' + mt.den + "</span></div>" +
         '<div class="st"><span class="zh">' + st + '</span><span class="en">' + sten + "</span></div></div>";
     }).join("");

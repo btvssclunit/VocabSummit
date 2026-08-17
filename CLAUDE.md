@@ -1,7 +1,7 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-08-17（第六批：词海垂钓 汉字与图并列）。
+Last updated: 2026-08-17（第七批：guide.html 对齐设计系统）。
 
 > **历史在别处。** 「当初为什么这么做」「什么试过但失败了」在
 > `docs/ARCHIVE_工程日志_2026-08.md`（80 节，2026-08-10 → 08-16，带目录）。
@@ -42,6 +42,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 
     /            index.html · G1/G2/G3/HCL_index.html · XH_index.html   ← 已发布的网址，必须留在根目录
                  teacher.html（独立，不加载任何共享 JS）
+                 guide.html（使用与设计指南，同样独立；见 §18o）
                  firestore.rules · README.md · CLAUDE.md
     js/          app.js（四个学段的引擎）· arena.js（房间，刻意与 app.js 隔离）
                  profile.js（我的档案／头像／进度码／意见反馈／船只；ws2_profile 的唯一所有者）
@@ -1527,6 +1528,85 @@ owner 报：学生 iPad、Chromebook、同事的 ThinkPad 都看得到船在开�
 
 ---
 
+## 18o. guide.html 对齐设计系统（2026-08-17，第七批）
+
+依据 `~/Downloads/guide_visual_alignment_handoff.md`。原诊断是对的：guide.html
+用同样的 token **名字**配了另一套**数值**，读起来像一个外挂的文档站。
+
+### ⚠️ 它仍然是自足的，**没有**去 link `css/app.css`（owner 当面裁定）
+交接文 §2a 要求直接 link。**不这么做，理由是可验证的三条**：
+- guide 有 **19 个类名与 app.css 撞车**，其中 `.card` `.opt` `.opts` `.msg` `.py` `.sub`
+  `.zh` `.en` `.sun` 在 app.css 里是**裸选择器**。link 之后每个演示挂件都要改名成 `gd-*`。
+- 它会**变成部署仪式的第八处**（§3）。交接文 §4.7 说 guide 仍在「独立名单」上——
+  那句话在它开始加载共享文件的那一刻就不成立了。
+- guide.html **不在任何人的 QA 回路里**，日后 app.css 一次重构就能静默弄坏它。
+**做法是把 app.css 的真实数值抄进来**，与 teacher.html 同一种刻意重复（§17）。
+每一条抄来的规则在源码里都标着 **⟨app.css⟩**：`:root` · `.topbar/.back/.tb-name/.tb-sub` ·
+`.section-label` · `.card` · `.nav-btn / .nav-btn.primary` · `.prof-chip` · `--glass-edge`。
+⚠️ **app.css 改了，这里要跟着改。**
+
+### ⚠️ 唯一刻意的差异：面板 alpha 抬到 .90-.95（app.css 是 .56-.74）
+**这是量出来的，不是口味。** 这一页整页都是密排双语散文，而 双语 模式下每一行英文都是
+`--ink-soft` #5A7080；body 渐变是 `background-attachment:fixed`、底端就是 `--sea1`，
+所以贴着视口底边的面板压在 #2E6391 上：照 app.css 的 alpha，`--ink-soft` 只有 **2.54:1**，
+低于 AA。抬高后是 **4.3-4.7:1**。这与 app.css 自己给 `.pop-card` / 搜索结果 的例外
+是同一条（§7：**密集小字往上调，不往下调**）。
+⚠️ **渐变的形状、那道亮边、投影一个字没动**——读成「这是本站」的是它们，不是 alpha。
+
+### 「开着的那个」是金色渐变，不是蓝色实底
+guide 原来用 `--sea1` 实底表示选中（分页 · 语言 · chip）。**平台上没有这种东西**：
+一个主要动作是金色渐变（`.nav-btn.primary` / `.prof-chip.on` / `.wchip.got`），
+次要动作是玻璃板（`.nav-btn`）。三处都换过来了。
+- ⚠️ **这把 §18e 的陷阱从反方向又踩了一次**：那三个「开着」的状态原本在
+  「深色面注解用浅色」那张名单里，现在它们是**浅金色**——留在名单里就是白字压金底。
+  现在深色面（`.demo-head`）与金色面（`.btn` / `.chip[aria-pressed]` / 选中的分页）
+  **是两条规则**，金色那条用 `#4A3505`（对金渐变暗端 5.43:1）。
+  ⚠️ `.ghost` 是淡玻璃板，两条都不能进。
+- ⚠️ **演示挂件的内层控件也改成半透明**（`.opt` `.mtile` `.tile` `.slot` `.meter` `.wl-side`
+  从 `#fff` 改成 `rgba(255,255,255,.80)` + `--glass-line` + 亮边）。依据是 app.css 自己
+  那句注释：「Inner controls are translucent too, or the card looks like glass with
+  opaque stickers on it.」**行为一行没动。**
+
+### 🐛 语言闸门漏光：单语模式下 **27 个标签两种语言一起显示**
+`.gd-stat span` / `.why .lbl` / `.demo-foot .lbl` / `.cost .lbl` 各写了一句 `display:block`。
+闸门是 `.zh,.en{display:none}` **(0,1,0)** 与 `body.L-* .zh{display:block}` **(0,2,1)**——
+一条**两个选择器**的 `display` 是 (0,2,0) 或 (0,1,1)：**赢得过「关」那一半，输给「开」那一半**，
+于是那个标签在 中文-only 和 English-only 里都永远亮着（`注意看 NOTICE` 叠着出现）。
+⚠️ **规则：凡是可能是 `.zh`/`.en` 的元素，永远不要写 `display`。** 只写排版，显隐交给闸门。
+实测漏光 27 → **0**，两个方向都是。
+
+### 🐛 顶栏高度是四个手打的数字，而且四个都已经是错的
+`scroll-padding-top:118px` · `.toc{top:96px}` 与 900px 断点下的 150/132：实测顶栏
+**134px**，所以粘住的目录条一直**停在顶栏后面**，锚点跳转也落在栏下。
+高度**不可能手工维持正确**：顶行换不换行取决于视口**和标签长度**，而标签长度随语言开关变。
+- 现在 JS 实测写进 `--gd-topbar-h`，`scroll-padding-top` 与 `.toc{top}` 都读它；
+  `resize` · `setLang` · `setTab` · `fonts.ready` 各重测一次。CSS 里那个值只是 JS 跑之前的兜底。
+- ⚠️ 顺带把手机上的顶栏从 **184px 压回 126px**（≤560px 隐藏 `.tb-sub`）：
+  改用真顶栏之后顶行会换行，粘住的壳吃掉了竖屏的五分之一。
+
+### 其他
+- **返回控件改成顶栏那颗圆圈**（`.topbar .back`，§18h 的「全站只有一颗返回」）。
+  仍是 `<a href="index.html">`，JS 挂了也不会变成死键。
+- **`.num` 用真的 `.section-label` 药丸**。⚠️ `align-self:flex-start` 是承重的：
+  h2 是 column flex，默认 `stretch` 会把药丸拉成一整条横杠。
+- ⚠️ **对联没有改用 `.lp-couplet`**（交接文 §2b 要求）：那条规则用 `writing-mode`，
+  §7 明令禁止；而且它是深色照片上的金字，压在这一页的淡色天空上就是白底金线。
+  只借了字重 900 与行距。
+- ⚠️ **交接文 §2b 的前提是错的**：`.horizon` / `.hero` / `.hero-title` / `.mini-horizon` /
+  `.stream-grid` 在 app.css 里**全是死代码**，仓库里没有一个 `.html` 或 `js/*.js` 用它们
+  （子页面的横幅是 `.lscape`）。所以「复用子页面已有的山形」复用的是一段没人用的东西，
+  guide 自己那张 SVG 留着。
+- ⚠️ **交接文 §2g 的前提也不全对**：guide **本来就在用真美术**（海图五座岛 `art/seamap/*`、
+  连线演示的 `art/xh/*`）。这次新加的是**九枚航海徽章**（§w10，真图、真顺序、真门槛）
+  与 **灵露／贝壳 图标**（`art/camp/linglu.png` · `art/xh/dock_shell.png`，
+  与平台同样的 16px 内联芯片）。
+- ⚠️ **`@supports not (backdrop-filter)` 回退块现在列着十几个面**。
+  和 app.css 末尾那块同一条站规矩：**新加任何玻璃面都要加进去**——
+  漏了在新机器上看不出来，那正是它会被漏的原因。
+- **guide.html 仍然不进 `?v=` 仪式**：它不加载任何被版本化的文件。部署照旧只推那七处。
+
+---
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -1552,3 +1632,5 @@ owner 报：学生 iPad、Chromebook、同事的 ThinkPad 都看得到船在开�
 | 读过 N 句 为什么不算进度 | §18n（曝光不是掌握；`learn: 0` 仍是唯一有意的零） |
 | 房间排行榜为什么滚不到第一名 | §18n（居中 flex + overflow，上半截不可达） |
 | 海图的船为什么在某台机器上不动 | §18n（`prefers-reduced-motion`，改 Windows 设定不改代码） |
+| guide.html 为什么不 link app.css | §18o（19 个类名撞车 · 会变成部署第八处 · 它不在 QA 回路里） |
+| 为什么 guide 的面板比站上更不透明 | §18o（密排双语散文，量过的对比度例外，同 §7 `.pop-card`） |
