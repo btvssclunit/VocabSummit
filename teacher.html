@@ -479,7 +479,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260818b"></script>
+<script src="js/podium.js?v=20260818c"></script>
 <script>
 (function () {
   "use strict";
@@ -487,7 +487,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260818b";
+  var ASSET_V = "?v=20260818c";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -501,7 +501,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var db = firebase.firestore();
 
   var STREAMS = ["g1", "g2", "g3", "hcl"];
-  var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL" };
+  var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL", xh: "码头" };
   var CAT_LABEL = { student: "学生", teacher: "教师", parent: "家长", public: "公众", "": "未填写" };
   /* 概览 icons: the five existing component badges, reused purely as category
      art (no new assets). They carry no achievement meaning here. 未填写 gets
@@ -1448,15 +1448,46 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 
   /* ================= 结伴登峰 (arena) teacher room console ================= */
   var ARENA_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no O/0/I/1/L (whiteboard-safe)
-  var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
+  var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译",
+                        sprint: "攀山竞速", rain: "词雨灵露", pic: "看图识词" };
+  /* ⚠️ WHICH MODES EACH FAMILY CAN ACTUALLY ASK. The pier has no 填空句 and no 中文释义,
+     so cloze/zhmcq cannot be built from its data at all; 攀山竞速 and 词雨灵露 are
+     mountain games. What is left is the two the pier's own 同伴挑战 offers, for the same
+     reasons (§18w): 连线 is a whole board rather than a question, 词海垂钓 needs a
+     keyboard, the sentence modes need their scene backdrop.
+     ⚠️ Listing them rather than filtering by hand at each use keeps the mode row, the
+     default and the create-time guard reading from ONE table. */
+  var ARENA_MODES_FOR = {
+    xh: ["pic", "enmcq"],
+    mountain: ["cloze", "zhmcq", "enmcq", "sprint", "rain"]
+  };
+  function arenaModesFor(stream) {
+    return ARENA_MODES_FOR[isPierStream(stream) ? "xh" : "mountain"];
+  }
   /* one line each, in the teacher's words: which question the mode asks. The old
      row of five bare pills made 华文解释 / 英文翻译 indistinguishable at a glance. */
   var ARENA_MODE_SUB = { cloze: "看句子填词 · 答对提升海拔", zhmcq: "看中文释义选词",
                          enmcq: "看英文翻译选词", sprint: "限时攀山 · 答对就往上",
-                         rain: "词语落下 · 落地前打出" };
+                         rain: "词语落下 · 落地前打出",
+                         pic: "看图片选词 · 码头的看家题型" };
   /* ⚠️ NOT folded into STREAM_LABEL — that map is printed in tables and on the
      live 擂台 header, where a two-line name would break the row. */
-  var STREAM_SUB = { g1: "基础华文", g2: "华文", g3: "快捷华文", hcl: "高级华文" };
+  var STREAM_SUB = { g1: "基础华文", g2: "华文", g3: "快捷华文", hcl: "高级华文",
+                     xh: "学海启航 · 零起点" };
+  /* ⚠️ THE PIER IS ARENA-ONLY, and this list exists so it stays that way. STREAMS is
+     read by loadWordMap() (which walks levels→units→components) and by the moderation
+     「科目」<select> (which zeroes a ws2_{stream} store). The pier has neither that JSON
+     shape nor a ws2_ store, so adding "xh" to STREAMS would break both. 并肩航海 needs
+     it in exactly one place — the room setup — so it gets its own list.
+     ⚠️ 码头 goes LAST: the four mountains are the daily case, and a teacher scanning the
+     row should not have the odd one out sitting first. */
+  var ARENA_STREAMS = STREAMS.concat(["xh"]);
+  function isPierStream(s) { return s === "xh"; }
+  /* ⚠️ WHAT THE THINGS IN THE SCOPE PICKER ARE CALLED. The mountains pick 单元; the pier
+     picks 组别 (动物 / 食物 / 数字 …). Printing「已选 3 个单元」over a row of 组别 chips is
+     the same class of mislabel as calling a pier screen 结伴登峰 — the word is simply not
+     what the teacher is looking at. */
+  function scopeNoun(stream) { return isPierStream(stream) ? "组别" : "单元"; }
   /* ⚠️ Same four values the old <select>s offered — the widget changed, the
      choices did not. Widening the ceiling is the owner's call, not a side effect
      of a layout pass. */
@@ -1467,7 +1498,36 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
                  rainPy: true, rainLives: 5, acc: null };
 
   function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
+  /* ⚠️ THE PIER'S FILE IS A DIFFERENT SHAPE ENTIRELY — a flat array of 148 rows with
+     词语/拼音/英文释义/图档/组别/子类, not levels→units→components. It is normalised HERE,
+     into the same {units, byKey} the accordion already speaks, so nothing downstream
+     (the scope picker, the counts, generateRoom, tryCreate) needs a second code path.
+     ⚠️ ONE PSEUDO-LEVEL, 「启航码头」, and the units are the eight 组别. A teacher opening
+     a pier room thinks in 动物 / 食物, not in 中三·单元四; mapping 组别 onto `level` and
+     子类 onto `unit` would have produced a two-deep accordion whose top level has one
+     child in most branches.
+     ⚠️ `id` IS THE 词语 ITSELF, matching js/xh.js: the pier has never had word ids
+     (store.done is keyed by text, §5), and the room's wordIds must be what the pier
+     side can look up. */
+  function fetchPierJson() {
+    if (_arena.json.xh) return Promise.resolve(_arena.json.xh);
+    return fetch("data/xh_v3.json" + ASSET_V).then(function (r) { return r.json(); }).then(function (rows) {
+      var units = [], byKey = {}, order = [];
+      (rows || []).forEach(function (w) {
+        var g = w["组别"] || "其他";
+        if (!byKey[g]) { byKey[g] = []; order.push(g); }
+        byKey[g].push({ id: w["词语"], w: w["词语"], py: w["拼音"], en: w["英文释义"],
+                        pic: w["图档"], grp: g });
+      });
+      order.forEach(function (g) {
+        units.push({ key: g, level: "启航码头", unit: g, theme: "", count: byKey[g].length });
+      });
+      _arena.json.xh = { units: units, byKey: byKey };
+      return _arena.json.xh;
+    });
+  }
   function fetchStreamJson(stream) {
+    if (isPierStream(stream)) return fetchPierJson();
     if (_arena.json[stream]) return Promise.resolve(_arena.json[stream]);
     return fetch("data/" + stream + ".json" + ASSET_V).then(function (r) { return r.json(); }).then(function (j) {
       var units = [], byKey = {};
@@ -1726,14 +1786,21 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       '<div class="msg" id="arMsg"></div></div>' +
       '</div></div>';
 
-    el("arStream").innerHTML = STREAMS.map(function (s) {
+    el("arStream").innerHTML = ARENA_STREAMS.map(function (s) {
       return '<button class="ar-tile arS' + (s === _setup.stream ? " on" : "") + '" data-s="' + s + '">' +
         '<b>' + STREAM_LABEL[s] + '</b><span>' + STREAM_SUB[s] + '</span></button>';
     }).join("");
     Array.prototype.forEach.call(el("arStream").querySelectorAll(".arS"), function (b) {
       b.onclick = function () { _setup.stream = b.getAttribute("data-s"); _setup.scope = {}; _setup.acc = null; renderArenaSetup(panel); };
     });
-    el("arMode").innerHTML = Object.keys(ARENA_MODE_ZH).map(function (k) {
+    /* ⚠️ Keep _setup.mode LEGAL for the family before painting the row. Switching to
+       码头 while 填空挑战 was selected would otherwise leave a mode selected that has no
+       tile — the row looks like nothing is chosen and 生成擂台码 builds a room the pier
+       cannot render. Same class of bug as arena's own two mode lists (§18w). */
+    if (arenaModesFor(_setup.stream).indexOf(_setup.mode) === -1) {
+      _setup.mode = arenaModesFor(_setup.stream)[0];
+    }
+    el("arMode").innerHTML = arenaModesFor(_setup.stream).map(function (k) {
       return '<button class="ar-tile arM" data-m="' + k + '"><b>' + ARENA_MODE_ZH[k] + '</b>' +
         '<span>' + ARENA_MODE_SUB[k] + '</span></button>';
     }).join("");
@@ -1750,6 +1817,10 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       mark(".arT", function (b) { return b.getAttribute("data-t") === _setup.tier; });
       mark(".arRp", function (b) { return (b.getAttribute("data-py") === "1") === !!_setup.rainPy; });
       mark(".arRl", function (b) { return parseInt(b.getAttribute("data-l"), 10) === _setup.rainLives; });
+      /* ⚠️ both rows are mountain-only and stay hidden on 码头: ⭐档 belongs to 填空挑战
+         and the 词雨 options to a game the pier does not have. They are keyed on the MODE,
+         and no pier mode is cloze/rain, so this already behaves — the note is here so the
+         next person does not "fix" it by adding a stream check. */
       el("arTierRow").style.display = _setup.mode === "cloze" ? "" : "none";
       el("arRainRow").style.display = _setup.mode === "rain" ? "" : "none";
     }
@@ -1801,11 +1872,13 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       function updateSum() {
         var n = 0, picked = 0;
         data.units.forEach(function (u) { if (_setup.scope[u.key]) { picked++; n += u.count; } });
-        el("arSum").textContent = "已选 " + picked + " 个单元 · 共 " + n + " 词";
+        el("arSum").textContent = "已选 " + picked + " 个" + scopeNoun(_setup.stream) +
+          " · 共 " + n + " 词";
         levels.forEach(function (lv) {
           var c = sc.querySelector('.cnt[data-cnt="' + lv + '"]'); if (!c) return;
           var sel = byLevel[lv].filter(function (u) { return _setup.scope[u.key]; }).length;
-          c.textContent = sel ? "· 已选 " + sel + "/" + byLevel[lv].length : "· " + byLevel[lv].length + " 个单元";
+          c.textContent = sel ? "· 已选 " + sel + "/" + byLevel[lv].length
+                              : "· " + byLevel[lv].length + " 个" + scopeNoun(_setup.stream);
         });
       }
       /* ⚠️ Toggling a unit flips a class and updates the counts — it does NOT
@@ -1850,13 +1923,21 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 
   function generateRoom(panel) {
     var m = el("arMsg"); m.className = "msg";
-    if (!Object.keys(_setup.scope).length) { m.className = "msg bad"; m.textContent = "请至少选择一个单元。"; return; }
+    if (!Object.keys(_setup.scope).length) {
+      m.className = "msg bad";
+      m.textContent = "请至少选择一个" + scopeNoun(_setup.stream) + "。"; return;
+    }
     m.textContent = "生成中…";
     fetchStreamJson(_setup.stream).then(function (data) {
       var pool = [];
       Object.keys(_setup.scope).forEach(function (k) { (data.byKey[k] || []).forEach(function (w) { pool.push(w); }); });
       if (_setup.mode === "cloze") pool = pool.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
       if (_setup.mode === "rain") pool = pool.filter(function (w) { return w.w && w.w.length <= 4; });
+      /* ⚠️ 看图识词 NEEDS A PICTURE, and the pier has a whole group without one: 数字 is
+         deliberately artless (§5 — drawing three apples to teach 三 teaches apples). Let
+         one through and the room shows an empty frame with four options under it, which
+         is §4.4's silent failure in its purest form. */
+      if (_setup.mode === "pic") pool = pool.filter(function (w) { return !!w.pic; });
       var minNeed = _setup.mode === "rain" ? 8 : 4;
       if (pool.length < minNeed) { m.className = "msg bad"; m.textContent = "所选范围可用词太少（本模式需要至少 " + minNeed + " 个）。"; return; }
       for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }

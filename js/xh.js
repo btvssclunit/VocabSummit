@@ -1822,18 +1822,15 @@
        ⚠️ SIBLINGS OF THE HERO BUTTON, NOT CHILDREN. .xh-hero is itself a <button>, and a
        button inside a button is §14's first trap — the browser lifts the inner one out
        and the layout silently breaks. app.js hit this and solved it the same way. */
-    /* ⚠️ 并肩航海 IS DELIBERATELY NOT RENDERED YET, and this is not an oversight —
-       it is §4.4 applied to a door. It is the TEACHER-HOSTED mode, and teacher.html can
-       only create mountain rooms: its scope picker is built on 年级/单元/板块 and reads
-       the levels→units→components shape, which the pier's flat 148-row file does not
-       have. Until that console can host a 码头 room, every code a student typed here
-       would come back「找不到这个擂台码」— a door that cannot open, not merely one with
-       no rooms behind it yet yet.
-       ⚠️ EVERYTHING ELSE FOR IT IS ALREADY BUILT: xhArenaCtx() serves both modes, arena
-       accepts a pier room, and the Firestore rule already allows a teacher-hosted room
-       with stream:"xh". Adding the teacher-side scope picker is the only remaining piece;
-       restore the pill in the same change, not before. */
+    /* ⚠️ 并肩航海 CAME BACK once teacher.html could actually host a 码头 room (the same
+       change added 码头 to its stream row and a 组别-based scope picker). It was withheld
+       for one release on purpose: before that, any code typed here returned
+       「找不到这个擂台码」— a door that could not open, which §4.4 forbids shipping.
+       ⚠️ If the teacher console ever loses pier hosting, withhold this pill again rather
+       than leaving it to fail at the join screen. */
     h += '<div class="xh-rooms">' +
+      '<button class="xh-room" id="xhCoop">🤝 并肩航海' + xhPy("并肩航海") +
+      '<span class="xh-en">sail together</span></button>' +
       '<button class="xh-room" id="xhPk">⚔️ 同伴挑战' + xhPy("同伴挑战") +
       '<span class="xh-en">challenge a friend</span></button></div>';
     h += "</div>";                       // close .xh-hero-wrap
@@ -1845,6 +1842,14 @@
 
     document.getElementById("xhHero").onclick = renderBeach;
     document.getElementById("xhPk").onclick = renderXhPk;
+    /* ⚠️ 并肩航海 goes STRAIGHT to arena's join screen, with no setup of its own: the
+       teacher owns the words, the mode and the timing, exactly as 结伴登峰 does on the
+       mountain. A config screen here would let a student pick settings the room then
+       overrides — worse than no screen at all. */
+    document.getElementById("xhCoop").onclick = function () {
+      if (!window.WSArena) return toast("房间功能暂时不可用，请刷新页面。");
+      window.WSArena.open(xhArenaCtx());
+    };
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     /* ⚠️ guarded: the tile is absent when PHRASES failed to load. Unguarded this
        throws and every handler wired after it dies with it. */
