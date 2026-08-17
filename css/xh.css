@@ -885,8 +885,54 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
   padding:4px;cursor:pointer;touch-action:manipulation;
   animation:xhRise .9s cubic-bezier(.22,1,.36,1);
   transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .5s}
+/* ⚠️ picture and characters SIDE BY SIDE (owner 2026-08-17). The button was an
+   image on its own; it is now a row, so the two cues read as one catch rising
+   together rather than a label chasing a sprite. */
 .xh-catch img{display:block;height:clamp(76px,14vh,132px);width:auto;image-rendering:pixelated;
   filter:drop-shadow(0 6px 12px rgba(6,26,48,.45))}
+/* ⚠️ THE LABEL IS ABSOLUTE, SO THE PICTURE DOES NOT MOVE. Laying the two out as a
+   flex row was the obvious first try and it is wrong: the button is centred with
+   translate(-50%), so a wide row drags the picture LEFT by half the label's width —
+   and the left third of .xh-sea is the jetty and the creel, so 民众俱乐部 put its
+   turtle on the dock. Keeping the button's layout width equal to the PICTURE leaves
+   it exactly where it has always been, and the label grows into the open water on
+   the right, which is empty by design.
+   ⚠️ LIGHT INK: .xh-sea is a real dark water surface, not a glass card (§7 —
+   深海蓝面板配浅色字). The double shadow is the .lp-couplet trick: the water behind is
+   a busy pixel texture and a flat colour alone loses the thin strokes.
+   ⚠️ NO PINYIN IS EVER ADDED UNDER THIS — see the note at the call site.
+   ⚠️ max-width is load-bearing: it makes a long word WRAP inside the panel instead of
+   sailing off the right edge. Two lines still sit under the picture's height, so the
+   catch box never grows and the .land arc into the creel is unaffected. */
+.xh-catch-word{position:absolute;left:calc(100% + clamp(6px,1.2vw,16px));top:50%;
+  transform:translateY(-50%);text-align:left;
+  font-family:var(--serif);font-weight:900;line-height:1.06;
+  font-size:clamp(30px,6.4vh,60px);color:#FFF6E2;
+  /* ⚠️ width:max-content IS REQUIRED, not tidying. An absolutely positioned box with
+     only `left` set shrink-to-fits against its CONTAINING BLOCK — which here is the
+     button, i.e. just the picture (~140px). Offset by left:100% the space left over
+     is negative, so it collapsed to its minimum content width: one character per
+     line, running off the bottom of the water. max-content opts out of that, and
+     max-width then caps it so a long word still wraps instead of leaving the panel. */
+  width:max-content;max-width:min(40vw,340px);
+  text-shadow:0 2px 6px rgba(4,18,36,.85),0 0 18px rgba(4,18,36,.6)}
+/* ⚠️ PORTRAIT PHONE PUTS THE WORD UNDER THE PICTURE, not beside it.
+   Beside cannot be made to work here at any cap, and the reason is worth writing
+   down: the space left of the panel edge depends on HOW WIDE THE SPRITE IS, and the
+   pier's pictures range from a narrow 猫 to a very wide 动物园. A vw cap is a guess
+   about a number that changes every question, so 民众俱乐部 kept being clipped
+   mid-character next to the wide ones — and a word the student cannot read defeats
+   the entire point of showing it.
+   Under the picture the width available is the whole panel, which does not vary.
+   ⚠️ .xh-catch rises to 22% here so picture + label still clear the water's bottom
+   edge: 22% of a 270px panel = 59px, + 118px picture, + two 26px lines = 237px < 270.
+   ⚠️ The .land arc is unaffected — --landx/--landy are measured from the live boxes
+   at run time, so it re-reads the new position by itself. */
+@media (max-width:560px){
+  .xh-catch{top:22%}
+  .xh-catch-word{left:50%;top:100%;transform:translate(-50%,2px);text-align:center;
+    font-size:clamp(19px,3.4vh,26px);max-width:min(78vw,250px)}
+}
 @keyframes xhRise{from{transform:translate(-50%,120%);opacity:.15}to{transform:translate(-50%,0);opacity:1}}
 /* miss: it slips under and comes back. Nothing is lost — that is the tier's rule. */
 .xh-catch.dive{transform:translate(-50%,130%);opacity:.2}

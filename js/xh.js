@@ -4003,7 +4003,23 @@
         '<img class="xh-creel" id="xhCreel" src="art/xh/dock_creel_' + creel + '.png' + ASSET_V +
           '" alt="" onerror="this.style.display=\'none\'">' +
         '<img class="xh-fx" id="xhFx" src="" alt="" aria-hidden="true">' +
-        '<button class="xh-catch" id="xhSprite" title="答对或看过拼音后可以点图听读音">' + img(w) + "</button>" +
+        /* ⚠️ THE CHARACTERS RIDE WITH THE PICTURE (owner 2026-08-17:「we need the huge
+           characters to be shown alongside the picture for the players to recognise
+           with both, right now sometimes it's hard to just recognise using picture」).
+           A drawing of 摊位 and a drawing of 菜市场 are not far apart, and the student
+           was being asked to type a reading for a word they had to guess first.
+           ⚠️ THIS LEAKS NOTHING. The answer here is the PINYIN; 汉字 are the question.
+           Reading characters aloud in your head IS the skill this mode tests, so
+           putting them on screen makes the task the intended one instead of a
+           picture-guess with a spelling test bolted on.
+           ⚠️ NO 拼音 ON THIS LABEL, EVER — not gated, not .xh-always, not a <ruby>.
+           The pinyin IS the answer (§4.4 reveals it only after a miss), so a gloss
+           here would hand it over. That is also why the 🔊 stays behind `said`:
+           characters do not give the reading away, but the voice does.
+           ⚠️ 数字 has no 图档, so img() returns the Arabic numeral — the pairing
+           becomes 3 alongside 三, which is exactly the right question for that group. */
+        '<button class="xh-catch" id="xhSprite" title="答对或看过拼音后可以点图听读音">' +
+          img(w) + '<span class="xh-catch-word">' + esc(w.词语) + "</span></button>" +
       "</div>" +
       '<div class="xh-typerow">' +
       '<input class="xh-input" id="xhIn" type="text" autocomplete="off" autocapitalize="off" ' +
