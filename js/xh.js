@@ -304,6 +304,12 @@
     "购物商场": "gòu wù shāng chǎng", "菜市场": "cài shì chǎng",
     "便利店": "biàn lì diàn", "熟食中心": "shú shí zhōng xīn",
     "动物园": "dòng wù yuán", "农场": "nóng chǎng", "水族馆": "shuǐ zú guǎn",
+    /* ---------- 我的背包 (owner 2026-08-17) ----------
+       ⚠️ 整理海滩 is a RETIRED label (the button left 我的海滩), kept for the same
+       reason 词语挑战 is kept: xhPy returns "" on a miss, silently. */
+    "我的背包": "wǒ de bèi bāo", "摆在海滩上的": "bǎi zài hǎi tān shàng de",
+    "收在背包里的": "shōu zài bèi bāo lǐ de", "整理位置": "zhěng lǐ wèi zhì",
+    "收起": "shōu qǐ", "摆上": "bǎi shàng",
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
     /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
@@ -455,6 +461,54 @@
     };
     document.getElementById("xhProf").onclick = openProfile;
   }
+  /* ================= 进度码 provider (owner 2026-08-17) =======================
+     ⚠️ THE PIER HAD NO PROGRESS CODE AT ALL until now. Four mountain codes existed and
+     each rejected the other three; a pier student who changed device lost everything with
+     no way back. VS3 is one code for all five lands, and profile.js owns the format — this
+     hook exists for exactly one reason:
+     ⚠️ THE LIVE STORE MUST BE WRITTEN BY THIS FILE. `store` is held in memory here and the
+     next save() would erase a direct localStorage write from profile.js. So profile.js
+     writes the OTHER four lands itself and routes this one back through here. Same
+     contract app.js has had since VS1.
+     ⚠️ THIS DOES NOT BREACH THE WATERLINE (§4). xh.js still never reads or writes
+     ws2_{stream}, and app.js still never reads ws_xh — neither engine gained a line. The
+     code carries the two stores side by side; nothing converts between them, and no
+     currency travels at all (no 贝壳, no 灵露 — see profile.js's note on why).
+     ⚠️ NO `wallet`/`spend`: those are the mountain's 灵露 hooks for buying avatars. 贝壳
+     buys boats through 海滩小铺 and must not become a second avatar purse. */
+  function registerCode() {
+    if (!(window.WSProfile && window.WSProfile.registerCodeProvider)) return;
+    window.WSProfile.registerCodeProvider({
+      stream: "xh",
+      /* ⚠️ `addIds` here are WORD TEXTS, not ids — store.done is keyed by 词语 (the pier
+         has never had word ids). profile.js builds the bitmask over the same published
+         order, so the two agree by construction. */
+      commit: function (plan) {
+        var added = 0;
+        (plan.addIds || []).forEach(function (t) {
+          if (!store.done[t]) { store.done[t] = true; added++; }
+        });
+        /* ⚠️ readLines rides along but is NOT counted in `added`: 读过 N 句 is exposure,
+           not progress, and must never reach 航程, the badges or a board (§18n). */
+        (plan.readLines || []).forEach(function (id) {
+          if (!store.readLines[id]) store.readLines[id] = 1;
+        });
+        save();
+        pushDock(true);          // the boards should reflect a restore immediately
+        return { added: added };
+      },
+      snapshot: function () { return JSON.parse(JSON.stringify(store)); },
+      restoreSnapshot: function (snap) {
+        if (!snap) return;
+        store = snap; save();
+        /* ⚠️ re-render: an undo that leaves the old numbers on screen reads as a
+           silently failed undo, which is worse than no undo. */
+        renderMenu();
+      },
+      onChanged: renderTop
+    });
+  }
+
   function openProfile() {
     if (!window.WSProfile) return;
     window.WSProfile.open({
@@ -1054,6 +1108,32 @@
   function sceneLines(scene) {
     return PHRASES.filter(function (p) { return p.scene === scene && p.zh; });
   }
+  /* Which word this line should SHOW, and its picture.
+     ⚠️ display-only lines have NO `ask` at all — that is what makes them display-only —
+     so the ordinary `p.pic || ask.图档` lookup returns nothing and the card rendered as
+     a bare sentence with an empty space where every neighbouring card has a sprite
+     (owner 2026-08-17, reporting 「我的邻居养了一只猫。」 and 「组屋区里有许多设施。」).
+     The line is still ABOUT something, and 猫 and 组屋 are both pier words with art.
+     ⚠️ LONGEST MATCH, or 熊猫最喜欢吃竹子 picks 猫. The longest pier word contained in
+     the sentence is the one the sentence is really about.
+     ⚠️ THIS IS SAFE ONLY BECAUSE 走进社区 ASKS NOTHING. Do not reach for it from
+     看句选词: there the picture IS part of the question and must be exactly the target
+     word (§11 — 「这包＿＿多少钱？」 is unanswerable without the right sticker, and the
+     wrong one would make it answerable with the wrong word).
+     ⚠️ Returns the word too, so the card can print it with its 拼音: a word worth
+     picturing is a word worth naming. */
+  function lineSubject(p) {
+    var w = p.ask ? wordByText(p.ask) : null;
+    if (p.pic) return { file: p.pic, word: w };
+    if (w && w.图档) return { file: w.图档, word: w };
+    if (w) return { file: "", word: w };
+    var best = null, zh = String(p.zh || "");
+    WORDS.forEach(function (x) {
+      if (!x.图档 || !x.词语 || zh.indexOf(x.词语) === -1) return;
+      if (!best || x.词语.length > best.词语.length) best = x;
+    });
+    return { file: best ? best.图档 : "", word: best };
+  }
   function sceneReadCount(scene) {
     return sceneLines(scene).filter(function (p) { return p.id && store.readLines[p.id]; }).length;
   }
@@ -1191,8 +1271,7 @@
      （认词 三种 · 用词 两种），见 renderModeConfig。08-16 拆成两扇门是为了让
      句级题型不再混在词级题型里，那个区分仍然在，少的只是一次点击。 */
   var ENTRIES = [
-    { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true, short: "Flashcards",
-      sub: "词语卡 · 句子卡", subEn: "words or sentences" },
+    { k: "cards", icon: "📖", zh: "词语闪卡", en: "Flashcards", learn: true, short: "Flashcards" },
     /* ⚠️ 学以致用 IS NOT A DOOR ANY MORE (owner 2026-08-17:「put 学以致用 into quiz
        yourself as a test mode」). Its two sentence types moved in here as question
        types 4 and 5, so 学习 is two cards — read it, then test it — and every way of
@@ -1224,9 +1303,7 @@
        ⚠️ 词语挑战 IS GONE AS A NAME. Do not reintroduce it as a shelf heading or a
        sub-door: the pier now has 词语闪卡 and 学习挑战, matching the mountain word for
        word, and a third pier-only name in between is what made ② feel clunky before. */
-    { k: "quiz", icon: "✍️", zh: "学习挑战", en: "Quiz", learn: true, short: "the quiz",
-      sub: "认词三种 · 用词两种 · 配对与拼字两种",
-      subEn: "three word types, two sentence types, two hands-on types" },
+    { k: "quiz", icon: "✍️", zh: "学习挑战", en: "Quiz", learn: true, short: "the quiz" },
     { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false , short: "fishing" },
     /* ⚠️ 踏浪竞速 IS A DOOR NOW, not a row inside every other config page (owner
        2026-08-17:「play mode for pier should only show fishing and beach run」).
@@ -1238,7 +1315,6 @@
        ⚠️ It owns no mode of its own: `entryModes("surf")` is derived from RUN_MODES,
        so a new runnable 题型 joins this door automatically and can never drift. */
     { k: "surf", icon: "🏃", zh: "踏浪竞速", en: "Beach run", learn: false, short: "the beach run",
-      sub: "选一种题型来跑", subEn: "pick a question type to run",
       naZh: "这组没有能跑的题型", naEn: "no runnable question type in this scope" }
   ];
   /* which store slot remembers the last type used behind a multi-type door.
@@ -1311,13 +1387,24 @@
          column, which then stretched its tiles to fill and left the 我的词语表 cover
          floating in the middle of a 330px card. Two ordinary-sized tiles read as
          doors just as well and give the column back ~70px. */
+      /* ⚠️ NO SUBHEADING ON A DOOR TILE (owner 2026-08-17: 「this is too cluttered -
+         remove subheadings」). Each tile already carries an icon, a name, its pinyin
+         and its English — a fifth line listing what is behind the door made ③ four
+         stacked paragraphs, and with 拼音 and 英文 both on by default at the pier that
+         line arrives THREE deep.
+         ⚠️ This does NOT undo §18n. That fix was「the sentence modes have no name
+         anywhere」, and the names now live where they are actually useful: the
+         用词 · 生活空间 shelf heading inside 学习挑战, and 走进社区 as a visible tile in
+         the right rail. The tile subtitle was the noisiest of the three places to say
+         it, not the only one.
+         ⚠️ The 灰掉理由 below is NOT a subheading and stays: it is the only thing that
+         explains why a door cannot be opened. */
       return '<button class="xh-mode' + (ok ? "" : " na") + '" data-e="' + e.k + '"' +
         (ok ? "" : " disabled") + '>' +
         '<span class="xh-mi">' + e.icon + "</span><b>" + e.zh + "</b>" + xhPy(e.zh) +
         '<span class="xh-en">' + e.en + "</span>" +
         (ok
-          ? (e.sub ? '<span class="xh-mode-sub">' + e.sub +
-                     '<span class="xh-en">' + e.subEn + "</span></span>" : "")
+          ? ""
           /* ⚠️ the reason is PER DOOR. It was hardcoded to「这组没有图片」, which is true
              of 词语挑战 and 学以致用 and false of 组字成词 — that one greys out because
              the scope holds nothing longer than one character, and telling a student
@@ -1432,10 +1519,9 @@
              acc: shown ? Math.round((shown - wrong) / shown * 100) : null,
              full: full, groups: gs.length };
   }
-  function statCell(n, unit, zh, en) {
-    return '<div class="xh-stat"><b>' + n + (unit ? "<i>" + unit + "</i>" : "") + "</b>" +
-      "<span>" + zh + xhPy(zh) + '<span class="xh-en">' + en + "</span></span></div>";
-  }
+  /* ⚠️ statCell is GONE with the hero's three stat boxes (owner 2026-08-17). It had
+     exactly one caller. Left in place it would be an invitation to build a second
+     boxed-stat row somewhere, which is the layout the owner just asked to remove. */
 
   /* ---------- menu ---------- */
   function renderMenu() {
@@ -1517,7 +1603,14 @@
     var tiles = '';
     /* 我的词语表 tile. 航程 (1 词 = 1 海里) is the dock's own distance metric and is
        deliberately NOT 海拔 — nothing crosses the waterline. */
-    tiles += '<button class="xh-tile wide" id="xhLog">' +
+    /* ⚠️ NOT `.wide` any more (owner 2026-08-17: 「走进社区 should share a row with my
+       vocab list instead of being underneath」). The rail is now two rows of two:
+       我的词语表 ‖ 走进社区 on top (the two browse surfaces — every word, every place),
+       航海徽章 ‖ 码头风云榜 below. Stacking two full-width tiles pushed the badges and
+       the board off the fold on a laptop.
+       ⚠️ The 海里 progress bar survives at half width; it is the only tile with one and
+       it is what makes 我的词语表 readable at a glance. */
+    tiles += '<button class="xh-tile" id="xhLog">' +
       '<img class="xh-tile-art" src="art/xh/xh_atlas_cover.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
       '<span class="xh-tile-txt"><b>我的词语表</b>' + xhPy("我的词语表") +
@@ -1540,7 +1633,7 @@
     if (PHRASES.length) {
       var scRead = 0;
       SCENE_ORDER.forEach(function (s) { scRead += sceneReadCount(s); });
-      tiles += '<button class="xh-tile wide" id="xhScenes">' +
+      tiles += '<button class="xh-tile" id="xhScenes">' +
         '<img class="xh-tile-art" src="art/xh/scene_hawker.png' + ASSET_V + '" alt="" ' +
           "onerror=\"this.style.display='none'\">" +
         '<span class="xh-tile-txt"><b>走进社区</b>' + xhPy("走进社区") +
@@ -1628,19 +1721,41 @@
        so what has been bought is visible from the front page, not two taps down.
        ⚠️ Keep it OUT of .xh-col-l: a numbered step and an identity banner in one
        column is the mix the stream-page handoff §0 exists to prevent. */
+    /* ⚠️ NO BERTH SPRITES ON THIS PREVIEW (owner 2026-08-17: 「for the beach preview
+       don't display the purchased items as the positions don't lock right. just display
+       the original image」). It used to composite the same items at the same percentage
+       coordinates as 我的海滩 so the two could not drift — but percentages resolve against
+       a DIFFERENT box here (a short wide banner, not the tall stage), so a crate the
+       student parked on the sand landed in the sea. Free placement (§18m) made this
+       worse, not better: the coordinates are now wherever a finger left them.
+       ⚠️ Do NOT "fix" it by scaling the coordinates. The two boxes have different aspect
+       ratios, so no single transform maps one to the other — and the preview does not need
+       to: the beach is one tap away and shows the real arrangement.
+       ⚠️ CLEANED UP to match the mountain's banner (owner: 「very cluttered, make it more
+       like the mountain interface clean and sleek」). app.js's .lscape carries a name, ONE
+       quiet line and a corner link — not a subtitle plus three boxed stat cells. The three
+       numbers become one line; 一次答对 and 集齐的组 are still available on 我的词语表 and
+       the boards, which is where a student goes to study them.
+       ⚠️ The whole-plate tap target stays a real <button>, not a div — and there is still
+       exactly ONE action, so it needs no overlay-button trick (app.js needs that only
+       because it stacks the room pills on top). */
     h += '<button class="xh-hero" id="xhHero" title="我的海滩">' +
       '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
-      '<span class="xh-hero-scene">' + beachSpritesHtml() + '</span>' +
       '<div class="xh-hero-in">' +
         '<div class="xh-hero-t">启航码头</div>' +
-        '<div class="xh-hero-sub">词语闪卡 · 看图听音，慢慢来' + xhPy("词语闪卡 · 看图听音，慢慢来") +
-        '<span class="xh-en">Pictures first, characters second. Go at your own pace.</span></div>' +
-        '<div class="xh-stats">' +
-          statCell(st.met, "海里", "航程", "words met") +
-          statCell(st.acc === null ? "—" : st.acc + "%", "", "一次答对", "first-try correct") +
-          statCell(st.full + " / " + st.groups, "", "集齐的组", "chapters complete") +
-        "</div></div></button>";
+        /* ⚠️ no inline xhPy() mid-sentence — the gloss spans are display:block under the
+           gate, so a gloss between two clauses splits one line into three (the same
+           thing that had to be fixed on the 走进社区 tile). The English line under it
+           carries the whole reading instead. */
+        '<div class="xh-hero-line"><b>' + st.met + '</b> 海里' +
+          ' · 一次答对 <b>' + (st.acc === null ? "—" : st.acc + "%") + '</b>' +
+          ' · 集齐 <b>' + st.full + " / " + st.groups + '</b>' +
+          '<span class="xh-en">' + st.met + ' words met · ' +
+          (st.acc === null ? "—" : st.acc + "% first try") + ' · ' +
+          st.full + " / " + st.groups + ' chapters</span></div>' +
+      "</div>" +
+      '<span class="xh-hero-go">🏖️ 我的海滩 ›</span></button>';
 
 
     h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below
@@ -2146,6 +2261,10 @@
     var lines = sceneLines(s);
     if (!lines.length) return renderScenes();
     var pool = [];
+    /* ⚠️ the pool is built from `ask` ONLY, never from lineSubject's text match: it is
+       what the end screen hands to startRound for 看句选词, and there the picture must
+       be the real target (§11). A word we merely PICTURED on a display-only card has
+       not been taught as that line's answer and must not become a question. */
     lines.forEach(function (p) {
       var w = p.ask && wordByText(p.ask);
       if (w && pool.indexOf(w) === -1) pool.push(w);
@@ -2280,6 +2399,26 @@
        item stays OWNED so swapping back is free */
     store.berth[it.slot] = it.k; save();
   }
+  /* ---------- 我的背包 · put an owned thing away (owner 2026-08-17) ----------
+     ⚠️ NOTHING IS EVER LOST. Putting away clears the SLOT, never `store.owned` — the
+     item is still bought, still in the backpack, still free to come back out. If this
+     ever deletes from `owned`, a student has paid 45 贝壳 for something a stray tap
+     destroyed.
+     ⚠️ It also clears that item's saved DRAG POSITION, and that is the feature, not
+     tidying up: 整理海滩 is gone from the beach screen (owner asked), and §18m is
+     explicit that free placement without a way back is a trap. Put-away-and-place-again
+     is now the per-item reset, expressed as something a student already understands.
+     The all-at-once reset still exists, one level in, inside the backpack. */
+  function putAwayItem(it) {
+    if (!it) return;
+    if (store.berth[it.slot] === it.k) delete store.berth[it.slot];
+    if (store.berthPos) delete store.berthPos[it.k];
+    save();
+  }
+  function itemIsOut(it) { return !!it && store.berth[it.slot] === it.k; }
+  function ownedItems() {
+    return BERTH_ITEMS.filter(function (it) { return ownsItem(it.k); });
+  }
   /* ---------- 自由摆放 (owner 2026-08-17) ----------
      ⚠️ THE BERTH USED TO BE FIVE FIXED HOOKS. The spec chose that deliberately
     （「The camp earned dragging; the dock has not yet」）and the owner overruled it on
@@ -2320,6 +2459,11 @@
 
   /* the boat + whatever is in each berth slot, as one absolutely-positioned layer.
      Shared by 我的海滩 and the menu hero so the two can never drift apart. */
+  /* ⚠️ `movable` is now ALWAYS true in practice: 我的海滩 is the only caller since the
+     hero stopped compositing berth items (owner 2026-08-17 — percentages resolve against
+     a different box there, so a crate parked on sand landed in the sea). The parameter
+     stays because the landing page's hero still needs the inert form if it ever wants it,
+     and because touch-action:none must NEVER be applied to a non-draggable copy (§18m). */
   function beachSpritesHtml(movable) {
     /* ⚠️ NO BOAT IN THIS SCENE (owner 2026-08-16 evening: 「remove boat from beach
        since it's now reflected on sea map」). The berth sprite used to be the only
@@ -2362,21 +2506,127 @@
     h += "</div>";
     h += '<div class="beach-hint">按住摆件可以拖到你喜欢的位置' + xhPy("按住摆件可以拖到你喜欢的位置") +
       '<span class="xh-en">Press and hold an item to drag it anywhere</span></div>';
+    /* ⚠️ 整理海滩 IS GONE FROM THIS SCREEN (owner 2026-08-17), replaced by 我的背包.
+       ⚠️ §18m's rule that free placement needs a way back STILL HOLDS — it has not been
+       dropped, it has moved and grown: 收起 clears one item's position, and 整理位置
+       inside the backpack still resets them all. Do NOT put a bare tidy button back
+       here; do NOT remove the one in the backpack either.
+       ⚠️ Why a backpack at all (owner: 「a mechanism where students can choose to keep
+       their items away」): before this, an owned item had NO way off the sand. The shop
+       only ever offered 摆上 — swapping was the only way to change the beach, so a
+       student who wanted an empty shore could not have one. */
     h += '<div class="beach-acts"><button class="xh-btn" id="beachShop">🛒 海滩小铺' + xhPy("海滩小铺") +
       '<span class="xh-en">shop</span></button>' +
-      /* ⚠️ THE WAY BACK. Free placement without a reset is a trap: a student who
-         drags everything into one corner has no way to undo it, and the camp learned
-         this the same way (整理营地). It restores POSITIONS ONLY — nothing bought is
-         ever lost, and the confirm text says so. */
-      '<button class="xh-btn" id="beachTidy">🧹 整理海滩' + xhPy("整理海滩") +
-      '<span class="xh-en">tidy up</span></button></div></div>';
+      '<button class="xh-btn" id="beachPack">🎒 我的背包' + xhPy("我的背包") +
+      '<span class="xh-en">your backpack</span></button></div></div>';
     view().innerHTML = h;
     wireQuit();
     document.getElementById("beachShop").onclick = renderBeachShop;
-    document.getElementById("beachTidy").onclick = function () {
-      store.berthPos = {}; save(); sfxOk(); renderBeach();
-    };
+    document.getElementById("beachPack").onclick = renderPack;
     wireBeachDrag(document.getElementById("beachStage"));
+  }
+
+  /* ================= 🎒 我的背包 (owner 2026-08-17) =========================
+     「a mechanism where students can choose to keep their items away, perhaps an
+     inventory? I think we had the idea of their backpack - has it materialised?」
+     ⚠️ IT HAD NOT. Nothing named 背包 existed anywhere in the repo. The nearest thing
+     was the mountain's `store.items` (consumable counts) and `store.itemSlots`, whose
+     own picker is still unbuilt (§18). The pier had `store.owned` but NO screen that
+     listed it: 海滩小铺 only ever offered 摆上, so the only way to change the beach was
+     to swap one thing for another and an empty shore was unreachable.
+     ⚠️ THIS IS NOT A SECOND SHOP. It sells nothing and shows no prices — it lists what
+     is already owned and offers exactly one action per item, 摆上 or 收起. Prices live
+     in 海滩小铺 and must stay there, or a student has two screens to check for the same
+     answer.
+     ⚠️ IT CARRIES THE WAY BACK that 整理海滩 used to (§18m: free placement without a
+     reset is a trap). Two layers, both deliberate: 收起 clears that one item's saved
+     position, and 整理位置 at the bottom clears them all. Do NOT delete the second one
+     just because the first exists — a student who has dragged five things into one
+     corner should not have to put all five away to undo it.
+     ⚠️ Boats are NOT here. A boat is never「away」— one is always sailing, it shows on
+     the landing sea map, and it is owned GLOBALLY in ws2_profile rather than in
+     store.owned (§4: the boat is one of the three things allowed across the waterline).
+     Swapping boats stays in the shop where the ladder is visible. */
+  function renderPack() {
+    view().classList.remove("two-col");
+    state = null;
+    runTeardown();
+    var owned = ownedItems(), out = owned.filter(itemIsOut).length;
+    var h = '<div class="xh-board"><div class="beach-head">' +
+      '<div class="xh-berth-title">🎒 我的背包' + xhPy("我的背包") +
+      '<span class="xh-en">Your backpack</span></div>' +
+      '<span class="beach-purse">' + shellIcon() + '<b>' + (store.shells || 0) + '</b> 贝壳' +
+      xhPy("贝壳") + '<span class="xh-en">shells</span></span></div>';
+    if (!owned.length) {
+      /* ⚠️ an empty backpack says where things COME FROM. A bare「你还没有东西」is a
+         dead end on the one screen a student reaches by wondering what they own. */
+      h += '<div class="xh-log-sub">你还没有摆件。到 海滩小铺 用贝壳买第一件吧。' +
+        '<span class="xh-en">Nothing yet. Buy your first piece at 海滩小铺 with shells.</span></div>';
+    } else {
+      h += '<div class="xh-log-sub">买下的东西都在这里，一件都不会不见。想摆就摆上，' +
+        '想收就收起来。<span class="xh-en">Everything you have bought lives here and can never be ' +
+        'lost. Put it out on the beach, or keep it in the bag.</span></div>';
+      h += '<div class="xh-log-sec">摆在海滩上的' + xhPy("摆在海滩上的") +
+        '<span class="xh-en">Out on the beach · ' + out + '</span></div>';
+      h += '<div class="beach-shelf">' + packTiles(owned.filter(itemIsOut)) + "</div>";
+      var away = owned.filter(function (it) { return !itemIsOut(it); });
+      h += '<div class="xh-log-sec">收在背包里的' + xhPy("收在背包里的") +
+        '<span class="xh-en">In the bag · ' + away.length + '</span></div>';
+      h += away.length
+        ? '<div class="beach-shelf">' + packTiles(away) + "</div>"
+        : '<div class="xh-log-sub">背包是空的，你买的每一件都摆出来了。' +
+          '<span class="xh-en">The bag is empty — everything you own is on the beach.</span></div>';
+    }
+    /* ⚠️ 整理位置 restores POSITIONS ONLY and the label has to say so, because「整理」
+       next to a list of possessions reads like it might throw something away. */
+    h += '<div class="beach-acts"><button class="xh-btn" id="packBack">‹ 回海滩' +
+      xhPy("回海滩") + '<span class="xh-en">back to the beach</span></button>' +
+      (owned.length ? '<button class="xh-btn ghost" id="packTidy">🧹 整理位置' +
+        xhPy("整理位置") + '<span class="xh-en">reset where things sit</span></button>' : "") +
+      "</div></div>";
+    view().innerHTML = h;
+    wireQuit();
+    document.getElementById("packBack").onclick = renderBeach;
+    if (document.getElementById("packTidy")) {
+      document.getElementById("packTidy").onclick = function () {
+        store.berthPos = {}; save(); sfxOk(); renderPack();
+      };
+    }
+    Array.prototype.forEach.call(view().querySelectorAll("[data-put]"), function (el) {
+      el.onclick = function () {
+        putAwayItem(itemByKey(el.getAttribute("data-put"))); sfxOk(); renderPack();
+      };
+    });
+    Array.prototype.forEach.call(view().querySelectorAll("[data-out]"), function (el) {
+      el.onclick = function () {
+        var it = itemByKey(el.getAttribute("data-out"));
+        if (it && ownsItem(it.k)) { equipItem(it); sfxOk(); renderPack(); }
+      };
+    });
+  }
+  /* ⚠️ THE WHOLE TILE IS THE BUTTON (§14 nested buttons, and §18l's shelves): one item,
+     one action, and the action is the only thing that differs between the two shelves. */
+  function packTiles(list) {
+    return list.map(function (it) {
+      var isOut = itemIsOut(it), sl = slotByKey(it.slot);
+      return '<button class="xh-sitem' + (isOut ? " is-on" : " is-own") + '" data-' +
+        (isOut ? "put" : "out") + '="' + it.k + '">' +
+        '<span class="xh-sic"><img src="art/xh/' + it.img + '.png' + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\"></span>" +
+        "<b>" + esc(it.zh) + "</b>" + xhPy(it.zh) +
+        '<span class="xh-en">' + esc(it.en) + "</span>" +
+        /* naming the slot is what makes 摆上 predictable — the student knows where it
+           will land before they tap, and it is also why two things cannot share a spot */
+        '<span class="xh-salt">' + esc(sl ? sl.zh : "") + "</span>" +
+        '<span class="xh-sstate' + (isOut ? " on" : "") + '">' +
+        (isOut ? "收起" + xhPy("收起") + '<span class="xh-en">put it away</span>'
+               : "摆上" + xhPy("摆上") + '<span class="xh-en">place it</span>') +
+        "</span></button>";
+    }).join("");
+  }
+  function slotByKey(k) {
+    for (var i = 0; i < BERTH_SLOTS.length; i++) if (BERTH_SLOTS[i].k === k) return BERTH_SLOTS[i];
+    return null;
   }
 
   /* ---------- 自由摆放 drag (owner 2026-08-17) ----------
@@ -3265,21 +3515,42 @@
      ⚠️ The Chinese is read aloud; the English never is (§8). */
   function renderSentenceCard() {
     var p = state.seq[state.i], n = state.seq.length;
-    var w = wordByText(p.ask);
+    /* ⚠️ lineSubject, not wordByText(p.ask) — see its own note. On a display-only line
+       `p.ask` is undefined and this used to leave the card with no picture and no word,
+       which read as a broken card sitting between two normal ones.
+       ⚠️ The word it returns is used for the CHIP as well as the picture, so the two can
+       never disagree about what the card is showing. */
+    var subj = lineSubject(p), w = subj.word, file = subj.file;
     /* ⚠️ the ONLY write of store.readLines. Idempotent by construction (a set keyed
        on the phrase id), so the re-render a 拼音／英文 toggle causes costs nothing.
        ⚠️ store.done is NOT touched here and must never be: 学过了 counts words the
        student has produced an answer for, and looking at a card is not that — the
-       word-card branch has said so since 2026-08-15 and this face is no different. */
+       word-card branch has said so since 2026-08-15 and this face is no different.
+       ⚠️ It is not touched for the matched word either: a picture we chose for the
+       student is not an answer the student gave. */
     if (p.id && !store.readLines[p.id]) { store.readLines[p.id] = 1; save(); }
-    var file = p.pic || (w && w.图档);
+    /* ⚠️ THE SCENE'S OWN BACKDROP, not the pier's (owner 2026-08-17: 「everything in
+       走进社区 should use the authentic scene background instead of the pier background」).
+       You are standing in the wet market, so the wet market is behind you — the pier
+       sand made every place look like the same place.
+       ⚠️ Same mechanism 看句选词/重整句子 already use: a .xh-scene-bg layer plus
+       `.on-scene` on the panel, which is what raises the panel's own alpha so white
+       text stays readable over a photograph (§18a). Do NOT hand-roll a second dimmer
+       — the darken/desaturate knob is ONE filter on .xh-scene-bg and lives there so
+       ten backdrops of differing brightness stay one adjustment (§18a).
+       ⚠️ Keyed on `state.scene`, so ONLY a 走进社区 walk gets it: 词语闪卡 · 句子卡
+       draws from whatever ①学习范围 holds and can cross scenes inside one sitting,
+       where a backdrop that changed every card would be pure noise. */
+    var bg = state.scene ? SCENE_BG[state.scene] : null;
     /* ⚠️ the tag names WHERE THE STUDENT IS. On a 走进社区 walk that is the place —
        「菜市场 · 走进社区」— not「菜市场 · 句子卡」, which would name a screen they never
        opened and is the same mislabel the topbar arrow had to be taught about. */
     var h = '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(state.grp) +
       (state.walk ? " · 走进社区" : " · 句子卡") + "</span></div>" +
-      '<div class="xh-board xh-stage xh-card">' +
+      (bg ? '<div class="xh-scene-bg" style="background-image:url(&quot;art/xh/' +
+            esc(bg) + '.png' + ASSET_V + '&quot;)"></div>' : "") +
+      '<div class="xh-board xh-stage xh-card' + (bg ? " on-scene" : "") + '">' +
       (file
         /* ⚠️ 图档 / pic already carry the .png — img() does not append one either. */
         ? '<button class="xh-sprite big" id="xhSprite" title="点一下听句子">' +
@@ -3382,7 +3653,13 @@
        for the words it just taught. */
     var walk = !!state.walk;
     var canTest = isSent && phrasesFor(state.pool || [], "phrase").length > 0;
-    var h = '<div class="xh-board xh-result"><div class="xh-berth-title">' +
+    /* the walk's last screen stays IN the place it just walked through — stepping
+       back onto pier sand at the end reads as having been thrown out of the market */
+    var endBg = walk && state.scene ? SCENE_BG[state.scene] : null;
+    var h = (endBg ? '<div class="xh-scene-bg" style="background-image:url(&quot;art/xh/' +
+              esc(endBg) + '.png' + ASSET_V + '&quot;)"></div>' : "") +
+      '<div class="xh-board xh-result' + (endBg ? " on-scene" : "") +
+      '"><div class="xh-berth-title">' +
       (walk ? "🏘️ 这个地方读完了" : "📖 这一组看完了") + "</div>" +
       '<div class="xh-score">' + esc(state.grp) + ' · <b>' + state.seq.length + "</b> " +
       (isSent ? "个句子" : "个词语") +
@@ -4635,6 +4912,11 @@
       WORDS = rows;
       if (!store.mode) store.mode = "pic";
       checkGroupLabels();
+      /* ⚠️ registered AFTER the word list lands. profile.js reads the published order
+         itself, so this hook needs no WORDS — but the panel can be opened the moment the
+         page paints, and a provider whose commit ran against an empty store would report
+         「+0」on a perfectly good code. */
+      registerCode();
       renderMenu();
     })
     .catch(function () {

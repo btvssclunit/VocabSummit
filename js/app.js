@@ -6495,6 +6495,13 @@
         if (window.WSProfile && window.WSProfile.registerCodeProvider) {
           window.WSProfile.registerCodeProvider({
             stream: STREAM,
+            /* ⚠️ STILL PASSED, and no longer called by the panel. profile.js owns the
+               VS3 format now and does its own encode/decode for all five lands; these two
+               remain because encodeProgress is the ONLY place that can emit a legacy VS2
+               code for this stream, which teacher-side tooling and any code a student
+               already has in an email still speak. Do not delete them to「clean up」:
+               decodeProgress is also what proves a VS2 code's checksum and stream.
+               ⚠️ `commit` below IS still the live path — see profile.js's commitAll. */
             encode: encodeProgress,
             decode: decodeProgress,          // pure planner (no writes)
             commit: commitProgress,          // the only writer
@@ -6567,38 +6574,55 @@
           if (!(window.WSProfile && window.WSProfile.takePendingCode)) return;
           var pend = window.WSProfile.takePendingCode(STREAM);
           if (!pend || !pend.code) return;
-          var plan = decodeProgress(pend.code);
-          if (plan.err) { toast("进度码无法使用：" + plan.err); return; }
-          // the picker adopted the code's nickname, so a mismatch here means the
-          // student changed it afterwards — their call, so just proceed
-          var ids = plan.addIds || [];
-          var have = 0;
-          ids.forEach(function (id) { if (store.mastered[id]) have++; });
-          var gain = ids.length - have;
-          var mine = Object.keys(store.mastered).length;
-          /* popOverlay + two nav buttons — app.js's own confirm pattern.
-             profile.js has confirmDialog() but it is NOT exported here (see 营地). */
-          var ov = popOverlay(
-            '<div class="pop-title">🔄 恢复你的进度？</div>' +
-            '<div class="pop-body">进度码里有 <b>' + ids.length + '</b> 个已掌握的词语，' +
-            '你现在有 <b>' + mine + '</b> 个。<br>恢复后会合并成 <b>' + (mine + gain) +
-            '</b> 个 — <b>只增不减</b>。</div>' +
-            '<div class="nav-row"><button class="nav-btn" id="pcNo">以后再说</button>' +
-            '<button class="nav-btn primary" id="pcYes">恢复</button></div>');
-          document.getElementById("pcNo").onclick = function () { ov.remove(); };
-          document.getElementById("pcYes").onclick = function () {
-            ov.remove();
-            // snapshot -> log -> commit, the same order 我的档案 uses, so 撤销恢复 works
-            try { sessionStorage.setItem("ws2_" + STREAM + "_prerestore", JSON.stringify(store)); } catch (e) {}
-            if (window.WSCloud && window.WSCloud.logRestore) {
-              window.WSCloud.logRestore({ stream: STREAM, n: ids.length,
-                codeNick: plan.codeNick || "", matched: true, via: "newDevice" });
-            }
-            var res = commitProgress(plan);
-            applyAmbience();
-            renderHome();
-            toast("已恢复 " + res.added + " 个词语");
-          };
+          /* ⚠️ THE DECODE IS profile.js's NOW, not decodeProgress(). A VS3 code covers all
+             five lands and is positional over five published files; app.js has one word
+             list in memory and could only ever read its own section — a five-land code
+             pasted into the picker would have been rejected here as a format error.
+             ⚠️ decodeCode is ASYNC (it fetches the word orders). Nothing below may assume
+             the dialog appears in the same tick. */
+          if (!window.WSProfile.decodeCode) return;
+          window.WSProfile.decodeCode(pend.code, function (plan) {
+            if (plan.err) { toast("进度码无法使用：" + plan.err); return; }
+            var d = window.WSProfile.planDelta(plan);
+            // the picker adopted the code's nickname, so a mismatch here means the
+            // student changed it afterwards — their call, so just proceed
+            /* ⚠️ ONE ROW PER LAND, never a combined total (§4.1). The五 numbers never add. */
+            var rows = d.rows.map(function (r) {
+              return '<div style="margin-top:3px">' + esc(r.label.split(" \u00b7 ")[0]) +
+                '\uff1a<b>' + r.have + '</b> \u2192 <b>' + (r.have + r.newly) + '</b></div>';
+            }).join("");
+            /* popOverlay + two nav buttons — app.js's own confirm pattern.
+               profile.js has confirmDialog() but it is NOT exported here (see 营地). */
+            var ov = popOverlay(
+              '<div class="pop-title">\ud83d\udd04 \u6062\u590d\u4f60\u7684\u8fdb\u5ea6\uff1f</div>' +
+              '<div class="pop-body">\u8fd9\u6bb5\u8fdb\u5ea6\u7801\u6db5\u76d6\u4f60\u7684\u6240\u6709\u9646\u5730\u3002' +
+              '<b>\u53ea\u589e\u4e0d\u51cf</b>\u3002</div>' +
+              '<div class="pop-body" style="background:#F1F6FB;border:1px solid #DBE7F1;border-radius:10px;padding:10px 12px;margin-top:8px">' +
+              rows + '</div>' +
+              '<div class="nav-row"><button class="nav-btn" id="pcNo">\u4ee5\u540e\u518d\u8bf4</button>' +
+              '<button class="nav-btn primary" id="pcYes">\u6062\u590d</button></div>');
+            document.getElementById("pcNo").onclick = function () { ov.remove(); };
+            document.getElementById("pcYes").onclick = function () {
+              ov.remove();
+              /* snapshot -> log -> commit, the same order 我的档案 uses so 撤销恢复 works.
+                 ⚠️ snapshotAll, not a hand-rolled per-stream key: the undo has to be able
+                 to put back every land this touched, and profile.js owns that key now. */
+              window.WSProfile.snapshotAll(plan);
+              if (window.WSCloud && window.WSCloud.logRestore) {
+                window.WSCloud.logRestore({
+                  stream: (plan.sections || []).map(function (x) { return x.sec; }).join("+"),
+                  n: d.addTotal, codeNick: plan.codeNick || "", matched: true, via: "newDevice" });
+              }
+              /* ⚠️ commitAll routes THIS stream through commitProgress (the registered
+                 provider) and writes the other lands straight to localStorage. That split
+                 is the whole reason it lives in profile.js — a direct write to
+                 ws2_{STREAM} here would be erased by the next saveStore(). */
+              var res = window.WSProfile.commitAll(plan);
+              applyAmbience();
+              renderHome();
+              toast("\u5df2\u6062\u590d " + (res.perSec[STREAM] || 0) + " \u4e2a\u8bcd\u8bed");
+            };
+          });
         }
         var profile = loadProfile();
         if (!profile) {

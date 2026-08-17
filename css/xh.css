@@ -337,7 +337,9 @@ body.xh-py-on .xh-block-tag .xh-uipy{color:#CFE0F0}
 
 /* the student's boat and berth items, same coordinates as 我的海滩. Under the scrim
    on purpose: the title has to stay readable, and a dimmed boat still reads. */
-.xh-hero-scene{position:absolute;inset:0;z-index:0;pointer-events:none}
+/* ⚠️ .xh-hero-scene removed with the hero's berth sprites (owner 2026-08-17): the
+   preview shows the original artwork only, because percentage coordinates set on the
+   tall beach stage do not mean the same thing on this short wide banner. */
 .xh-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   object-position:center 62%;image-rendering:pixelated}
 /* ⚠️ NO DARK SCRIM (owner 2026-08-16). This is the student's own beach — the thing
@@ -386,6 +388,34 @@ body.xh-py-on .xh-hero-sub .xh-uipy{color:#E8F2FA}
    ⚠️ body.xh-en-on prefix required, see the note on .xh-hero-sub .xh-en above:
    without it the gate rule wins and this line renders dark slate on a dark plate. */
 body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
+
+/* ---------- the slimmed hero (owner 2026-08-17) ----------
+   ⚠️ ONE LINE ON ONE PLATE, replacing the subtitle plus three boxed .xh-stat cells.
+   The mountain's banner (app.js .lscape) shows a name, a quiet line and a corner link;
+   the pier was showing five stacked blocks over the same amount of art, and with 拼音
+   and 英文 both on by default at the pier every one of them was three lines deep.
+   ⚠️ .xh-stats / .xh-stat are NOT deleted — 我的海滩 has its own uses and the classes
+   are shared. Only the hero stopped using them.
+   ⚠️ The plate stays: this line sits on the artwork's brightest band (sky meeting sand),
+   which is the whole reason .xh-hero-sub grew one (owner 2026-08-16 晚). Text shadow
+   alone was measured insufficient there — do not remove it to make things "cleaner". */
+.xh-hero-line{display:inline-block;margin-top:6px;font-size:13px;font-weight:700;color:#fff;
+  padding:6px 12px;border-radius:12px;background:rgba(8,26,46,.52);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  text-shadow:0 1px 4px rgba(6,20,40,.85)}
+.xh-hero-line b{font-family:var(--serif);font-weight:900;font-size:17px;color:var(--gold-lt)}
+/* ⚠️ body.xh-*-on prefixes required on BOTH — see the long note on .xh-hero-sub .xh-en:
+   the gate rules are (0,2,1) and an unprefixed override is (0,2,0) and silently loses,
+   which is exactly how the English on this hero came to render dark-on-dark once. */
+body.xh-en-on .xh-hero-line .xh-en{display:block;color:#E2EEF7;font-size:11px;font-weight:700}
+body.xh-py-on .xh-hero-line .xh-uipy{color:#E8F2FA}
+/* the corner link, mirroring .lscape-go. ⚠️ pointer-events:none — the whole plate is
+   already one button, and a second clickable thing inside a button is §14's nested-button
+   trap; this is a label that says where the tap goes. */
+.xh-hero-go{position:absolute;right:14px;bottom:12px;z-index:2;pointer-events:none;
+  font-size:12.5px;font-weight:800;color:#fff;padding:6px 11px;border-radius:999px;
+  background:rgba(8,26,46,.52);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  text-shadow:0 1px 4px rgba(6,20,40,.85)}
 
 /* 动线编号 */
 .xh-step{display:inline-block;margin-right:7px;font-family:var(--serif);font-weight:900;
@@ -1588,7 +1618,12 @@ body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
    （.74/.56/.60 → .78/.62/.66），而不是回到平涂白。
    ⚠️ 下面 @supports not 的纯色回退因此更重要，不是可选项：没有模糊时，白纱与这层
    alpha 就是文字与摊位照片之间仅有的东西。 */
-.xh-phrase.on-scene,.xh-sort.on-scene{position:relative;z-index:1;
+/* ⚠️ .xh-card and .xh-result joined this list for 走进社区 (owner 2026-08-17): the
+   sentence card and the end-of-walk panel now stand in front of the scene's own
+   backdrop too, so they need the same raised alpha. They must NOT get their own
+   variant — one set of values is what keeps every panel over a photograph readable. */
+.xh-phrase.on-scene,.xh-sort.on-scene,.xh-card.on-scene,.xh-result.on-scene{
+  position:relative;z-index:1;
   background:linear-gradient(150deg,rgba(255,255,255,.78),rgba(255,255,255,.62) 46%,
     rgba(232,243,251,.66));
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
@@ -1783,7 +1818,8 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 @media print{.fb-fab{display:none}}
 
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
-  .xh-phrase.on-scene,.xh-sort.on-scene{background:rgba(255,255,255,.95)}
+  .xh-phrase.on-scene,.xh-sort.on-scene,.xh-card.on-scene,.xh-result.on-scene{
+    background:rgba(255,255,255,.95)}
   /* the 反馈 pill is glass over whatever pier art is behind it — with no blur the
      alpha is the only thing keeping its label readable */
   .fb-fab{background:rgba(255,255,255,.96)}

@@ -750,8 +750,353 @@
       return decodeURIComponent(escape(atob(t)));
     } catch (e) { return ""; }
   }
-  var STREAM_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
-                       g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文" };
+  /* ⚠️ CODE_LABEL, NOT STREAM_LABEL — and the rename is a BUG FIX, not tidying. There is a
+     SECOND `var STREAM_LABEL` further down (the short labels the 我的进度 rows use), and two
+     `var`s of one name in one scope means the later assignment wins for everything that runs
+     after it. Adding `xh` to this one therefore did nothing: the pier section was written into
+     every code and then silently dropped on decode, because decodeAll's own
+     `if (!STREAM_LABEL[sec])` guard was reading the OTHER table. The code looked right, the
+     summary was simply missing a land.
+     ⚠️ Do not merge the two tables. They print in different places and at different lengths
+     («启航码头 · 学海启航» in a code summary, «词圣鸿文苑 HCL» in a one-line progress row). */
+  var CODE_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
+                     g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文",
+                     xh: "启航码头 · 学海启航" };
+
+  /* ================= VS3 · ONE CODE FOR ALL FIVE LANDS (owner 2026-08-17) =========
+     owner: 「is progress code shared across all 5 sections (pier and mountains)? they
+     need to be since the student is not going to take down all 5 if they differ.」
+     They were NOT. There were four codes (one per mountain, each rejecting the other
+     three) and the pier had none at all — a pier student who changed device lost
+     everything with no way back. VS3 is one string covering all five.
+
+     FORMAT
+       VS3.{sec}~{sec}~….{nickB64}.{ck}
+       mountain sec: {stream}:{n}:{b64 mastered bitmask}:{a-b-c-d-e records}
+       pier     sec: xh:{nWords}:{b64 done bitmask}:{nPhrases}:{b64 readLines bitmask}
+     ⚠️ THE SEPARATORS ARE CHOSEN, NOT ARBITRARY. base64url's alphabet is
+     [A-Za-z0-9-_], so `-` and `_` can appear inside a bitmask and are unusable as
+     delimiters at any level that touches one. `.` `~` `:` cannot occur in base64url,
+     which is why VS2 could already put `-`-joined records in their own `.`-field.
+     ⚠️ Bitmasks are POSITIONAL over the published word order, which project rule makes
+     append-only (new words go at the end of their 板块, §5), so a code survives vocab
+     additions. This is also why the codec needs the data files at all.
+
+     WHY THIS LIVES IN profile.js
+     ⚠️ It is the only file loaded on all six pages, so the code stops being a property
+     of the page the student happens to be on. The landing page can now produce and
+     restore one, which is the whole point: a student on a new device has not chosen a
+     subject yet.
+     ⚠️ THE WATERLINE IS NOT CROSSED (§4). The guarantee that matters is「app.js never
+     reads ws_xh, xh.js never touches ws2_*」and it still holds exactly: neither engine
+     gained a line. profile.js is the identity layer, which §4 already allows across,
+     and carrying two stores side by side in a backup is TRANSPORT, not EXCHANGE —
+     restore puts pier numbers back in ws_xh and mountain numbers back in ws2_{stream}.
+     Nothing converts, no rate is implied.
+     ⚠️ THE LIVE SECTION IS STILL WRITTEN BY ITS OWN ENGINE. Whichever section the
+     current page owns goes through _provider.commit(); the other four are written
+     straight to localStorage, which is safe precisely because nothing else is holding
+     them in memory. Writing the live one directly would be overwritten by the next
+     saveStore()/save() from that engine.
+
+     WHAT IS DELIBERATELY NOT IN THE CODE
+     ⚠️ NO CURRENCY AND NO EFFORT TOTALS — no 灵露, no 贝壳, no 历练值, no 航海值. VS2 left
+     them out and VS3 keeps that line, for a reason that is not tidiness: spend 200 灵露
+     on an avatar, restore an older code, and you would have the avatar AND the 200 back.
+     Mastery and records merge monotonically (union / max) so restoring twice changes
+     nothing — that property is what makes restore safe, and currency does not have it.
+     ⚠️ NO store.stats (per-word shown/wrong): it is large, it is not progress, and the
+     只增不减 promise cannot be honoured for a ratio. */
+  var CODE_STREAMS = ["g1", "g2", "g3", "hcl"];
+  var _orders = null;          // { g1:[id,…], …, xh:[词语,…], xhPhr:[phraseId,…] }
+  var _ordersAt = 0;
+
+  /* Fetch the five published files ONCE per page and cache the orders.
+     ⚠️ It reads the PUBLISHED json, never a master list — same rule the search index
+     follows (§5), so an index can never disagree with what students are running.
+     ⚠️ Failure is per-file and non-fatal: a section whose order is missing is SKIPPED,
+     never guessed. A guessed order would silently write the wrong words as mastered,
+     which is far worse than an incomplete code — and the panel says which are missing.
+     ⚠️ ASSET_V, so the fetch rides the same cache-busting the engines use (§3). */
+  function loadOrders(cb) {
+    if (_orders) return cb(_orders);
+    var out = { xhPhr: null }, pending = CODE_STREAMS.length + 2;
+    function done() { if (--pending === 0) { _orders = out; _ordersAt = 1; cb(out); } }
+    CODE_STREAMS.forEach(function (k) {
+      out[k] = null;
+      fetch("data/" + k + ".json" + WS_ASSET_V_Q())
+        .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+        .then(function (j) {
+          var ids = [];
+          (j.levels || []).forEach(function (lv) {
+            (lv.units || []).forEach(function (u) {
+              (u.components || []).forEach(function (c) {
+                (c.words || []).forEach(function (w) { ids.push(w.id); });
+              });
+            });
+          });
+          out[k] = ids.length ? ids : null;
+        })
+        .catch(function () { out[k] = null; })
+        .then(done);
+    });
+    fetch("data/xh_v3.json" + WS_ASSET_V_Q())
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (rows) {
+        out.xh = (rows || []).map(function (w) { return w["词语"]; });
+        if (!out.xh.length) out.xh = null;
+      })
+      .catch(function () { out.xh = null; })
+      .then(done);
+    fetch("data/xh_phrases.json" + WS_ASSET_V_Q())
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (doc) {
+        out.xhPhr = ((doc && doc.phrases) || []).map(function (p) { return p.id; });
+        if (!out.xhPhr.length) out.xhPhr = null;
+      })
+      .catch(function () { out.xhPhr = null; })
+      .then(done);
+  }
+  function WS_ASSET_V_Q() { return WS_ASSET_V ? "?v=" + WS_ASSET_V : ""; }
+
+  /* ---- bit plumbing. ⚠️ The `keys` order IS the wire format; do not sort it. ---- */
+  function bitsToB64(order, has) {
+    var bytes = [], i;
+    for (i = 0; i < Math.ceil(order.length / 8); i++) bytes.push(0);
+    order.forEach(function (k, ix) { if (has(k)) bytes[ix >> 3] |= (1 << (ix & 7)); });
+    var bin = "";
+    for (i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  /* returns the subset of `order` whose bit is set, or null if the field is unreadable */
+  function b64ToKeys(b64, order, n) {
+    var t = String(b64 || "").replace(/-/g, "+").replace(/_/g, "/");
+    while (t.length % 4) t += "=";
+    var bin;
+    try { bin = atob(t); } catch (e) { return null; }
+    var out = [], max = Math.min(n || order.length, order.length);
+    for (var i = 0; i < max; i++) {
+      if (bin.charCodeAt(i >> 3) & (1 << (i & 7))) out.push(order[i]);
+    }
+    return out;
+  }
+  function lsGet(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || null; } catch (e) { return null; }
+  }
+  function storeKeyFor(sec) { return sec === "xh" ? "ws_xh" : "ws2_" + sec; }
+
+  /* Build the whole code. Async because it needs the word orders.
+     ⚠️ A section with no local store is OMITTED, not written as empty: an empty section
+     would restore as「zero mastered」on the other device, and the merge is only safe
+     because it is a union. Omission means「this code says nothing about that land」. */
+  function encodeAll(cb) {
+    loadOrders(function (ord) {
+      var secs = [], missing = [];
+      CODE_STREAMS.forEach(function (k) {
+        if (!ord[k]) { missing.push(CODE_LABEL[k]); return; }
+        var s = lsGet("ws2_" + k);
+        if (!s) return;
+        var m = s.mastered || {}, best = s.best || {};
+        var mask = bitsToB64(ord[k], function (id) { return !!m[id]; });
+        var rec = [s.bestStreak || 0, best.rain || 0, best.handle || 0,
+                   best.assemble || 0, best.sprint || 0].join("-");
+        secs.push(k + ":" + ord[k].length + ":" + mask + ":" + rec);
+      });
+      if (ord.xh) {
+        var x = lsGet("ws_xh");
+        if (x) {
+          var d = x.done || {}, rl = x.readLines || {};
+          var dm = bitsToB64(ord.xh, function (w) { return !!d[w]; });
+          /* ⚠️ readLines rides along because it is the ONLY record of 句子卡 and 走进社区
+             exposure (§18n) and it is a set, so it merges as a union like everything else
+             here. It is still NOT progress on arrival: commit writes it back to
+             store.readLines and nothing else reads it. */
+          var pm = ord.xhPhr ? bitsToB64(ord.xhPhr, function (id) { return !!rl[id]; }) : "";
+          secs.push("xh:" + ord.xh.length + ":" + dm + ":" +
+                    (ord.xhPhr ? ord.xhPhr.length : 0) + ":" + pm);
+        }
+      } else { missing.push(CODE_LABEL.xh); }
+      if (!secs.length) return cb(null, missing);
+      var head = "VS3." + secs.join("~") + "." +
+                 utf8ToB64urlP((load() || {}).nickname || "");
+      cb(head + "." + _fnv1a(head), missing);
+    });
+  }
+  function utf8ToB64urlP(str) {
+    try {
+      return btoa(unescape(encodeURIComponent(str)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch (e) { return ""; }
+  }
+
+  /* PURE planner. Returns {ok, sections:[{sec, label, addKeys, rec, phr}], codeNick,
+     mismatch?, legacy?} or {err}. Never writes.
+     ⚠️ ALL WHITESPACE IS STRIPPED, not just trimmed. A VS3 code runs to ~800 characters
+     and the documented way to keep one is「email it to yourself」 — every mail client on
+     the planet will hard-wrap that, and a student pasting a wrapped code back would
+     otherwise get「已损坏」on a code that is perfectly intact.
+     ⚠️ VS2 and VS1 STILL DECODE, and they now decode from ANY page: the old codec could
+     only read a code for the stream whose word list happened to be in memory, so a G3
+     code pasted on the G2 page was rejected. Same bytes, better reach. */
+  function decodeAll(code, ord) {
+    var raw = String(code || "").replace(/\s+/g, "");
+    if (!raw) return { err: "请先粘贴进度码。" };
+    var p = raw.split(".");
+    var myNick = (load() || {}).nickname || "";
+
+    if (p[0] === "VS3") {
+      if (p.length !== 4) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (_fnv1a(p.slice(0, 3).join(".")) !== p[3]) {
+        return { err: "进度码不完整或已损坏，请重新复制一次。" };
+      }
+      var secs = [], bad = 0;
+      p[1].split("~").forEach(function (chunk) {
+        var f = chunk.split(":"), sec = f[0];
+        if (!CODE_LABEL[sec]) { bad++; return; }
+        var order = sec === "xh" ? ord.xh : ord[sec];
+        if (!order) { bad++; return; }
+        var n = parseInt(f[1], 10) || 0;
+        if (n > order.length) { bad++; return; }   // code newer than this build's data
+        var keys = b64ToKeys(f[2], order, n);
+        if (!keys) { bad++; return; }
+        var entry = { sec: sec, label: CODE_LABEL[sec], addKeys: keys };
+        if (sec === "xh") {
+          var pn = parseInt(f[3], 10) || 0;
+          entry.phr = (ord.xhPhr && f[4]) ? (b64ToKeys(f[4], ord.xhPhr, pn) || []) : [];
+        } else {
+          entry.rec = String(f[3] || "").split("-").map(function (x) {
+            return parseInt(x, 10) || 0;
+          });
+        }
+        secs.push(entry);
+      });
+      if (!secs.length) return { err: "进度码里没有可以恢复的内容。" };
+      var nick = _b64urlToUtf8(p[2]);
+      return { ok: true, sections: secs, codeNick: nick, skipped: bad,
+               mismatch: !!(nick && nick !== myNick) };
+    }
+
+    /* ---- legacy single-stream codes ---- */
+    if (p[0] === "VS2" || p[0] === "VS1") {
+      var isV2 = p[0] === "VS2";
+      if (p.length !== (isV2 ? 7 : 5)) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (isV2 && _fnv1a(p.slice(0, 6).join(".")) !== p[6]) {
+        return { err: "进度码不完整或已损坏，请重新复制一次。" };
+      }
+      var st = p[1];
+      if (!CODE_LABEL[st] || st === "xh") return { err: "进度码里的科目无法识别。" };
+      if (!ord[st]) return { err: "这个科目的词库还没载入，请稍后再试。" };
+      var nn = parseInt(p[2], 10) || 0;
+      if (!(nn > 0) || nn > ord[st].length) return { err: "进度码与当前词库不匹配。" };
+      var ks = b64ToKeys(p[3], ord[st], nn);
+      if (!ks) return { err: "进度码无法解析，请检查是否完整复制。" };
+      var nk = isV2 ? _b64urlToUtf8(p[5]) : "";
+      return { ok: true, legacy: !isV2, skipped: 0, codeNick: nk,
+               mismatch: !!(nk && nk !== myNick),
+               sections: [{ sec: st, label: CODE_LABEL[st], addKeys: ks,
+                            rec: String(p[4] || "").split("-").map(function (x) {
+                              return parseInt(x, 10) || 0;
+                            }) }] };
+    }
+    return { err: "进度码格式不正确，请检查是否完整复制。" };
+  }
+
+  /* how many entries the plan would ADD that the device does not already have — the
+     number the confirm dialog promises. ⚠️ Counted per section against that section's
+     own store, never totalled across the waterline into one figure (§4.1). */
+  function planDelta(plan) {
+    var rows = [], addTotal = 0, haveTotal = 0;
+    (plan.sections || []).forEach(function (s) {
+      var cur = lsGet(storeKeyFor(s.sec)) || {};
+      var mine = s.sec === "xh" ? (cur.done || {}) : (cur.mastered || {});
+      var have = Object.keys(mine).length;
+      var newly = s.addKeys.filter(function (k) { return !mine[k]; }).length;
+      rows.push({ sec: s.sec, label: s.label, code: s.addKeys.length,
+                  have: have, newly: newly });
+      addTotal += newly; haveTotal += have;
+    });
+    return { rows: rows, addTotal: addTotal, haveTotal: haveTotal };
+  }
+
+  /* Snapshot every section this plan touches, so ONE undo restores all of them.
+     ⚠️ sessionStorage, like the old per-stream key: an undo is offered for THIS sitting
+     only. A snapshot surviving a week would let a student roll back a week of work. */
+  var UNDO_ALL = "ws_prerestore_all";
+  function snapshotAll(plan) {
+    var snap = {};
+    (plan.sections || []).forEach(function (s) {
+      var k = storeKeyFor(s.sec);
+      try { snap[k] = localStorage.getItem(k); } catch (e) {}
+    });
+    try { sessionStorage.setItem(UNDO_ALL, JSON.stringify(snap)); } catch (e) {}
+  }
+  function hasUndoAll() {
+    try { return !!sessionStorage.getItem(UNDO_ALL); } catch (e) { return false; }
+  }
+
+  /* THE ONLY WRITER. Returns {added, perSec}.
+     ⚠️ The live section goes through its own engine's commit(); the rest are merged into
+     localStorage here. Getting that backwards is the bug this whole structure exists to
+     prevent: app.js holds `store` in memory and its next saveStore() would silently
+     erase a direct write to ws2_{current}. */
+  function commitAll(plan) {
+    var live = _provider && _provider.stream;
+    var added = 0, perSec = {};
+    (plan.sections || []).forEach(function (s) {
+      if (live && s.sec === live && _provider.commit) {
+        var res = _provider.commit({ addIds: s.addKeys, meta: s.rec || [],
+                                     readLines: s.phr || [] }) || {};
+        perSec[s.sec] = res.added || 0; added += res.added || 0;
+        return;
+      }
+      var key = storeKeyFor(s.sec), cur = lsGet(key);
+      /* ⚠️ NO STORE, NO WRITE. Creating one from a code would produce a half-built
+         object that the engine's own load() has never migrated — every default that
+         engine relies on would be missing. An untouched land stays untouched until the
+         student opens it, and then the code can be restored there. */
+      if (!cur) { perSec[s.sec] = 0; return; }
+      var n = 0;
+      if (s.sec === "xh") {
+        if (!cur.done || typeof cur.done !== "object") cur.done = {};
+        s.addKeys.forEach(function (w) { if (!cur.done[w]) { cur.done[w] = true; n++; } });
+        if (s.phr && s.phr.length) {
+          if (!cur.readLines || typeof cur.readLines !== "object") cur.readLines = {};
+          s.phr.forEach(function (id) { if (!cur.readLines[id]) cur.readLines[id] = 1; });
+        }
+      } else {
+        if (!cur.mastered || typeof cur.mastered !== "object") cur.mastered = {};
+        s.addKeys.forEach(function (id) { if (!cur.mastered[id]) { cur.mastered[id] = 1; n++; } });
+        var r = s.rec || [];
+        if (!cur.best || typeof cur.best !== "object") cur.best = {};
+        cur.bestStreak = Math.max(cur.bestStreak || 0, r[0] || 0);
+        cur.best.rain = Math.max(cur.best.rain || 0, r[1] || 0);
+        cur.best.handle = Math.max(cur.best.handle || 0, r[2] || 0);
+        cur.best.assemble = Math.max(cur.best.assemble || 0, r[3] || 0);
+        cur.best.sprint = Math.max(cur.best.sprint || 0, r[4] || 0);
+      }
+      try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
+      perSec[s.sec] = n; added += n;
+    });
+    return { added: added, perSec: perSec };
+  }
+  function undoAll() {
+    var snap;
+    try { snap = JSON.parse(sessionStorage.getItem(UNDO_ALL)); } catch (e) { snap = null; }
+    if (!snap) return false;
+    var live = _provider && _provider.stream;
+    var liveKey = live ? storeKeyFor(live) : null;
+    Object.keys(snap).forEach(function (k) {
+      if (snap[k] == null) return;
+      /* the live section must go back through its engine, or the in-memory `store`
+         still holds the post-restore values and writes them out again */
+      if (k === liveKey && _provider.restoreSnapshot) {
+        try { _provider.restoreSnapshot(JSON.parse(snap[k])); return; } catch (e) {}
+      }
+      try { localStorage.setItem(k, snap[k]); } catch (e) {}
+    });
+    try { sessionStorage.removeItem(UNDO_ALL); } catch (e) {}
+    return true;
+  }
   /* How many words the code says are mastered. ⚠️ The `n` field is the stream's
      TOTAL word count (it exists to validate the bitmask length), NOT progress —
      showing it to the student would claim they had mastered the whole subject.
@@ -772,26 +1117,57 @@
     }
     return c;
   }
-  /* PURE. Returns {stream, streamLabel, n, nick, legacy} or {err}. Never writes. */
+  /* PURE. Returns {stream, streamLabel, n, nick, legacy} or {err}. Never writes.
+     This is the ENVELOPE reader used by the nickname picker on a brand-new device, where
+     the only job is: prove the code is genuine, and pull out the name to adopt. It still
+     decodes no bitmask — it does not need the word orders and must stay synchronous,
+     because the picker runs before anything has been fetched.
+     ⚠️ ALL WHITESPACE STRIPPED, same reason as decodeAll: a VS3 code is ~800 characters
+     and gets wrapped by every mail client. This is the FIRST place a returning student
+     pastes one, so a false「已损坏」here is the worst place to have it.
+     ⚠️ `streamLabel` is now a LIST for VS3 ("四个学段与启航码头" style). The picker only
+     prints it, and printing one subject name for a five-land code would be a lie. */
   function peekCode(code) {
-    var p = String(code || "").trim().split(".");
+    var p = String(code || "").replace(/\s+/g, "").split(".");
+    if (p[0] === "VS3") {
+      if (p.length !== 4) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (_fnv1a(p.slice(0, 3).join(".")) !== p[3]) {
+        return { err: "进度码不完整或已损坏，请重新复制一次。" };
+      }
+      var names = [], total = 0, secs = p[1].split("~");
+      secs.forEach(function (chunk) {
+        var f = chunk.split(":");
+        if (!CODE_LABEL[f[0]]) return;
+        names.push(CODE_LABEL[f[0]].split(" · ")[0]);
+        /* ⚠️ popcount, NOT the `n` field: n is the land's TOTAL word count and exists to
+           validate the mask length. Showing it would tell the student they had mastered
+           an entire subject (the same warning the old _countBits note carries). */
+        total += _countBits(f[2], parseInt(f[1], 10) || 0) || 0;
+      });
+      if (!names.length) return { err: "进度码里没有可以恢复的内容。" };
+      /* ⚠️ `stream` is null on purpose: there is no single stream to hand off to, and the
+         pending-code path keys on it. VS3 is restored from 我的档案, which is reachable
+         from every page — see the note on setPendingCode. */
+      return { stream: null, streamLabel: names.join(" · "), n: 0, mastered: total,
+               nick: _b64urlToUtf8(p[2]), legacy: false, all: true };
+    }
     if (p[0] === "VS2") {
       if (p.length !== 7) return { err: "进度码格式不正确，请检查是否完整复制。" };
       if (_fnv1a(p.slice(0, 6).join(".")) !== p[6]) {
         return { err: "进度码不完整或已损坏，请重新复制一次。" };
       }
-      if (!STREAM_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
+      if (!CODE_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
       var tot = parseInt(p[2], 10) || 0;
-      return { stream: p[1], streamLabel: STREAM_LABEL[p[1]], n: tot,
+      return { stream: p[1], streamLabel: CODE_LABEL[p[1]], n: tot,
                mastered: _countBits(p[3], tot),
                nick: _b64urlToUtf8(p[5]), legacy: false };
     }
     if (p[0] === "VS1") {
       // VS1 carries no nickname, so it can prove the subject but not the identity
       if (p.length !== 5) return { err: "进度码格式不正确，请检查是否完整复制。" };
-      if (!STREAM_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
+      if (!CODE_LABEL[p[1]]) return { err: "进度码里的科目无法识别。" };
       var tot1 = parseInt(p[2], 10) || 0;
-      return { stream: p[1], streamLabel: STREAM_LABEL[p[1]], n: tot1,
+      return { stream: p[1], streamLabel: CODE_LABEL[p[1]], n: tot1,
                mastered: _countBits(p[3], tot1), nick: "", legacy: true };
     }
     return { err: "进度码格式不正确，请检查是否完整复制。" };
@@ -804,13 +1180,24 @@
     catch (e) {}
   }
   /* read-and-clear: a pending code must never be offered twice, whether the
-     student accepts it or dismisses the dialog */
+     student accepts it or dismisses the dialog.
+     ⚠️ A VS3 code is parked with stream === null and matches on ANY page, because it
+     covers all five lands — there is no single stream to wait for. Without this clause a
+     five-land code parked by the nickname picker would sit in localStorage forever,
+     matching nothing, and the student would have to find 我的档案 unaided. */
   function takePendingCode(stream) {
     var raw = null;
     try { raw = JSON.parse(localStorage.getItem(PENDING_KEY) || "null"); } catch (e) {}
-    if (!raw || (stream && raw.stream !== stream)) return null;
+    if (!raw) return null;
+    if (raw.stream && stream && raw.stream !== stream) return null;
     try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
     return raw;
+  }
+  /* async decode for callers outside the panel (app.js's new-device path). ⚠️ It hands
+     back the SAME plan shape the panel uses, so there is one planner and one commit
+     path for every code in the app — the alternative is a second decoder that drifts. */
+  function decodeCode(code, cb) {
+    loadOrders(function (ord) { cb(decodeAll(code, ord)); });
   }
 
 
@@ -1109,30 +1496,61 @@
         '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>';
     }
 
+    /* ⚠️ NO MORE「进度码在各科目页面里」 BRANCH, and no more per-stream heading. There is
+       ONE code for all five lands (owner 2026-08-17) and it is available on every page
+       including the landing page, which is the page a student on a new device actually
+       reaches first. The four subject links that used to stand in for a code here were
+       an instruction to go and collect four separate strings.
+       ⚠️ The textarea starts as a placeholder and is filled by fillCodeOut() when the
+       word orders arrive: the code cannot be built synchronously any more because it is
+       positional over five published files. A stale-render guard lives in that function. */
     function codeSectionHtml() {
-      if (!_provider) {
-        var links = ["g1", "g2", "g3", "hcl"].map(function (k) {
-          return '<a class="code-link" href="' + STREAM_HREF[k] + '">' + esc(STREAM_LABEL[k]) + '</a>';
-        }).join(" ");
-        return '<div class="pop-body">进度码在各科目页面里。打开你的科目即可复制或恢复：</div>' +
-          '<div class="prof-row" style="margin-top:8px">' + links + '</div>';
-      }
-      var code = "";
-      try { code = _provider.encode(); } catch (e) { code = ""; }
-      var undoKey = "ws2_" + _provider.stream + "_prerestore";
-      var hasUndo = false;
-      try { hasUndo = !!sessionStorage.getItem(undoKey); } catch (e) {}
-      return '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，把它粘贴到下方恢复。<br>' +
-        '<span class="pop-note">进度码包含：已掌握词语、最高连对、各游戏纪录，并绑定你的昵称。</span></div>' +
-        '<div class="pop-label">我的进度码（' + esc(STREAM_LABEL[_provider.stream] || _provider.stream) + '）</div>' +
-        '<textarea class="code-ta" id="profCodeOut" readonly>' + esc(code) + '</textarea>' +
+      return '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，' +
+        '把它粘贴到下方恢复。<br>' +
+        '<span class="pop-note">一段进度码涵盖<b>五片陆地</b>：四个学段与启航码头。' +
+        '里面有已掌握／已认得的词语、最高连对、各游戏纪录，并绑定你的昵称。' +
+        '灵露与贝壳不在里面。</span></div>' +
+        '<div class="pop-label">我的进度码' +
+          fbGloss("我的进度码", "wǒ de jìn dù mǎ", "My progress code — all five lands") + '</div>' +
+        '<textarea class="code-ta" id="profCodeOut" readonly>正在准备…</textarea>' +
+        '<div class="pop-note" id="profCodeSum"></div>' +
         '<div class="nav-row"><button class="nav-btn" id="profCodeCopy">📋 复制进度码</button></div>' +
-        '<div class="pop-label" style="margin-top:12px">恢复进度</div>' +
+        '<div class="pop-label" style="margin-top:12px">恢复进度' +
+          fbGloss("恢复进度", "huī fù jìn dù", "Restore from a code") + '</div>' +
         '<textarea class="code-ta" id="profCodeIn" placeholder="把进度码粘贴到这里…"></textarea>' +
         '<div class="feedback" id="profCodeFb"></div>' +
         '<div class="nav-row">' +
-        (hasUndo ? '<button class="nav-btn" id="profCodeUndo">↩ 撤销恢复</button>' : "") +
+        (hasUndoAll() ? '<button class="nav-btn" id="profCodeUndo">↩ 撤销恢复</button>' : "") +
         '<button class="nav-btn primary" id="profCodeRestore">恢复进度</button></div>';
+    }
+    /* ⚠️ `ov.isConnected` guard: the panel can be closed, or re-rendered by any chip
+       tap, while the five fetches are still in flight. Writing into a detached textarea
+       is harmless but writing into the NEXT render's textarea with THIS render's code
+       is not, and the panel re-renders on every category/aid toggle. */
+    function fillCodeOut() {
+      encodeAll(function (code, missing) {
+        var ta = ov.querySelector("#profCodeOut"), sum = ov.querySelector("#profCodeSum");
+        if (!ta || !ta.isConnected) return;
+        if (!code) {
+          ta.value = "";
+          if (sum) sum.textContent = "还没有任何进度可以备份。先去学几个词吧。";
+          return;
+        }
+        ta.value = code;
+        if (!sum) return;
+        /* ⚠️ Say which lands are IN the code, per land, never as one total (§4.1 — the
+           five numbers never combine). A student who has only ever used the pier should
+           see that their code is about the pier. */
+        var plan = decodeAll(code, _orders);
+        var parts = (plan.sections || []).map(function (s) {
+          /* ⚠️ CODE_LABEL, not the short STREAM_LABEL below: this indexes by SECTION and
+             sections include "xh", which the short table has no row for. Getting this wrong
+             is what hid the pier from the summary in the first place. */
+          return CODE_LABEL[s.sec].split(" · ")[0] + " " + s.addKeys.length + " 词";
+        });
+        sum.textContent = "这段码含：" + (parts.join(" · ") || "（空）") +
+          (missing && missing.length ? "。⚠️ 这些还没载入，未包含：" + missing.join("、") : "");
+      });
     }
 
     function render() {
@@ -1321,8 +1739,13 @@
       wireUid();
     }
 
+    /* ⚠️ NO `if (!_provider) return` GUARD ANY MORE. That guard was correct when the code
+       was built by the stream page's own encoder; now the codec lives here and works on
+       the landing page too, where _provider is null by design. Leaving the guard in was
+       the difference between「one code everywhere」and「one code except on the page a
+       student on a new device actually opens first」. */
     function wireCode() {
-      if (!_provider) return;
+      fillCodeOut();
       var out = ov.querySelector("#profCodeOut");
       var copyBtn = ov.querySelector("#profCodeCopy");
       if (copyBtn) copyBtn.onclick = function () {
@@ -1345,101 +1768,107 @@
       fb.textContent = msg;
     }
 
+    /* §6 order is unchanged and still matters: snapshot -> sessionStorage -> log ->
+       commit. What changed is that all of it is now per-PLAN rather than per-stream,
+       because one code can touch five stores. */
     function commitRestore(plan, matched, codeNick) {
-      // §6: snapshot -> sessionStorage -> log -> commit, in that order
-      var undoKey = "ws2_" + _provider.stream + "_prerestore";
-      try { sessionStorage.setItem(undoKey, JSON.stringify(_provider.snapshot())); } catch (e) {}
-      var res = _provider.commit(plan);
+      snapshotAll(plan);
+      var res = commitAll(plan);
       var me = load() || {};
       if (window.WSCloud && window.WSCloud.logRestore) {
+        /* ⚠️ `stream` on the log row is now the LIST of lands the code touched, not the
+           page it happened on. A teacher reading the console needs to know what moved. */
         window.WSCloud.logRestore({
           nickname: me.nickname || "", school: me.school || "", mtlClass: me.mtlClass || "",
-          stream: _provider.stream, codeNick: codeNick || "", matched: !!matched, added: res.added || 0
+          stream: (plan.sections || []).map(function (x) { return x.sec; }).join("+"),
+          codeNick: codeNick || "", matched: !!matched, added: res.added || 0
         });
       }
       if (opts.onChanged) opts.onChanged();
-      render();                                   // re-render so 撤销恢复 appears + progress updates
-      flashCode("✅ 恢复成功：新增 " + (res.added || 0) + " 个已掌握词语", true);
+      render();                          // re-render so 撤销恢复 appears + progress updates
+      /* ⚠️ per-land in the confirmation too, never a single total (§4.1). */
+      var parts = (plan.sections || []).map(function (x) {
+        return CODE_LABEL[x.sec].split(" \u00b7 ")[0] + " +" + (res.perSec[x.sec] || 0);
+      });
+      flashCode("\u2705 \u6062\u590d\u6210\u529f\uff1a" + parts.join(" \u00b7 "), true);
     }
 
-    /* current mastered set for THIS stream, read from localStorage (used to show
-       the student exactly what a restore will do — it only ever adds). */
-    function currentMasteredSet() {
-      try { var s = JSON.parse(localStorage.getItem("ws2_" + _provider.stream)); return (s && s.mastered) || {}; }
-      catch (e) { return {}; }
-    }
+    /* ⚠️ ONE ROW PER LAND, and the 只增不减 promise printed for each. A single combined
+       figure would be the composite score §4.1 forbids, and it would also hide the case
+       that actually worries a student: 「will this wipe my G2?」 — the answer is visible
+       only if G2 has its own line. */
     function diffLine(plan) {
-      var cur = currentMasteredSet();
-      var codeCount = (plan.addIds || []).length;
-      var have = Object.keys(cur).length;
-      var newly = (plan.addIds || []).filter(function (id) { return !cur[id]; }).length;
-      var after = have + newly;
+      var d = planDelta(plan);
+      var rows = d.rows.map(function (r) {
+        return '<div style="margin-top:4px">' + esc(r.label.split(" \u00b7 ")[0]) +
+          '\uff1a\u7801\u91cc <b>' + r.code + '</b> \u00b7 \u4f60\u73b0\u5728 <b>' + r.have +
+          '</b> \u00b7 \u6062\u590d\u540e <b>' + (r.have + r.newly) + '</b></div>';
+      }).join("");
+      /* ⚠️ A section the code carries but this device has no store for is NOT an error and
+         must be said plainly: the student has simply never opened that land here. */
+      var untouched = d.rows.filter(function (r) { return r.have === 0 && r.newly === 0; }).length;
       return '<div class="pop-body" style="background:#F1F6FB;border:1px solid #DBE7F1;border-radius:10px;padding:10px 12px;margin-top:8px">' +
-        '进度码里有 <b>' + codeCount + '</b> 个已掌握词语。<br>' +
-        '你现在有 <b>' + have + '</b> 个。<br>' +
-        '恢复后会合并成 <b>' + after + '</b> 个 —— <b>只增不减</b>，绝不会少于现在的 ' + have + ' 个。</div>';
+        rows +
+        '<div style="margin-top:6px"><b>\u53ea\u589e\u4e0d\u51cf</b>\uff1a\u6ca1\u6709\u4efb\u4f55\u4e00\u9879\u4f1a\u53d8\u5c11\u3002</div>' +
+        (untouched ? '<div class="pop-note" style="margin-top:4px">\u6ca1\u6709\u8bb0\u5f55\u7684\u9646\u5730\u8981\u5148\u6253\u5f00\u4e00\u6b21\uff0c\u624d\u80fd\u6062\u590d\u5230\u90a3\u91cc\u3002</div>' : "") +
+        '</div>';
     }
 
     function onRestore() {
       var inEl = ov.querySelector("#profCodeIn");
       var val = inEl ? inEl.value : "";
-      if (!val.trim()) { flashCode("请先粘贴进度码。", false); return; }
-      var plan = _provider.decode(val);
-      if (plan.err) { flashCode(plan.err, false); return; }
-
-      var me = load() || {};
-      if (plan.mismatch) {
+      if (!String(val).replace(/\s+/g, "")) { flashCode("\u8bf7\u5148\u7c98\u8d34\u8fdb\u5ea6\u7801\u3002", false); return; }
+      /* ⚠️ the orders may not be loaded yet (the panel can be opened and a code pasted
+         within the same second). Wait for them rather than reporting a bogus format error. */
+      flashCode("\u6b63\u5728\u6838\u5bf9\u2026", true);
+      loadOrders(function (ord) {
+        if (!ov.isConnected) return;
+        var plan = decodeAll(val, ord);
+        if (plan.err) { flashCode(plan.err, false); return; }
+        var me = load() || {};
+        var skipNote = plan.skipped
+          ? '<div class="pop-note">\u5176\u4e2d ' + plan.skipped + ' \u6bb5\u8bfb\u4e0d\u61c2\uff0c\u5df2\u8df3\u8fc7\u3002</div>'
+          : "";
+        if (plan.mismatch) {
+          confirmDialog(
+            '<div class="pop-title">\u8fd9\u4e0d\u662f\u4f60\u7684\u8fdb\u5ea6\u7801</div>' +
+            '<div class="pop-body">\u8fd9\u4e2a\u8fdb\u5ea6\u7801\u5c5e\u4e8e\u300c' + esc(plan.codeNick) +
+            '\u300d\uff0c\u548c\u4f60\u73b0\u5728\u7684\u6635\u79f0\u300c' + esc(me.nickname || "") + '\u300d\u4e0d\u4e00\u6837\u3002<br><br>' +
+            '\u5982\u679c\u8fd9\u662f\u4f60\u4ee5\u524d\u7528\u8fc7\u7684\u6635\u79f0\uff0c\u53ef\u4ee5\u6539\u7528\u5b83\u7ee7\u7eed\u3002<br>' +
+            '\u5982\u679c\u8fd9\u662f\u540c\u5b66\u7684\u8fdb\u5ea6\u7801\uff0c\u8bf7\u4e0d\u8981\u6062\u590d\uff0c\u90a3\u4e0d\u662f\u4f60\u7684\u5b66\u4e60\u8bb0\u5f55\u3002</div>' +
+            diffLine(plan) + skipNote,
+            '\u6539\u7528\u300c' + esc(plan.codeNick) + '\u300d\u5e76\u6062\u590d',
+            function () {
+              save({ nickname: plan.codeNick });     // adopt the identity, then restore
+              prof = load() || {};
+              commitRestore(plan, false, plan.codeNick);
+            });
+          return;
+        }
+        var legacyNote = plan.legacy ? '<div class="pop-note">\u8fd9\u662f\u65e7\u7248\u8fdb\u5ea6\u7801\uff0c\u65e0\u6cd5\u6838\u5bf9\u6765\u6e90\u3002</div>' : "";
         confirmDialog(
-          '<div class="pop-title">这不是你的进度码</div>' +
-          '<div class="pop-body">这个进度码属于「' + esc(plan.codeNick) + '」，和你现在的昵称「' + esc(me.nickname || "") + '」不一样。<br><br>' +
-          '如果这是你以前用过的昵称，可以改用它继续。<br>' +
-          '如果这是同学的进度码，请不要恢复，那不是你的学习记录。</div>' + diffLine(plan),
-          '改用「' + esc(plan.codeNick) + '」并恢复',
-          function () {
-            save({ nickname: plan.codeNick });     // adopt the identity, then restore
-            prof = load() || {};
-            commitRestore(plan, false, plan.codeNick);
-          });
-        return;
-      }
-
-      var legacyNote = plan.legacy ? '<div class="pop-note">这是旧版进度码，无法核对来源。</div>' : "";
-      confirmDialog(
-        '<div class="pop-title">恢复进度</div>' + legacyNote +
-        '<div class="pop-body">恢复进度会把进度码里的已掌握词语<b>并入</b>你现在的记录。</div>' + diffLine(plan) +
-        '<div class="pop-note" style="margin-top:8px">恢复后，你可以在这次使用中撤销一次。</div>',
-        "确定恢复",
-        function () { commitRestore(plan, true, plan.codeNick || ""); });
-    }
-
-    function undoDiffLine(snap) {
-      var cur = currentMasteredSet();
-      var curCount = Object.keys(cur).length;
-      var snapCount = Object.keys((snap && snap.mastered) || {}).length;
-      var lost = Math.max(0, curCount - snapCount);
-      return '<div class="pop-body" style="background:#FBEFEF;border:1px solid #E9C7C7;border-radius:10px;padding:10px 12px;margin-top:8px">' +
-        '撤销后会把进度<b>整体还原</b>到恢复前：<b>' + snapCount + '</b> 个已掌握词语。<br>' +
-        (lost > 0
-          ? '你现在有 <b>' + curCount + '</b> 个，撤销会<b>丢失这之后新掌握的 ' + lost + ' 个词语</b>（包括恢复之后新答对的）。'
-          : '你现在有 <b>' + curCount + '</b> 个，撤销不会丢失任何词语。') +
-        '</div>';
+          '<div class="pop-title">\u6062\u590d\u8fdb\u5ea6</div>' + legacyNote +
+          '<div class="pop-body">\u6062\u590d\u8fdb\u5ea6\u4f1a\u628a\u8fdb\u5ea6\u7801\u91cc\u7684\u8bb0\u5f55<b>\u5e76\u5165</b>\u4f60\u73b0\u5728\u7684\u8bb0\u5f55\u3002</div>' +
+          diffLine(plan) + skipNote +
+          '<div class="pop-note" style="margin-top:8px">\u6062\u590d\u540e\uff0c\u4f60\u53ef\u4ee5\u5728\u8fd9\u6b21\u4f7f\u7528\u4e2d\u64a4\u9500\u4e00\u6b21\u3002</div>',
+          "\u786e\u5b9a\u6062\u590d",
+          function () { commitRestore(plan, true, plan.codeNick || ""); });
+      });
     }
 
     function onUndo() {
-      var undoKey = "ws2_" + _provider.stream + "_prerestore";
-      var snap;
-      try { snap = JSON.parse(sessionStorage.getItem(undoKey)); } catch (e) { snap = null; }
-      if (!snap) { flashCode("没有可撤销的恢复。", false); return; }
+      if (!hasUndoAll()) { flashCode("\u6ca1\u6709\u53ef\u64a4\u9500\u7684\u6062\u590d\u3002", false); return; }
       confirmDialog(
-        '<div class="pop-title">撤销这次恢复？</div>' +
-        '<div class="pop-body">这会把进度<b>整体还原</b>到恢复前的状态，不是只减掉恢复码带来的部分，请确认。</div>' + undoDiffLine(snap),
-        "确定撤销",
+        '<div class="pop-title">\u64a4\u9500\u8fd9\u6b21\u6062\u590d\uff1f</div>' +
+        '<div class="pop-body">\u8fd9\u4f1a\u628a\u6240\u6709\u88ab\u8fd9\u6b21\u6062\u590d\u52a8\u8fc7\u7684\u9646\u5730<b>\u6574\u4f53\u8fd8\u539f</b>\u5230\u6062\u590d\u524d\uff0c' +
+        '\u4e0d\u662f\u53ea\u51cf\u6389\u8fdb\u5ea6\u7801\u5e26\u6765\u7684\u90a3\u4e00\u90e8\u5206\u3002<br><br>' +
+        '\u6062\u590d\u4e4b\u540e\u65b0\u7b54\u5bf9\u7684\u8bcd\u8bed\u4e5f\u4f1a\u4e00\u8d77\u9000\u56de\u3002</div>',
+        "\u786e\u5b9a\u64a4\u9500",
         function () {
-          _provider.restoreSnapshot(snap);
-          try { sessionStorage.removeItem(undoKey); } catch (e) {}
+          undoAll();
           if (opts.onChanged) opts.onChanged();
           render();
-          flashCode("已撤销这次恢复。", true);
+          flashCode("\u5df2\u64a4\u9500\u8fd9\u6b21\u6062\u590d\u3002", true);
         });
     }
 
@@ -1735,6 +2164,13 @@
     peekCode: peekCode,
     setPendingCode: setPendingCode,
     takePendingCode: takePendingCode,
+    /* ---- VS3 combined codec (owner 2026-08-17). ⚠️ ONE planner, ONE writer: app.js's
+       new-device path calls decodeCode + commitAll rather than keeping a second decoder,
+       because two decoders for one wire format is how a format silently forks. ---- */
+    decodeCode: decodeCode,
+    commitAll: commitAll,
+    snapshotAll: snapshotAll,
+    planDelta: planDelta,
     maybePromptClassUpdate: maybePromptClassUpdate,
     openAvatarPicker: openAvatarPicker,
     openAvatarInfo: openAvatarInfo,
