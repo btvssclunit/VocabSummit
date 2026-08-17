@@ -196,10 +196,114 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   padding:4px 14px 14px;margin-top:10px}
 .cfg-sub .cfg-sub-t{font-family:var(--serif);font-weight:700;font-size:13.5px;
   color:var(--gold-deep);letter-spacing:.08em;margin-top:12px}
-.scope-box{max-height:210px;overflow-y:auto;background:#F7FAFC;border:1px solid var(--line);
-  border-radius:12px;padding:10px 12px}
-.scope-box label{display:inline-block;margin:3px 12px 3px 0;font-weight:400;
-  font-size:13px;letter-spacing:0;color:var(--ink)}
+/* ---------- 出题设置 = 学生 ①复习范围 的同一套选择法 (owner 2026-08-17) ----------
+   Before this the 单元范围 was 29 bare checkboxes in a flat wall three rows deep,
+   and every other control was a stacked <label> + widget. The student home solved
+   the same problem long ago (accordion by 年级, gold unit chips, one 全选/清空 pair
+   sharing the summary row, quantities on sliders), so the values below are COPIED
+   from css/app.css and marked ⟨app.css⟩ — the same deliberate duplication
+   teacher.html already carries for the palette (CLAUDE.md §17).
+   ⚠️ app.css 改了，这里要跟着改。
+   ⚠️ Two knowing differences from the student card, both because this is a
+   teacher on a laptop and not a G1 student on an iPad:
+   · no 拼音/英文 glosses (this whole page is Chinese, staff only);
+   · the panel is TWO COLUMNS from 1080px up — the 出题设置 card sits in a 1720px
+     shell, so one column left two thirds of the row empty and pushed 生成擂台码
+     below the fold. */
+.ar-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0 26px;align-items:start}
+/* 1000px, not 1080: a 1024x768 school Chromebook is the narrowest machine this
+   page is opened on, and measured there two columns put ①–④ all within one
+   screen while stacked columns pushed 模式 below the fold. */
+@media (min-width:1000px){.ar-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}}
+.ar-col{min-width:0}                    /* §14: grid children do not shrink on their own */
+/* ⟨app.css .section-label⟩ — the numbered 动线 pill. This screen IS a multi-step
+   decision (科目 → 范围 → 模式 → 题数), which is what §7 reserves numbering for;
+   mode-specific settings stay UNNUMBERED, they are a detail of ③ and not a step. */
+.ar-step{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.2em;
+  color:var(--ink);margin:16px 2px 9px;padding:6px 15px;border-radius:999px;
+  background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.55);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 3px 12px rgba(23,58,90,.14)}
+.ar-col>.ar-step:first-child{margin-top:2px}
+.ar-step .n{font-family:var(--serif);font-weight:900;color:var(--gold-deep);margin-right:7px}
+.ar-tiles{display:flex;flex-wrap:wrap;gap:8px}
+/* ⚠️ 五个模式排 3 + 2，不是 wrap flex 的 4 + 1（§18f/§18q 那条又一次）：wrap 会让
+   词雨灵露 一张卡独占整行，读起来像它是个特例。三列刚好把它切成「三种答题 / 两个
+   游戏」，与学生端 学习挑战 / 闯关 的分法一致。列数写死，不用 auto-fill。 */
+.ar-tiles.m3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:700px){.ar-tiles.m3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* ⟨app.css .dopt⟩ — flex:1 1 auto so two, four or five tiles all fill the row */
+.ar-tile{flex:1 1 auto;border:1px solid #C9DCE9;border-radius:13px;padding:9px 14px;
+  background:#fff;color:var(--ink);text-align:left;cursor:pointer;line-height:1.3;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 2px 8px rgba(23,58,90,.09);
+  transition:background .15s ease,border-color .15s ease;touch-action:manipulation}
+.ar-tile:hover{border-color:var(--sea1)}
+.ar-tile b{display:block;font-size:14.5px}
+.ar-tile span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+.ar-tile.on{background:var(--gold);border-color:var(--gold);font-weight:700;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 3px 12px rgba(227,166,60,.35)}
+.ar-tile.on b{color:#3A2A08}
+.ar-tile.on span{color:#6B5010}
+/* fixed-height scroll box, like #scopeCard in landscape: without it, opening 中一
+   pushed 模式 and 生成擂台码 down the page and the card changed height on every
+   click. Height, not max-height — max-height still grows to the ceiling. */
+.scope-box{height:clamp(240px,42vh,420px);overflow-y:auto;overscroll-behavior:contain;
+  background:#F7FAFC;border:1px solid var(--line);border-radius:12px;padding:10px 13px}
+/* ⟨app.css .scope-top/.scope-sum/.scope-acts⟩ — 已选 N 个单元 left, the pair right.
+   ⚠️ A normal flex child, NOT position:absolute: the box scrolls inside itself and
+   an absolute corner would scroll away with it. */
+.scope-top{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin-bottom:8px}
+.scope-sum{font-size:13px;color:#8A5A0F;font-weight:700;min-width:0}  /* not --gold-deep: 3.19:1 fails for small text */
+.scope-acts{display:flex;gap:6px;margin-left:auto;flex:none}
+.scope-acts .unit{font-weight:700;padding:5px 12px;font-size:13px}
+/* ⟨app.css .scope-acc⟩ — exclusive accordion: at most one 年级 open at a time */
+.scope-acc{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;
+  border-top:1px solid #E4EDF4;padding:11px 2px 8px;font-size:14px;font-weight:700;
+  color:#3A5A70;cursor:pointer;text-align:left;font-family:inherit}
+.scope-acc .cnt{font-weight:400;font-size:12.5px;color:var(--ink-soft)}
+.scope-acc .chev{margin-left:auto;color:#4E6273;transition:transform .18s}
+.scope-acc.open .chev{transform:rotate(90deg)}
+/* ⟨app.css .units/.unit⟩ — gold when picked, same as the student's units */
+.units{display:flex;flex-wrap:wrap;gap:8px}
+.units.collapsed{display:none}
+.unit{border:1px solid #B9CEDD;border-radius:14px;padding:7px 13px;font-size:14px;
+  color:var(--ink-soft);background:#fff;cursor:pointer;font-family:inherit;
+  display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1.25;gap:1px}
+.unit b{font-size:14px;color:var(--ink)}
+.unit-theme{font-size:11.5px;color:#8AA0B0}
+.unit-n{font-size:11px;color:var(--ink-soft)}
+.unit.on{background:var(--gold);border-color:var(--gold)}
+.unit.on b,.unit.on .unit-n{color:#3A2A08}
+.unit.on .unit-theme{color:#6B5010}
+/* ⟨app.css .qty*⟩ — 题数 / 时长 were native <select> dropdowns, the only two
+   controls on the page you had to open before you could see the choices.
+   ⚠️ The readout sits ABOVE the track, never beside it, or the track length
+   changes with the label's width. */
+.ar-qtys{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 20px}
+.qty{margin:2px 0 6px;min-width:0}
+.qty-lab{font-size:11.5px;letter-spacing:.2em;color:var(--ink-soft)}
+.qty-val{display:block;font-family:var(--serif);font-weight:800;font-size:17.5px;color:var(--ink)}
+.qty-track{position:relative;padding:9px 0}
+.qty-ticks{position:absolute;left:13px;right:13px;top:50%;transform:translateY(-50%);
+  display:flex;justify-content:space-between;pointer-events:none}
+.qty-ticks i{width:3px;height:3px;border-radius:50%;background:rgba(23,58,90,.3)}
+.qty-range{-webkit-appearance:none;appearance:none;display:block;width:100%;height:26px;
+  background:none;margin:0;padding:0;border:none}
+.qty-range:focus{outline:none}
+.qty-range:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:8px}
+.qty-range::-webkit-slider-runnable-track{height:8px;border-radius:999px;
+  background:linear-gradient(90deg,#DCE9F2,#C7DDEC)}
+.qty-range::-moz-range-track{height:8px;border-radius:999px;
+  background:linear-gradient(90deg,#DCE9F2,#C7DDEC)}
+.qty-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;
+  border-radius:50%;background:var(--gold);border:2px solid #fff;margin-top:-10px;
+  box-shadow:0 3px 10px rgba(227,166,60,.5);cursor:pointer}
+.qty-range::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--gold);
+  border:2px solid #fff;box-shadow:0 3px 10px rgba(227,166,60,.5);cursor:pointer}
+/* the one primary action, on its own line under both columns */
+.ar-go{grid-column:1/-1;border-top:1px solid #E4EDF4;margin-top:16px;padding-top:14px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ar-go .msg{margin-top:0}
 /* ---- 意见反馈工单 (2026-08-14) ---- */
 .fb-badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;
   border-radius:999px;background:#C4553F;color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
@@ -375,7 +479,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260817h"></script>
+<script src="js/podium.js?v=20260817i"></script>
 <script>
 (function () {
   "use strict";
@@ -383,7 +487,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260817h";
+  var ASSET_V = "?v=20260817i";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -1345,9 +1449,22 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   /* ================= 结伴登峰 (arena) teacher room console ================= */
   var ARENA_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no O/0/I/1/L (whiteboard-safe)
   var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
+  /* one line each, in the teacher's words: which question the mode asks. The old
+     row of five bare pills made 华文解释 / 英文翻译 indistinguishable at a glance. */
+  var ARENA_MODE_SUB = { cloze: "看句子填词 · 答对提升海拔", zhmcq: "看中文释义选词",
+                         enmcq: "看英文翻译选词", sprint: "限时攀山 · 答对就往上",
+                         rain: "词语落下 · 落地前打出" };
+  /* ⚠️ NOT folded into STREAM_LABEL — that map is printed in tables and on the
+     live 擂台 header, where a two-line name would break the row. */
+  var STREAM_SUB = { g1: "基础华文", g2: "华文", g3: "快捷华文", hcl: "高级华文" };
+  /* ⚠️ Same four values the old <select>s offered — the widget changed, the
+     choices did not. Widening the ceiling is the owner's call, not a side effect
+     of a layout pass. */
+  var ARENA_QCOUNTS = [10, 15, 20, 30];
+  var ARENA_DURS = [180, 300, 480, 600];
   var _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: {} };
   var _setup = { stream: "g3", scope: {}, mode: "cloze", tier: "3", qCount: 20, durationS: 300,
-                 rainPy: true, rainLives: 5 };
+                 rainPy: true, rainLives: 5, acc: null };
 
   function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
   function fetchStreamJson(stream) {
@@ -1358,7 +1475,11 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         lv.units.forEach(function (u) {
           var key = lv.level + "·" + u.unit, words = [];
           u.components.forEach(function (c) { c.words.forEach(function (w) { words.push(w); }); });
-          units.push({ key: key, count: words.length }); byKey[key] = words;
+          /* level/unit/theme are split out for the accordion: the student side
+             shows 单元一 + its 主题 + 词数 on the chip, and 「新同学 新鲜事」is how a
+             teacher actually recognises the unit — 中三·单元四 is not. */
+          units.push({ key: key, level: lv.level, unit: u.unit, theme: u.theme || "", count: words.length });
+          byKey[key] = words;
         });
       });
       _arena.json[stream] = { units: units, byKey: byKey }; return _arena.json[stream];
@@ -1525,58 +1646,204 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 
   function renderArena(panel) { if (_arena.code) return renderArenaLive(panel); renderArenaSetup(panel); }
 
+  /* ⟨app.css .qty*⟩ quantity slider, ported from app.js qtySlider/wireQtySlider.
+     The range is indexed over the ALLOWED values (0..n-1, step 1), so a drag can
+     only ever land on a legal value and the stops stay evenly spaced even when
+     the values are not (180/300/480/600/900). */
+  function qtySlider(id, label, values, cur, fmt) {
+    var i = values.indexOf(cur); if (i === -1) i = 0;
+    var ticks = ""; for (var k = 0; k < values.length; k++) ticks += "<i></i>";
+    return '<div class="qty"><div class="qty-lab">' + esc(label) + '</div>' +
+      '<b class="qty-val" id="' + id + 'Val">' + esc(fmt(cur)) + '</b>' +
+      '<div class="qty-track"><div class="qty-ticks" aria-hidden="true">' + ticks + '</div>' +
+      '<input type="range" class="qty-range" id="' + id + '" min="0" max="' + (values.length - 1) +
+      '" step="1" value="' + i + '" aria-label="' + esc(label) + '"></div></div>';
+  }
+  function wireQtySlider(id, values, fmt, onPick) {
+    var r = el(id), out = el(id + "Val"); if (!r) return;
+    r.oninput = function () { var v = values[parseInt(r.value, 10)]; if (out) out.textContent = fmt(v); onPick(v); };
+  }
+
+  /* ---------- 出题设置 ----------
+     Rebuilt 2026-08-17 to select the way the STUDENT home selects (owner: 「the
+     interface is super cluttered, make it like the student interface」). What
+     changed and why it was cluttered:
+     · 单元范围 was 29 bare checkboxes in one flat wall — the student side has had
+       an exclusive accordion by 年级 with gold unit chips since 2026-08-14, and the
+       unit's 主题 (which is how a teacher recognises it) was not shown at all.
+     · every control was a stacked <label> + widget in one 1700px-wide column;
+       now it is two columns (哪些词 left · 怎么考 right) like the student home.
+     · 题数 / 时长 were <select> dropdowns — the only controls whose choices you
+       had to open before you could see them. Sliders, same as the student's.
+     ⚠️ Mode / 难度 / 词雨 changes DO NOT re-render the card: syncRight() flips
+     classes in place. A full re-render would rebuild the scope box and throw away
+     both its scroll position and the open 年级. */
   function renderArenaSetup(panel) {
+    var TIERS = [["2", "⭐", "两个选项"], ["3", "⭐⭐", "三个选项"],
+                 ["4", "⭐⭐⭐", "四个选项"], ["type", "⭐⭐⭐⭐", "打字输入"]];
     panel.innerHTML = '<div class="card"><h2 style="margin-top:0">结伴登峰 · 出题设置</h2>' +
       '<div class="hint">选好范围与模式后生成擂台码，写在白板上让学生加入。全班答同一套题（顺序已冻结），公平比拼。' +
       '得分只用于本场投影排名——不计历练值；学生答对的词会计入其「已掌握」。</div>' +
-      '<label>科目</label><div class="row" id="arStream"></div>' +
-      '<label>单元范围</label><div id="arScope" class="hint">选择科目后显示单元…</div>' +
-      '<label>模式</label><div class="row" id="arMode"></div>' +
+      '<div class="ar-grid">' +
+      /* left column = 哪些词 */
+      '<div class="ar-col">' +
+      '<div class="ar-step"><span class="n">①</span>科目</div>' +
+      '<div class="ar-tiles" id="arStream"></div>' +
+      '<div class="ar-step"><span class="n">②</span>单元范围 · 可多选</div>' +
+      '<div id="arScope" class="hint">载入词库…</div>' +
+      '</div>' +
+      /* right column = 怎么考 */
+      '<div class="ar-col">' +
+      '<div class="ar-step"><span class="n">③</span>模式</div>' +
+      '<div class="ar-tiles m3" id="arMode"></div>' +
       /* §2.2: each mode's own settings live in an inset panel that appears only
-         when that mode is picked — never all five modes' controls at once. */
+         when that mode is picked — never all five modes' controls at once.
+         ⚠️ Unnumbered: it is a detail of ③, not a fifth step (§7). */
       '<div class="cfg-sub" id="arTierRow"><div class="cfg-sub-t">填空挑战设置</div>' +
-        '<label>难度</label><div class="row" id="arTier"></div></div>' +
+        '<div class="qty-lab" style="margin-top:9px">难度</div><div class="ar-tiles" id="arTier">' +
+        TIERS.map(function (t) {
+          return '<button class="ar-tile arT" data-t="' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></button>';
+        }).join("") + '</div></div>' +
       '<div class="cfg-sub" id="arRainRow" style="display:none"><div class="cfg-sub-t">词雨灵露设置</div>' +
         /* 2026-08-14: 下落速度 / 速度模式 removed. 词雨 is progressive-only now —
            one course for everyone, ramping with time and restarting each round —
            so there is nothing left to choose. */
         '<div class="hint">下落速度由系统统一控制：每局都从最慢开始，随时间逐渐加快，全班同一套节奏。</div>' +
-        '<label>拼音辅助</label><div class="row" id="arRp"></div>' +
-        '<label>生命（时间制 = 只按时长结束）</label><div class="row" id="arRl"></div></div>' +
-      '<div class="row"><div><label>题数</label><select id="arQ"><option>10</option><option>15</option><option selected>20</option><option>30</option></select></div>' +
-      '<div><label>时长（分钟）</label><select id="arDur"><option value="180">3</option><option value="300" selected>5</option><option value="480">8</option><option value="600">10</option></select></div></div>' +
-      '<div style="margin-top:14px"><button class="btn primary" id="arGen">生成擂台码</button></div>' +
-      '<div class="msg" id="arMsg"></div></div>';
-    el("arStream").innerHTML = STREAMS.map(function (s) { return '<button class="btn arS' + (s === _setup.stream ? " primary" : "") + '" data-s="' + s + '">' + STREAM_LABEL[s] + '</button>'; }).join(" ");
-    Array.prototype.forEach.call(el("arStream").querySelectorAll(".arS"), function (b) { b.onclick = function () { _setup.stream = b.getAttribute("data-s"); _setup.scope = {}; renderArenaSetup(panel); }; });
-    el("arMode").innerHTML = Object.keys(ARENA_MODE_ZH).map(function (k) { return '<button class="btn arM' + (k === _setup.mode ? " primary" : "") + '" data-m="' + k + '">' + ARENA_MODE_ZH[k] + '</button>'; }).join(" ");
-    Array.prototype.forEach.call(el("arMode").querySelectorAll(".arM"), function (b) { b.onclick = function () { _setup.mode = b.getAttribute("data-m"); renderArenaSetup(panel); }; });
-    el("arTier").innerHTML = [["2", "⭐"], ["3", "⭐⭐"], ["4", "⭐⭐⭐"], ["type", "打字"]].map(function (t) { return '<button class="btn arT' + (t[0] === _setup.tier ? " primary" : "") + '" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join(" ");
-    Array.prototype.forEach.call(el("arTier").querySelectorAll(".arT"), function (b) { b.onclick = function () { _setup.tier = b.getAttribute("data-t"); renderArenaSetup(panel); }; });
-    el("arTierRow").style.display = _setup.mode === "cloze" ? "" : "none";
-    el("arRainRow").style.display = _setup.mode === "rain" ? "" : "none";
-    if (_setup.mode === "rain") {
-      el("arRp").innerHTML = '<button class="btn' + (_setup.rainPy ? " primary" : "") + '" id="arRpY">显示拼音</button> ' +
-        '<button class="btn' + (!_setup.rainPy ? " primary" : "") + '" id="arRpN">隐藏拼音</button>';
-      el("arRpY").onclick = function () { _setup.rainPy = true; renderArenaSetup(panel); };
-      el("arRpN").onclick = function () { _setup.rainPy = false; renderArenaSetup(panel); };
-      el("arRl").innerHTML = [[0, "时间制"], [3, "3 命"], [5, "5 命"], [8, "8 命"]].map(function (o) {
-        return '<button class="btn arRl' + (o[0] === _setup.rainLives ? " primary" : "") + '" data-l="' + o[0] + '">' + o[1] + '</button>';
-      }).join(" ");
-      Array.prototype.forEach.call(el("arRl").querySelectorAll(".arRl"), function (b) { b.onclick = function () { _setup.rainLives = parseInt(b.getAttribute("data-l"), 10); renderArenaSetup(panel); }; });
+        '<div class="qty-lab" style="margin-top:9px">拼音辅助</div><div class="ar-tiles" id="arRp">' +
+        '<button class="ar-tile arRp" data-py="1"><b>显示拼音</b></button>' +
+        '<button class="ar-tile arRp" data-py="0"><b>隐藏拼音</b></button></div>' +
+        '<div class="qty-lab" style="margin-top:9px">生命</div><div class="ar-tiles" id="arRl">' +
+        [[0, "时间制", "只按时长结束"], [3, "3 命", ""], [5, "5 命", ""], [8, "8 命", ""]].map(function (o) {
+          return '<button class="ar-tile arRl" data-l="' + o[0] + '"><b>' + o[1] + '</b>' +
+            (o[2] ? '<span>' + o[2] + '</span>' : "") + '</button>';
+        }).join("") + '</div></div>' +
+      '<div class="ar-step"><span class="n">④</span>题数与时长</div>' +
+      '<div class="ar-qtys">' +
+      qtySlider("arQ", "题数", ARENA_QCOUNTS, _setup.qCount, function (n) { return n + " 题"; }) +
+      qtySlider("arDur", "时长", ARENA_DURS, _setup.durationS, function (n) { return (n / 60) + " 分钟"; }) +
+      '</div></div>' +
+      '<div class="ar-go"><button class="btn primary" id="arGen">生成擂台码 ›</button>' +
+      '<div class="msg" id="arMsg"></div></div>' +
+      '</div></div>';
+
+    el("arStream").innerHTML = STREAMS.map(function (s) {
+      return '<button class="ar-tile arS' + (s === _setup.stream ? " on" : "") + '" data-s="' + s + '">' +
+        '<b>' + STREAM_LABEL[s] + '</b><span>' + STREAM_SUB[s] + '</span></button>';
+    }).join("");
+    Array.prototype.forEach.call(el("arStream").querySelectorAll(".arS"), function (b) {
+      b.onclick = function () { _setup.stream = b.getAttribute("data-s"); _setup.scope = {}; _setup.acc = null; renderArenaSetup(panel); };
+    });
+    el("arMode").innerHTML = Object.keys(ARENA_MODE_ZH).map(function (k) {
+      return '<button class="ar-tile arM" data-m="' + k + '"><b>' + ARENA_MODE_ZH[k] + '</b>' +
+        '<span>' + ARENA_MODE_SUB[k] + '</span></button>';
+    }).join("");
+
+    /* one repaint for everything on the right: the picked tiles and which inset
+       panel is showing. Called on load and after every click over there. */
+    function syncRight() {
+      function mark(sel, isOn) {
+        Array.prototype.forEach.call(panel.querySelectorAll(sel), function (b) {
+          b.classList.toggle("on", isOn(b));
+        });
+      }
+      mark(".arM", function (b) { return b.getAttribute("data-m") === _setup.mode; });
+      mark(".arT", function (b) { return b.getAttribute("data-t") === _setup.tier; });
+      mark(".arRp", function (b) { return (b.getAttribute("data-py") === "1") === !!_setup.rainPy; });
+      mark(".arRl", function (b) { return parseInt(b.getAttribute("data-l"), 10) === _setup.rainLives; });
+      el("arTierRow").style.display = _setup.mode === "cloze" ? "" : "none";
+      el("arRainRow").style.display = _setup.mode === "rain" ? "" : "none";
     }
-    el("arQ").value = String(_setup.qCount); el("arQ").onchange = function () { _setup.qCount = parseInt(this.value, 10); };
-    el("arDur").value = String(_setup.durationS); el("arDur").onchange = function () { _setup.durationS = parseInt(this.value, 10); };
+    Array.prototype.forEach.call(panel.querySelectorAll(".arM"), function (b) {
+      b.onclick = function () { _setup.mode = b.getAttribute("data-m"); syncRight(); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".arT"), function (b) {
+      b.onclick = function () { _setup.tier = b.getAttribute("data-t"); syncRight(); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".arRp"), function (b) {
+      b.onclick = function () { _setup.rainPy = b.getAttribute("data-py") === "1"; syncRight(); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".arRl"), function (b) {
+      b.onclick = function () { _setup.rainLives = parseInt(b.getAttribute("data-l"), 10); syncRight(); };
+    });
+    syncRight();
+
+    wireQtySlider("arQ", ARENA_QCOUNTS, function (n) { return n + " 题"; }, function (n) { _setup.qCount = n; });
+    wireQtySlider("arDur", ARENA_DURS, function (n) { return (n / 60) + " 分钟"; }, function (n) { _setup.durationS = n; });
+
     fetchStreamJson(_setup.stream).then(function (data) {
-      var sc = el("arScope");
-      sc.className = "";
-      sc.innerHTML = '<div style="margin-bottom:8px"><button class="btn small" id="arAll">全选</button> <button class="btn small" id="arNone">清空</button></div>' +
-        '<div class="scope-box">' +
-        data.units.map(function (u) { return '<label><input type="checkbox" class="arU" value="' + esc(u.key) + '"' + (_setup.scope[u.key] ? " checked" : "") + '> ' + esc(u.key) + ' (' + u.count + ')</label>'; }).join("") +
-        '</div>';
-      Array.prototype.forEach.call(sc.querySelectorAll(".arU"), function (c) { c.onchange = function () { if (c.checked) _setup.scope[c.value] = 1; else delete _setup.scope[c.value]; }; });
-      el("arAll").onclick = function () { data.units.forEach(function (u) { _setup.scope[u.key] = 1; }); renderArenaSetup(panel); };
-      el("arNone").onclick = function () { _setup.scope = {}; renderArenaSetup(panel); };
+      var sc = el("arScope"); sc.className = "";
+      var byLevel = {}, levels = [];
+      data.units.forEach(function (u) {
+        if (!byLevel[u.level]) { byLevel[u.level] = []; levels.push(u.level); }
+        byLevel[u.level].push(u);
+      });
+      /* ⚠️ The student card defaults to ALL folded (a first-timer sees four short
+         rows). Here the first 年级 opens, because a teacher arrives knowing which
+         unit today's lesson is on and an all-folded box would show zero units. */
+      if (!_setup.acc || !byLevel[_setup.acc]) _setup.acc = levels[0];
+      sc.innerHTML = '<div class="scope-box" id="arScopeBox">' +
+        '<div class="scope-top"><div class="scope-sum" id="arSum"></div>' +
+        '<div class="scope-acts"><button class="unit" id="arAll"><b>全选</b></button>' +
+        '<button class="unit" id="arNone"><b>清空</b></button></div></div>' +
+        levels.map(function (lv) {
+          var open = _setup.acc === lv;
+          return '<button class="scope-acc' + (open ? " open" : "") + '" data-lv="' + esc(lv) + '">' +
+            esc(lv) + '<span class="cnt" data-cnt="' + esc(lv) + '"></span><span class="chev">›</span></button>' +
+            '<div class="units' + (open ? "" : " collapsed") + '" data-lvbody="' + esc(lv) + '">' +
+            byLevel[lv].map(function (u) {
+              return '<button class="unit' + (_setup.scope[u.key] ? " on" : "") + '" data-k="' + esc(u.key) + '">' +
+                '<b>' + esc(u.unit) + '</b>' +
+                (u.theme ? '<span class="unit-theme">' + esc(u.theme) + '</span>' : "") +
+                '<span class="unit-n">' + u.count + '词</span></button>';
+            }).join("") + '</div>';
+        }).join("") + '</div>';
+
+      function updateSum() {
+        var n = 0, picked = 0;
+        data.units.forEach(function (u) { if (_setup.scope[u.key]) { picked++; n += u.count; } });
+        el("arSum").textContent = "已选 " + picked + " 个单元 · 共 " + n + " 词";
+        levels.forEach(function (lv) {
+          var c = sc.querySelector('.cnt[data-cnt="' + lv + '"]'); if (!c) return;
+          var sel = byLevel[lv].filter(function (u) { return _setup.scope[u.key]; }).length;
+          c.textContent = sel ? "· 已选 " + sel + "/" + byLevel[lv].length : "· " + byLevel[lv].length + " 个单元";
+        });
+      }
+      /* ⚠️ Toggling a unit flips a class and updates the counts — it does NOT
+         re-render. Rebuilding the box on every pick scrolled it back to the top,
+         and picking six units in a row is the normal case. */
+      Array.prototype.forEach.call(sc.querySelectorAll(".unit[data-k]"), function (b) {
+        b.onclick = function () {
+          var k = b.getAttribute("data-k");
+          if (_setup.scope[k]) { delete _setup.scope[k]; b.classList.remove("on"); }
+          else { _setup.scope[k] = 1; b.classList.add("on"); }
+          updateSum();
+        };
+      });
+      /* exclusive accordion: at most one 年级 open, same as the student card.
+         Folding never changes the selection, only what is visible. */
+      Array.prototype.forEach.call(sc.querySelectorAll(".scope-acc"), function (b) {
+        b.onclick = function () {
+          var lv = b.getAttribute("data-lv");
+          _setup.acc = (_setup.acc === lv) ? null : lv;
+          Array.prototype.forEach.call(sc.querySelectorAll(".scope-acc"), function (h) {
+            h.classList.toggle("open", h.getAttribute("data-lv") === _setup.acc);
+          });
+          Array.prototype.forEach.call(sc.querySelectorAll(".units"), function (u) {
+            u.classList.toggle("collapsed", u.getAttribute("data-lvbody") !== _setup.acc);
+          });
+        };
+      });
+      el("arAll").onclick = function () {
+        data.units.forEach(function (u) { _setup.scope[u.key] = 1; });
+        Array.prototype.forEach.call(sc.querySelectorAll(".unit[data-k]"), function (b) { b.classList.add("on"); });
+        updateSum();
+      };
+      el("arNone").onclick = function () {
+        _setup.scope = {};
+        Array.prototype.forEach.call(sc.querySelectorAll(".unit[data-k]"), function (b) { b.classList.remove("on"); });
+        updateSum();
+      };
+      updateSum();
     }).catch(function () { el("arScope").textContent = "词库载入失败。"; });
     el("arGen").onclick = function () { generateRoom(panel); };
   }

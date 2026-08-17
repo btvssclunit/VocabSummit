@@ -227,17 +227,41 @@
      genuinely broken device cannot spin up contexts on every answer (browsers cap
      how many a page may create, and exhausting that would kill audio for good). */
   var MAX_REBUILDS = 8;
+  /* 🐛 owner 2026-08-17 (reported on the pier, fixed in both copies — §17: these two
+     audio stacks are deliberate duplication and must not drift).
+     ⚠️ `_rebuilds` NEVER RESET, so the 8-attempt cap was a whole-page-lifetime budget,
+     and it was being spent on attempts that could not possibly succeed: while
+     speechSynthesis holds the Apple audio session, a NEWLY created context is born
+     "interrupted" too. Every answer given while a word was still being read burned one.
+     After eight, the page is silent for good and revive() cannot recover it either,
+     because revive() calls this same function.
+     ⚠️ ① Reset on a context that is actually running: the budget must measure「this
+        device cannot play audio at all」, not「speech interrupted us a moment ago」.
+     ⚠️ ② Do not spend the budget while speech is busy — that attempt is doomed. The
+        revive() called from an utterance's onend/onerror runs when the channel is free,
+        which is when a rebuild can actually work.
+     ⚠️ KEEP THE CAP. Browsers limit how many AudioContexts a page may create
+     (historically 6 in Chrome); a genuinely mute device must still stop trying. */
+  function speechBusy() {
+    try {
+      return !!(window.speechSynthesis &&
+                (speechSynthesis.speaking || speechSynthesis.pending));
+    } catch (e) { return false; }
+  }
+  function noteCtxRunning() {
+    if (_actx && _actx.state === "running") _rebuilds = 0;
+  }
   function rebuildCtx() {
-    /* Browsers cap how many AudioContexts a page may create (historically 6 in
-       Chrome). A device that genuinely cannot play audio would otherwise burn
-       through that cap and lose sound permanently, so stop trying after a few. */
     if (_rebuilds >= MAX_REBUILDS) return _actx;
     if (Date.now() - _ctxBorn < 1000) return _actx;
+    if (speechBusy()) return _actx;
     _rebuilds++;
     var old = _actx;
     _actx = null; _keepAlive = null;
     if (old && old.close) { try { old.close(); } catch (e) {} }
-    return (_actx = buildCtx());
+    var built = (_actx = buildCtx());
+    noteCtxRunning();
+    return built;
   }
   function playTone(c, freq, start, dur, type, gain) {
     var o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + start;
@@ -250,11 +274,12 @@
   }
   function tone(freq, start, dur, type, gain) {
     var c = actx(); if (!c) return;
-    if (c.state === "running") return playTone(c, freq, start, dur, type, gain);
+    if (c.state === "running") { noteCtxRunning(); return playTone(c, freq, start, dur, type, gain); }
     var played = false;
     function go(cc) {
       if (played || !cc || cc.state !== "running") return;
       played = true;
+      noteCtxRunning();      // 🐛 the channel is alive: hand the rebuild budget back
       playTone(cc, freq, start, dur, type, gain);
     }
     /* Ask nicely, but do NOT return here waiting on the answer (see the note
@@ -329,10 +354,14 @@
      FIRST spoken word silences every chime for the rest of the round on Safari. */
   function reviveAudio() {
     if (!_actx) return;
-    if (_actx.state === "running") return;
+    if (_actx.state === "running") { noteCtxRunning(); return; }
     try { _actx.resume(); } catch (e) {}
     setTimeout(function () {
-      if (_actx && _actx.state !== "running") rebuildCtx();
+      if (_actx && _actx.state === "running") { noteCtxRunning(); return; }
+      /* ⚠️ this is called from an utterance's onend/onerror, so speech is finished by
+         now and rebuildCtx()'s speechBusy() guard lets the attempt through. That pairing
+         is the point: the doomed attempts are skipped, the useful one still happens. */
+      rebuildCtx();
     }, 150);
   }
   /* coming back to the tab leaves the context suspended on most mobile browsers */

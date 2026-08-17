@@ -310,6 +310,8 @@
     "我的背包": "wǒ de bèi bāo", "摆在海滩上的": "bǎi zài hǎi tān shàng de",
     "收在背包里的": "shōu zài bèi bāo lǐ de", "整理位置": "zhěng lǐ wèi zhì",
     "收起": "shōu qǐ", "摆上": "bǎi shàng",
+    /* 看句选词 答对后的确认行 (owner 2026-08-17) */
+    "答对了": "dá duì le",
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
     /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
@@ -682,20 +684,53 @@
   /* 卡住的 context 只能扔掉重建——新建出来的 context 是 running 的，
      而 interrupted 状态下 resume() 不保证会回来。限流：浏览器对一个页面能
      建几个 AudioContext 有上限，烧完就永远没声音了。 */
+  /* 🐛 owner 2026-08-17：看句选词 答对没有音效，iPad 与 ThinkPad 都一样。
+     ⚠️ **`_acFails` 从来不归零，所以那 8 次的额度是「整页寿命」的额度，
+     而它被花在了根本注定失败的尝试上。** 这个玩法的设计流程（§18h 把朗读搬到句子旁边
+     那颗 🔊）就是「先听整句，再作答」，而一句话 rate=0.85 要读 2.5–3.5 秒——
+     学生几乎总是**在朗读还没读完的时候**答对。那一刻苹果的音频通道在 speechSynthesis
+     手上，`interrupted` 状态下**新建的 context 一样是 interrupted**，所以这次重建
+     必然失败，却照样扣掉一次额度。答对八次之后，整页永久没声音，
+     `revive()` 也再也救不回来（它同样走这个函数）。
+     两条修正：
+     ⚠️ **① 通道真的回来了就把计数清零**（`noteRunning`）。额度要计的是「这台设备
+        根本放不出声」，不是「刚才被朗读打断过」。
+     ⚠️ **② 朗读还在进行时不花额度**：那一次注定失败。等 `speak()` 结束时的
+        `revive()` 再来一次——那时通道是空的，重建才有意义。
+     ⚠️ 浏览器对一个页面能建几个 AudioContext 有硬上限（Chrome 历史上是 6），
+        所以额度本身**必须留着**，不要因为这个 bug 就把它删掉。 */
+  function speechBusy() {
+    try {
+      return !!(window.speechSynthesis &&
+                (speechSynthesis.speaking || speechSynthesis.pending));
+    } catch (e) { return false; }
+  }
+  function noteRunning() {
+    if (_ac && _ac.state === "running") _acFails = 0;
+  }
   function rebuildCtx() {
     if (_acFails >= MAX_REBUILDS) return _ac;
     if ((new Date()).getTime() - _acBorn < 1000) return _ac;
+    /* ⚠️ don't spend the budget on a doomed attempt — see ② above */
+    if (speechBusy()) return _ac;
     _acFails++;
     var old = _ac;
     _ac = null; _keepAlive = null;
     if (old && old.close) { try { old.close(); } catch (e) {} }
-    return (_ac = buildCtx());
+    var built = (_ac = buildCtx());
+    noteRunning();          // a fresh context is born running when the channel is free
+    return built;
   }
   function revive() {
-    if (!_ac || _ac.state === "running") return;
+    if (!_ac || _ac.state === "running") { noteRunning(); return; }
     try { _ac.resume(); } catch (e) {}
     setTimeout(function () {
-      if (_ac && _ac.state !== "running") rebuildCtx();
+      if (_ac && _ac.state === "running") { noteRunning(); return; }
+      /* ⚠️ revive() is called from speak()'s `done`, which fires on onend/onerror — by
+         then the utterance is over, so `speechBusy()` is false and the rebuild inside
+         rebuildCtx() is finally allowed to happen. That ordering is the other half of
+         fix ②: the doomed attempts are skipped, and the one that can work still runs. */
+      rebuildCtx();
     }, 150);
   }
   function blip(freqs, type, vol, dur) {
@@ -708,6 +743,7 @@
        → 走兜底 → 兜底本身是坏的。 */
     function play(cc) {
       if (!cc || cc.state !== "running") return false;
+      noteRunning();          // 🐛 the channel is alive: give the rebuild budget back
       var t0 = cc.currentTime;
       freqs.forEach(function (f, i) {
         var o = cc.createOscillator(), g = cc.createGain();
@@ -3261,6 +3297,17 @@
 
   /* jetty progress bar — spec §5.3: a round should feel like a journey, not a
      counter. The boat advances along the jetty as answers land. */
+  /* 🐛 `.xh-hint` is `opacity:0`; only `.xh-hint.show` is visible. FOUR handlers
+     (看句选词 · 重整句子 ×2 · 组字成词 ×2) assigned innerHTML and never added the class,
+     so their feedback lines have been rendered-but-invisible since each shipped —
+     which is most of what the owner reported as「no positive feedback」on 2026-08-17.
+     ⚠️ Use this helper rather than assigning innerHTML directly, so the next handler
+     cannot forget: there is no symptom to notice, the text is simply never seen. */
+  function xhHintShow() {
+    var el = document.getElementById("xhHint");
+    if (el) el.className = "xh-hint show";
+    return el || { innerHTML: "" };      // never throw if a screen has no hint slot
+  }
   function jetty() {
     var n = state.seq.length;
     var frac = n ? state.i / n : 0;
@@ -3937,7 +3984,7 @@
            void the ladder. tileOnly / missing ask records nothing at all. */
         if (w && !p.tileOnly) noteRight(w, true);
         else sfxOk();
-        document.getElementById("xhHint").innerHTML = "✅ " + esc(p.zh) +
+        xhHintShow().innerHTML = "✅ " + esc(p.zh) +
           '<button class="xh-ph-tts" id="xhSortSay" title="朗读句子" aria-label="朗读句子">🔊</button>' +
           (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
         /* ⚠️ Same change as 看句选词: no longer speech-gated (owner 2026-08-16 晚).
@@ -3957,7 +4004,7 @@
       if (w2 && !p.tileOnly) noteWrong(w2, "");
       else { state.firstTry = false; sfxNo(); }
       paint();
-      document.getElementById("xhHint").innerHTML = locked
+      xhHintShow().innerHTML = locked
         ? "前 " + locked + " 块对了，后面再想想。" +
           '<span class="xh-en xh-always">First ' + locked + ' in place — keep going.</span>'
         : "第一块就要换一个，再想想。" +
@@ -4065,7 +4112,7 @@
            calls the ONE path — noteRight — which also pays 航海值 and 贝壳 and speaks
            the finished word. */
         noteRight(w);
-        document.getElementById("xhHint").innerHTML = "✅ " + esc(target) +
+        xhHintShow().innerHTML = "✅ " + esc(target) +
           '<span class="xh-py xh-always">' + esc(w.拼音) + "</span>";
         advance(1400);
         return;
@@ -4079,7 +4126,7 @@
          that maintains the distractor blacklist. */
       noteWrong(w, "");
       paint();
-      document.getElementById("xhHint").innerHTML = locked
+      xhHintShow().innerHTML = locked
         ? "前 " + locked + " 个字对了，后面再想想。" +
           '<span class="xh-en xh-always">First ' + locked + " right — keep going.</span>"
         : "第一个字就要换一个，再想想。" +
@@ -4112,7 +4159,7 @@
       /* ⚠️ 喇叭是句子的**兄弟节点**，不嵌在句子里（§14），和四座山的 填空挑战 同一个
          位置：题干旁边一颗，学生想听就听。它取代了「答对后自动朗读、读完才翻页」——
          那条规则让想快的学生每题白等最多 5.5 秒（owner 2026-08-16 晚）。 */
-      '<div class="xh-ph-line"><div class="xh-ph-zh">' + phraseBlank(p) + "</div>" +
+      '<div class="xh-ph-line"><div class="xh-ph-zh" id="xhPhZh">' + phraseBlank(p) + "</div>" +
       '<button class="xh-ph-tts" id="xhPhSay" title="朗读句子" aria-label="朗读句子">🔊</button></div>' +
       /* ⚠️ .xh-en — THE GATE, no .xh-always (owner 2026-08-16). This line used to
          carry neither class, so it was not exempted from the English gate, it had
@@ -4142,14 +4189,44 @@
       if (o.词语 === p.ask) {
         if (done) return;
         done = true;
-        btn.classList.add("ok");
+        /* 🐛 "right", NOT "ok" (owner 2026-08-17). css/xh.css styles `.xh-opt.right`
+           and `.xh-opt.wrong`; this handler was the only one in the file inventing its
+           own pair, and **no rule matched either of them** — so the option the student
+           tapped changed colour by exactly nothing. Every other mode here already used
+           right/wrong (renderEnMcq, renderPic, renderListen). */
+        btn.classList.add("right");
         /* ⚠️ a tile-only answer records NO progress: 素食摊 is not a word entry, so
            marking it would invent a 航程 entry for a word that does not exist. */
         if (!p.tileOnly) noteRight(w, true);
-        var hint = document.getElementById("xhHint");
+        /* 🐛 THE BLANK FILLS ITSELF IN, AT THE TOP, WHERE THE QUESTION IS (owner
+           2026-08-17: 「no positive feedback sound and it freezes before progressing」).
+           The confirmation used to be a ✅ line in #xhHint — which sits BELOW the four
+           options, i.e. nowhere near the option the student just tapped. With the dwell
+           at 1400ms (2400 with a culture note), a student looking at their own tap saw
+           nothing happen for well over a second and read it as a hang.
+           ⚠️ THIS MUST NOT DEPEND ON AUDIO. §9 records that an iPad's side mute switch
+           kills web audio while leaving speech working, so「the chime is the feedback」is
+           broken by construction on a muted tablet. The sound is now a bonus, not the
+           signal.
+           ⚠️ Filling the blank is the RIGHT feedback rather than a flourish: the sentence
+           完成了 is what the question was asking for, so the student reads the finished
+           line — the same reason 看句选词 shows the whole sentence on a correct answer. */
+        var zhEl = document.getElementById("xhPhZh");
+        if (zhEl) {
+          zhEl.innerHTML = esc(p.zh).replace(esc(p.ask),
+            '<span class="xh-filled">' + esc(p.ask) + "</span>");
+        }
+        var hint = xhHintShow();
         /* ⚠️ insight_en is OPTIONAL (PATCH_02 §5). Most sentences have nothing worth
-           saying and a forced note would be filler. Blank is the normal state. */
-        hint.innerHTML = "✅ " + esc(p.zh) +
+           saying and a forced note would be filler. Blank is the normal state.
+           ⚠️ The sentence is no longer repeated here — it is right above, complete. */
+        /* 🐛 `.show` IS REQUIRED, and its absence was the main defect behind
+           「no positive feedback」: `.xh-hint` is `opacity:0` and only `.xh-hint.show`
+           reveals it. This handler set innerHTML and never added the class, so the
+           confirmation has been rendered-but-invisible since the mode shipped. The
+           modes that do it right (词海垂钓, 听音识图) all assign the full className. */
+        hint.innerHTML = '<span class="xh-ph-ok">✅ 答对了' + xhPy("答对了") +
+          '<span class="xh-en">that’s it</span></span>' +
           (p.insight_en ? '<span class="xh-ph-note">' + esc(p.insight_en) + "</span>" : "");
         /* ⚠️ NO LONGER SPEECH-GATED (owner 2026-08-16 晚). This used to be
            advanceAfterSpeech(p.zh, null, 1200, 5500): the whole sentence was read out
@@ -4164,7 +4241,7 @@
         setTimeout(function () { state.i++; render(); }, p.insight_en ? 2400 : 1400);
       } else {
         /* answering wrong costs nothing anywhere in this tier: mark it, stay put */
-        btn.classList.add("no");
+        btn.classList.add("wrong");     // 🐛 was "no", which no CSS rule matches
         btn.disabled = true;
         if (!p.tileOnly) noteWrong(w, o.词语);
         sfxNo();

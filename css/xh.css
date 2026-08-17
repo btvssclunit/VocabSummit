@@ -1232,7 +1232,9 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   .xh-berth-title{font-size:20px}
 }
 @media (prefers-reduced-motion:reduce){
-  .xh-sprite.pop img,.xh-input.wrong,.xh-mitem.shake{animation:none}
+  /* ⚠️ .xh-filled joins the list: the answer must still APPEAR in the blank (that is the
+     feedback), it just must not slide in. Setting animation:none keeps the end state. */
+  .xh-sprite.pop img,.xh-input.wrong,.xh-mitem.shake,.xh-filled{animation:none}
   .xh-jetty-boat{transition:none}
 }
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
@@ -1587,6 +1589,20 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
    instead of drifting off as a stray circle */
 .xh-blank{display:inline-block;min-width:2.4em;color:var(--gold-deep);
   border-bottom:3px solid var(--gold);margin:0 .04em;vertical-align:baseline}
+/* 🐛 THE ANSWER DROPPED INTO THE BLANK (owner 2026-08-17). It occupies the same place
+   the blank did, so the sentence does not reflow and the line does not jump — the word
+   simply arrives. Green rather than gold: gold was the empty slot, green is the answered
+   one, and the two must not look alike.
+   ⚠️ The 3px underline is KEPT, in green. Losing it would shift the baseline by the
+   border width and nudge the whole sentence, which reads as a glitch at 30px type. */
+.xh-filled{display:inline-block;min-width:2.4em;color:#2C5F3A;font-weight:900;
+  border-bottom:3px solid #4E9A5F;margin:0 .04em;vertical-align:baseline;
+  animation:xhFill .28s ease-out}
+@keyframes xhFill{from{opacity:.25;transform:translateY(-3px)}to{opacity:1;transform:none}}
+/* the short confirmation line. ⚠️ It no longer repeats the sentence: the sentence is
+   directly above and now complete, and printing it twice was what made this block the
+   thing the student had to hunt for. */
+.xh-ph-ok{display:block;font-size:15px;font-weight:800;color:#2C5F3A}
 /* ⚠️ the `body.xh-en-on` prefix is REQUIRED, not decoration (§18e): the gate rule
    `body.xh-en-on .xh-en` is (0,2,1) and a bare `.xh-ph-en` is (0,1,0), so without
    it this whole declaration loses and the line renders at the 12.5px gloss size. */
