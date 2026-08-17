@@ -2,9 +2,14 @@
    ================================================================================
    Loaded on stream pages BEFORE app.js. Owns a full-screen overlay and a minimal,
    self-contained question renderer. It deliberately does NOT call renderCloze /
-   scoreCorrect / bankPts — arena awards NO 历练值 and NO 灵露 (locked decision
-   2026-08-12). A correct answer DOES mark the word mastered (海拔), via the narrow
-   ctx.conferMastery(ids) hook app.js hands in — nothing else of app.js is touched.
+   scoreCorrect / bankPts directly — every award goes through a narrow ctx hook, so
+   nothing else of app.js is touched.
+   ⚠️ THE OLD「arena awards NO 历练值 and NO 灵露 (locked decision 2026-08-12)」 NOTE THAT
+   STOOD HERE WAS STALE AND IS NOW REMOVED. The owner reversed it on 2026-08-14 and
+   CLAUDE.md §12 records the current rule:「房间模式（结伴登峰／同伴挑战）照常计分：
+   历练值 + 灵露 + 掌握」. ctx.roomCorrect has done exactly that ever since, for BOTH
+   modes. The same per-word 灵露 decay and per-day 历练值 cap still apply, which is what
+   keeps a room from being a shortcut. Do not re-derive the old rule from this header.
 
    Public API:
      window.WSArena.open(ctx)
@@ -97,6 +102,13 @@
       ".arena-qtext{font-family:'Noto Serif SC',serif;font-size:24px;line-height:1.7;color:#fff;background:rgba(20,40,70,.5);" +
       "border:1px solid rgba(143,211,255,.35);border-radius:14px;padding:20px;text-align:center;margin-bottom:14px}" +
       ".arena-qtext u{color:#FFE9B0;text-decoration-color:#D9A72B}" +
+      /* 看图识词 room prompt. ⚠️ image-rendering:pixelated — the pier art is pixel art and
+         a room shows it SMALLER than the pier does, so this sharpens rather than blurs
+         (§14's trap is about resampling source files, not CSS downscaling).
+         ⚠️ max-height in vh, not a fixed px: the arena overlay is full-screen and the
+         options must stay above the fold on a 390px-tall phone in landscape. */
+      ".arena-pic{display:block;margin:0 auto;max-width:100%;max-height:34vh;" +
+      "object-fit:contain;image-rendering:pixelated}" +
       ".arena-opts{display:grid;gap:10px}.arena-opts.n2{grid-template-columns:1fr 1fr}.arena-opts.n3,.arena-opts.n4{grid-template-columns:1fr 1fr}" +
       ".arena-opt{border:2px solid #B9CEDD;border-radius:13px;padding:16px;font-size:19px;background:rgba(255,255,255,.94);" +
       "color:#243B4A;cursor:pointer;font-weight:600;text-align:center}" +
@@ -133,7 +145,14 @@
 
   function open(ctx) {
     injectStyle();
-    if (!db()) { alert("结伴登峰需要联网。请检查网络后再试。"); return; }
+    /* ⚠️ the pier's rooms are called 并肩航海 / 同伴挑战, so naming 结伴登峰 here would
+       be a mountain word on a pier screen — the same class of mislabel the topbar arrow
+       and the round-bar tag had to be taught about. */
+    if (!db()) {
+      alert((ctx && ctx.stream === "xh" ? "并肩航海和同伴挑战" : "结伴登峰") +
+            "需要联网。请检查网络后再试。");
+      return;
+    }
     ctx = ctx || {};
     /* wordIndex normally comes from the joiner's own stream. 同伴挑战 rooms can be
        CROSS-STREAM (owner 2026-08-14: a form class holds mixed subject levels and
@@ -235,6 +254,19 @@
         if (!snap.exists) { renderJoin("找不到这个擂台码，请再确认一次。"); return; }
         room = snap.data(); code = c; isPk = !!room.pk;
         if (room.status === "ended") { renderJoin(isPk ? "这个房间已经结束了。" : "这个擂台已经结束了。"); return; }
+        /* ⚠️ THE WATERLINE, ENFORCED AT THE DOOR (§4). A pier room serves 词语-keyed pier
+           words; a mountain room serves id-keyed stream words. Let the two mix and the
+           joiner's own award hook writes the WRONG store — a pier student in a G3 room
+           would have mountain ids handed to a hook that marks 码头 words, and vice versa.
+           ensureStream would also go looking for a data/xh.json that does not exist.
+           ⚠️ Compared as FAMILIES, not as equal streams: cross-stream mountain rooms are
+           a deliberate feature (§12, scored by word text), and this must not break them. */
+        if ((room.stream === "xh") !== (ctx.stream === "xh")) {
+          renderJoin(ctx.stream === "xh"
+            ? "这个房间是四座山的，码头进不去。请确认擂台码。"
+            : "这个房间在启航码头，学段页进不去。请到码头加入。");
+          return;
+        }
         var p = ctx.profile || {};
         var pdoc = db().collection("rooms").doc(c).collection("players").doc(myUid);
         /* RE-JOIN SAFE: a student who left (or was disconnected) already has a row.
@@ -400,7 +432,12 @@
     function startPlay() {
       setBackdrop(room.mode);                 // per-mode scenery once the room config is known
       if (room.mode === "rain") { started = true; startRainPlay(); return; }
-      if (!(room.mode === "cloze" || room.mode === "zhmcq" || room.mode === "enmcq" || room.mode === "sprint")) {
+      /* ⚠️ TWO PLACES KNOW THE MODE LIST — this gate and renderQ's branches — and they
+         must be extended together. Adding the pier's `pic` renderer without adding it
+         here sent every 看图识词 room to「该模式即将推出」, which looks exactly like a
+         mode that was never built rather than one wired up in only one of two spots. */
+      if (!(room.mode === "cloze" || room.mode === "zhmcq" || room.mode === "enmcq" ||
+            room.mode === "sprint" || room.mode === "pic")) {
         ov.innerHTML = '<div class="arena-card"><div class="arena-t">该模式即将推出</div>' +
           '<div class="arena-sub">「' + esc(scopeLine()) + '」的实时对战正在开发中。</div>' +
           '<button class="arena-btn" id="arOk">知道了</button></div>';
@@ -430,7 +467,19 @@
         '<span>答对 <b>' + myCorrect + '</b>/' + myAnswered + '</span>' +
         '<span class="arena-timer" id="arTimer">⏱ …</span></div>';
     }
+    /* ⚠️ THE CALLER MAY OWN THIS. The pier hands in its own picker because its rule is
+       harder than「prefer the same part of speech」: CLAUDE.md §5 says 干扰项永远取自
+       同一个 组别，没有例外, and there is a mutual-exclusion blacklist (猪肉/牛肉 …)
+       applied AFTER the group draw. Re-deriving either here would be a second copy of a
+       teaching rule, and the pier's copy is the one maintained against real
+       store.stats[].confused data. Mountain rooms keep the behaviour below unchanged. */
     function distractors(correct, n) {
+      if (ctx.distractors) {
+        try {
+          var got = ctx.distractors(correct, n) || [];
+          if (got.length) return got.slice(0, n);
+        } catch (e) { /* fall through to the generic picker rather than a blank question */ }
+      }
       var pool = wordPool.filter(function (w) { return w.id !== correct.id && w.w !== correct.w; });
       // prefer same part of speech first
       var same = pool.filter(function (w) { return w.pos && correct.pos && w.pos === correct.pos; });
@@ -450,6 +499,18 @@
       } else if (room.mode === "zhmcq" || room.mode === "sprint") {
         // sprint room = same-paper speed answering on 华文解释 prompts; 高度 = 答对数
         body = esc(w.zh || ""); opts = shuffle([w].concat(distractors(w, 3)));
+      } else if (room.mode === "pic") {
+        /* ⚠️ 看图识词 — the pier's signature question, and the reason a pier room needs a
+           renderer here at all: every other mode in this file is text-prompt → word.
+           The prompt is an IMAGE, so it must NOT be spoken and carries no text: §8.7,
+           朗读永远不能泄题 — saying the word aloud while showing its picture hands over
+           the answer. There is deliberately no 🔊 on this screen.
+           ⚠️ `pic` is the word's 图档 filename, already carrying .png (same contract as
+           xh.js's img()). A word with no picture never reaches here — the pier filters
+           the room's word list before hosting (§4.4: 数字 has no art). */
+        body = '<img class="arena-pic" src="art/xh/' + esc(w.pic || "") + ASSET_V +
+               '" alt="" onerror="this.style.display=\'none\'">';
+        opts = shuffle([w].concat(distractors(w, 3)));
       } else {
         body = esc(w.en || w.zh || ""); opts = shuffle([w].concat(distractors(w, 3)));
       }

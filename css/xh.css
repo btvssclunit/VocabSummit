@@ -318,7 +318,14 @@ body.xh-py-on .xh-block-tag .xh-uipy{color:#CFE0F0}
      part worth showing — hidden behind the stats overlay. Cap it and hand the rest
      to the tiles: the columns still finish level, which is what the ragged bottom
      edge was about, without gutting the picture. */
-  .xh-wrap.two-col .xh-col-r .xh-hero{flex:0 1 auto;min-height:260px;max-height:470px;height:44vh}
+  /* ⚠️ THE CAP MOVED TO THE WRAPPER, which is the flex child now that the room pills
+     are siblings of the hero (they cannot be children — §14 nested buttons). Left on
+     .xh-hero it would size an element that no longer sits in this flex container, and
+     the beach would take all the slack again — the exact thing this cap exists to stop.
+     The hero then fills the wrapper. */
+  .xh-wrap.two-col .xh-col-r .xh-hero-wrap{flex:0 1 auto;min-height:260px;max-height:470px;height:44vh;
+    display:flex}
+  .xh-wrap.two-col .xh-col-r .xh-hero-wrap .xh-hero{flex:1 1 auto;min-height:0;max-height:none;height:auto}
   /* ⚠️ Anchor the crop to the BOTTOM once the box is tall. dock_bg is a wide beach
      scene: cover-cropping a 1.78 image into a ~0.9 box from the centre throws away
      the sand, the stilt house and the jetty and leaves an empty stretch of sea —
@@ -440,6 +447,37 @@ body.xh-py-on .xh-hero-line .xh-uipy{color:#E8F2FA}
   background:linear-gradient(90deg,var(--gold-lt),var(--gold))}
 .xh-tile-n{display:block;font-size:12.5px;font-weight:700;color:#46596A}
 .xh-tile-go{align-self:center;flex:none;padding:0 16px;font-size:24px;color:#8A5A0F}
+
+/* ---------- 并肩航海 / 同伴挑战 pills (owner 2026-08-17) ----------
+   Mirrors app.js's .lscape-rooms: the two social modes sit ON the hero, out of the solo
+   ①②③ funnel, because they need a teacher or a friend and are occasional.
+   ⚠️ ONE FLEX ROW, never two absolutely-positioned pills. app.css carries the scar:
+   positioning them separately put them at identical coordinates, exactly on top of
+   each other.
+   ⚠️ The hero is `position:relative` already (it holds .xh-hero-go), so absolute here
+   resolves against it. If that ever changes these pills fly to the page corner.
+   ⚠️ Pier pills keep their PINYIN AND ENGLISH, unlike the mountain's bare labels —
+   §18h records that as the deliberate difference: pier controls carry their glosses.
+   That is why they stack rather than sitting on one line. */
+/* ⚠️ the wrapper is what .xh-rooms positions against — see the note in xh.js. It must
+   also inherit the hero's own bottom margin, or the tiles below jump up by 14px. */
+.xh-hero-wrap{position:relative;margin-bottom:14px}
+.xh-hero-wrap .xh-hero{margin-bottom:0}
+.xh-rooms{position:absolute;left:12px;top:12px;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+.xh-room{display:flex;flex-direction:column;align-items:flex-start;
+  font-family:var(--sans);font-size:12.5px;font-weight:800;color:var(--sea2);
+  background:rgba(255,255,255,.92);border:1px solid var(--glass-line);border-radius:14px;
+  padding:7px 13px;cursor:pointer;touch-action:manipulation;text-align:left;
+  box-shadow:0 2px 10px rgba(10,28,48,.28)}
+.xh-room:active{transform:translateY(1px)}
+/* ⚠️ body.xh-*-on prefixes REQUIRED (§18e): the gate rules are (0,2,1) and a bare
+   `.xh-room .xh-en` is (0,2,0), so without them these lose and render at gloss size in
+   gloss grey on a white pill. */
+body.xh-py-on .xh-room .xh-uipy{font-size:10.5px;font-weight:700;color:#5A7080}
+body.xh-en-on .xh-room .xh-en{font-size:10.5px;font-weight:700;color:#5A7080}
+@media (max-width:560px){
+  .xh-room{font-size:11.5px;padding:6px 10px}
+}
 
 /* ---------- 航海徽章 明细卡 (owner 2026-08-17) ----------
    Mirrors the mountain's badge detail card: big art, name, what it takes, then either
@@ -1297,6 +1335,7 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
      block is easy to forget (same standing rule as app.css's own fallback block). */
   .sailbadge{background:rgba(255,255,255,.94)}
   .xh-bd-chip{background:rgba(255,255,255,.94)}
+  .xh-room{background:rgba(255,255,255,.96)}
   .pop-card{background:rgba(255,255,255,.97)}
   .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
   .prof-prog div{background:rgba(255,255,255,.92)}

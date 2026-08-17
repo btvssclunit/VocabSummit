@@ -1517,9 +1517,11 @@
                          ANY stream. A form class holds mixed subject levels and
                          the owner wants them playing together; it may also become
                          a family game.
-     Reward is cosmetic only: a PK round awards NO 历练值 / 灵露, and mastery is
-     conferred exactly as 结伴登峰 does. Without that rule PK becomes a shortcut
-     around the mastery gate that rewards fast typing over knowing the word. */
+     ⚠️ THIS PARAGRAPH USED TO SAY「a PK round awards NO 历练值 / 灵露」. THAT IS STALE —
+     the owner reversed it on 2026-08-14 (§12), and roomCorrect() below has been awarding
+     both for PK and 结伴登峰 alike ever since; the block comment under roomCorrect says
+     so in as many words. What stops PK being a shortcut is not a zero payout, it is that
+     the SAME per-word 灵露 decay and per-day 历练值 cap apply inside a room as outside. */
   var PK_MODES = [
     { k: "cloze", label: "✍️ 填空挑战" },
     { k: "zhmcq", label: "🔎 华文解释" },

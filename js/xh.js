@@ -171,6 +171,11 @@
        ⚠️ Badges earned before this shipped have no entry and the card says 日期未记录.
        **绝不回填猜的日期。** */
     if (!s.sailLog || typeof s.sailLog !== "object") s.sailLog = {};
+    /* 同伴挑战 的记忆位（owner 2026-08-17）。⚠️ 独立于 quizMode/runQuizMode：
+       房间只支持两种题型，把它并进那两个记忆位会让「上次在房间选了看图识词」
+       悄悄改掉单人练习的题型——§18m 拆开那两个位就是为了防这件事。 */
+    if (["pic", "enmcq"].indexOf(s.pkMode) === -1) s.pkMode = "pic";
+    if ([180, 300, 480].indexOf(s.pkDur) === -1) s.pkDur = 300;
     /* 踏浪竞速 的皮肤开关。⚠️ NO LONGER A SETTING THE STUDENT WRITES (owner 2026-08-17):
        it is set by which ③ tile they opened, so what is stored here is only「which
        door opened the round that is running」. It still defaults to plain, which still
@@ -321,6 +326,12 @@
     "答对了": "dá duì le",
     /* 航海徽章 明细卡 (owner 2026-08-17) */
     "已获得": "yǐ huò dé", "去认词": "qù rèn cí",
+    /* 房间：并肩航海 · 同伴挑战 (owner 2026-08-17) */
+    "并肩航海": "bìng jiān háng hǎi", "同伴挑战": "tóng bàn tiǎo zhàn",
+    "加入朋友的房间": "jiā rù péng yǒu de fáng jiān", "开一个房间": "kāi yī gè fáng jiān",
+    /* ⚠️ 看图识词 / 英文选词 are NOT repeated here — they are already keys in this table.
+       A duplicate key in an object literal silently overrides the earlier one, which is
+       exactly how the pier section went missing from every progress code (§18r). */
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
     /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
@@ -1784,6 +1795,10 @@
        ⚠️ The whole-plate tap target stays a real <button>, not a div — and there is still
        exactly ONE action, so it needs no overlay-button trick (app.js needs that only
        because it stacks the room pills on top). */
+    /* ⚠️ A POSITIONED WRAPPER, because the room pills must be SIBLINGS of the hero
+       button (a button inside a button is §14's first trap) yet be positioned against
+       it. Without this they would resolve against the page and fly to its corner. */
+    h += '<div class="xh-hero-wrap">';
     h += '<button class="xh-hero" id="xhHero" title="我的海滩">' +
       '<img class="xh-hero-bg" src="art/xh/dock_bg.png' + ASSET_V + '" alt="" ' +
         "onerror=\"this.style.display='none'\">" +
@@ -1801,6 +1816,27 @@
           st.full + " / " + st.groups + ' chapters</span></div>' +
       "</div>" +
       '<span class="xh-hero-go">🏖️ 我的海滩 ›</span></button>';
+    /* ⚠️ 并肩航海 / 同伴挑战 sit ON the hero, exactly as the mountain puts them on its
+       banner (.lscape-rooms): they are occasional and social, needing a teacher or a
+       friend, so they do not belong in the solo funnel ①②③.
+       ⚠️ SIBLINGS OF THE HERO BUTTON, NOT CHILDREN. .xh-hero is itself a <button>, and a
+       button inside a button is §14's first trap — the browser lifts the inner one out
+       and the layout silently breaks. app.js hit this and solved it the same way. */
+    /* ⚠️ 并肩航海 IS DELIBERATELY NOT RENDERED YET, and this is not an oversight —
+       it is §4.4 applied to a door. It is the TEACHER-HOSTED mode, and teacher.html can
+       only create mountain rooms: its scope picker is built on 年级/单元/板块 and reads
+       the levels→units→components shape, which the pier's flat 148-row file does not
+       have. Until that console can host a 码头 room, every code a student typed here
+       would come back「找不到这个擂台码」— a door that cannot open, not merely one with
+       no rooms behind it yet yet.
+       ⚠️ EVERYTHING ELSE FOR IT IS ALREADY BUILT: xhArenaCtx() serves both modes, arena
+       accepts a pier room, and the Firestore rule already allows a teacher-hosted room
+       with stream:"xh". Adding the teacher-side scope picker is the only remaining piece;
+       restore the pill in the same change, not before. */
+    h += '<div class="xh-rooms">' +
+      '<button class="xh-room" id="xhPk">⚔️ 同伴挑战' + xhPy("同伴挑战") +
+      '<span class="xh-en">challenge a friend</span></button></div>';
+    h += "</div>";                       // close .xh-hero-wrap
 
 
     h += '<div class="xh-tiles">' + tiles + "</div>";  // destinations fill the column below
@@ -1808,6 +1844,7 @@
     view().innerHTML = h;
 
     document.getElementById("xhHero").onclick = renderBeach;
+    document.getElementById("xhPk").onclick = renderXhPk;
     document.getElementById("xhLog").onclick = function () { renderLog(); };
     /* ⚠️ guarded: the tile is absent when PHRASES failed to load. Unguarded this
        throws and every handler wired after it dies with it. */
@@ -2237,6 +2274,160 @@
      as a function purely so the call sites did not have to change. */
   function sailBadgeNeed(b) { return b.need; }
   function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
+
+  /* ================= 房间：并肩航海 · 同伴挑战 (owner 2026-08-17) =============
+     The pier's answer to the mountain's 结伴登峰 / 同伴挑战.
+     ⚠️ IT REUSES arena.js, and that is the whole design decision. The room LIFECYCLE —
+     six-digit code, lobby, roster, host start, snapshot subscribe, reconnect, podium,
+     TTL — is identical for both families and runs to several hundred lines. A second
+     copy is precisely the「two places to fix, one with no symptom」shape this codebase
+     keeps getting bitten by. What actually differs is the question renderer and the
+     award hook, and arena.js already takes BOTH through ctx.
+     ⚠️ IT REUSES THE `rooms/{code}` COLLECTION TOO, which means NO NEW FIRESTORE RULES.
+     The published rule keys on hostUid / pk / isTeacher() / status and never looks at
+     `stream`, so a pier room passes it unchanged. A separate dockRooms collection would
+     have needed rules the owner must publish by hand — and §16 already lists several
+     blocks sitting unpublished.
+     ⚠️ THE WATERLINE HOLDS (§4). The room doc carries stream:"xh"; arena refuses a join
+     across the family line (see its doJoin guard); and every award below writes ws_xh
+     and nothing else. xh.js still never touches ws2_*, app.js still never reads ws_xh.
+     ⚠️ SCORING IS ON, mirroring §12 (owner confirmed 2026-08-18). The same per-word
+     halving that applies in solo play applies here — awardShells/awardSail are the very
+     same functions — so a room is not a shortcut to 贝壳. */
+  var XH_PK_MODES = [
+    /* ⚠️ Only the two the pier can actually ask in a room. 连线 is a whole board rather
+       than a question, 词海垂钓 needs a keyboard, and the sentence modes need their scene
+       backdrop — the same reasoning §18i used to decide what could run on the beach. */
+    { k: "pic",   label: "🖼️ 看图识词", zh: "看图识词" },
+    { k: "enmcq", label: "🔤 英文选词", zh: "英文选词" }
+  ];
+  var XH_PK_DUR = [180, 300, 480];
+  /* pier words in the shape arena.js indexes.
+     ⚠️ `id` IS THE 词语 ITSELF. The pier has never had word ids (store.done is keyed by
+     text, §5), and arena keys its wordIndex by id — using the text for both makes the
+     room's wordIds list and arena's index agree by construction, and makes the
+     cross-stream `texts` join key arena already sends identical to the ids. */
+  function xhArenaWords(list) {
+    return (list || []).map(function (w) {
+      return { id: w["词语"], w: w["词语"], py: w["拼音"], en: w["英文释义"],
+               pic: w["图档"], grp: w["组别"] };
+    });
+  }
+  function xhArenaCtx() {
+    return {
+      stream: "xh",
+      words: xhArenaWords(WORDS),
+      profile: profileOf(),
+      getUid: function (cb) {
+        if (window.WSCloud && window.WSCloud.getUid) window.WSCloud.getUid(cb); else cb(null);
+      },
+      /* ⚠️ THE PIER'S OWN DISTRACTOR PICKER, handed over rather than left to arena's
+         generic one. §5 is absolute:「干扰项永远取自同一个 组别，没有例外」, and there is a
+         mutual-exclusion blacklist on top (猪肉/牛肉 …). arena's fallback prefers part of
+         speech, which pier words do not even carry. */
+      distractors: function (correct, n) {
+        var real = wordByText(correct && correct.w);
+        if (!real) return [];
+        return xhArenaWords(distractors(real, n, "enmcq"));
+      },
+      /* 航程 + 首次跨过的航海徽章门槛. ⚠️ Keyed by TEXT, which is what store.done uses,
+         so a room's word list needs no translation. */
+      conferMastery: function (ids, texts) {
+        var want = {}, added = 0;
+        (ids || []).concat(texts || []).forEach(function (t) { if (t) want[t] = 1; });
+        WORDS.forEach(function (w) {
+          var t = w["词语"];
+          if (want[t] && !store.done[t]) { store.done[t] = true; added++; }
+        });
+        if (added) { save(); noteSailBadges(); pushDock(true); }
+        return added;
+      },
+      /* 贝壳 + 航海值 per correct answer.
+         ⚠️ Goes through awardShells/awardSail — the SAME functions solo play uses — so
+         the non-first-try halving and the 难度 multiplier apply identically. Writing a
+         bespoke payout here is exactly the「第二条计分路径」§13 forbids.
+         ⚠️ `entering` (the streak) is ignored on purpose: the pier has no streak
+         multiplier anywhere, and inventing one only inside rooms would make a room the
+         best place to farm 贝壳. */
+      roomCorrect: function (rw, mode) {
+        sfxOk();
+        var w = wordByText(rw && rw.w);
+        if (!w) return null;
+        var sh = awardShells(mode, true), sa = awardSail(mode, true);
+        save();
+        return { pts: sa, ll: sh };
+      },
+      sfx: function (kind) { if (kind === "bad") sfxNo(); else sfxOk(); }
+    };
+  }
+  /* 同伴挑战 setup — host a room, or join a friend's.
+     ⚠️ 并肩航海 (teacher-hosted) has NO setup screen by design: the teacher picks the
+     words and the mode, exactly as on the mountain, so the student side is only a join. */
+  function renderXhPk() {
+    view().classList.remove("two-col");
+    state = null;
+    runTeardown();
+    var pool = poolForMode(scopedWords(), store.pkMode || "pic");
+    var mode = store.pkMode || "pic", dur = store.pkDur || 300;
+    var h = '<div class="xh-board xh-cfg"><div class="xh-berth-title">⚔️ 同伴挑战' +
+      xhPy("同伴挑战") + '<span class="xh-en">Challenge a friend</span></div>' +
+      '<div class="xh-cfg-note">和朋友比一比：同一套题，限时内谁答对得多谁赢。' +
+      '答对的词照样算进航程，也照样捡到贝壳。2 至 8 人。' +
+      '<span class="xh-en">Same questions, same timer — most correct wins. Words you get ' +
+      'right still count towards 航程 and still pay 贝壳. 2 to 8 players.</span></div>' +
+      '<div class="xh-cfg-scope">范围：' + esc(scopeLabel()) + " · " + pool.length + " 词" +
+      '<span class="xh-en">' + pool.length + ' words in scope</span></div>';
+    var step = 0;
+    function sec(zh, en) {
+      step++;
+      return '<div class="xh-sec">' + stepNo(step) + zh + xhPy(zh) +
+        ' <span class="xh-en">' + en + "</span></div>";
+    }
+    h += sec("挑战方式", "which question") + '<div class="xh-modes sub">';
+    XH_PK_MODES.forEach(function (m) {
+      var usable = poolForMode(scopedWords(), m.k).length > 0;
+      h += '<button class="xh-mode sm' + (mode === m.k ? " on" : "") + (usable ? "" : " na") +
+        '" data-pk="' + m.k + '"' + (usable ? "" : " disabled") + '>' +
+        "<b>" + m.label + "</b>" + xhPy(m.zh) +
+        (usable ? "" : '<span class="xh-mode-na">这组没有图片<span class="xh-en">no pictures</span></span>') +
+        "</button>";
+    });
+    h += "</div>";
+    h += sec("时长", "how long") +
+      qtySlider("xhPkDur", XH_PK_DUR, dur, function (n) { return (n / 60) + " 分钟"; });
+    h += '<div class="xh-cfg-acts">' +
+      '<button class="xh-btn ghost" id="xhPkJoin">加入朋友的房间' + xhPy("加入朋友的房间") +
+      '<span class="xh-en">join a room</span></button>' +
+      '<button class="xh-go" id="xhPkHost">开一个房间 ›' + xhPy("开一个房间") +
+      '<span class="xh-en">host one</span></button></div></div>';
+    view().innerHTML = h;
+    wireQuit();
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-pk]"), function (el) {
+      el.onclick = function () { store.pkMode = el.getAttribute("data-pk"); save(); renderXhPk(); };
+    });
+    wireQtySlider("xhPkDur", XH_PK_DUR, function (n) { return (n / 60) + " 分钟"; },
+      function (n) { store.pkDur = n; save(); });
+    document.getElementById("xhPkJoin").onclick = function () {
+      if (!window.WSArena) return toast("房间功能暂时不可用，请刷新页面。");
+      window.WSArena.open(xhArenaCtx());
+    };
+    document.getElementById("xhPkHost").onclick = function () {
+      if (!window.WSArena || !window.WSArena.host) return toast("房间功能暂时不可用，请刷新页面。");
+      var words = poolForMode(scopedWords(), mode);
+      /* ⚠️ REFUSE RATHER THAN OPEN AN EMPTY ROOM. A room with no questions is the
+         silent failure §4.4 exists to prevent, and it is worse here than solo: the
+         friends who joined are left staring at a lobby that never starts. */
+      if (words.length < 4) {
+        toast("这个范围里可出题的词太少，先多选几组。");
+        return;
+      }
+      window.WSArena.host(xhArenaCtx(), {
+        mode: mode, tier: "3",
+        wordIds: shuffle(words.map(function (w) { return w["词语"]; })).slice(0, 40),
+        durationS: dur
+      });
+    };
+  }
 
   /* ================= 航海徽章 · 明细 (owner 2026-08-17) =====================
      「pier badges need the same amount of detail as mountain badges where possible -
