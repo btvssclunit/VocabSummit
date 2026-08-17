@@ -386,7 +386,11 @@ td b{font-family:var(--serif);letter-spacing:.03em}
    three-line one under 西游记·孙悟空 lifted that cell's picture 30px above its
    neighbour's. The slot puts the floor under the PICTURES, where it belongs, and
    label length then cannot move anything. */
-.gd-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+/* ⚠️ auto-FIT, not auto-fill: auto-fill keeps the empty tracks, so a shelf of eight
+   camp items inside eleven tracks stopped three quarters of the way across and read
+   as cut off. auto-fit collapses the empties and the 1fr tracks then share the whole
+   width, which is what a shelf should look like. */
+.gd-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));
   gap:12px 9px;align-items:start;justify-items:center}
 .gd-fig{width:100%;max-width:104px;text-align:center;min-width:0}
 .gd-fig .ic{height:56px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:4px}
@@ -402,7 +406,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 /* ⚠️ 船只**不统一高度**（§18l）：`max-height` 在一个更高的坑里，让原始比例自己说话。
    把四艘船拉成等高会把 285px 高的 简朴帆船 压得比 117px 高的 舢板 还窄，而美术本来
    就把帆船画得约两倍高——owner 2026-08-17 就是这么报的。 */
-.gd-row.boats{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.gd-row.boats{grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}
 .gd-row.boats .gd-fig{max-width:150px}
 .gd-row.boats .ic{height:82px}
 /* 头像是 320×320 的方形肖像，坑里等高才是对的。⚠️ 这里不套 spriteScale：那张表量的是
@@ -426,7 +430,9 @@ td b{font-family:var(--serif);letter-spacing:.03em}
   height:min(32vw,206px)}
 .gd-band.run .hurdle{position:absolute;bottom:6%;height:34%;width:auto;z-index:2}
 .gd-band.run .arch{position:absolute;right:3%;bottom:5%;height:52%;width:auto;z-index:2}
-.gd-band.run .palm{position:absolute;left:1.5%;bottom:34%;height:28%;width:auto;z-index:1}
+/* ⚠️ 27%，不是 34%：34% 时棕榈的树冠顶到 79px，而说明文字的最后一行底边在 80px——
+   差 1px 就是「字压在树上」。量过，不是估的。 */
+.gd-band.run .palm{position:absolute;left:1.5%;bottom:27%;height:28%;width:auto;z-index:1}
 /* ⚠️ one frame out of the SAME six-frame sheet 攀山竞速 and 词海垂钓 draw from
    (art/sprite/avatar/*_sprite.png, 768×104 = 6×128). background-position 0 0 is
    frame 1, the standing frame. No spriteScale here on purpose: that table exists
@@ -630,8 +636,31 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
      columns leave the title about 60% of the header to live in. app.css hides
      them below 900px on the landing page for the same reason. */
   .gd-couplet{display:none}
-  .gd-band.tall,.gd-band.short{height:min(34vw,120px)}
-  .gd-row{grid-template-columns:repeat(auto-fill,minmax(68px,1fr))}
+  /* ⚠️ 竖屏手机上说明文字**搬到图的下面／上面去，不再压在图上**。
+     直觉是「屏幕小就把带子压矮」，那正好反了：390px 宽时双语说明会折成 **六行、141px**，
+     而那个高度跟视口宽度无关——把带子压到 120px，六行字就吃掉全部空间。实测在压矮的版本
+     上，海图那条带子有四个岛名被压在字底下，踏浪那条把棕榈、两根栏和拱门一起压住。
+     所以这一档把 .cap 从 absolute 换回 static（配一块不透明的板），再用 padding 给图
+     留一个 150px 的固定窗口。图变小了，但**没有一块被字遮住**。
+     ⚠️ .sea 除外：它是一条 flex 行，static 的 .cap 会变成第六个 flex 子项挤进岛里面，
+     而它在这个宽度下本来就已经量到零重叠。 */
+  .gd-band:not(.sea){height:auto;min-height:0}
+  /* .sea 留着覆盖式的说明，所以它自己要把顶上那 141px 让出来（量过：六行 + 余量）。 */
+  .gd-band.sea{padding-top:152px;min-height:272px}
+  .gd-band:not(.sea) .cap,.gd-band:not(.sea) .cap.top{position:static;top:auto;bottom:auto;
+    padding:9px 14px 11px;background:rgba(15,32,56,.88);text-shadow:none}
+  /* 说明在后 → 图窗在上 */
+  .gd-band.tall,.gd-band.short{padding-top:150px;background-position:center top}
+  .gd-band.lscape-mock > img{inset:0 0 auto 0;height:150px}
+  /* 说明在前 → 图窗在下，跑道的道具改成从底边算的 px（% 会按含说明的整个盒子算） */
+  .gd-band.run{padding-bottom:150px;
+    background:url("art/xh/run/xh_run_sand.png") left bottom/auto 94px repeat-x,
+               url("art/xh/run/xh_run_sky.png") left bottom/auto 150px repeat-x,#BFE3EE}
+  .gd-band.run .palm{bottom:58px;height:40px}
+  .gd-band.run .hurdle{bottom:12px;height:34px}
+  .gd-band.run .arch{bottom:8px;height:56px}
+  .gd-band.run .runner{bottom:10px;transform:scale(.42)}
+  .gd-row{grid-template-columns:repeat(auto-fit,minmax(68px,1fr))}
   .gd-row.avatars{grid-template-columns:repeat(4,minmax(0,1fr))}
   .gd-fig .ic,.gd-row.avatars .ic{height:46px}
   /* ⚠️ on a phone the top row wrapped and the sticky bar grew to 184px — a fifth
@@ -746,7 +775,9 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
          ⚠️ 岛的间距是等距，不是海图上的真实距离——真实坐标是按 100vw×100vh 定的
          （app.css .i-g1 等），换成这条 140px 高的带子就只在纸面上像那张图、
          数字全变了。带子诚实承载的是「顺序」，而顺序正是下面那条 ⚠️ 讲的事。 -->
-    <div class="gd-band sea" id="seaBand" aria-hidden="true"></div>
+    <!-- ⚠️ 不加 aria-hidden：带子上那句说明是文字，不是装饰（岛的图各自 alt=""，
+         所以读屏软件读到的正好是那一句话与五个名字）。 -->
+    <div class="gd-band sea" id="seaBand"></div>
 
     <div class="rule">
       <p class="zh"><b>⚠️ 距离读成难度。</b>码头离得最近，高级华文最远。这不是排版随手放的：海图上的位置就是「从这里开始」的提示。</p>
@@ -908,15 +939,18 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     </div>
 
     <!-- 踏浪竞速用的就是这几张：天空、沙滩、跨栏、终点拱门，跑者是六帧行走表的第一帧。 -->
+    <!-- ⚠️ 说明写在**最前面**，不是最后面。它在画面上本来就在顶上，DOM 顺序跟着视觉顺序
+         是对读屏软件的礼貌；更重要的是 ≤560px 那一档会把它从 absolute 变回 static，
+         那时候它落在哪一边就完全由 DOM 顺序决定，而跑道要留在下半截。 -->
     <div class="gd-band run">
+      <div class="cap top"><b>踏浪竞速</b>
+        <span class="zh">答对一题，跑一步、跨一栏。跑到拱门就是一局结束——<b>没有输的条件</b>。</span>
+        <span class="en">One correct answer, one hop, one hurdle. Reaching the arch is the end of the round — <b>there is no way to lose</b>.</span></div>
       <img class="palm" src="art/xh/run/prop_palm.png" alt="">
       <div class="runner"></div>
       <img class="hurdle" src="art/xh/run/xh_run_marker.png" alt="" style="left:46%">
       <img class="hurdle" src="art/xh/run/xh_run_marker.png" alt="" style="left:64%">
       <img class="arch" src="art/xh/run/xh_run_finish.png" alt="">
-      <div class="cap top"><b>踏浪竞速</b>
-        <span class="zh">答对一题，跑一步、跨一栏。跑到拱门就是一局结束——<b>没有输的条件</b>。</span>
-        <span class="en">One correct answer, one hop, one hurdle. Reaching the arch is the end of the round — <b>there is no way to lose</b>.</span></div>
     </div>
 
     <div class="rule">
@@ -1052,7 +1086,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <p class="zh"><b>⚠️ 只有界面文字有注解，题目没有。</b>题干、释义、句子、选项<b>永远是纯中文</b>——这是刻意的，和「朗读只读中文」是同一个沉浸逻辑。唯一的例外是拼音可以注在句子上。</p>
       <p class="en"><b>⚠️ Only the interface is annotated, never the questions.</b> Prompts, definitions, sentences and options stay <b>pure Chinese</b> on purpose — the same immersion logic as "only Chinese is ever spoken aloud". The single exception is that pinyin may be rubied over a sentence.</p>
     </div>
-    <p class="zh">哪里有：<b>G1／G2／G3 有，高级华文一个字节都不发</b>（那一层的学生不需要）。<b>码头默认两个都开</b>，而且看图学词的卡片、词海垂钓答错后的拼音、重整句子的英文题干<b>永远显示</b>，不受开关影响——对零起点学生来说，把这几处藏起来等于让他盯着两个不认识的字。</p>
+    <p class="zh">哪里有：<b>G1／G2／G3 有，高级华文一个字节都不发</b>（那一层的学生不需要）。<b>码头默认两个都开</b>，而且词语闪卡的卡片、词海垂钓答错后的拼音、重整句子的英文题干<b>永远显示</b>，不受开关影响——对零起点学生来说，把这几处藏起来等于让他盯着两个不认识的字。</p>
     <p class="en">Where: <b>G1, G2 and G3 have them; Higher Chinese ships not one byte of either</b> — its students do not need them. <b>At the pier both default to ON</b>, and a few places ignore the switches entirely: the flashcard face, the pinyin shown after a wrong answer in the fishing game, and the English prompt in 重整句子. For a zero-start learner, hiding those would mean staring at two characters they cannot read.</p>
   </section>
 
@@ -1642,7 +1676,9 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   var STATIONS = [
     { img: "art/seamap/dock_jetty.png", zh: "启航码头", en: "The Beginner's Pier",
       lv: "学海启航 · pre-G1", href: "XH_index.html",
-      dzh: "零起点。看图学词，从第一个汉字开始。149 个词，八个组别。",
+      /* ⚠️「看图学词」是**退役的玩法名**（2026-08-16 改叫 词语闪卡），不要写回屏幕上。
+         这里要的是「看着图认词」这件事，所以写成一句白话，不借用任何一扇门的名字。 */
+      dzh: "零起点。看着图认词，从第一个汉字开始。149 个词，八个组别。",
       den: "Starting from zero. Words learned from pictures, from the very first character. 149 words in eight groups." },
     { img: "art/seamap/island_g1.png", zh: "词星大冒险", en: "G1 Basic Chinese",
       lv: "426 词", href: "G1_index.html",
@@ -1684,18 +1720,21 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   ];
 
   /* ⚠️ 码头的活动清单是数据驱动的：改版只改这三个数组，正文不必动。
-     2026-08-17：学以致用 已并进 词语挑战 当题型，学习 面因此只剩两张卡。 */
+     2026-08-17（第八批）：学习 面收成**两张卡**，与山上 修行 逐字对应。
+     `词语挑战` 这个名字已退役，门叫 学习挑战；连线 与 组字成词 不再是门，
+     变成 ①挑战方式 里 配对与拼字 那一排的题型。 */
   var XH_LEARN = [
     { i: "📖", zh: "词语闪卡", en: "Flashcards", dzh: "两面：词语卡（图＋词＋拼音＋英文）与句子卡（整句读完，不挖空）。不计航程。", den: "Two faces: word cards (picture, word, pinyin, English) and sentence cards, read whole with nothing blanked. Does not count toward distance." },
-    { i: "🎯", zh: "词语挑战", en: "Quiz yourself", dzh: "五种题型，分两排：认词（英文选词 · 看图识词 · 听音识图）与用词（看句选词 · 重整句子）。一局只跑一种。", den: "Five question types on two shelves: knowing the word (English to word, picture to word, listen and pick the picture) and using it in a sentence (fill the sentence, put the words in order). One type per round." },
-    { i: "🪢", zh: "连线", en: "Match them up", dzh: "图片与词语配对，一板 3／5／8 组。", den: "Pair pictures with words; three, five or eight pairs to a board." },
-    { i: "🧱", zh: "组字成词", en: "Build the word", dzh: "按顺序点出词语的字。⚠️ 只收两个字以上的词，所以「数字」组整组灰掉。", den: "Tap out the characters of a word in order. ⚠️ Two characters minimum, so the numbers group greys out entirely." }
+    { i: "🎯", zh: "学习挑战", en: "Quiz yourself", dzh: "七种题型，分三排：认词（英文选词 · 看图识词 · 听音识图）· 用词 · 生活空间（看句选词 · 重整句子）· 配对与拼字（连线 · 组字成词）。一局只跑一种。", den: "Seven question types on three shelves: knowing the word (English to word, picture to word, listen and pick the picture); using it in a sentence (fill the sentence, put the words in order); and pairing and spelling (match them up, build the word). One type per round." }
   ];
   var XH_PLAY = [
     { i: "🎣", zh: "词海垂钓", en: "Reel it in", dzh: "打出拼音，把鱼钓上来。", den: "Type the pinyin to land the catch." },
     { i: "🏃", zh: "踏浪竞速", en: "Beach run", dzh: "同一批题目换一层皮：答对一题，角色跨过一个路标向前跑。题目、贝壳、航程都和普通闯关一样，只有反馈不同。门后选用哪一种题型来跑。", den: "The same questions wearing a different skin: each correct answer makes your character hop a hurdle and run on. Same questions, same shells, same distance as a plain round — only the feedback differs. Pick which question type to run behind this tile." }
   ];
   var XH_ELSE = [
+    /* ⚠️ 走进社区 是**浏览层，不是活动**，所以它在这一排而不在③：③ 的每扇门都受
+       学习范围 约束、都发贝壳，这一块走整个句库、不看范围、一分不发。 */
+    { i: "🏘️", zh: "走进社区", en: "Into the neighbourhood", dzh: "十个真实场景（组屋区 · 学校 · 菜市场 · 熟食中心 · 超市 …），一个场景的句子一句一句读。不出题、不发贝壳、不看学习范围——它是读的地方。", den: "Ten real Singapore settings (the HDB blocks, school, wet market, hawker centre, supermarket…), read one sentence at a time. No questions, no shells, and it ignores your revision scope — it is a place to read." },
     { i: "🏖️", zh: "我的海滩与小铺", en: "My beach and shop", dzh: "贝壳在这里花：摆件与船。", den: "Where shells are spent: beach ornaments and boats." },
     { i: "⚓", zh: "航海徽章", en: "Sailing badges", dzh: "九级，按认得的词数发：10 / 25 / 50 / 75 / 100 / 150 / 200 / 300 / 400。", den: "Nine levels awarded by words known: 10, 25, 50, 75, 100, 150, 200, 300, 400." },
     { i: "📖", zh: "我的词语表", en: "My word list", dzh: "缩略图 · 词语 · 拼音 · 英文 · 已认得／还不认得。可筛。", den: "Thumbnail, word, pinyin, English, known or not yet known. Filterable." },
