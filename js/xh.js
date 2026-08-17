@@ -164,6 +164,13 @@
        one), out of the nine 航海徽章 thresholds (those count store.done, §13), and
        off every leaderboard. It is displayed in 我的词语表 and nowhere else. */
     if (!s.readLines || typeof s.readLines !== "object") s.readLines = {};
+    /* 航海徽章 的获得日期：badgeKey -> {first:"YYYY-MM-DD", at:海里}。
+       ⚠️ A SEPARATE MAP, exactly like the mountain's badgeLog, and for the same reason:
+       「got or not」must keep being derived from store.done alone (§13 red line), so this
+       is decoration on top. Losing it costs a date, never a badge.
+       ⚠️ Badges earned before this shipped have no entry and the card says 日期未记录.
+       **绝不回填猜的日期。** */
+    if (!s.sailLog || typeof s.sailLog !== "object") s.sailLog = {};
     /* 踏浪竞速 的皮肤开关。⚠️ NO LONGER A SETTING THE STUDENT WRITES (owner 2026-08-17):
        it is set by which ③ tile they opened, so what is stored here is only「which
        door opened the round that is running」. It still defaults to plain, which still
@@ -312,6 +319,8 @@
     "收起": "shōu qǐ", "摆上": "bǎi shàng",
     /* 看句选词 答对后的确认行 (owner 2026-08-17) */
     "答对了": "dá duì le",
+    /* 航海徽章 明细卡 (owner 2026-08-17) */
+    "已获得": "yǐ huò dé", "去认词": "qù rèn cí",
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
     /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
@@ -2229,6 +2238,136 @@
   function sailBadgeNeed(b) { return b.need; }
   function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
 
+  /* ================= 航海徽章 · 明细 (owner 2026-08-17) =====================
+     「pier badges need the same amount of detail as mountain badges where possible -
+     whether it's earned, when it is earned etc」
+     ⚠️ 「WHERE POSSIBLE」 IS DOING REAL WORK IN THAT SENTENCE, and the honest answer is
+     不是每一项都搬得过来:
+       · 已获得／还没获得 · 首次获得的日期 · 进度条 · 还需几个词 — 都搬得过来。
+       · 「已获得 N 次」搬不过来，而且**不该**搬：山上的板块章可以靠 再次挑战 重复获得，
+         而航海徽章是**里程表**（§12：绝对值、永不重新编号、没有终点）。走过 50 海里
+         就是走过了，不存在「第二次走到 50」。印一个永远是 1 的次数是假的细节。
+       · 山上那张「已掌握 3 / 3 词」加词语 chip 列表也搬不过来：板块章对着一个**固定的
+         词集**，而航海徽章对着**整个词库的一个门槛**，没有对应的词集。
+         替代品是「还差哪几个词」——见下面 nextUnmet()，那是这一屏真正能回答的问题。
+     ⚠️ 日期是**从现在开始记**，旧徽章只能显示「日期未记录」——和山上一模一样
+     （`badgeLog` 里没有条目的徽章就是这么显示的）。**绝不要回填一个猜的日期**：
+     一个编出来的「首次获得」比承认不知道更糟。 */
+  function sailToday() {
+    /* ⚠️ Singapore time, matching app.js's todaySG(): the school day is what a date
+       means to a teacher reading this, and a UTC date flips at 8am local. */
+    try {
+      var d = new Date(Date.now() + 8 * 3600 * 1000);
+      return d.toISOString().slice(0, 10);
+    } catch (e) { return ""; }
+  }
+  /* Record any threshold crossed by the answer that just landed.
+     ⚠️ Called from noteRight AFTER store.done is written, so `met` already includes
+     this word. Idempotent: a key that exists is never rewritten, so the FIRST date
+     is the real one and replaying a round cannot move it.
+     ⚠️ It writes to its own map and never touches store.done — the badge ladder counts
+     store.done (§13 red line) and must keep being the only source of truth for「got」.
+     `sailLog` is a decoration on top, so a lost/absent log costs a date, never a badge. */
+  function noteSailBadges() {
+    var met = sailStats().met, d = sailToday(), changed = false;
+    SAIL_BADGES.forEach(function (b) {
+      if (met < sailBadgeNeed(b)) return;
+      if (store.sailLog[b.k]) return;
+      store.sailLog[b.k] = { first: d, at: met };
+      changed = true;
+    });
+    if (changed) save();
+  }
+  /* the words this badge is still waiting on — the pier's answer to the mountain's
+     word-chip list. ⚠️ Drawn from the WHOLE library, not 学习范围: the threshold is
+     over every word, so narrowing it to the current scope would show a student a list
+     that does not actually add up to the badge. */
+  function nextUnmet(n) {
+    var out = [];
+    for (var i = 0; i < WORDS.length && out.length < n; i++) {
+      if (!store.done[WORDS[i]["词语"]]) out.push(WORDS[i]);
+    }
+    return out;
+  }
+  function xhPop(innerHtml) {
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay";
+    ov.innerHTML = '<div class="pop-card">' + innerHtml + "</div>";
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    /* ⚠️ Esc closes it too. The pier is used on Chromebooks with keyboards (PLD), and
+       a modal a keyboard user cannot dismiss is a trap. Listener removed with the card
+       so a closed popup does not keep swallowing Esc. */
+    function onKey(e) {
+      if (e.key === "Escape") { ov.remove(); document.removeEventListener("keydown", onKey); }
+    }
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(ov);
+    return ov;
+  }
+  function openSailBadge(b) {
+    var met = sailStats().met, need = sailBadgeNeed(b), have = met >= need;
+    var log = store.sailLog[b.k] || null;
+    var pct = need ? Math.min(100, Math.round(met / need * 100)) : 0;
+    var left = Math.max(0, need - met);
+    var h = '<div class="xh-bd">' +
+      (b.img
+        ? '<img class="xh-bd-art' + (have ? "" : " locked") + '" src="art/xh/badges/' +
+          b.img + '.png' + ASSET_V + '" alt="" onerror="this.style.display=\'none\'">'
+        : '<span class="sailbadge-todo">' + esc(b.zh.charAt(0)) + "</span>") +
+      '<div class="xh-bd-name">' + esc(b.zh) + xhPy(b.zh) +
+        '<span class="xh-en">' + esc(b.en) + "</span></div>" +
+      /* the threshold, always — it is what the badge IS */
+      '<div class="xh-bd-need">认得 <b>' + need + "</b> 个词语" +
+        '<span class="xh-en">' + need + " words recognised</span></div>";
+    if (have) {
+      h += '<div class="xh-bd-earned">🎖 已获得' + xhPy("已获得") +
+        '<span class="xh-en">earned</span></div>' +
+        /* ⚠️ 日期未记录 rather than a guess, exactly as the mountain does for badges
+           that predate its own log. */
+        '<div class="xh-bd-date">首次获得：' + esc((log && log.first) || "日期未记录") +
+        '<span class="xh-en">' + (log && log.first ? "first earned " + esc(log.first)
+                                                  : "date not recorded") + "</span></div>";
+    } else {
+      h += '<div class="xh-bd-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="xh-bd-prog">' + met + " / " + need + " 海里" +
+        '<span class="xh-en">' + met + " of " + need + "</span></div>" +
+        '<div class="xh-bd-left">还差 <b>' + left + "</b> 个词语" +
+        '<span class="xh-en">' + left + " to go</span></div>";
+      var soon = nextUnmet(6);
+      if (soon.length) {
+        /* ⚠️ This is the pier's stand-in for the mountain's word chips, and it is a
+           DIFFERENT question because the badge is a milestone rather than a word set:
+           not「which words belong to this badge」(none do) but「which words are still
+           waiting」. Six, because it is a nudge, not a syllabus. */
+        h += '<div class="xh-bd-soon"><span class="xh-bd-soon-lab">还没认得的词语，' +
+          '例如：<span class="xh-en">Words you have not met yet, for example</span></span>' +
+          soon.map(function (w) {
+            return '<span class="xh-bd-chip">' + esc(w["词语"]) +
+              '<span class="xh-py">' + esc(w["拼音"]) + "</span></span>";
+          }).join("") + "</div>";
+      }
+    }
+    h += '<div class="nav-row">' +
+      /* ⚠️ ONE action, and only when it can actually do something. The mountain offers
+         再次挑战 over a 板块; the pier's equivalent is「go and meet more words」, which
+         is meaningless once the badge is earned — so an earned badge gets 关闭 alone
+         rather than a button that would restate the obvious. */
+      (have ? "" : '<button class="nav-btn primary" id="xhBdGo">去认词' +
+        xhPy("去认词") + "</button>") +
+      '<button class="nav-btn" id="xhBdClose">关闭' + xhPy("关闭") + "</button></div></div>";
+    var ov = xhPop(h);
+    ov.querySelector("#xhBdClose").onclick = function () { ov.remove(); };
+    var go = ov.querySelector("#xhBdGo");
+    if (go) go.onclick = function () {
+      ov.remove();
+      /* ⚠️ Lands on 学习挑战's setup rather than starting a round: the badge screen has
+         no idea what 题型 or 学习范围 this student wants, and picking for them is how
+         §4.4's silent failures happen (a scope with no pictures, a 题型 that cannot run).
+         Sending them to the door they already know keeps every one of those guards. */
+      renderModeConfig("quiz");
+    };
+  }
+
   /* ================= 走进社区 · the scene grid (owner 2026-08-17) =================
      Ten places, each with its own backdrop, its sentence count and how many of them
      this student has read. Pressing one walks that place's lines end to end.
@@ -2342,7 +2481,10 @@
     SAIL_BADGES.forEach(function (b) {
       var need = sailBadgeNeed(b), have = met >= need;
       var pct = need ? Math.min(100, Math.round(met / need * 100)) : 0;
-      h += '<div class="sailbadge' + (have ? " got" : "") + '">' +
+      /* ⚠️ THE WHOLE TILE IS THE BUTTON (§14 nested buttons). It was a <div>, so the
+         wall was a picture you could not interrogate — the owner asked for the mountain's
+         level of detail, and the detail has to be reachable from somewhere. */
+      h += '<button class="sailbadge' + (have ? " got" : "") + '" data-sb="' + esc(b.k) + '">' +
         (b.img
           ? '<img src="art/xh/badges/' + b.img + '.png' + ASSET_V + '" alt="" ' +
             "onerror=\"this.style.display='none'\">"
@@ -2351,11 +2493,24 @@
         (have ? '<span class="beach-tag on">已获得</span>'
               : '<span class="sailbadge-bar"><i style="width:' + pct + '%"></i></span>' +
                 '<span class="beach-tag">' + met + ' / ' + need + ' 海里</span>') +
-        '</div>';
+        '</button>';
     });
-    h += '</div></div>';
+    h += '</div>';
+    /* ⚠️ says the wall is tappable. A tile that opens something has to look like it does,
+       and at this tier the affordance cannot be left to a hover state — most of these
+       students are on a touchscreen where hover does not exist. */
+    h += '<div class="xh-log-sub">点一枚徽章，看它要认得几个词语。' +
+      '<span class="xh-en">Tap a badge to see what it needs.</span></div>';
+    h += '</div>';
     view().innerHTML = h;
     wireQuit();
+    Array.prototype.forEach.call(view().querySelectorAll(".sailbadge[data-sb]"), function (el) {
+      el.onclick = function () {
+        var k = el.getAttribute("data-sb"), hit = null;
+        SAIL_BADGES.forEach(function (b) { if (b.k === k) hit = b; });
+        if (hit) openSailBadge(hit);
+      };
+    });
   }
 
   /* ================= 我的海滩 · 泊位 (SPEC_XH_berth_layout.md) =================
@@ -3525,6 +3680,10 @@
     awardShells(state.mode, state.firstTry);
     store.done[w.词语] = true;
     save();
+    /* ⚠️ AFTER store.done is written, so `met` already counts this word — the badge the
+       student just crossed gets today's date, not tomorrow's. Idempotent, so a replayed
+       round can never move a date that is already recorded. */
+    noteSailBadges();
     pushDock();
     sfxOk();
     if (!quiet) speak(w.词语, w.拼音);   // never the English (spec §3 of v1, unchanged)
