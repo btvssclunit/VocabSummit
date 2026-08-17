@@ -52,7 +52,22 @@
       ".arena-ov{position:fixed;inset:0;z-index:90;background:linear-gradient(160deg,#12213F,#0C1730);" +
       "background-size:cover;background-position:center;" +
       "color:#EAF2F8;font-family:'Noto Sans SC',system-ui,sans-serif;display:flex;flex-direction:column;" +
-      "align-items:center;justify-content:center;padding:20px;overflow:auto}" +
+      /* ⚠️ NOT justify-content:center — that is what hid the top of the leaderboard
+         (owner 2026-08-17:「Leaderboard cannot show top two, can't scroll up」).
+         A centred flex column whose content is TALLER than the box overflows in BOTH
+         directions, and the top overflow is unreachable: scrollTop bottoms out at 0,
+         which is already below the first rows. The result card carries up to 20 rows
+         plus a medal, so on a laptop or an iPad in landscape the two names everyone
+         actually wants — 第一名 and 第二名 — were the ones cut off.
+         ⚠️ The auto-margin pair below centres the content when it FITS and pins it to
+         the top when it does not, which is the behaviour justify-content:center was
+         reaching for. Auto margins absorb free space before justify-content runs, so
+         one at each end splits it evenly; with no free space they resolve to 0 and
+         everything scrolls normally. ⚠️ Do NOT「simplify」this back to safe center:
+         old iPads are the G1/G2 fleet and the safe keyword does not reach them. */
+      "align-items:center;justify-content:flex-start;padding:20px;overflow:auto}" +
+      ".arena-ov::before{content:'';display:block;flex:0 0 0;margin-top:auto}" +
+      ".arena-ov::after{content:'';display:block;flex:0 0 0;margin-bottom:auto}" +
       ".arena-card{width:100%;max-width:560px;background:rgba(20,40,70,.55);border:2px solid #D9A72B;" +
       "border-radius:18px;padding:24px;box-shadow:0 14px 40px rgba(8,18,40,.5)}" +
       ".arena-t{font-family:'Noto Serif SC',serif;font-weight:900;font-size:22px;color:#FFE9B0;margin-bottom:12px}" +

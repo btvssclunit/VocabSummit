@@ -1031,6 +1031,14 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .xh-log-sail{font-family:var(--serif);font-weight:900;font-size:15px;color:var(--sea2);
   background:rgba(255,255,255,.7);border:2px solid #C6B291;border-radius:999px;padding:6px 14px}
 .xh-log-sail b{font-size:21px;color:#A9752A;margin-right:2px}
+/* 读过 N 句 — the 句子卡 mileage line (owner 2026-08-17).
+   ⚠️ DELIBERATELY QUIETER THAN .xh-log-sail: 海里 is 航程, the number the badges and
+   the leaderboard are built on; this one is exposure and nothing else. Giving it the
+   same pill would read as a second score of equal standing, which is exactly what §4.1
+   forbids. Plain text on its own line, no pill, smaller and in ink. */
+.xh-log-read{flex:0 0 100%;font-family:var(--sans);font-size:13.5px;font-weight:700;
+  color:var(--ink);opacity:.78;margin-top:-2px}
+.xh-log-read b{font-family:var(--serif);font-size:16px;color:var(--gold-ink);opacity:1}
 .xh-log-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .xh-log-page{cursor:pointer;touch-action:manipulation;font-family:var(--sans);font-size:14px;
   font-weight:700;padding:9px 15px;border-radius:999px;border:1px solid var(--glass-line);

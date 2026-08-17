@@ -146,6 +146,20 @@
        句子卡 走 xh_phrases 的生活句子。⚠️ 句子卡不记任何进度——航程 是「认得几个词」，
        读一句话不等于认得词，把它算进去就是把 §4 水线上那个数字掺水。 */
     if (s.cardKind !== "sentence") s.cardKind = "word";
+    /* ---------- 读过 N 句 (owner 2026-08-17) ----------
+       句子卡 was the pier's biggest source of exposure and left NO trace anywhere:
+       a student could read all 90 lines and the system would not know it happened.
+       This is that trace and nothing more.
+       ⚠️ IT IS A SET OF PHRASE IDS, NOT A TALLY. A counter that ticks on every
+       re-read measures scrolling;「读过 N 句」has to mean N distinct lines, the same
+       way store.done means distinct words. It also makes the write idempotent, which
+       matters because render() runs again on every 拼音／英文 toggle.
+       ⚠️ IT IS NOT PROGRESS AND MUST NEVER BECOME PROGRESS. Reading a line is not
+       recognising a word, so: it stays out of 航程 (§4), out of SAIL_PTS/SHELL_PTS
+       (`learn: 0` is the only deliberate zero in those tables and stays the only
+       one), out of the nine 航海徽章 thresholds (those count store.done, §13), and
+       off every leaderboard. It is displayed in 我的词语表 and nowhere else. */
+    if (!s.readLines || typeof s.readLines !== "object") s.readLines = {};
     /* 踏浪竞速 的皮肤开关。⚠️ NO LONGER A SETTING THE STUDENT WRITES (owner 2026-08-17):
        it is set by which ③ tile they opened, so what is stored here is only「which
        door opened the round that is running」. It still defaults to plain, which still
@@ -189,6 +203,12 @@
   }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+  /* ⚠️ counts KEYS, so a line the student re-reads is still one line. Deliberately
+     NOT filtered against the current PHRASES ids: a sentence retired from the library
+     (two went on 2026-08-16) should not quietly un-read itself. */
+  function readLineCount() {
+    return Object.keys(store.readLines || {}).length;
   }
   /* ⚠️ Runs at boot, not in load(): load() is called during module init, and
      profile.js may not have finished evaluating. Idempotent — it only ever adds. */
@@ -236,7 +256,9 @@
      Chinese — same immersion logic as the Chinese-only TTS rule. */
   var XH_PY = {
     "启航码头": "qǐ háng mǎ tóu",
-    "看图学词 · 看图听音，慢慢来": "kàn tú xué cí · kàn tú tīng yīn，màn màn lái",
+    /* ⚠️ hero 副标题。2026-08-17 把开头四个字从退役的「看图学词」改成 词语闪卡（owner）；
+       音节数照 §10 数过：4 + 4 + 3 = 11 汉字，11 个音节。 */
+    "词语闪卡 · 看图听音，慢慢来": "cí yǔ shǎn kǎ · kàn tú tīng yīn，màn màn lái",
     "学习范围 · 可多选": "xué xí fàn wéi · kě duō xuǎn",
     "选择学习方式": "xuǎn zé xué xí fāng shì",
     /* ⚠️ 学词 → 学习（owner 2026-08-16 晚）。旧名是「学词语」的缩写，可是这一边
@@ -249,8 +271,17 @@
     "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
     /* the two shelves inside ①挑战方式 (owner 2026-08-17) */
     "认词": "rèn cí", "用词": "yòng cí",
+    /* ⚠️ 生活空间 IS THE OWNER'S OWN NAME FOR THE SENTENCE LAYER, and until now it
+       existed only in the docs — never once on screen. That is the literal reason
+       she could not find the sentence modes (owner 2026-08-17:「I couldn't find the
+       sentence mode for the pier beginner mode」): she was looking for a name the
+       interface has never printed. It rides on the 用词 shelf heading, not on a
+       tile — the sentence layer is a shelf inside 词语挑战, not a door (§18m). */
+    "用词 · 生活空间": "yòng cí · shēng huó kōng jiān",
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
+    /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
+    "读过": "dú guò",
     "按住摆件可以拖到你喜欢的位置": "àn zhù bǎi jiàn kě yǐ tuō dào nǐ xǐ huān de wèi zhì",
     /* ⚠️ 传声筒 → 看句选词，并且它不再是一个并列的题型，而是收进 学以致用 这张容器卡
        （owner 2026-08-16）。旧名只留在 `PATCH_02` 与归档里，代码里的 id 仍是 "phrase"。
@@ -265,9 +296,12 @@
        学词 tab held two cards side by side and only one carried its 拼音.
        ⚠️ 2026-08-16 晚改名 词语闪卡：owner「rename learn the words to flashcards」。
        山上那张卡就叫 词语闪卡，码头本来也是同一件事，两个名字没有理由。
-       旧 key 留着，句子闪卡的标题里还会用到「看图学词」这四个字吗？不会，
-       但 hero 副标题「看图学词 · 看图听音，慢慢来」仍在用，所以不能删。 */
-    "看图学词": "kàn tú xué cí",
+       ⚠️ **「看图学词」这个名字 2026-08-17 已从屏幕上全部清掉**（owner）。改名那天
+       hero 副标题与 我的词语表 的批量按钮被漏掉，于是一个退役的名字在首页第一屏
+       和一颗按钮上又活了一天——和 §18n 里 生活空间 那件事同一族：**屏幕上留着一个
+       别处已经不存在的名字**。两处都改成 词语闪卡，两条旧 key 一并删除。
+       ⚠️ 删 key 之前确认过没有别的调用点（`grep xhPy("看图学词`）。
+       注释与 CSS 类名里还留着这四个字，那是**代码内部的历史**，不上屏幕，不必动。 */
     "词语闪卡": "cí yǔ shǎn kǎ", "闪卡": "shǎn kǎ",
     /* 闪卡 的两面：词语卡 与 句子卡（owner 2026-08-16 晚）。 */
     "看什么卡": "kàn shén me kǎ", "词语卡": "cí yǔ kǎ", "句子卡": "jù zi kǎ",
@@ -1100,8 +1134,16 @@
        complete word order 重整句子 exists to test. Sharing a door does not break that,
        because the type is still chosen BEFORE 出发 and a round runs exactly one of
        them. Do not add an in-round switch just because they are now neighbours. */
+    /* ⚠️ THE SUBTITLE NAMES THE TWO SENTENCE TYPES OUT LOUD (owner 2026-08-17).
+       「词的三种 · 句的两种」was true and still unfindable: 句 appeared exactly once
+       on the whole front page, as one character inside this line, and nowhere did the
+       words 看句选词 or 重整句子 appear at all. A student — or the owner — scanning
+       four tiles for the sentence work had nothing to scan FOR.
+       ⚠️ subEn matters as much as sub here: the pier defaults BOTH aids on (§18m),
+       so the English line is genuinely being read. */
     { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true, short: "the quiz",
-      sub: "词的三种 · 句的两种", subEn: "five question types, words and sentences" },
+      sub: "认词三种 · 用词两种（看句选词 · 重整句子）",
+      subEn: "three word types, two sentence types" },
     /* ⚠️ 连线 AND 组字成词 MOVED TO 学习 (owner 2026-08-17:「连线 组字成词 live in
        study mode instead of game mode」). They stay FULL DOORS rather than becoming
        题型 under 词语挑战, because each asks its own question that no other door asks:
@@ -1484,7 +1526,7 @@
       '<span class="xh-hero-scene">' + beachSpritesHtml() + '</span>' +
       '<div class="xh-hero-in">' +
         '<div class="xh-hero-t">启航码头</div>' +
-        '<div class="xh-hero-sub">看图学词 · 看图听音，慢慢来' + xhPy("看图学词 · 看图听音，慢慢来") +
+        '<div class="xh-hero-sub">词语闪卡 · 看图听音，慢慢来' + xhPy("词语闪卡 · 看图听音，慢慢来") +
         '<span class="xh-en">Pictures first, characters second. Go at your own pace.</span></div>' +
         '<div class="xh-stats">' +
           statCell(st.met, "海里", "航程", "words met") +
@@ -1630,13 +1672,22 @@
                   nPhr + ' sentences</span></span>'
                 : '<span class="xh-mode-na">这组没有句子<span class="xh-en">no sentences</span></span>') +
         "</button></div>";
+      /* ⚠️ THE TWO HALVES OF THE SENTENCE LIBRARY SIGNPOST EACH OTHER (owner
+         2026-08-17). 句子卡 reads the 90 lines; 看句选词/重整句子 test them; they sit
+         on two screens two doors apart and neither has ever mentioned the other.
+         ⚠️ TEXT ONLY, NEVER A JUMP BUTTON. A jump would fling the student from one
+         ENTRY_MEM slot into another — §18m split quizMode/runQuizMode precisely so
+         two doors could stop overwriting each other's remembered type. A sentence
+         that names where to go carries none of that risk. */
       h += '<div class="xh-cfg-note">' +
         (store.cardKind === "sentence"
-          ? '句子卡会把选中范围里的句子一句一句读完（' + nPhr + ' 句）。句子卡不记航程。'
+          ? '句子卡会把选中范围里的句子一句一句读完（' + nPhr + ' 句）。句子卡不记航程。' +
+            '读完之后可以到 词语挑战 · 用词 里考自己。'
           : '词语卡会把选中的词一张一张看完（' + pool.length + ' 张）。') +
         '<span class="xh-en">' +
         (store.cardKind === "sentence"
-          ? 'Sentence cards run through every sentence in scope. They do not count towards 航程.'
+          ? 'Sentence cards run through every sentence in scope. They do not count towards 航程. ' +
+            'When you have read them, test yourself in 词语挑战 · 用词.'
           : 'Word cards run through every word in scope.') + '</span></div>';
     } else if (modes.length > 1) {
       /* the question types behind a multi-type door — 词语挑战 now owns all five
@@ -1687,9 +1738,21 @@
           '<div class="xh-modes sub">' + modeBtns(wordModes) + "</div>";
       }
       if (sentModes.length) {
-        h += (wordModes.length ? '<div class="xh-shelf-lab">用词' + xhPy("用词") +
+        /* ⚠️ 生活空间 IS PRINTED HERE AND NOWHERE ELSE (owner 2026-08-17, reading 乙).
+           The 08-17 merge that folded 学以致用 into 词语挑战 was right — it saved a
+           click — but it cost the sentence layer the only name it had, and the owner
+           herself then could not find it. The shelf heading gives the name back
+           without giving back the door. ⚠️ A shelf heading is NOT a 动线编号 (§7):
+           ①挑战方式 is the step, these two are racks inside it. Do not number them. */
+        h += (wordModes.length ? '<div class="xh-shelf-lab">用词 · 生活空间' +
+              xhPy("用词 · 生活空间") +
               '<span class="xh-en">use it in a sentence</span></div>' : "") +
-          '<div class="xh-modes sub">' + modeBtns(sentModes) + "</div>";
+          '<div class="xh-modes sub">' + modeBtns(sentModes) + "</div>" +
+          /* ⚠️ the other half of the B-2 signpost — see the 句子卡 note in the cards
+             branch. Same rule: NAME the destination, never link to it. */
+          '<div class="xh-cfg-note">想先把句子读一遍：词语闪卡 · 句子卡。' +
+          '<span class="xh-en">Want to read the sentences first? ' +
+          '词语闪卡 · 句子卡.</span></div>';
       }
       /* ⚠️ 重整句子 is blocked by MISSING DATA, not by the student's scope, so it needs
          its own sentence — 「这组没有图片」 would send them off changing 学习范围 for
@@ -2358,6 +2421,21 @@
       '<div class="xh-berth-title">📋 我的词语表' + xhPy("我的词语表") + '<span class="xh-en">Your word list</span></div>' +
       '<span class="xh-log-sail"><b>' + sailed + "</b> / " + WORDS.length + " 海里" + xhPy("海里") +
       '<span class="xh-en">words met</span></span></div>' +
+      /* ⚠️ 读过 N 句 lives HERE AND ONLY HERE (owner 2026-08-17). It is the whole
+         visible surface of store.readLines: not a badge, not a leaderboard column,
+         not a currency. It sits UNDER the 海里 count and reads plainly as a second,
+         separate number — the pier's own version of「never merge the metrics」(§4.1).
+         ⚠️ Hidden at zero rather than shown as 0: a student who has never opened
+         句子卡 does not need a nought explained to them. */
+      /* ⚠️ NO DENOMINATOR. 「N / 90」would be wrong the moment a line is retired from
+         the library — two went on 2026-08-16 — because readLines keeps the id and the
+         count would read 91/90. It is also the wrong frame: this is a mileage number
+         like 航程, not a collection to complete (§12,「集齐」on a library that grows
+         is a finish line that runs away). */
+      (readLineCount()
+        ? '<div class="xh-log-read">读过 <b>' + readLineCount() + "</b> 句" + xhPy("读过") +
+          '<span class="xh-en">sentences read on the sentence cards</span></div>'
+        : "") +
       '<div class="xh-log-pages">';
     pages.forEach(function (p) {
       var n = p.words.filter(function (w) { return store.done[w.词语]; }).length;
@@ -2381,7 +2459,7 @@
         c[1] + " " + c[2] + xhPy(c[1]) + "</button>";
     }).join("") +
       '<button class="xh-btn sm xh-log-learn" id="xhLogLearn"' +
-      (shown.length ? "" : " disabled") + '>📖 看图学词 · 学这 ' + shown.length + ' 个' + xhPy("看图学词") +
+      (shown.length ? "" : " disabled") + '>📖 词语闪卡 · 学这 ' + shown.length + ' 个' + xhPy("词语闪卡") +
       '<span class="xh-en">study these</span></button></div>';
     if (!shown.length) h += '<div class="xh-log-empty">这个筛选下暂时没有词语。' +
         '<span class="xh-en">Nothing here under this filter.</span></div>';
@@ -2951,6 +3029,12 @@
   function renderSentenceCard() {
     var p = state.seq[state.i], n = state.seq.length;
     var w = wordByText(p.ask);
+    /* ⚠️ the ONLY write of store.readLines. Idempotent by construction (a set keyed
+       on the phrase id), so the re-render a 拼音／英文 toggle causes costs nothing.
+       ⚠️ store.done is NOT touched here and must never be: 学过了 counts words the
+       student has produced an answer for, and looking at a card is not that — the
+       word-card branch has said so since 2026-08-15 and this face is no different. */
+    if (p.id && !store.readLines[p.id]) { store.readLines[p.id] = 1; save(); }
     var file = p.pic || (w && w.图档);
     var h = '<div class="xh-round-bar">' + quitBtn() +
       jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 句子卡</span></div>" +

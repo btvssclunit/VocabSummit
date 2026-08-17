@@ -4687,6 +4687,18 @@
   function altitudeNow() { return Object.keys(store.mastered).length; }
   function renderSprintConfig() {
     setTopbar("home", "");
+    /* ⚠️ WARM THE AVATAR SHEET ON THE CONFIG SCREEN, not at 开始攀登 (owner
+       2026-08-17:「first frame still shows the old climber avatar before changing to
+       the current player avatar」). The sheet only starts downloading when startSprint
+       calls avatarSheet(), so the first paint of the session's FIRST sprint lands
+       while it is still decoding — and drawClimber then fell through to the stream
+       climber, a different character entirely. Starting the fetch one screen earlier
+       buys it the whole time the student spends choosing 题目类型 and 冲刺时长.
+       ⚠️ A WARM-UP, NOT THE FIX: a cold cache on school wifi can still lose that
+       race, so drawClimber carries its own guard. Both are needed.
+       ⚠️ Cheap to repeat — avatarSheet() memoises on _avSpriteId and only builds a
+       new Image when the avatar actually changed. */
+    avatarSheet();
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">⛰️ 攀山竞速' + pyl("攀山竞速") + enli("攀山竞速") + '</div>' +
@@ -4908,6 +4920,19 @@
       var px = Math.round(x), py = Math.round(y);
       /* resolved once in startSprint; only the decode state is checked per frame */
       var av = (avSheet && avSheet.complete && avSheet.naturalWidth) ? avSheet : null;
+      /* ⚠️ A STUDENT WITH AN AVATAR MUST NEVER BE DRAWN AS THE STREAM CLIMBER, not
+         even for one frame (owner 2026-08-17). `avSheet` non-null means the avatar
+         resolved and its PNG is on its way; SPRITE_IMG loaded at module init and is
+         therefore ALWAYS decoded first. So the old `av || SPRITE_IMG.complete` test
+         quietly picked the stream climber during the decode window and swapped the
+         character out from under the student a few frames later.
+         ⚠️ The fallback branch is still right for everyone else — no avatar, an
+         avatar not yet unlocked, a 404 — because avatarSheet()'s onerror NULLS
+         _avSprite, so a genuinely missing file lands here rather than hanging.
+         ⚠️ Skipping the draw entirely is the correct behaviour for those few frames:
+         the climber pops in a frame late, which reads as loading. Drawing the wrong
+         character reads as a bug, which is exactly what was reported. */
+      if (avSheet && !av) return;
       if (av || (SPRITE_IMG.complete && SPRITE_IMG.naturalWidth)) {
         var f = 0;
         if (celT > 0) f = 5;                            // celebrate flash
