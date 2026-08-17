@@ -146,34 +146,64 @@ body.L-en .en{color:inherit}
   box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
 .gd-tabs button[aria-selected="true"] .sub{color:#4A3505}
 
-/* ============ 页头 ============ */
-.gd-hero{position:relative;overflow:hidden;height:min(46vh,340px);min-height:250px}
-.gd-hero .sun{position:absolute;left:74%;top:15%;width:clamp(80px,11vw,120px);height:clamp(80px,11vw,120px);
-  border-radius:50%;background:radial-gradient(circle,var(--sun-core) 20%,var(--sun) 66%,rgba(245,196,67,0) 78%);
-  box-shadow:0 0 60px rgba(245,196,67,.55)}
-/* ⚠️ an explicit height, not the intrinsic viewBox ratio: at 100% width the
-   ridge line climbed into the title on a short viewport. preserveAspectRatio
-   is "none", so stretching flat colour shapes costs nothing. */
-.gd-hero svg{position:absolute;left:0;right:0;bottom:0;width:100%;height:58%;display:block}
-.gd-herotext{position:absolute;top:14%;left:0;right:0;text-align:center;z-index:5;padding:0 16px}
+/* ============ 页头 ============
+   ⚠️ This used to be a hand-drawn flat-colour SVG horizon (three peaks, sun on
+   the right — the school-crest language of CLAUDE.md §7). It has been replaced
+   by the landing page's OWN painting, art/bg/landing_hero_bg.png, the same file
+   app.css hands to .lp-hero. The crest rule governs horizons this repo DRAWS;
+   the front door of the platform is this painting, so arriving at the guide now
+   looks like arriving at the site. ⚠️ image-rendering:pixelated, as app.css
+   does with the very same file.
+   ⚠️ background-position is `center top`, NOT app.css's `center center`. .lp-hero
+   is 100vh tall, so centre-cover shows nearly the whole picture; this header is
+   ~380px, where centre-cover crops to the busy middle band (measured: luminance
+   swings 51-202 straight across the title line, which no single text colour
+   survives). Top-cover holds the dawn sky at 110-161 all the way across. */
+.gd-hero{position:relative;overflow:hidden;height:min(50vh,380px);min-height:270px;
+  background:#12213F url("art/bg/landing_hero_bg.png") center top/cover no-repeat;
+  image-rendering:pixelated}
+/* ⚠️ ONE thin gradient at the foot, not a dark scrim over the art: owner removed
+   the full-plate overlays from the landscape banners and the pier hero on
+   2026-08-16 (CLAUDE.md §18c) and text carries its own shadows instead. This one
+   is the opposite colour to those — it fades DOWN into the page's own top sky
+   (#EAF4FA) so the painting does not end on a hard seam. */
+.gd-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:26%;
+  background:linear-gradient(180deg,rgba(234,244,250,0),rgba(234,244,250,.62) 60%,#EAF4FA);
+  pointer-events:none}
+.gd-herotext{position:absolute;top:12%;left:0;right:0;text-align:center;z-index:5;padding:0 16px}
+/* ⚠️ light-on-art now, and the colour + shadow stack are app.css's .lp-couplet /
+   .lp-school verbatim: #FFE9B0 over a triple dark shadow is what this repo puts
+   on painted art everywhere. At clamp(26px,5vw,44px)/900 the title is large text,
+   so 3.15:1 against the measured sky clears AA-large, and the shadow stack darkens
+   the sky immediately around the glyphs on top of that. */
 .gd-herotext h1{font-family:var(--serif);font-weight:900;font-size:clamp(26px,5vw,44px);
-  letter-spacing:.14em;text-shadow:0 2px 18px rgba(255,255,255,.9),0 1px 3px rgba(255,255,255,.9)}
-.gd-herotext .en1{font-size:clamp(9px,1.3vw,12px);letter-spacing:.5em;color:#3A5A70;
-  margin-top:9px;text-transform:uppercase}
-.gd-herotext .sch{margin-top:12px;font-size:12.5px;color:#3A5A70;letter-spacing:.05em}
-/* ⚠️ NOT app.css's .lp-couplet, and deliberately so — two reasons, both real:
-   (1) .lp-couplet stacks with writing-mode:vertical-rl, which CLAUDE.md §7 bans
-       outright as unreliable; the width:1.15em + word-break below is the
-       documented way. (2) .lp-couplet is #FFE9B0 gold with heavy dark shadows
-       because it sits on the dark painterly landing photo; on this page's pale
-       sky it would be a gold line on near-white.
-   What IS taken from it: weight 900, the wider column rhythm, and the same
-   both-couplets-share-a-floor position. 上联 书山有路勤为径 reads on the RIGHT. */
-.gd-couplet{position:absolute;top:12%;font-family:var(--serif);font-weight:900;
-  font-size:clamp(12px,1.6vw,16px);color:#3F6076;width:1.15em;word-break:break-all;
-  line-height:1.5;letter-spacing:.06em;text-shadow:0 1px 6px rgba(255,255,255,.95);z-index:5}
-.gd-couplet.l{left:5%}
-.gd-couplet.r{right:5%}
+  letter-spacing:.14em;color:#FFE9B0;
+  text-shadow:0 0 3px rgba(18,28,52,1),0 0 12px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
+/* ⚠️ the two small lines get their OWN small dark plate rather than a shadow: at
+   9-12.5px they are small text, and #FFF4D6 on the measured sky is 3.4:1, under
+   the 4.5:1 small text needs. This is the same inline-block plate §18e put behind
+   the pier hero's 副标题 — it wraps the words, not the picture. */
+.gd-herosub{display:inline-block;margin-top:11px;padding:7px 15px 8px;border-radius:14px;
+  background:rgba(15,32,56,.52);border:1px solid rgba(255,255,255,.22);
+  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
+.gd-herotext .en1{font-size:clamp(9px,1.3vw,12px);letter-spacing:.5em;color:#FFF4D6;
+  text-transform:uppercase}
+.gd-herotext .sch{margin-top:5px;font-size:12.5px;color:#EAF4FA;letter-spacing:.05em}
+/* ⚠️ NOT app.css's .lp-couplet's mechanism, and deliberately so: .lp-couplet
+   stacks with writing-mode:vertical-rl, which CLAUDE.md §7 bans outright as
+   unreliable; the width:1.15em + word-break below is the documented way.
+   Everything else IS .lp-couplet now that the art underneath is the same
+   painting: #FFE9B0, the triple dark shadow, weight 900, both couplets sharing a
+   floor. 上联 书山有路勤为径 reads on the RIGHT.
+   ⚠️ The size floor went 12px → 16px on purpose. Gold on this painting is 3.15:1,
+   which is AA for large text (≥18.66px bold) and NOT for small — so the couplets
+   have to BE large text, or they need a plate the landing page does not give them. */
+.gd-couplet{position:absolute;top:13%;font-family:var(--serif);font-weight:900;
+  font-size:clamp(16px,2vw,22px);color:#FFE9B0;width:1.15em;word-break:break-all;
+  line-height:1.5;letter-spacing:.06em;z-index:5;
+  text-shadow:0 0 3px rgba(18,28,52,1),0 0 10px rgba(18,28,52,.9),0 3px 8px rgba(18,28,52,.85)}
+.gd-couplet.l{left:4%}
+.gd-couplet.r{right:4%}
 
 /* ============ 统计条 ============ */
 .gd-stats{max-width:1120px;margin:-30px auto 0;padding:0 18px;position:relative;z-index:6;
@@ -289,6 +319,122 @@ td b{font-family:var(--serif);letter-spacing:.03em}
    platform draws wherever a currency is named. */
 .cur-icon{display:inline-block;width:16px;height:auto;vertical-align:-3px;
   margin-right:5px;image-rendering:pixelated}
+
+/* ---------- 场景带：一段真的画，说明这一节讲的是哪个地方 ----------
+   ⚠️ Every band below is a file the student actually sees on the site: the sea
+   tile under the map, the stream's own island, the painted mountain behind 我的
+   词山, the pier's own beach. Nothing here was drawn for this page.
+   ⚠️ image-rendering:pixelated and never upscaled — the smallest of these files
+   is island_g1 at 500×307 against a display height of 130-190px, so §14's
+   pixel-art scaling trap is not in play.
+   ⚠️ Captions sit ON the art, so they are light with their own shadows plus one
+   thin gradient — the treatment owner settled on for the landscape banners and
+   the pier hero (§18c). They also have to be listed in the 深色面上的注解 block
+   near the bottom of this file, or 双语 renders the English grey on the picture. */
+.gd-band{position:relative;overflow:hidden;border-radius:18px;margin:14px 0;
+  border:1px solid var(--glass-line);box-shadow:var(--glass-lift);
+  background:var(--sea1) center center/cover no-repeat;image-rendering:pixelated}
+.gd-band.tall{height:min(30vw,200px)}
+.gd-band.short{height:min(22vw,140px)}
+.gd-band .cap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:22px 16px 11px;
+  background:linear-gradient(180deg,rgba(15,32,56,0),rgba(15,32,56,.42) 55%,rgba(15,32,56,.66));
+  font-size:12.5px;line-height:1.6;color:#EAF4FA;
+  text-shadow:0 1px 3px rgba(15,28,50,.95),0 0 9px rgba(15,28,50,.75)}
+.gd-band .cap b{font-family:var(--serif);font-size:14.5px;letter-spacing:.05em;color:#FFE9B0}
+/* ⚠️ 有东西站在带子底下的时候，说明文字必须搬到顶上去。海图那条带子的五个岛名就在
+   底边，而 .cap 的渐变正好盖住那一条——第一版把 启航码头 与 词星大冒险 两个名字整个
+   吃掉了。把它翻到顶上，渐变方向也跟着翻。 */
+.gd-band .cap.top{top:0;bottom:auto;padding:10px 16px 20px;
+  background:linear-gradient(180deg,rgba(15,32,56,.68),rgba(15,32,56,.42) 52%,rgba(15,32,56,0))}
+/* ① 海图：真的海面瓦片，真的五座岛，由近到远排开。
+   ⚠️ This is NOT a scale reproduction of the sea map and must not be read as one.
+   app.css positions the islands in vw/vh against a 100vw×100vh map, so the real
+   distances only hold at the real aspect ratio — re-deriving them for a 1120×140
+   strip would print DIFFERENT distances while looking authoritative, and §18c's
+   20-route clearance check would have to be redone for a decoration. What the
+   band carries honestly is the ORDER, which is the thing the ⚠️ below it states. */
+.gd-band.sea{background-image:url("art/seamap/sea_tile.png");display:flex;
+  align-items:flex-end;justify-content:space-around;gap:4px;
+  padding:58px 10px 12px;height:auto;min-height:186px}
+.gd-isle{flex:0 1 auto;min-width:0;text-align:center;position:relative;z-index:2}
+.gd-isle img{height:66px;width:auto;margin:0 auto;image-rendering:pixelated}
+.gd-isle .nm{font-family:var(--serif);font-size:12.5px;letter-spacing:.04em;color:#FFF4D6;
+  white-space:nowrap;text-shadow:0 1px 3px rgba(15,28,50,1),0 0 8px rgba(15,28,50,.85)}
+/* 船停在开阔水面上，不压在任何一座岛上：z-index 1 让它在岛后面，像真的泊在外海。 */
+.gd-band.sea .boat{position:absolute;left:15%;bottom:56px;width:46px;height:auto;z-index:1}
+/* ③ 学段页顶上那条横幅：sea tile 打底、学段自己的岛 contain 在上面。
+   ⟨app.css .lscape⟩ — same two layers, same 16/9 feel, same object-fit:contain. */
+.gd-band.lscape-mock{background-image:url("art/seamap/sea_tile.png")}
+.gd-band.lscape-mock > img{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;object-position:center bottom;image-rendering:pixelated}
+
+/* ---------- 美术条：一排真的道具／头像／徽章 ----------
+   Same glass plate as .card, so a strip of art reads as another panel on the
+   page rather than a gallery bolted onto it. */
+.gd-strip{background:var(--gd-plate);border:1px solid var(--glass-line);border-radius:18px;
+  padding:13px 16px 14px;box-shadow:var(--glass-lift),var(--glass-edge);margin:14px 0;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+.gd-strip h4{font-family:var(--serif);font-size:15px;letter-spacing:.04em;color:var(--ridge);margin-bottom:3px}
+.gd-strip > p{font-size:13px;margin-bottom:9px}
+/* ⚠️ GRID with auto-fill, not a wrapping flex row — the same call §18f made for the
+   板块 chips, and for the same reason: a flex row sizes every cell to its own label,
+   so twelve avatars came out 11 + 1 with a single orphan on line two, and the
+   ragged right edge read as breakage. A grid gives every picture the same box.
+   ⚠️ align-items:start, and the art sits in a FIXED-HEIGHT slot. Standing the cells
+   on a shared floor (flex-end / align-items:end) is the obvious move and is wrong:
+   it aligns the whole CELL, so a two-line English label under 生肖·鼠 against a
+   three-line one under 西游记·孙悟空 lifted that cell's picture 30px above its
+   neighbour's. The slot puts the floor under the PICTURES, where it belongs, and
+   label length then cannot move anything. */
+.gd-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+  gap:12px 9px;align-items:start;justify-items:center}
+.gd-fig{width:100%;max-width:104px;text-align:center;min-width:0}
+.gd-fig .ic{height:56px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:4px}
+/* ⚠️ object-fit:contain AND align-self, both halves: a flex item's default
+   `stretch` makes height:auto do nothing, and cover then crops the art into a
+   sliver (§14, and owner reported exactly that on a 我的词语表 thumbnail). */
+.gd-fig img{max-height:100%;max-width:100%;width:auto;height:auto;
+  align-self:flex-end;object-fit:contain;image-rendering:pixelated}
+.gd-fig .nm{font-family:var(--serif);font-size:12px;letter-spacing:.02em;line-height:1.35}
+/* ⚠️ NO `display` — .zh/.en live in here and the gate owns their display. */
+.gd-fig .en{font-size:10px;color:var(--ink-soft);line-height:1.3}
+.gd-fig i{display:block;font-style:normal;font-size:10.5px;font-weight:700;color:var(--gold-ink)}
+/* ⚠️ 船只**不统一高度**（§18l）：`max-height` 在一个更高的坑里，让原始比例自己说话。
+   把四艘船拉成等高会把 285px 高的 简朴帆船 压得比 117px 高的 舢板 还窄，而美术本来
+   就把帆船画得约两倍高——owner 2026-08-17 就是这么报的。 */
+.gd-row.boats{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.gd-row.boats .gd-fig{max-width:150px}
+.gd-row.boats .ic{height:82px}
+/* 头像是 320×320 的方形肖像，坑里等高才是对的。⚠️ 这里不套 spriteScale：那张表量的是
+   六帧行走表里**画出来的质量**，方形肖像本来就已经等大，乘一次反而会把它们弄乱。 */
+/* ⚠️ 头像那一排的列数是**写死的 12**，不是 auto-fill。auto-fill 在 1120px 的正文宽度上
+   刚好排得下 11 个，于是第十二个自己掉到第二行——一个孤零零的头像读起来就是坏掉了。
+   12 = 4 生肖 + 4 西游记 + 4 瑞兽，三家各一段，所以 12 / 6 / 4 三档都刚好整除，
+   任何一档都不会留下孤儿（断点在文件末尾的 @media 里）。 */
+.gd-row.avatars{grid-template-columns:repeat(12,minmax(0,1fr));gap:12px 6px}
+.gd-row.avatars .gd-fig{max-width:none}
+.gd-row.avatars .ic{height:54px}
+/* ---------- 踏浪竞速：真的天空、真的沙滩、真的跨栏与拱门 ----------
+   ⚠️ xh_foam_lap.png 与 xh_wave_chase.png 一张都没有用到，这是刻意的：两张都还
+   留着约 9,000 个洋红去溢余像素，CLAUDE.md §13 明写在重画并验过去溢之前不许接回。
+   潮水本来就只是反馈、从来不是失败条件，所以这条带子不缺它。 */
+/* ⚠️ 说明文字一律在顶上（.cap.top），跑者、跨栏、拱门在底下。第一版把 .cap 留在底边，
+   于是那条渐变正好压在跑道上——兔子在字后面，栏杆被吃掉一半。凡是带子上有站着的东西，
+   说明就得让开（同海图那条带子的教训）。 */
+.gd-band.run{background:url("art/xh/run/xh_run_sand.png") left bottom/auto 42% repeat-x,
+             url("art/xh/run/xh_run_sky.png") left top/auto 66% repeat-x,#BFE3EE;
+  height:min(32vw,206px)}
+.gd-band.run .hurdle{position:absolute;bottom:6%;height:34%;width:auto;z-index:2}
+.gd-band.run .arch{position:absolute;right:3%;bottom:5%;height:52%;width:auto;z-index:2}
+.gd-band.run .palm{position:absolute;left:1.5%;bottom:34%;height:28%;width:auto;z-index:1}
+/* ⚠️ one frame out of the SAME six-frame sheet 攀山竞速 and 词海垂钓 draw from
+   (art/sprite/avatar/*_sprite.png, 768×104 = 6×128). background-position 0 0 is
+   frame 1, the standing frame. No spriteScale here on purpose: that table exists
+   to make DIFFERENT creatures read the same size next to each other, and there is
+   only one figure on this band. */
+.gd-band.run .runner{position:absolute;left:24%;bottom:5%;width:128px;height:104px;z-index:2;
+  background:url("art/sprite/avatar/zodiac_rabbit_sprite.png") 0 0/768px 104px no-repeat;
+  transform:scale(.58);transform-origin:left bottom;image-rendering:pixelated}
 
 /* ============ 演示面板 ============ */
 /* the demo CONTAINER is a .card like any other panel on the site (its insides
@@ -437,6 +583,11 @@ body.aid-en .opt .eng{display:block}
    ⚠️ Any NEW surface that shows an annotation and is not an ordinary light
    panel — dark OR gold — must be added to one of the two rules below. */
 body.L-both .demo-head .en{color:rgba(255,255,255,.9);font-size:12.5px}
+/* ⚠️ the painted bands and the hero's little plate are dark surfaces too, and they
+   arrived on this page after the block above was written. Without these the
+   English caption on every picture renders --ink-soft grey on the artwork. */
+body.L-both .gd-band .cap .en{color:rgba(234,244,250,.92)}
+body.L-both .gd-herosub .en{color:#FFF4D6}
 /* ⚠️ THE OTHER HALF OF THE SAME TRAP, and it is the reason this block is not
    just「dark surfaces」any more. The three「on」states below used to be flat
    --sea1/--sea2 fills and lived in the rule above; they are now the site's gold
@@ -465,9 +616,24 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   /* nine across is 34px a medallion on a phone — the art stops being readable
      long before the row stops fitting. */
   .badgerow{grid-template-columns:repeat(5,minmax(0,1fr))}
+  /* the sea band's five names stop fitting side by side well before the islands
+     do; two rows of islands still reads as「由近到远」, overlapping names do not. */
+  .gd-band.sea{flex-wrap:wrap;justify-content:center;gap:10px 16px;padding-bottom:34px}
+  .gd-isle img{height:52px}
+  .gd-band.run .runner{transform:scale(.46)}
+  /* 12 → 6，两排各三家的一半，仍然整除。 */
+  .gd-row.avatars{grid-template-columns:repeat(6,minmax(0,1fr))}
 }
 @media (max-width:560px){
   .badgerow{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* ⚠️ the couplets go last, not the picture: at 340px wide, two vertical gold
+     columns leave the title about 60% of the header to live in. app.css hides
+     them below 900px on the landing page for the same reason. */
+  .gd-couplet{display:none}
+  .gd-band.tall,.gd-band.short{height:min(34vw,120px)}
+  .gd-row{grid-template-columns:repeat(auto-fill,minmax(68px,1fr))}
+  .gd-row.avatars{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .gd-fig .ic,.gd-row.avatars .ic{height:46px}
   /* ⚠️ on a phone the top row wrapped and the sticky bar grew to 184px — a fifth
      of the screen, permanently. The 副标题 is the line to lose: 词山学海 Vocab
      Summit is already the destination of the ← next to it. */
@@ -487,7 +653,10 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
      visibly broken on a modern machine, which is exactly why it gets missed. */
   .gd-top{background:rgba(255,255,255,.96)}
   .toc{background:rgba(255,255,255,.96)}
-  .gd-lede,.card,.demo,.gd-stat{background:rgba(255,255,255,.95)}
+  .gd-lede,.card,.demo,.gd-stat,.gd-strip{background:rgba(255,255,255,.95)}
+  /* the hero's subtitle plate: without the blur its alpha alone has to hold
+     #FFF4D6 off a painted sky, so it goes near-opaque. */
+  .gd-herosub{background:rgba(15,32,56,.86)}
   section.gd > h2 .num,.gd-langs,.gd-tabs button,.btn.ghost,.sw{background:rgba(255,255,255,.95)}
   .rule{background:rgba(255,248,232,.96)}
   .why{background:rgba(236,245,251,.96)}
@@ -498,27 +667,21 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 </head>
 <body class="L-both aid-py aid-en" data-tab="use">
 
+<!-- ⚠️ The art is the landing page's own painting (art/bg/landing_hero_bg.png,
+     the file app.css gives .lp-hero), not a drawing made for this page. The flat
+     SVG horizon that used to live here is gone: a document about the platform
+     should open on the platform's own front door. -->
 <header class="gd-hero">
-  <div class="sun"></div>
   <!-- ⚠️ same order as the landing page: 上联 书山有路勤为径 reads on the RIGHT. -->
   <span class="gd-couplet l">学海无涯苦作舟</span>
   <span class="gd-couplet r">书山有路勤为径</span>
   <div class="gd-herotext">
     <h1>词山学海 · 指南</h1>
-    <div class="en1">Vocab Summit · Guide</div>
-    <div class="sch">百德中学 母语部华文组 · BVSS MTL Chinese Language Unit</div>
+    <div class="gd-herosub">
+      <div class="en1">Vocab Summit · Guide</div>
+      <div class="sch">百德中学 母语部华文组 · BVSS MTL Chinese Language Unit</div>
+    </div>
   </div>
-  <!-- 校徽语言：三座山峰，中间最高且在前；山海通到画面边缘；太阳在右。 -->
-  <svg viewBox="0 0 1200 260" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M0 190 L150 96 L300 190 Z" fill="#9CC0A6"/>
-    <path d="M760 190 L920 84 L1080 190 Z" fill="#9CC0A6"/>
-    <path d="M120 205 L340 78 L560 205 Z" fill="#79AB89"/>
-    <path d="M660 205 L880 88 L1100 205 Z" fill="#79AB89"/>
-    <path d="M330 215 L600 44 L870 215 Z" fill="#57906B"/>
-    <path d="M600 44 L730 126 L600 150 Z" fill="#3F704F" opacity=".55"/>
-    <path d="M0 196 C220 214 380 200 600 208 C830 216 1000 200 1200 210 L1200 260 L0 260 Z" fill="#2E6391"/>
-    <path d="M0 226 C260 240 420 226 660 234 C900 242 1020 228 1200 236 L1200 260 L0 260 Z" fill="#1F4A70"/>
-  </svg>
 </header>
 
 <div class="gd-stats" id="gdStats"></div>
@@ -579,6 +742,12 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
     <div class="grid" id="stationGrid"></div>
 
+    <!-- ⚠️ 海面是站上那张 sea_tile.png，五座岛是海图上那五张图，一张新美术都没有。
+         ⚠️ 岛的间距是等距，不是海图上的真实距离——真实坐标是按 100vw×100vh 定的
+         （app.css .i-g1 等），换成这条 140px 高的带子就只在纸面上像那张图、
+         数字全变了。带子诚实承载的是「顺序」，而顺序正是下面那条 ⚠️ 讲的事。 -->
+    <div class="gd-band sea" id="seaBand" aria-hidden="true"></div>
+
     <div class="rule">
       <p class="zh"><b>⚠️ 距离读成难度。</b>码头离得最近，高级华文最远。这不是排版随手放的：海图上的位置就是「从这里开始」的提示。</p>
       <p class="en"><b>⚠️ Distance is meant to be read as difficulty.</b> The pier sits nearest and Higher Chinese furthest. The positions are not decorative — where an island sits on the map is the hint about where to start.</p>
@@ -613,6 +782,14 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
         <p class="en">Every screen carries <b>💬 反馈 (tell us)</b> at the bottom-left. Say which screen, what you tapped, what you saw. It is the fastest route and a teacher reads it.</p>
       </div>
     </div>
+
+    <!-- 真的头像档：art/avatar/*.png，选择器里用的就是这一批方形肖像。 -->
+    <div class="gd-strip">
+      <h4><span class="zh">头像有三家</span><span class="en">Three families of avatar</span></h4>
+      <p class="zh">这些就是选择器里的图。<b>生肖</b>十二个全部免费；<b>西游记</b>五个要用<img class="cur-icon" src="art/camp/linglu.png" alt="">灵露买；<b>瑞兽</b>四个买不到，要靠<b>年度试炼</b>一级一级解锁（中一 → 中四）。<b>头像是全站共用的</b>，在码头也是同一个人。</p>
+      <p class="en">These are the actual pictures in the picker. All twelve <b>zodiac</b> animals are free; the five <b>Journey to the West</b> characters cost <img class="cur-icon" src="art/camp/linglu.png" alt="">dew; the four <b>auspicious beasts</b> cannot be bought at all — they unlock one level at a time through the <b>yearly trial</b> (Sec 1 to Sec 4). <b>The avatar is shared across the whole site</b> — you are the same person at the pier.</p>
+      <div class="gd-row avatars" id="avatarRow"></div>
+    </div>
   </section>
 
   <!-- ============ ③ ============ -->
@@ -620,6 +797,18 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     <h2><span class="num">03</span><span class="zh b">一个学段页怎么读：①②③</span><span class="en b">Reading a stream page: the three steps</span></h2>
     <p class="zh">每个学段页都是同一条动线，编号就印在屏幕上。<b>每一屏都从 ① 重新开始</b>，所以看到 ① 不代表回到最前面，只代表「这一屏的第一步」。</p>
     <p class="en">Every stream page runs the same three steps, numbered on screen. <b>Each screen restarts at ①</b>, so seeing ① does not mean you went back to the beginning — it means "first step on this screen".</p>
+
+    <!-- ⟨app.css .lscape⟩ — 学段页顶上那条横幅就是这两层：sea_tile 打底，
+         学段自己那座岛 object-fit:contain 在上面。这里放 G2 的那一座。 -->
+    <div class="gd-band tall lscape-mock">
+      <img src="art/mountain/mtn_g2.png" alt="">
+      <!-- ⚠️ 这一条的说明留在底边，不搬到顶上：岛是 object-fit:contain 顶天立地，
+           山顶那座亭子就在最上面，而底下是空水面——学段页真正的 .lscape 也是把
+           名次与历练值写在左下角。 -->
+      <div class="cap"><b>每个学段页顶上都是自己那座山</b>
+        <span class="zh">四个学段各有各的一座，不是同一张通用底图。点它就进「我的词山」。这里画的是 G2。</span>
+        <span class="en">Each of the four streams has its own island rather than one shared backdrop. Tapping it opens 我的词山. This one is G2's.</span></div>
+    </div>
 
     <div class="grid">
       <div class="card">
@@ -645,12 +834,27 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <p class="zh"><b>⚠️ 编号只用在真正多步的决定上。</b>排行榜、成就墙、我的词山 都<b>不编号</b>——它们是去处，没有正确顺序，随时可以去。</p>
       <p class="en"><b>⚠️ Numbers appear only on genuine multi-step decisions.</b> The leaderboard, the badge wall and 我的词山 are <b>never numbered</b> — they are destinations, not steps, and there is no right order in which to visit them.</p>
     </div>
+
+    <!-- 板块 chip 上就是这五枚徽章（app.js BADGE_IMG）。同一份美术在成就墙上当里程碑章。 -->
+    <div class="gd-strip">
+      <h4><span class="zh">板块长什么样</span><span class="en">What the component blocks look like</span></h4>
+      <p class="zh">「筛选」里的板块不是文字药丸，是这五枚徽章。哪些板块存在<b>按学段不同</b>：G1 三个、G2 与 G3 四个、高级华文五个。关掉的那一枚变灰，那是<b>筛选</b>状态，不是「还没拿到」。</p>
+      <p class="en">The component blocks in 筛选 are not text pills, they are these five medallions. Which blocks exist <b>differs by stream</b>: three for G1, four for G2 and G3, five for Higher Chinese. A block you switch off goes greyscale — that is a <b>filter</b> state, not "not yet earned".</p>
+      <div class="gd-row" id="compRow"></div>
+    </div>
   </section>
   <!-- ============ ④ ============ -->
   <section class="gd" id="u4">
     <h2><span class="num">04</span><span class="zh b">山上的玩法</span><span class="en b">What you can do on the mountains</span></h2>
     <p class="zh">四座山（G1／G2／G3／高级华文）的玩法完全一样，只有词库不同。</p>
     <p class="en">All four mountains (G1, G2, G3, Higher Chinese) offer the same activities; only the word list differs.</p>
+
+    <!-- art/bg/mountain_bg.png — 我的词山 背后那张画，原样。 -->
+    <div class="gd-band tall" style="background-image:url('art/bg/mountain_bg.png')">
+      <div class="cap"><b>我的词山</b>
+        <span class="zh">掌握一个词，海拔就加一米，人往山上走一段。这张画就是那座山的背景。</span>
+        <span class="en">Every word mastered adds one metre of altitude and moves you a little further up. This painting is that mountain.</span></div>
+    </div>
 
     <h3 style="margin-top:16px"><span class="zh">修行 · 安静地练</span><span class="en">修行 — the quiet modes</span></h3>
     <div class="grid" id="mtnStudy"></div>
@@ -660,6 +864,15 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
     <h3 style="margin-top:18px"><span class="zh">其他去处 · 没有先后</span><span class="en">Destinations — no right order</span></h3>
     <div class="grid" id="mtnElse"></div>
+
+    <!-- 营地商店卖的就是这些图（art/camp/gear_* 与 deco_*）。⚠️ 2026-08-17 起两个商店
+         都不给商品画框（§18l），所以这里也不画框——一张图、一个名字、一个价钱。 -->
+    <div class="gd-strip">
+      <h4><span class="zh">灵露花在营地</span><span class="en">Dew is spent at the camp</span></h4>
+      <p class="zh">营地卖露营装备与摆件，都是这样的图。<b>商品外面不画框</b>：一张图、一个名字、一枚<img class="cur-icon" src="art/camp/linglu.png" alt="">和一个数字。灵露买不到掌握度，只买得到营地里的东西。</p>
+      <p class="en">The camp sells gear and ornaments, and this is the art. <b>Nothing is framed</b>: a picture, a name, one <img class="cur-icon" src="art/camp/linglu.png" alt=""> and a number. Dew buys camp things and nothing else — never mastery.</p>
+      <div class="gd-row" id="gearRow"></div>
+    </div>
   </section>
 
   <!-- ============ ⑤ ============ -->
@@ -667,6 +880,13 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     <h2><span class="num">05</span><span class="zh b">启航码头的玩法</span><span class="en b">What you can do at the pier</span></h2>
     <p class="zh">码头是给<b>零起点</b>学生的：没读过华文、刚转校、或者只想先认得几个字的人。这里的词是看图学的，题目从图片和声音出发，不假设你已经认得任何一个汉字。</p>
     <p class="en">The pier is for students starting from <b>zero</b>: no prior Chinese, newly transferred, or simply wanting to recognise a few words first. Words are learned from pictures; questions start from an image or a sound and assume no character knowledge at all.</p>
+
+    <!-- art/xh/dock_bg.png — 码头首页 hero 那张沙滩，原样。 -->
+    <div class="gd-band tall" style="background-image:url('art/xh/dock_bg.png')">
+      <div class="cap"><b>启航码头</b>
+        <span class="zh">这就是码头首页那张画。认得一个词，航程加一，海滩上会多一样东西。</span>
+        <span class="en">This is the painting on the pier's own front page. Each word you come to recognise adds one to your distance, and the beach gains something.</span></div>
+    </div>
 
     <h3 style="margin-top:16px"><span class="zh">学习</span><span class="en">Learn</span></h3>
     <div class="grid" id="xhLearn"></div>
@@ -677,9 +897,31 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     <h3 style="margin-top:18px"><span class="zh">其他去处</span><span class="en">Destinations</span></h3>
     <div class="grid" id="xhElse"></div>
 
+    <!-- 船是水线上唯一的双币商品（§4）：贝壳或灵露都买得到，因为它会出现在落地海图上。
+         ⚠️ 高度不统一，用 max-width/max-height 让原始比例自己说话——统一高度会把
+         285px 高的帆船压得比 117px 高的舢板还窄（§18l，owner 报过）。 -->
+    <div class="gd-strip">
+      <h4><span class="zh">船：四级，两种货币都能买</span><span class="en">Boats: four tiers, either currency</span></h4>
+      <p class="zh">船是全站<b>唯一</b>一件<img class="cur-icon" src="art/xh/dock_shell.png" alt="">贝壳和<img class="cur-icon" src="art/camp/linglu.png" alt="">灵露都买得到的东西，因为它会开在首页那张海图上，而大多数华文学生根本不进码头。<b>两个标价，不是汇率</b>：没有回售，价值过不去。下面的数字是「贝壳 / 灵露」，第一艘白送，而且只能<b>一级一级</b>买上去。</p>
+      <p class="en">Boats are the <b>only</b> thing on the site that <img class="cur-icon" src="art/xh/dock_shell.png" alt="">shells and <img class="cur-icon" src="art/camp/linglu.png" alt="">dew can both buy, because a boat sails on the front-page map and most Chinese-stream students never visit the pier. <b>Two price tags, not an exchange rate</b>: nothing sells back, so no value crosses. The figures below read "shells / dew"; the first boat is free, and they can only be bought <b>one tier at a time</b>.</p>
+      <div class="gd-row boats" id="boatRow"></div>
+    </div>
+
+    <!-- 踏浪竞速用的就是这几张：天空、沙滩、跨栏、终点拱门，跑者是六帧行走表的第一帧。 -->
+    <div class="gd-band run">
+      <img class="palm" src="art/xh/run/prop_palm.png" alt="">
+      <div class="runner"></div>
+      <img class="hurdle" src="art/xh/run/xh_run_marker.png" alt="" style="left:46%">
+      <img class="hurdle" src="art/xh/run/xh_run_marker.png" alt="" style="left:64%">
+      <img class="arch" src="art/xh/run/xh_run_finish.png" alt="">
+      <div class="cap top"><b>踏浪竞速</b>
+        <span class="zh">答对一题，跑一步、跨一栏。跑到拱门就是一局结束——<b>没有输的条件</b>。</span>
+        <span class="en">One correct answer, one hop, one hurdle. Reaching the arch is the end of the round — <b>there is no way to lose</b>.</span></div>
+    </div>
+
     <div class="rule">
-      <p class="zh"><b>⚠️ 踏浪竞速 是一层皮，不是另一种题目。</b>同一盘题，开不开踏浪竞速，题目、贝壳、航程<b>完全一样</b>，只有反馈不同：答对一题，沙滩上的小人往前跑一格，潮水在后面涨。<b>潮水永远追不上你，没有输的条件</b>，一局到题数结束就结束。</p>
-      <p class="en"><b>⚠️ Beach run is a skin, not a different game.</b> The same round with beach run on or off gives exactly the same questions, shells and progress — only the feedback changes: each correct answer moves a runner one step along the sand while the tide rises behind. <b>The tide never catches you and there is no way to lose</b>; the round ends when the questions run out.</p>
+      <p class="zh"><b>⚠️ 踏浪竞速 是一层皮，不是另一种题目。</b>同一盘题，开不开踏浪竞速，题目、贝壳、航程<b>完全一样</b>，只有反馈不同：答对一题，沙滩上的小人往前跳一步、跨过一根栏。<b>没有东西在追你，也没有输的条件</b>，一局到题数结束就结束。</p>
+      <p class="en"><b>⚠️ Beach run is a skin, not a different game.</b> The same round with beach run on or off gives exactly the same questions, shells and progress — only the feedback changes: each correct answer hops the runner one step along the sand and over a hurdle. <b>Nothing is chasing you and there is no way to lose</b>; the round ends when the questions run out.</p>
     </div>
 
     <div class="why">
@@ -1171,6 +1413,15 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <figure><img src="art/xh/badges/xh_badge_lighthouse.png" alt=""><b>灯塔徽</b><span class="en i">Lighthouse</span><i>400</i></figure>
     </div>
 
+    <!-- 三个家族的真美术摆在一起，「永不混算」才看得见。三份美术、三套计数，
+         键前缀分别是 c·/u·/l·/t4（A层）、b·（B层）、以及码头自己的一套。 -->
+    <div class="gd-strip">
+      <h4><span class="zh">三个徽章家族，各有各的美术与计数</span><span class="en">Three badge families, three sets of art and three counters</span></h4>
+      <p class="zh">上面九枚是<b>码头</b>的。山上另有两家：<b>里程碑</b>（板块章 → 单元章 → 年级章 → 顶级词王，用的是板块那五枚美术）与<b>对战奖牌</b>（结伴登峰／同伴挑战 各金银铜，另加称号）。三家<b>永不混算，也不共用美术</b>——「我有几枚徽章」在这个平台上不是一个有答案的问题，得先问哪一家。</p>
+      <p class="en">The nine above belong to the <b>pier</b>. The mountains carry two more families: <b>milestones</b> (component → unit → year level → top word-king, drawn with the five component medallions) and <b>battle medals</b> (gold, silver and bronze for rooms and for duels, plus a title). The three <b>never pool and never share art</b> — "how many badges do I have" is not a question with an answer here until you say which family.</p>
+      <div class="gd-row" id="medalRow"></div>
+    </div>
+
     <div class="why">
       <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
       <p class="zh">因为词表会长大。码头的词表<b>一天之内从 36 涨到 100 再到 150</b>。如果徽章是「集齐全部」，那条终点线就会<b>往后跑</b>——等于凭空收回学生已经付出的努力。一个百分比进度条在内容还会增加的系统里是<b>一个会背叛学生的承诺</b>。</p>
@@ -1185,12 +1436,14 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   <!-- ============ ⑪ 没有失败条件 ============ -->
   <section class="gd" id="w11">
     <h2><span class="num">11</span><span class="zh b">给零起点学生的模式，没有失败条件</span><span class="en b">The beginners' mode has no fail state</span></h2>
-    <p class="zh">「踏浪竞速」里，跑者在沙滩上前进，潮水在后面涨。<b>潮水永远追不上</b>：跑者固定在四分之一处，潮水最远也不到一半。<b>不要给它加失败条件。</b></p>
-    <p class="en">In "beach run" a runner moves along the sand while the tide rises behind. <b>The tide never catches up</b>: the runner is pinned at about a quarter of the track and the tide never reaches half. <b>Do not give it a fail state.</b></p>
+    <p class="zh">「踏浪竞速」里，答对一题，跑者就在沙滩上跳过一格、跨过一根栏，一直跑到终点拱门。<b>没有任何东西在追他</b>，也没有时钟。<b>不要给它加失败条件。</b></p>
+    <p class="en">In "beach run", each correct answer hops the runner one step along the sand and over a hurdle, all the way to the finishing arch. <b>Nothing is chasing them</b> and there is no clock. <b>Do not give it a fail state.</b></p>
     <div class="why">
       <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
-      <p class="zh">潮水是<b>反馈</b>，不是追兵。它告诉学生「你在动」，不是「你要被淘汰了」。<b>零起点学生永远不该被半途掐掉</b>——一局到题数结束就结束。追赶的紧张感对已经有把握的学生是燃料，对刚起步的学生是退出按钮。</p>
-      <p class="en">The tide is <b>feedback</b>, not a pursuer. It says "you are moving", not "you are about to be eliminated". <b>A zero-start learner should never be cut off mid-round</b>; the round ends when the questions do. The tension of being chased is fuel for a confident student and an exit button for a beginner.</p>
+      <p class="zh">沙滩上那条路是<b>反馈</b>，不是赛道。它告诉学生「你在动」，不是「你要被淘汰了」。<b>零起点学生永远不该被半途掐掉</b>——一局到题数结束就结束。追赶的紧张感对已经有把握的学生是燃料，对刚起步的学生是退出按钮。</p>
+      <p class="en">The track along the sand is <b>feedback</b>, not a race. It says "you are moving", not "you are about to be eliminated". <b>A zero-start learner should never be cut off mid-round</b>; the round ends when the questions do. The tension of being chased is fuel for a confident student and an exit button for a beginner.</p>
+      <p class="zh">⚠️ 早一版真的有一层潮水在后面涨。它<b>也</b>追不上人，但 2026-08-17 整个撤掉了：与其让「会不会被追上」这个问题存在，不如让画面上根本没有追兵。</p>
+      <p class="en">⚠️ An earlier build did have a tide rising behind the runner. It could not catch them either, but it was removed entirely on 2026-08-17: better that the question "can it catch me?" never arises than that the answer be no.</p>
     </div>
     <div class="rule">
       <p class="zh"><b>⚠️ 它是一层皮，不是第二条管线。</b>整段代码不出题、不判分、不发货币、不写存储。同一盘题开不开它，<b>题目与收益完全相同</b>。⚠️ 而且跑者的位置是「现在第几题」的<b>纯函数</b>，不按答对次数累加——只要有一个玩法走了不调用钩子的路径，累加就会让跑者早一格或晚一格到终点。</p>
@@ -1449,6 +1702,77 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     { i: "📊", zh: "码头风云榜", en: "Pier boards", dzh: "识词数与航海值，分开排。", den: "Words known and seafaring points, kept apart." }
   ];
 
+  /* ---------- 真美术清单 ----------
+     ⚠️ Every path below is a file already in art/, at a size the platform itself
+     uses. Nothing here is decoration invented for this page, and nothing here is
+     a NEW art file: if a row needs a picture the repo does not have, the row does
+     not get built (that is why there is no per-mode thumbnail on the 玩法 cards —
+     the mountains have no per-mode art, and borrowing a pier picture for a
+     mountain mode would teach the wrong thing). */
+  /* ⚠️ 名字与「怎么得到」抄自 js/profile.js 的 AVATAR_CATALOG，不是估的：
+     生肖十二个全部免费 · 西游记五个标价 300–600 灵露（白龙马另要 pts）·
+     瑞兽四个是**年度试炼**解锁（中一→中四），一颗灵露也买不到。 */
+  var AVATARS = [
+    { f: "avatar_zodiac_rat.png",     zh: "生肖·鼠",     en: "Zodiac · Rat",      i: "免费 free" },
+    { f: "avatar_zodiac_ox.png",      zh: "生肖·牛",     en: "Zodiac · Ox",       i: "免费 free" },
+    { f: "avatar_zodiac_tiger.png",   zh: "生肖·虎",     en: "Zodiac · Tiger",    i: "免费 free" },
+    { f: "avatar_zodiac_dragon.png",  zh: "生肖·龙",     en: "Zodiac · Dragon",   i: "免费 free" },
+    { f: "avatar_jtw_tangseng.png",   zh: "西游记·唐僧", en: "JTW · Tang Seng",   i: "300" },
+    { f: "avatar_jtw_shaseng.png",    zh: "西游记·沙僧", en: "JTW · Sha Seng",    i: "300" },
+    { f: "avatar_jtw_zhubajie.png",   zh: "西游记·猪八戒", en: "JTW · Zhu Bajie", i: "350" },
+    { f: "avatar_jtw_sunwukong.png",  zh: "西游记·孙悟空", en: "JTW · Sun Wukong", i: "500" },
+    { f: "avatar_pet_gui.png",        zh: "瑞兽·龟",     en: "Beast · Turtle",    i: "中一" },
+    { f: "avatar_pet_qilin.png",      zh: "瑞兽·麒麟",   en: "Beast · Qilin",     i: "中二" },
+    { f: "avatar_pet_feng.png",       zh: "瑞兽·凤",     en: "Beast · Phoenix",   i: "中三" },
+    { f: "avatar_pet_long.png",       zh: "瑞兽·龙",     en: "Beast · Dragon",    i: "中四" }
+  ];
+
+  /* ⚠️ app.js BADGE_IMG — the same five files, and the same five names the
+     板块 chips carry. G1 ships three of them, G2/G3 four, HCL five. */
+  var COMPS = [
+    { f: "art/badge/badge_hx.png",   zh: "核心",     en: "Core" },
+    { f: "art/badge/badge_shkj.png", zh: "生活空间", en: "Everyday life" },
+    { f: "art/badge/badge_gg.png",   zh: "巩固",     en: "Consolidation" },
+    { f: "art/badge/badge_jj.png",   zh: "进阶",     en: "Advanced" },
+    { f: "art/badge/badge_whz.png",  zh: "文化站",   en: "Culture" }
+  ];
+
+  var GEAR = [
+    { f: "art/camp/gear_tent_alpine.png", zh: "高山帐", en: "Alpine tent" },
+    { f: "art/camp/gear_lantern.png",     zh: "灯笼",   en: "Lantern" },
+    { f: "art/camp/gear_stove.png",       zh: "小炉",   en: "Stove" },
+    { f: "art/camp/gear_telescope.png",   zh: "望远镜", en: "Telescope" },
+    { f: "art/camp/gear_chest.png",       zh: "木箱",   en: "Chest" },
+    { f: "art/camp/deco_fire.png",        zh: "营火",   en: "Campfire" },
+    { f: "art/camp/deco_windchime.png",   zh: "风铃",   en: "Wind chime" },
+    { f: "art/camp/deco_cat.png",         zh: "猫",     en: "Cat" }
+  ];
+
+  /* ⚠️ 侧视图，四级按 t1→t4 排。名字与两个价钱抄自 js/profile.js 的 BOATS，
+     不是估的：第一艘白送，其余三艘贝壳与灵露各一个标价（§4 船是唯一的双币商品）。
+     ⚠️ 而且购买是**顺序**的，跳不过去——这就是为什么这一行读起来是一条路。 */
+  var BOATS = [
+    { f: "art/xh/boat_t1_broadside.png", zh: "朴素舢板", en: "Plain sampan",   i: "免费 free" },
+    { f: "art/xh/boat_t2_broadside.png", zh: "彩绘舢板", en: "Painted sampan", i: "80 / 250" },
+    { f: "art/xh/boat_t3_broadside.png", zh: "简朴帆船", en: "Fishing junk",   i: "200 / 550" },
+    { f: "art/xh/boat_t4_broadside.png", zh: "华丽帆船", en: "Ornate junk",    i: "400 / 1000" }
+  ];
+
+  /* 三个家族并排：A层用板块那五枚里的一枚代表，B层四枚（展示顺序 铜→银→金→称号），
+     码头一枚。⚠️ 三家永不混算，所以这一行只是把它们摆在一起看，不是一个总数。 */
+  var MEDALS = [
+    { f: "art/badge/badge_hx.png",                       zh: "里程碑 · A层", en: "Milestone (A)" },
+    { f: "art/badge/badge_battle_room_bronze.png",       zh: "结伴登峰 · 铜", en: "Room bronze" },
+    { f: "art/badge/badge_battle_room_silver.png",       zh: "结伴登峰 · 银", en: "Room silver" },
+    { f: "art/badge/badge_battle_room_gold.png",         zh: "结伴登峰 · 金", en: "Room gold" },
+    { f: "art/badge/badge_battle_room_champion.png",     zh: "结伴登峰 · 称号", en: "Room title" },
+    { f: "art/badge/badge_battle_peer_bronze.png",       zh: "同伴挑战 · 铜", en: "Duel bronze" },
+    { f: "art/badge/badge_battle_peer_silver.png",       zh: "同伴挑战 · 银", en: "Duel silver" },
+    { f: "art/badge/badge_battle_peer_gold.png",         zh: "同伴挑战 · 金", en: "Duel gold" },
+    { f: "art/badge/badge_battle_peer_champion.png",     zh: "同伴挑战 · 称号", en: "Duel title" },
+    { f: "art/xh/badges/xh_badge_compass.png",           zh: "航海徽章 · 码头", en: "Sailing (pier)" }
+  ];
+
   /* =================== 顶栏高度 ===================
      ⚠️ Two things hang off the height of the sticky bar: how far an anchor jump
      has to clear it (scroll-padding-top) and where the sticky 目录 parks
@@ -1586,6 +1910,41 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   }
   cards($("mtnStudy"), MTN_STUDY); cards($("mtnPlay"), MTN_PLAY); cards($("mtnElse"), MTN_ELSE);
   cards($("xhLearn"), XH_LEARN);   cards($("xhPlay"), XH_PLAY);   cards($("xhElse"), XH_ELSE);
+
+  /* =================== 渲染：真美术条 ===================
+     ⚠️ `.nm` / `.en` carry no `display` in CSS — the 语言闸门 owns that (see the
+     note at the top of the stylesheet). `i` is the price/level line and is
+     language-neutral, so it is an <i> and shows in every mode. */
+  function figs(el, list, base) {
+    if (!el) return;
+    el.innerHTML = list.map(function (a) {
+      return '<div class="gd-fig"><span class="ic"><img src="' + (base || "") + a.f + '" alt=""></span>' +
+        '<span class="nm zh">' + esc(a.zh) + '</span>' +
+        '<span class="nm en">' + esc(a.en) + '</span>' +
+        (a.i ? "<i>" + esc(a.i) + "</i>" : "") + "</div>";
+    }).join("");
+  }
+  figs($("avatarRow"), AVATARS, "art/avatar/");
+  figs($("compRow"), COMPS);
+  figs($("gearRow"), GEAR);
+  figs($("boatRow"), BOATS);
+  figs($("medalRow"), MEDALS);
+
+  /* ① 海图带：岛与名字用 STATIONS（同一份数据，所以顺序不可能和上面的卡片打架），
+     船用海图上那张对角精灵。⚠️ 顺序是「由近到远」，不是坐标——见 HTML 里的注释。 */
+  (function () {
+    var el = $("seaBand");
+    if (!el) return;
+    el.innerHTML =
+      '<img class="boat" src="art/seamap/boat_away_diag.png" alt="">' +
+      STATIONS.map(function (s) {
+        return '<div class="gd-isle"><img src="' + s.img + '" alt="">' +
+          '<div class="nm">' + esc(s.zh) + "</div></div>";
+      }).join("") +
+      '<div class="cap top"><b>首页就是这张海图</b>' +
+      '<span class="zh">五个入口，由近到远。点一座，船真的从上一次停泊的地方开过去。</span>' +
+      '<span class="en">Five destinations, nearest to furthest. Tap one and the boat really sails there from wherever it last moored.</span></div>';
+  })();
 
   $("gdStats").innerHTML = STATS.map(function (s) {
     return '<div class="gd-stat"><b>' + s.n + "</b>" +

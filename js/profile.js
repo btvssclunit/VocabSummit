@@ -1079,6 +1079,36 @@
       return '<div class="prof-prog">' + rows + '</div>';
     }
 
+    /* ⚠️ On any page that already carries the 💬 反馈 corner button, this section
+       shows NO button (owner 2026-08-17: "it's already on every screen"). Two
+       controls for one action, twelve lines apart, is the same duplication that
+       cost the pier its second 返回 (§18h).
+       ⚠️ The test is「does a .fb-fab exist right now」, read off the DOM, NOT
+       `_provider`: the pier registers no code provider yet still has the button,
+       and the LANDING PAGE has the button nowhere (index.html loads neither
+       app.js nor xh.js), so there the panel is the only way in and the button
+       must stay. A proxy for this fact would be wrong on two of the six pages.
+       ⚠️ The mountain HIDES its fab during 词雨/攀山竞速 with display:none — the
+       element stays connected, which is what we want: the button is still one
+       tap away once the round ends.
+       The status line survives in both branches: it is information (how many of
+       my reports came back), not a second copy of the control. */
+    function feedbackSectionHtml() {
+      var hasFab = !!document.querySelector(".fb-fab");
+      var head = '<div class="prof-sec"><div class="pop-label">意见反馈' +
+        fbGloss("意见反馈", "yì jiàn fǎn kuì", "Tell us about a problem") + '</div>';
+      if (hasFab) {
+        return head +
+          '<div class="pop-note">发现词语内容有误、程序出错，或者有建议，点右下角的 💬 反馈' +
+          fbGloss("反馈", "fǎn kuì", "the 💬 button in the corner") + '告诉我们。</div>' +
+          '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>';
+      }
+      return head +
+        '<div class="pop-note">发现词语内容有误、程序出错，或者有建议，都可以告诉我们。</div>' +
+        '<div class="nav-row" style="margin-top:8px"><button class="nav-btn" id="profFeedback">✍️ 我要反馈</button></div>' +
+        '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>';
+    }
+
     function codeSectionHtml() {
       if (!_provider) {
         var links = ["g1", "g2", "g3", "hcl"].map(function (k) {
@@ -1185,11 +1215,7 @@
           ' · 备份与恢复</div>' + codeSectionHtml() + '</div>' +
 
         // ---- 意见反馈 ----
-        '<div class="prof-sec"><div class="pop-label">意见反馈' +
-          fbGloss("意见反馈", "yì jiàn fǎn kuì", "Tell us about a problem") + '</div>' +
-          '<div class="pop-note">发现词语内容有误、程序出错，或者有建议，都可以告诉我们。</div>' +
-          '<div class="nav-row" style="margin-top:8px"><button class="nav-btn" id="profFeedback">✍️ 我要反馈</button></div>' +
-          '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>' +
+        feedbackSectionHtml() +
 
         // ---- 技术信息 (§5: collapsed to one line; expands on demand) ----
         '<div class="prof-sec"><details class="prof-more">' +
@@ -1214,7 +1240,12 @@
     function wire() {
       ov.querySelector("#profCloseX").onclick = function () { ov.remove(); };
 
-      ov.querySelector("#profFeedback").onclick = function () { openFeedback(); };
+      /* ⚠️ null on every page that has the 💬 fab — feedbackSectionHtml() drops the
+         button there. Unguarded, this throws and kills every handler wired after
+         it (保存, 换头像, 进度码…), which is exactly the silent-breakage shape §14
+         keeps warning about. */
+      var fbBtn = ov.querySelector("#profFeedback");
+      if (fbBtn) fbBtn.onclick = function () { openFeedback(); };
       renderMyFeedback();
 
       ov.querySelector("#profChangeNick").onclick = function () {

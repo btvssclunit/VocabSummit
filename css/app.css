@@ -819,7 +819,22 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .prof-head-txt{min-width:0;flex:1}
 .prof-head-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.5;word-break:break-word}
 .prof-head-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
-.prof-avatar.lg{width:66px;height:66px}
+/* ⚠️ 132px, not 66 (owner 2026-08-17: "make it way bigger and more prominent").
+   The chosen avatar is the one thing on this panel that is purely the student's,
+   and at 66px it read as a form field's icon next to two link-sized buttons.
+   Safe at this size because the source art is 320×320: this is still a DOWNSCALE,
+   so §14's pixel-art trap does not apply and no source file is touched. The gold
+   ring thickens with it, or a 3px hairline round a 132px disc reads as unfinished.
+   ⚠️ Step-down below is a MAX-WIDTH query and must stay after this rule (§14). */
+.prof-avatar.lg{width:132px;height:132px;border-width:3px;
+  box-shadow:var(--glass-edge),0 4px 14px rgba(23,58,90,.20)}
+.prof-head{gap:18px}
+@media (max-width:560px){
+  /* portrait phone: the head row is the whole column width, so a 132px disc
+     leaves the nickname about 150px and 换头像/换昵称 wrap one per line. */
+  .prof-avatar.lg{width:96px;height:96px}
+  .prof-head{gap:14px}
+}
 /* collapsed 技术编号+隐私说明 (expands on demand, keeps the panel short) */
 .prof-more>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#3A5A70;
   letter-spacing:.05em;padding:8px 0;list-style:none}
@@ -1041,11 +1056,10 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
   font-size:14px;color:#7A5B12;margin-bottom:8px}
 .camp-wallet b{font-family:var(--serif);font-size:18px;color:var(--gold-deep)}
 .camp-pets{font-size:13.5px;color:#3F704F;font-weight:700;margin-bottom:6px}
-.camp-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-bottom:6px}
-.cb{border:1px solid #B9CEDD;border-radius:12px;padding:12px 10px;font-size:14.5px;font-weight:700;
-  color:var(--ink);background:#F7FAFC;cursor:pointer;transition:transform .12s}
-.cb:hover{transform:translateY(-2px);border-color:var(--gold)}
-.cb:active{transform:scale(.98)}
+/* ⚠️ .camp-board / .cb removed with the camp's 自由试炼 row (owner 2026-08-17).
+   `.cb` was a two-letter naked class in the shared sheet, so leaving it behind
+   was a live hazard, not just clutter: the next screen to invent a「camp button」
+   would have inherited a border and a hover lift from nowhere. */
 .gym-sec{margin-top:12px;padding-top:12px;border-top:1px solid #E4EDF4}
 .gym-sec.done{color:#3F704F;font-weight:700;font-size:14px;line-height:1.7}
 .gym-sec.lock{color:var(--ink);font-size:13.5px;line-height:1.7}

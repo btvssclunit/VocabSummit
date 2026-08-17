@@ -134,7 +134,11 @@
        which side the student was really on. */
     if (["phrase", "sort"].indexOf(s.mode) !== -1 &&
         ["phrase", "sort"].indexOf(s.useMode) !== -1) s.quizMode = s.useMode;
-    if (["enmcq", "pic", "listen", "phrase", "sort"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
+    /* ⚠️ 连线 and 组字成词 joined this list on 2026-08-17 when 学习 became the
+       mountain's two cards and they stopped being doors of their own. A student whose
+       last round was 连线 must reopen on 连线; without them here the whitelist would
+       silently reset that to 看图识词 on the next load. */
+    if (["enmcq", "pic", "listen", "phrase", "sort", "match", "build"].indexOf(s.quizMode) === -1) s.quizMode = "pic";
     /* ⚠️ `useMode` is KEPT but never read again — it is the only record of what the
        student chose while 学以致用 was its own door, and the line above still consumes
        it on first load after the merge. Same treatment §18i gave the four retired
@@ -258,7 +262,12 @@
     "启航码头": "qǐ háng mǎ tóu",
     /* ⚠️ hero 副标题。2026-08-17 把开头四个字从退役的「看图学词」改成 词语闪卡（owner）；
        音节数照 §10 数过：4 + 4 + 3 = 11 汉字，11 个音节。 */
-    "词语闪卡 · 看图听音，慢慢来": "cí yǔ shǎn kǎ · kàn tú tīng yīn，màn màn lái",
+    /* ⚠️ SPACE AFTER THE COMMA — it is load-bearing, not typography. The self-check
+       counts syllables by splitting on WHITESPACE, so「yīn，màn」was one token and this
+       key had been reporting「11 vs 10」on every pier load since it was written.
+       CLAUDE.md §18n records this string as having been counted; the count was done by
+       hand and the checker disagreed, which is the whole reason the checker exists. */
+    "词语闪卡 · 看图听音，慢慢来": "cí yǔ shǎn kǎ · kàn tú tīng yīn， màn màn lái",
     "学习范围 · 可多选": "xué xí fàn wéi · kě duō xuǎn",
     "选择学习方式": "xuǎn zé xué xí fāng shì",
     /* ⚠️ 学词 → 学习（owner 2026-08-16 晚）。旧名是「学词语」的缩写，可是这一边
@@ -268,9 +277,17 @@
     "词语游乐场": "cí yǔ yóu lè chǎng", "今天学什么": "jīn tiān xué shén me",
     "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
-    "词语挑战": "cí yǔ tiǎo zhàn", "挑战方式": "tiǎo zhàn fāng shì",
-    /* the two shelves inside ①挑战方式 (owner 2026-08-17) */
+    /* ⚠️ 词语挑战 IS A RETIRED NAME — the door is called 学习挑战 now, matching the
+       mountain word for word (owner 2026-08-17:「pier learning mode should be like
+       mountain」). The old key STAYS: xhPy returns "" for a miss, so any caller still
+       passing the old string would lose its annotation silently rather than error. */
+    "词语挑战": "cí yǔ tiǎo zhàn", "学习挑战": "xué xí tiǎo zhàn",
+    "挑战方式": "tiǎo zhàn fāng shì",
+    /* the three shelves inside ①挑战方式 (owner 2026-08-17) */
     "认词": "rèn cí", "用词": "yòng cí",
+    /* ⚠️ 配对与拼字 arrived when 连线 and 组字成词 came in from 闯关: they are neither
+       认词 nor 用词, they are the hands-on pair. */
+    "配对与拼字": "pèi duì yǔ pīn zì",
     /* ⚠️ 生活空间 IS THE OWNER'S OWN NAME FOR THE SENTENCE LAYER, and until now it
        existed only in the docs — never once on screen. That is the literal reason
        she could not find the sentence modes (owner 2026-08-17:「I couldn't find the
@@ -278,6 +295,15 @@
        interface has never printed. It rides on the 用词 shelf heading, not on a
        tile — the sentence layer is a shelf inside 词语挑战, not a door (§18m). */
     "用词 · 生活空间": "yòng cí · shēng huó kōng jiān",
+    /* ---------- 走进社区 (owner 2026-08-17) ----------
+       ⚠️ 学校 · 交通 · 组屋区 are NOT repeated here: they are already keys in this
+       table as 组别/子类 labels, and a duplicate key in an object literal silently
+       overrides the earlier one. The self-check below reports duplicates for exactly
+       this reason — the scene names that were missing are the seven added here. */
+    "走进社区": "zǒu jìn shè qū", "换一个地方": "huàn yī gè dì fāng",
+    "购物商场": "gòu wù shāng chǎng", "菜市场": "cài shì chǎng",
+    "便利店": "biàn lì diàn", "熟食中心": "shú shí zhōng xīn",
+    "动物园": "dòng wù yuán", "农场": "nóng chǎng", "水族馆": "shuǐ zú guǎn",
     /* 我的海滩 的自由摆放 (owner 2026-08-17) */
     "整理海滩": "zhěng lǐ hǎi tān",
     /* 读过 N 句 — the 句子卡 mileage line in 我的词语表 (owner 2026-08-17) */
@@ -989,6 +1015,48 @@
     "组屋区": "scene_hdb", "动物园": "scene_zoo", "农场": "scene_farm",
     "水族馆": "scene_aquarium"
   };
+  /* ---------- 走进社区 · the ten scenes as a place you can visit (owner 2026-08-17) --
+     ⚠️ THIS IS 门 A, finally built. CLAUDE.md has carried「生活空间 作为独立入口（门 A）
+     尚未建」as an open item since the sentence library shipped; the owner asked for it
+     by name:「for the authentic scenes where sentences were written into life scenes,
+     to be its own separate section called 走进社区 … then when they press in they
+     learn the sentences」.
+     ⚠️ IT IS A BROWSE SURFACE, NOT AN ACTIVITY, which is why it belongs in the right
+     rail beside 我的词语表 and NOT in ③ beside 学习挑战. Everything in ③ is scoped by
+     ①学习范围 and pays 贝壳; this walks the WHOLE library by scene, scores nothing, and
+     is reachable no matter what the scope says. Putting it in ③ would have made it the
+     one tile there that ignores ①.
+     ⚠️ SEPARATE FROM 词语闪卡 · 句子卡, deliberately, and they signpost each other:
+     句子卡 walks the sentences of the words currently IN SCOPE (a lesson that follows
+     ①), 走进社区 walks a PLACE from end to end. Same 90 lines, two honest ways in.
+     ⚠️ Pinyin lives in XH_PY like every other label (§10) — the scene names are keys
+     there. English is here rather than in XH_GROUP_EN because that table is checked
+     against 组别/子类 in the word data by checkGroupLabels(), and a scene is neither;
+     adding scenes there would make the checker's report meaningless. */
+  var SCENE_EN = {
+    "学校": "School", "交通": "Getting around", "购物商场": "Shopping mall",
+    "菜市场": "Wet market", "便利店": "Minimart", "熟食中心": "Hawker centre",
+    "组屋区": "Around the block", "动物园": "Zoo", "农场": "Farm",
+    "水族馆": "Aquarium"
+  };
+  /* ⚠️ ORDER IS THE OWNER'S READING ORDER, not the data's and not alphabetical:
+     nearest-to-home first (组屋区 · 学校), then the everyday errands, then the places
+     you go on an outing. A zero-Chinese beginner meeting ten unfamiliar names does
+     better with「where I already am」at the top left. */
+  var SCENE_ORDER = ["组屋区", "学校", "交通", "菜市场", "便利店", "熟食中心",
+                     "购物商场", "动物园", "水族馆", "农场"];
+  /* every line of a scene, in data order, ASKABLE OR NOT.
+     ⚠️ display-only lines ARE included here, and this is the one place they are. They
+     were authored to be read and are excluded everywhere else only because they cannot
+     be a QUESTION (no askable target). §11 is explicit that where「harder」and「more
+     exposure」pull apart the pier takes exposure — and reading is all this screen does.
+     ⚠️ NOT filtered by ①学习范围: see the note above. */
+  function sceneLines(scene) {
+    return PHRASES.filter(function (p) { return p.scene === scene && p.zh; });
+  }
+  function sceneReadCount(scene) {
+    return sceneLines(scene).filter(function (p) { return p.id && store.readLines[p.id]; }).length;
+  }
   /* sentences that are shown for atmosphere but never asked (PATCH_02 §4.2/§4.3):
      the target is tile-only with no picture, or the line has no target at all. */
   function phraseAskable(p) { return p && !p.display && p.ask; }
@@ -1141,19 +1209,24 @@
        four tiles for the sentence work had nothing to scan FOR.
        ⚠️ subEn matters as much as sub here: the pier defaults BOTH aids on (§18m),
        so the English line is genuinely being read. */
-    { k: "quiz", icon: "🎯", zh: "词语挑战", en: "Quiz yourself", learn: true, short: "the quiz",
-      sub: "认词三种 · 用词两种（看句选词 · 重整句子）",
-      subEn: "three word types, two sentence types" },
-    /* ⚠️ 连线 AND 组字成词 MOVED TO 学习 (owner 2026-08-17:「连线 组字成词 live in
-       study mode instead of game mode」). They stay FULL DOORS rather than becoming
-       题型 under 词语挑战, because each asks its own question that no other door asks:
-       连线 has no 每次题数 at all (the board size IS the round) and 组字成词 counts
-       chips. Folded into 词语挑战 they would each need a special case in ③, which is
-       exactly the shape §2.1 refused. */
-    { k: "match", icon: "🪢", zh: "连线", en: "Match them up", learn: true, short: "matching" },
-    { k: "build", icon: "🧱", zh: "组字成词", en: "Build the word from its characters",
-      learn: true, short: "word building",
-      naZh: "这组没有两个字以上的词语", naEn: "no multi-character words here" },
+    /* ⚠️ ONE TEST DOOR, AND IT CARRIES THE MOUNTAIN'S NAME (owner 2026-08-17:「pier
+       learning mode should be like mountain: 词语闪卡、学习挑战」). 学习 is now the
+       same two cards as 修行 — read it, then test it — with all seven ways of being
+       tested behind the second one.
+       ⚠️ THIS SUPERSEDES §18m's「连线 与 组字成词 仍是完整的门」, and the reason that
+       ruling gave has been answered rather than ignored. It refused the fold because
+       each would need「a special case in ③」— but ③ is the door row, and nothing there
+       branches: both are plain entries in entryModes now. Their one real difference,
+       连线 having no 每次题数, lands on the CONFIG page, which has branched per 题型
+       since it was written (词语闪卡 shows no difficulty row at all, 重整句子 gets its
+       own blocked-reason sentence). The mountain's 学习挑战 does exactly this: 填空挑战
+       carries a ⭐ tier row its two siblings do not.
+       ⚠️ 词语挑战 IS GONE AS A NAME. Do not reintroduce it as a shelf heading or a
+       sub-door: the pier now has 词语闪卡 and 学习挑战, matching the mountain word for
+       word, and a third pier-only name in between is what made ② feel clunky before. */
+    { k: "quiz", icon: "✍️", zh: "学习挑战", en: "Quiz", learn: true, short: "the quiz",
+      sub: "认词三种 · 用词两种 · 配对与拼字两种",
+      subEn: "three word types, two sentence types, two hands-on types" },
     { k: "type", icon: "🎣", zh: "词海垂钓", en: "Reel it in — type the pinyin", learn: false , short: "fishing" },
     /* ⚠️ 踏浪竞速 IS A DOOR NOW, not a row inside every other config page (owner
        2026-08-17:「play mode for pier should only show fishing and beach run」).
@@ -1187,14 +1260,20 @@
      ones, because renderModeConfig splits the row on that boundary. */
   function entryModes(k) {
     if (k === "cards") return ["learn"];
-    if (k === "quiz") return ["enmcq", "pic", "listen", "phrase", "sort"];
+    /* ⚠️ ORDER IS THE SHELF ORDER: 认词 · 用词 · 配对与拼字. renderModeConfig groups
+       by QUIZ_SHELF, so a new type joins a shelf by naming one, not by position —
+       but keeping the list grouped keeps the two readable side by side. */
+    if (k === "quiz") return ["enmcq", "pic", "listen", "phrase", "sort", "match", "build"];
     /* ⚠️ DERIVED FROM RUN_MODES, never listed by hand: the beach run's 题型 set is
        BY DEFINITION「the ones that can be run」, and a second hand-written copy would
        disagree with runAllowed() the first time either changed. Filtered through the
        quiz order so the two doors present the same types in the same order. */
+    /* ⚠️ THE `.concat(build)` TAIL IS GONE, and it had to go: 组字成词 is now inside
+       entryModes("quiz"), so the filter already picks it up and the concat would have
+       listed it TWICE — two identical 🧱 tiles on the beach-run door, the same
+       duplicate-tile failure as 「两」 and 「整鸡」 (§5). Still derived, never hand-listed. */
     if (k === "surf") {
-      return entryModes("quiz").filter(function (m) { return runAllowed(m); })
-        .concat(runAllowed("build") ? ["build"] : []);
+      return entryModes("quiz").filter(function (m) { return runAllowed(m); });
     }
     /* ⚠️ "use" was a door until 2026-08-17 and old code paths may still ask for it.
        Answering with the quiz list keeps a stale caller landing somewhere real
@@ -1447,6 +1526,35 @@
       '<span class="xh-tile-n">' + st.met + " / " + st.all + ' 海里</span></span>' +
       '<span class="xh-tile-go">›</span></button>';
 
+    /* ⚠️ 走进社区 SITS IN THIS RAIL, DIRECTLY UNDER 我的词语表 (owner 2026-08-17:
+       「in the same bar as their vocab list」). The rail is the pier's browse shelf —
+       surfaces you visit rather than rounds you play — and these two are its pair:
+       one walks every WORD, one walks every PLACE.
+       ⚠️ It is hidden entirely when PHRASES failed to load, rather than opening onto
+       an empty grid: on a managed network the sentence fetch is allowed to fail
+       (see the .catch that leaves PHRASES empty) and the rest of the pier keeps
+       working. A door onto nothing is the silent failure §4.4 exists to prevent.
+       ⚠️ NO DENOMINATOR on the read count (§18n): sentences retire — two went in
+       2026-08-16 — so「N / 90」can read 91/90, and this is a mileage figure, not a
+       collection. Same reason 读过 N 句 carries no total in 我的词语表. */
+    if (PHRASES.length) {
+      var scRead = 0;
+      SCENE_ORDER.forEach(function (s) { scRead += sceneReadCount(s); });
+      tiles += '<button class="xh-tile wide" id="xhScenes">' +
+        '<img class="xh-tile-art" src="art/xh/scene_hawker.png' + ASSET_V + '" alt="" ' +
+          "onerror=\"this.style.display='none'\">" +
+        '<span class="xh-tile-txt"><b>走进社区</b>' + xhPy("走进社区") +
+        '<span class="xh-en">Step into the neighbourhood, one place at a time</span>' +
+        /* ⚠️ NO inline xhPy() on this line. The annotation spans are display:block
+           under the gate, so a gloss in the MIDDLE of a sentence splits it across
+           three lines («10 个场景 / gè chǎng jǐng / · 读过 0 句»). 我的词语表's
+           「0 / 148 海里」 carries none for the same reason: the name above is glossed,
+           the tally under it is numerals. */
+        '<span class="xh-tile-n">' + SCENE_ORDER.length + ' 个场景 · 读过 ' +
+        scRead + ' 句</span></span>' +
+        '<span class="xh-tile-go">›</span></button>';
+    }
+
     /* ⚠️ the badge ART, not a 🎖️ (owner 2026-08-16 evening). Nine mother-of-pearl
        medallions were drawn for this ladder and the front page was showing a system
        emoji instead. Earned ones are full colour, the rest carry the same greyscale
@@ -1541,6 +1649,11 @@
 
     document.getElementById("xhHero").onclick = renderBeach;
     document.getElementById("xhLog").onclick = function () { renderLog(); };
+    /* ⚠️ guarded: the tile is absent when PHRASES failed to load. Unguarded this
+       throws and every handler wired after it dies with it. */
+    if (document.getElementById("xhScenes")) {
+      document.getElementById("xhScenes").onclick = renderScenes;
+    }
     document.getElementById("xhBoards").onclick = function () { renderBoards(); };
     document.getElementById("xhBadges").onclick = renderBadges;
     document.getElementById("xhScopeT").onclick = function () {
@@ -1708,7 +1821,27 @@
          ⚠️ Do NOT read that as「the dock forbids mid-round switching」: 组词挑战 on the
          mountain switches 释义/英文/填空 freely, and that is safe because it changes
          the PROMPT, not the mechanism, and the answer stays the same word. */
-      var SENT_MODES = { phrase: 1, sort: 1 };
+      /* ⚠️ SHELVES ARE DECLARED, NOT DERIVED FROM POSITION. Three racks now: 认词
+         asks「do you know this word」, 用词 asks「can you put it in a sentence」,
+         配对与拼字 asks the student to assemble something. A type joins a shelf by
+         naming one here; unnamed falls to 认词, so a new 题型 can never land in a
+         shelf nobody chose for it.
+         ⚠️ 配对与拼字 exists because 连线 and 组字成词 came in from 闯关 (owner
+         2026-08-17) and are genuinely neither of the first two: both are hands-on —
+         many taps, one answer event — where the other five are pick-one-of-four or
+         type-it. Grouping them under 认词 would put a whole-board activity next to a
+         four-option question and call them the same kind of thing.
+         ⚠️ A shelf heading is NOT a 动线编号 (§7): ①挑战方式 is the step; these are
+         racks inside it. Do not number them. */
+      var QUIZ_SHELF = { phrase: "sent", sort: "sent", match: "hands", build: "hands" };
+      /* ⚠️ The pinyin comes from XH_PY via xhPy(), never inline (§10): the tables are
+         the only place a missing or wrong-length reading gets caught, and xhPy returns
+         an EMPTY STRING for an unknown key — a miss here would be silent. */
+      var SHELF_LAB = {
+        word:  ["认词", "know the word"],
+        sent:  ["用词 · 生活空间", "use it in a sentence"],
+        hands: ["配对与拼字", "match it up or build it"]
+      };
       h += sec("挑战方式", "which question");
       var blocked = 0, noSeg = false;
       function modeBtns(list) {
@@ -1716,8 +1849,15 @@
         list.forEach(function (id) {
           var m = modeById(id), usable = poolForMode(pool, id).length > 0;
           if (!usable) { blocked++; if (id === "sort") noSeg = true; }
-          var why = id === "sort" ? "这些句子还没有分块" : "这组没有图片";
-          var whyEn = id === "sort" ? "sentences not split yet" : "no pictures";
+          /* ⚠️ THE REASON IS PER TYPE, and 组字成词's is new here: it came in from
+             闯关 carrying its own naZh on the door (「这组没有两个字以上的词语」), and
+             the door is gone. Falling through to「这组没有图片」would send a student to
+             change 学习范围 hunting for pictures when what the scope lacks is
+             multi-character words — the exact mis-signposting the door note warned of. */
+          var why = "这组没有图片", whyEn = "no pictures";
+          if (id === "sort") { why = "这些句子还没有分块"; whyEn = "sentences not split yet"; }
+          else if (id === "build") { why = "这组没有两个字以上的词语"; whyEn = "no multi-character words here"; }
+          else if (id === "phrase") { why = "这组没有句子"; whyEn = "no sentences here"; }
           out += '<button class="xh-mode sm' + (store.mode === id ? " on" : "") +
             (usable ? "" : " na") + '" data-m="' + id + '"' + (usable ? "" : " disabled") + '>' +
             '<span class="xh-mi">' + m.icon + "</span><b>" + m.zh + "</b>" + xhPy(m.zh) +
@@ -1728,32 +1868,32 @@
         });
         return out;
       }
-      var wordModes = modes.filter(function (id) { return !SENT_MODES[id]; });
-      var sentModes = modes.filter(function (id) { return !!SENT_MODES[id]; });
-      /* ⚠️ each shelf is skipped entirely when the door owns nothing on it, so a
-         future single-type door reusing this block never prints an empty heading. */
-      if (wordModes.length) {
-        h += (sentModes.length ? '<div class="xh-shelf-lab">认词' + xhPy("认词") +
-              '<span class="xh-en">know the word</span></div>' : "") +
-          '<div class="xh-modes sub">' + modeBtns(wordModes) + "</div>";
-      }
-      if (sentModes.length) {
-        /* ⚠️ 生活空间 IS PRINTED HERE AND NOWHERE ELSE (owner 2026-08-17, reading 乙).
-           The 08-17 merge that folded 学以致用 into 词语挑战 was right — it saved a
-           click — but it cost the sentence layer the only name it had, and the owner
-           herself then could not find it. The shelf heading gives the name back
-           without giving back the door. ⚠️ A shelf heading is NOT a 动线编号 (§7):
-           ①挑战方式 is the step, these two are racks inside it. Do not number them. */
-        h += (wordModes.length ? '<div class="xh-shelf-lab">用词 · 生活空间' +
-              xhPy("用词 · 生活空间") +
-              '<span class="xh-en">use it in a sentence</span></div>' : "") +
-          '<div class="xh-modes sub">' + modeBtns(sentModes) + "</div>" +
-          /* ⚠️ the other half of the B-2 signpost — see the 句子卡 note in the cards
-             branch. Same rule: NAME the destination, never link to it. */
-          '<div class="xh-cfg-note">想先把句子读一遍：词语闪卡 · 句子卡。' +
-          '<span class="xh-en">Want to read the sentences first? ' +
-          '词语闪卡 · 句子卡.</span></div>';
-      }
+      /* ⚠️ Each shelf is skipped entirely when the door owns nothing on it, and the
+         heading is skipped when it owns only ONE shelf — a single rack needs no rack
+         label, and 踏浪竞速 reuses this block with a shorter list. */
+      var shelves = ["word", "sent", "hands"].map(function (key) {
+        return { key: key, list: modes.filter(function (id) {
+          return (QUIZ_SHELF[id] || "word") === key;
+        }) };
+      }).filter(function (s) { return s.list.length; });
+      shelves.forEach(function (s) {
+        var lab = SHELF_LAB[s.key];
+        h += (shelves.length > 1 ? '<div class="xh-shelf-lab">' + lab[0] + xhPy(lab[0]) +
+              '<span class="xh-en">' + lab[1] + '</span></div>' : "") +
+          '<div class="xh-modes sub">' + modeBtns(s.list) + "</div>";
+        /* ⚠️ 生活空间 IS PRINTED HERE AND NOWHERE ELSE ON THIS SCREEN (owner
+           2026-08-17, reading 乙): the 08-17 merge saved a click but cost the sentence
+           layer its only name, and the owner herself then could not find it.
+           ⚠️ The signpost is TEXT, NEVER A JUMP BUTTON — a jump would fling the student
+           from one ENTRY_MEM slot into another (§18m split quizMode/runQuizMode for
+           exactly that reason). */
+        if (s.key === "sent") {
+          h += '<div class="xh-cfg-note">想先把句子读一遍：词语闪卡 · 句子卡，' +
+            '或者到 走进社区 逐个场景读。' +
+            '<span class="xh-en">Want to read the sentences first? Try 词语闪卡 · 句子卡, ' +
+            'or walk through them scene by scene in 走进社区.</span></div>';
+        }
+      });
       /* ⚠️ 重整句子 is blocked by MISSING DATA, not by the student's scope, so it needs
          its own sentence — 「这组没有图片」 would send them off changing 学习范围 for
          something no scope can fix. `seg` is hand-written per §3.3 and none exist yet. */
@@ -1786,7 +1926,15 @@
          「clunky」the owner named when ② stopped being navigation. runBlockWhy() is
          still live and still explains a blocked 题型, but it does it inside the
          踏浪竞速 door's own 题型 list, where a greyed-out type is actually informative. */
-      if (kind !== "match") {
+      /* ⚠️ KEYED ON store.mode, NOT ON `kind` — 连线 is a 题型 now, not a door, so
+         asking「is this door 连线」is a question that can no longer be true and the
+         slider would appear on a screen where it means nothing (the board size IS the
+         round). This is the ONE per-type branch the fold needed, and it lives here
+         because this screen already branches per type: 词语闪卡 shows neither this row
+         nor 难度, and 重整句子 prints its own blocked-reason line.
+         ⚠️ The click handler re-renders on every 题型 change, so switching to 连线
+         really does make this row disappear rather than going stale. */
+      if (store.mode !== "match") {
         h += sec("每次题数", "questions per round") +
           qtySlider("xhRoundN", ROUND_SIZES, store.roundN, function (n) { return n + " 题"; });
       }
@@ -1929,6 +2077,88 @@
      as a function purely so the call sites did not have to change. */
   function sailBadgeNeed(b) { return b.need; }
   function sailBadgeGot(b) { return sailStats().met >= sailBadgeNeed(b); }
+
+  /* ================= 走进社区 · the scene grid (owner 2026-08-17) =================
+     Ten places, each with its own backdrop, its sentence count and how many of them
+     this student has read. Pressing one walks that place's lines end to end.
+     ⚠️ NO 回合条 (same rule as 航海徽章/我的海滩/我的词语表): the back control is the
+     topbar's single arrow, and the panel title one line down already names the screen.
+     ⚠️ state = null BEFORE anything renders, so wireQuit() resolves「not in a round」
+     and the arrow goes back to the dock rather than to a config page.
+     ⚠️ A scene with no lines is DROPPED, not greyed: unlike a blocked 题型 there is
+     nothing a student could change to make it appear, so an explanation would be
+     an explanation of nothing. In practice all ten have lines; this guards the case
+     where a scene is retired from the data but left in SCENE_ORDER. */
+  function renderScenes() {
+    view().classList.remove("two-col");
+    state = null;
+    runTeardown();
+    var h = '<div class="xh-board"><div class="xh-berth-title">🏘️ 走进社区' +
+      xhPy("走进社区") + '<span class="xh-en">Step into the neighbourhood</span></div>';
+    /* ⚠️ Says what this screen IS FOR, because it is the one pier surface that is
+       neither a lesson nor a test. Without it 「走进社区」 is a place-name with no verb. */
+    h += '<div class="xh-cfg-note">这里的句子都是真实生活里会听到的话。' +
+      '挑一个地方，一句一句读，不用答题。' +
+      '<span class="xh-en">These are the sentences you would really hear in each place. ' +
+      'Pick one and read through it — nothing to answer.</span></div>';
+    h += '<div class="xh-scenes">';
+    SCENE_ORDER.forEach(function (s) {
+      var lines = sceneLines(s);
+      if (!lines.length) return;
+      var read = sceneReadCount(s), bg = SCENE_BG[s];
+      /* ⚠️ THE WHOLE CARD IS THE BUTTON, never a div wrapping one (§14 nested
+         buttons): one place, one action. */
+      h += '<button class="xh-scene" data-sc="' + esc(s) + '">' +
+        '<span class="xh-scene-art">' +
+          (bg ? '<img src="art/xh/' + bg + '.png' + ASSET_V + '" alt="" ' +
+                "onerror=\"this.style.display='none'\">" : "") +
+          /* the read-through marker: a quiet tick, not a trophy — reading is exposure,
+             not mastery (§18n), so it must not look like an earned badge */
+          (read >= lines.length ? '<span class="xh-scene-done">✓</span>' : "") +
+        "</span>" +
+        '<span class="xh-scene-txt"><b>' + esc(s) + "</b>" + xhPy(s) +
+          '<span class="xh-en">' + esc(SCENE_EN[s] || "") + "</span>" +
+          '<span class="xh-scene-n">' + lines.length + ' 句 · 读过 ' + read + "</span></span>" +
+        "</button>";
+    });
+    h += "</div></div>";
+    view().innerHTML = h;
+    wireQuit();
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-scene[data-sc]"), function (el) {
+      el.onclick = function () { startScene(el.getAttribute("data-sc")); };
+    });
+  }
+
+  /* walk one scene's sentences.
+     ⚠️ REUSES renderSentenceCard VERBATIM — same card, same 🔊, same store.readLines
+     write. A second sentence-card renderer would be the second scoring path mistake
+     in cosmetic form: two places to fix when the card changes, one of which nobody
+     remembers. `cards:"sentence"` is all renderLearn branches on.
+     ⚠️ `scene: s` marks this as a 走进社区 walk so wireQuit() sends the arrow back to
+     the grid instead of to 词语闪卡's config page — the student came from the rail,
+     not from ③, and landing on a config screen they never opened is disorienting.
+     ⚠️ NO 贝壳, NO 航海值, NO 航程: this is `mode:"learn"`, and `learn: 0` is the one
+     deliberate zero in SAIL_PTS/SHELL_PTS. It stays the only one.
+     ⚠️ `pool` is the scene's own target words, not scopedWords(): it is what the end
+     screen's 开始测验 hands to startRound, and the round must be about the place the
+     student just read — not about whatever ①学习范围 happens to hold. */
+  function startScene(s) {
+    var lines = sceneLines(s);
+    if (!lines.length) return renderScenes();
+    var pool = [];
+    lines.forEach(function (p) {
+      var w = p.ask && wordByText(p.ask);
+      if (w && pool.indexOf(w) === -1) pool.push(w);
+    });
+    state = { grp: s, mode: "learn", cards: "sentence", seq: lines, i: 0, correct: 0,
+              missed: [], firstTry: true, pool: pool, scene: s, walk: true };
+    runTeardown();
+    lines.forEach(function (p) {
+      var w = p.ask && wordByText(p.ask), f = p.pic || (w && w.图档);
+      if (f) (new Image()).src = "art/xh/" + f + ASSET_V;
+    });
+    render();
+  }
 
   function renderBadges() {
     view().classList.remove("two-col");
@@ -2832,6 +3062,13 @@
      ⚠️ The label changes with the level and always names the destination — the same
      reason it says 回码头 rather than 返回. */
   function wireQuit() {
+    /* ⚠️ A 走进社区 walk goes back to THE GRID, not to a config page. It runs
+       mode:"learn", so the ordinary lookup would resolve to 词语闪卡 and drop the
+       student on a setup screen they never opened. Three levels, each naming where it
+       lands, exactly as §18k requires: 海图 ← 码头 ← 走进社区 ← 一个场景. */
+    if (state && state.walk) {
+      return setBack(renderScenes, { zh: "走进社区", en: "the neighbourhood" });
+    }
     var door = (state && state.seq) ? entryForMode(state.mode) : null;
     if (!door) return setBack(renderMenu);
     var e = entryByKey(door);
@@ -3036,8 +3273,12 @@
        word-card branch has said so since 2026-08-15 and this face is no different. */
     if (p.id && !store.readLines[p.id]) { store.readLines[p.id] = 1; save(); }
     var file = p.pic || (w && w.图档);
+    /* ⚠️ the tag names WHERE THE STUDENT IS. On a 走进社区 walk that is the place —
+       「菜市场 · 走进社区」— not「菜市场 · 句子卡」, which would name a screen they never
+       opened and is the same mislabel the topbar arrow had to be taught about. */
     var h = '<div class="xh-round-bar">' + quitBtn() +
-      jetty() + '<span class="xh-block-tag">' + esc(state.grp) + " · 句子卡</span></div>" +
+      jetty() + '<span class="xh-block-tag">' + esc(state.grp) +
+      (state.walk ? " · 走进社区" : " · 句子卡") + "</span></div>" +
       '<div class="xh-board xh-stage xh-card">' +
       (file
         /* ⚠️ 图档 / pic already carry the .png — img() does not append one either. */
@@ -3131,22 +3372,48 @@
        传声筒 (the same sentences, with one word blanked), not a picture round the
        cards never showed. */
     var isSent = state.cards === "sentence";
-    var h = '<div class="xh-board xh-result"><div class="xh-berth-title">📖 这一组看完了</div>' +
+    /* ⚠️ A 走进社区 walk finishes on ITS OWN wording and its own exits: it is a place
+       you visited, not a group you studied, and its way onward is another place.
+       ⚠️ 开始测验 IS ONLY OFFERED WHEN IT CAN ACTUALLY RUN. A scene's lines include
+       display-only ones with no askable target, and 农场 has four lines total — hand
+       startRound a pool that yields nothing and the student presses 出发 on a button
+       that does nothing at all, which is the exact silent failure §4.4 exists to
+       prevent. So the button appears only if this scene really has askable sentences
+       for the words it just taught. */
+    var walk = !!state.walk;
+    var canTest = isSent && phrasesFor(state.pool || [], "phrase").length > 0;
+    var h = '<div class="xh-board xh-result"><div class="xh-berth-title">' +
+      (walk ? "🏘️ 这个地方读完了" : "📖 这一组看完了") + "</div>" +
       '<div class="xh-score">' + esc(state.grp) + ' · <b>' + state.seq.length + "</b> " +
       (isSent ? "个句子" : "个词语") +
-      ' <span class="xh-en">' + (isSent ? "sentences" : "words") + ' in this group</span>' + "</div>" +
-      '<div class="xh-sub">现在试试看，你记住了几个？' +
-      '<span class="xh-en">Now see how many you remember.</span>' + "</div>" +
-      '<div class="xh-result-btns"><button class="xh-btn" id="xhTest">' +
-      (isSent ? "📣 开始测验" : "🖼️ 开始测验") + "</button>" +
+      ' <span class="xh-en">' + (isSent ? "sentences" : "words") +
+      (walk ? " in this place" : " in this group") + '</span>' + "</div>" +
+      '<div class="xh-sub">' +
+      (canTest ? '现在试试看，你记住了几个？<span class="xh-en">Now see how many you remember.</span>'
+               : '再去别的地方看看。<span class="xh-en">Try another place.</span>') + "</div>" +
+      '<div class="xh-result-btns">' +
+      (canTest ? '<button class="xh-btn" id="xhTest">' +
+                 (isSent ? "📣 开始测验" : "🖼️ 开始测验") + "</button>" : "") +
       '<button class="xh-btn ghost" id="xhAgain">再看一次' + xhPy("再看一次") +
-      '<span class="xh-en">again</span></button></div></div>';
+      '<span class="xh-en">again</span></button>' +
+      (walk ? '<button class="xh-btn ghost" id="xhOtherScene">换一个地方' +
+              xhPy("换一个地方") + '<span class="xh-en">another place</span></button>' : "") +
+      "</div></div>";
     view().innerHTML = h;
     wireQuit();                    // same reason as renderResult
-    document.getElementById("xhTest").onclick = function () {
-      startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
-    };
-    document.getElementById("xhAgain").onclick = function () { startRound(state.grp, "learn", state.pool); };
+    if (document.getElementById("xhTest")) {
+      document.getElementById("xhTest").onclick = function () {
+        startRound(state.grp, isSent ? "phrase" : "pic", state.pool);
+      };
+    }
+    /* ⚠️ a walk replays through startScene, not startRound: startRound would re-derive
+       the sequence from ①学习范围 and quietly hand back a different set of lines. */
+    document.getElementById("xhAgain").onclick = walk
+      ? function () { startScene(state.grp); }
+      : function () { startRound(state.grp, "learn", state.pool); };
+    if (document.getElementById("xhOtherScene")) {
+      document.getElementById("xhOtherScene").onclick = renderScenes;
+    }
   }
 
   /* 4.1 看图识词 — picture → word */

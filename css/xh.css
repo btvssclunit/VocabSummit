@@ -52,12 +52,34 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   image-rendering:pixelated}
 .xh-wrap,.xh-top{image-rendering:auto;position:relative;z-index:1}
 
+/* ⚠️ LIQUID GLASS, COPIED VALUE FOR VALUE FROM app.css .topbar (owner 2026-08-17:
+   「the top bar should be liquid glass to match the mountains」). It was a flat
+   rgba(255,255,255,.9) slab with a hardcoded blur(8px) — the one bar on the platform
+   that had not joined the design system, and against the pier's own painted sea it
+   read as a strip of paper laid over the art.
+   ⚠️ The blur is now var(--glass-blur), not a literal: §7 says the six --glass*
+   tokens drive every panel, and a hand-written blur is a value that stops tracking
+   them the moment they are tuned.
+   ⚠️ The GRADIENT is what makes it read as glass rather than as translucency — the
+   top edge catches light. Do not flatten it back to one alpha.
+   ⚠️ Keep the .xh-top / .topbar pair in step (§17 deliberate duplication): xh.css
+   never loads app.css. */
 .xh-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
-  padding:10px 16px;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(12,30,48,.18)}
-.xh-back{flex:none;text-decoration:none;font-weight:700;font-size:14px;color:var(--sea2);
-  background:rgba(255,255,255,.8);border:2px solid #B9CEDD;border-radius:999px;
-  padding:7px 14px;touch-action:manipulation}
+  padding:10px 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.48));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--glass-line);
+  box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
+/* ⚠️ The 海图 pill becomes glass with it. A 2px #B9CEDD outline round a solid white
+   pill on a glass bar is the「opaque sticker on glass」app.css warns about; the
+   mountain's own .back is var(--glass) with a 1px --glass-line. Kept as a PILL with
+   its label, not reduced to the mountain's bare circle: §18h records that as a
+   deliberate difference — pier controls keep their words. */
+.xh-back{flex:none;text-decoration:none;font-weight:700;font-size:14px;color:#3A5A70;
+  background:var(--glass);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
+  border-radius:999px;padding:8px 14px;touch-action:manipulation}
 /* the title block must be allowed to SHRINK, or the three topbar controls push
    the subline into a three-line wrap on a phone and the bar grows to 98px */
 .xh-top>div:not(.xh-tools){min-width:0;flex:1}
@@ -388,6 +410,48 @@ body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
   background:linear-gradient(90deg,var(--gold-lt),var(--gold))}
 .xh-tile-n{display:block;font-size:12.5px;font-weight:700;color:#46596A}
 .xh-tile-go{align-self:center;flex:none;padding:0 16px;font-size:24px;color:#8A5A0F}
+
+/* ---------- 走进社区 · the ten scene cards (owner 2026-08-17) ----------
+   ⚠️ minmax(0,1fr), never 1fr (§14): a bare 1fr track will not shrink below its
+   content and the backdrop images would push the grid off the panel.
+   ⚠️ auto-fill with a 168px floor gives 2 up on a phone, 3-4 on the PLD sizes this
+   project designs for first. The count is not fixed per breakpoint on purpose — ten
+   cards divide badly into any one number. */
+.xh-scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));
+  gap:12px;margin-top:12px}
+.xh-scene{display:flex;flex-direction:column;min-width:0;padding:0;overflow:hidden;
+  border-radius:16px;cursor:pointer;touch-action:manipulation;text-align:left;
+  font-family:var(--sans);color:var(--ink);border:1px solid var(--glass-line);
+  background:linear-gradient(150deg,rgba(255,255,255,.78),rgba(255,255,255,.60) 46%,
+    rgba(232,243,251,.64));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-lift),var(--glass-edge);transition:transform .12s}
+.xh-scene:hover{transform:translateY(-2px)}
+.xh-scene:active{transform:translateY(1px)}
+/* ⚠️ FIXED HEIGHT, width free — the same rule the shop shelves learned (§18l): the
+   ten backdrops are all 16:9 but writing a width here would squeeze whichever one
+   the grid makes narrow. object-fit:cover crops, which is right for a backdrop.
+   ⚠️ image-rendering:pixelated — these are pixel art and the grid always scales them
+   DOWN, so this sharpens rather than blurs (§14 is about resampling source files). */
+.xh-scene-art{position:relative;display:block;height:92px;overflow:hidden;
+  background:rgba(31,74,112,.10)}
+.xh-scene-art img{width:100%;height:100%;object-fit:cover;display:block;
+  image-rendering:pixelated}
+/* the read-through tick. ⚠️ Deliberately a small quiet mark and NOT a badge: reading
+   is exposure, not mastery (§18n), and anything medal-shaped here would read as a
+   tenth 航海徽章. */
+.xh-scene-done{position:absolute;right:6px;top:6px;width:22px;height:22px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;color:#2C4A2F;background:rgba(255,255,255,.86);
+  box-shadow:0 1px 4px rgba(12,30,48,.28)}
+.xh-scene-txt{padding:10px 12px 12px;min-width:0}
+.xh-scene-txt b{font-family:var(--serif);font-size:16.5px;font-weight:900;display:block;
+  line-height:1.25}
+.xh-scene-n{display:block;font-size:12px;font-weight:700;color:#46596A;margin-top:5px}
+@media (max-width:560px){
+  .xh-scenes{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .xh-scene-art{height:76px}
+}
 @media (max-width:560px){
   .xh-hero-t{font-size:22px}
   .xh-stat b{font-size:19px}
@@ -1142,7 +1206,15 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   .xh-jetty-boat{transition:none}
 }
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
+  /* ⚠️ .xh-back joins the fallback with the bar: now that both are var(--glass)
+     (.5–.72 alpha) instead of near-white, an old iPad with no backdrop-filter would
+     show the pier's painted sea straight through the label. */
   .xh-top{background:rgba(255,255,255,.97)}
+  .xh-back{background:rgba(255,255,255,.94)}
+  /* ⚠️ 走进社区's cards join the fallback list. Missing it would not show up on any
+     machine I can test on, which is precisely why this block is easy to forget —
+     same standing rule as app.css's own fallback block at the end of the file. */
+  .xh-scene{background:rgba(255,255,255,.95)}
   .pop-card{background:rgba(255,255,255,.97)}
   .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
   .prof-prog div{background:rgba(255,255,255,.92)}
@@ -1202,7 +1274,15 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .prof-head-txt{min-width:0;flex:1}
 .prof-head-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.5;word-break:break-word}
 .prof-head-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
-.prof-avatar.lg{width:66px;height:66px}
+/* ⚠️ Keep in step with app.css (§17 deliberate duplication) — 132px, owner
+   2026-08-17. Source art is 320×320, so this is still a downscale. */
+.prof-avatar.lg{width:132px;height:132px;border-width:3px;
+  box-shadow:var(--glass-edge),0 4px 14px rgba(23,58,90,.20)}
+.prof-head{gap:18px}
+@media (max-width:560px){
+  .prof-avatar.lg{width:96px;height:96px}
+  .prof-head{gap:14px}
+}
 .prof-more>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:#3A5A70; letter-spacing:.05em;padding:8px 0;list-style:none}
 .prof-more>summary::-webkit-details-marker{display:none}
 .prof-more>summary::after{content:" ›";display:inline-block;transition:transform .15s}

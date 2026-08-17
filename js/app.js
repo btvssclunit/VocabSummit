@@ -2446,7 +2446,15 @@
             '<span class="lb-rank">' + lbMedal(rank) + ' ' + rank + '</span>' +
             '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + (mine ? " · 你" : "") + '</b>' +
             (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
-            '<span class="lb-uid">' + esc(r.uid) + '</span></div>' +
+            /* ⚠️ PREFIX ONLY, never the whole uid. The line exists to separate two
+               students who picked the same nickname out of the fixed picker, and 8
+               base64 characters already do that for a whole school. The full string
+               is 28 characters of monospace under every name: pure noise, and it
+               reads to a student like something they were not meant to see. Eight is
+               the same length teacher.html prints beside a feedback ticket.
+               `data-lbu` on the row still carries the full uid, so tapping a name
+               still opens their 对战徽章. */
+            '<span class="lb-uid">' + esc(r.uid.slice(0, 8)) + '…</span></div>' +
             '<span class="lb-alt">' + fmtNum(r.val) + unit + '</span></button>';
         });
         /* own standing line — never a bare rank; always something actionable */
@@ -5465,24 +5473,12 @@
       'onerror="this.style.display=\'none\'">';
   }
 
-  /* ---------- 你的营地 base camp scene (自由试炼 hub + shop entry) ---------- */
-  var CAMP_MODES = [
-    { mode: "cloze", label: "✍️ 填空挑战" },
-    { mode: "zhmcq", label: "🔎 华文解释" },
-    { mode: "enmcq", label: "🌐 英文翻译" },
-    { mode: "rain", label: "🌧️ 词雨灵露" },
-    { mode: "sprint", label: "⛰️ 攀山竞速" },
-    { mode: "assemble", label: "🧩 组词挑战" },   // all four streams since 2026-08-15
-    { mode: "handle", label: "🀄 词语汉兜", only: ["g3", "hcl"] }
-  ];
-  function launchMode(mode) {
-    if (!scopedWords().length) { alert(scopeEmptyMsg(true)); return; }
-    if (mode === "rain") return renderRainConfig();
-    if (mode === "sprint") return renderSprintConfig();
-    if (mode === "assemble") return startAssemble();
-    if (mode === "handle") return startHandle();
-    startMode(mode);
-  }
+  /* ---------- 你的营地 base camp scene (decoration + shop entry) ----------
+     ⚠️ CAMP_MODES and launchMode() lived here and are GONE (owner 2026-08-17).
+     They existed only to build the 自由试炼 button row under the scene; with that
+     row removed they were dead code, and dead launchers are worse than none —
+     the next change to how a mode starts would have had two places to update and
+     no symptom for missing one. ② on the home screen is the only launcher. */
   /* every sprite the student can actually move: the equipped item in each slot
      (住所 included — owner 2026-08-14 chose consistency over a fixed tent
      anchor) plus every owned trinket. Swapping an item out of its slot does
@@ -5518,14 +5514,6 @@
       sprites += campSprite("camp-pet", pl.file, pl.cx, pl.by, pl.w, p.name);
     });
 
-    var n = scopedWords().length;
-    var board = CAMP_MODES.filter(function (b) {
-      if (b.only && b.only.indexOf(STREAM) === -1) return false;
-      return true;
-    }).map(function (b) {
-      return '<button class="cb" data-mode="' + b.mode + '">' + b.label + '</button>';
-    }).join("");
-
     var html = '<div class="camp2-wrap"><div class="camp2-stage" id="campStage">' +
       '<img class="camp2-bg" src="art/camp/camp_bg.png" alt="" onerror="this.parentNode.classList.add(\'camp2-bg-fallback\')">' +
       sprites + '</div>' +
@@ -5534,8 +5522,14 @@
       '<button class="m2pill" id="campTidyBtn">🧹 整理营地</button>' +
       '<button class="m2pill" id="campUidBtn">🪪 识别码</button></div>' +
       '<div class="camp-hint">按住装备可以拖到你喜欢的位置</div>' +
-      '<div class="pop-label" style="text-align:center;margin-top:14px">🎯 自由试炼 · 用「修行」页选定的复习范围（当前 ' + n + ' 词）</div>' +
-      '<div class="camp-board" id="campBoard">' + board + '</div>' +
+      /* ⚠️ NO 自由试炼 MODE ROW HERE (owner 2026-08-17: "this is just the deco and
+         shop section"). It used to print seven activity buttons under the scene,
+         a second launcher for the same seven modes ② already lists twelve lines
+         further up the same page — and it launched them against「the scope you
+         picked on 修行」, a rule stated in one line of small print and nowhere else.
+         Nothing is orphaned: 填空/华文/英文 live behind 学习挑战 in 修行, and
+         词雨/攀山/组词/汉兜 are the four cards in 闯关. The camp is now what its
+         art has always shown it to be: your tent, your things, and the shop. */
       '<div class="nav-row" style="max-width:520px;margin:14px auto 0"><button class="nav-btn" id="campBack">‹ 返回</button></div>' +
       '</div>';
     view().innerHTML = html;
@@ -5561,9 +5555,6 @@
       };
     };
     wireCampDrag(document.getElementById("campStage"));
-    Array.prototype.forEach.call(document.getElementById("campBoard").querySelectorAll(".cb[data-mode]"), function (btn) {
-      btn.onclick = function () { launchMode(btn.getAttribute("data-mode")); };
-    });
   }
 
   /* ---------- 自由摆放 drag (§4) ----------
