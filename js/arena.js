@@ -230,9 +230,16 @@
     /* ---------- join ---------- */
     function renderJoin(msg) {
       detach();
+      /* ⚠️ 这一屏是四种房间共用的入口——老师开的（结伴登峰／并肩航海）与朋友开的
+         （同伴挑战），山上与码头各两种。**进来之前无从知道是哪一种**：码就是六个字符，
+         `pk` 要读到房间文档才知道。所以标题只说家族（§4 水线：码头不印 结伴登峰），
+         副标把两条来路都说出来——原来那句「请老师在白板上写出擂台码」对着一个
+         点了 加入朋友的房间 的学生，说的是一件不会发生的事。 */
+      var pier = ctx.stream === "xh";
       ov.innerHTML =
-        '<div class="arena-card"><div class="arena-t">🏔️ 结伴登峰</div>' +
-        '<div class="arena-sub">请老师在白板上写出擂台码，输入 6 位码加入。</div>' +
+        '<div class="arena-card"><div class="arena-t">' +
+        (pier ? "⛵ 并肩航海 · 同伴挑战" : "🏔️ 结伴登峰 · 同伴挑战") + '</div>' +
+        '<div class="arena-sub">输入 6 位房间码加入：老师写在白板上的，或朋友给你的。</div>' +
         '<input class="arena-code-in" id="arCode" maxlength="6" autocomplete="off" placeholder="ABC123">' +
         '<button class="arena-btn" id="arJoin">加入</button>' +
         '<button class="arena-btn ghost" id="arCancel">返回</button>' +
@@ -390,10 +397,19 @@
       }).join("") + "</div>";
     }
 
+    /* ⚠️ 一场只有一个结束条件（owner 2026-08-18）。以前房间同时写着 qCount 与 durationS，
+       于是**先到的那个**结束这一局：老师设的 20 题常常没答完就被 5 分钟掐掉，而设的
+       5 分钟又常常在第 20 题就提前收工——两个上限里总有一个是谎话。现在房间只带一个：
+       `limitBy: "qty"` 数题目，`limitBy: "time"` 看时钟。
+       ⚠️ 缺这个字段的旧房间一律当 "time"，行为与从前一字不差（题目答完仍然收场，
+       那是 renderQ 的序列走完，不是第二个上限）。 */
+    function byCount() { return !!room && room.limitBy === "qty"; }
     function scopeLine() {
-      var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速", rain: "词雨灵露" };
-      return (m[room.mode] || room.mode) + " · " + (room.qCount || (room.wordIds || []).length) + " 题 · " +
-        Math.round((room.durationS || 0) / 60) + " 分钟";
+      var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速",
+                rain: "词雨灵露", pic: "看图识词" };
+      return (m[room.mode] || room.mode) + " · " +
+        (byCount() ? (room.qCount || (room.wordIds || []).length) + " 题"
+                   : Math.round((room.durationS || 0) / 60) + " 分钟");
     }
     function amHost() { return !!(room && myUid && room.hostUid === myUid); }
     function renderLobby() {
@@ -427,6 +443,7 @@
     /* ---------- play ---------- */
     var started = false, seq = [], qi = 0, myScore = 0, myCorrect = 0, myAnswered = 0, streak = 0;
     var correctIds = [], correctTexts = [], msUsed = 0, endMs = 0, tickTimer = null, writeTimer = null, lastWrite = 0, qStart = 0, done = false;
+    var masteryAdded = null;   // how many words this round actually ADDED (null = ctx did not say)
     var stopGame = null;   // set by real-time modes (rain) so finishNow can halt their loop
 
     function startPlay() {
@@ -445,11 +462,15 @@
       }
       started = true;
       seq = (room.wordIds || []).map(function (id) { return wordIndex[id]; }).filter(Boolean);
+      /* ⚠️ 按题数 的房间**根本不建 tick**，不是「把倒计时藏起来」：留着它跑，
+         题目还没答完就会被掐掉——那正是这次要消灭的第二个上限。 */
       var startedAt = room.startedAt && room.startedAt.toMillis ? room.startedAt.toMillis() : Date.now();
-      endMs = startedAt + (room.durationS || 300) * 1000;
       qi = 0; done = false;
+      if (!byCount()) {
+        endMs = startedAt + (room.durationS || 300) * 1000;
+        tickTimer = setInterval(tick, 500);
+      }
       renderQ();
-      tickTimer = setInterval(tick, 500);
     }
     function tick() {
       var rem = Math.max(0, Math.round((endMs - Date.now()) / 1000));
@@ -465,7 +486,9 @@
         '<span>得分 <b id="arScore">' + myScore + '</b></span>' +
         (room.mode === "sprint" ? '<span>⛰️ 高度 <b>' + myCorrect + '</b> 米</span>' : '') +
         '<span>答对 <b>' + myCorrect + '</b>/' + myAnswered + '</span>' +
-        '<span class="arena-timer" id="arTimer">⏱ …</span></div>';
+        /* ⚠️ 按题数 时不摆一个不走的钟：剩多少就是卡片底部那行「第 X / Y 题」，
+           在同一屏上已经说清楚了，多一个 ⏱ 只会让学生等一个不存在的倒数。 */
+        (byCount() ? '' : '<span class="arena-timer" id="arTimer">⏱ …</span>') + '</div>';
     }
     /* ⚠️ THE CALLER MAY OWN THIS. The pier hands in its own picker because its rule is
        harder than「prefer the same part of speech」: CLAUDE.md §5 says 干扰项永远取自
@@ -777,14 +800,43 @@
       if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
       if (stopGame) { try { stopGame(); } catch (e) {} stopGame = null; }
       writeNow(true);
-      /* confer mastery for every word answered correctly (海拔 only, no 历练值).
+      /* confer mastery for every word answered correctly. 历练值/灵露 (贝壳/航海值 on the
+         pier) were already paid per answer by ctx.roomCorrect — §12: 房间模式照常计分.
          TEXTS are passed alongside ids because a cross-stream room serves the
          HOST's word ids, which mean nothing in the joiner's own store — ids are
-         stream-scoped by design, word text is the cross-stream join key. */
+         stream-scoped by design, word text is the cross-stream join key.
+         ⚠️ 它返回的是**新增**的那几个，不是答对的那几个：结果页要印的数字是这个。
+         早就掌握过的词答对多少次，海拔都不会动，印 correctIds.length 就是印一个
+         学生在 我的词山 上核对不到的数。返回 null＝这个 ctx 不报数，那就不印数字。 */
       if (ctx.conferMastery && correctIds.length) {
-        try { ctx.conferMastery(correctIds, correctTexts); } catch (e) {}
+        try {
+          var got = ctx.conferMastery(correctIds, correctTexts);
+          masteryAdded = (typeof got === "number") ? got : null;
+        } catch (e) {}
       }
       renderResult(roomEnded);
+    }
+
+    /* ⚠️ 这一行必须说出真的发生了什么（owner 2026-08-18）。它原来写着「本场不计历练值」——
+       那是 2026-08-12 的规则，owner 2026-08-14 就推翻了（§12：房间模式照常计分：
+       历练值 + 灵露 + 掌握），代码从那天起一直在发。屏幕上说不发、账上却在发，
+       比没有这句话更糟：学生会以为擂台白打。
+       ⚠️ 用词按家族分家（§4 水线）：山上是 已掌握／海拔／历练值／灵露，
+       码头是 认得／航程／贝壳／航海值。把 海拔 印在码头的结果页上，
+       就是 §18w 那条「山上的词跑到码头的屏幕上」。 */
+    function rewardLine() {
+      if (!correctIds.length) return "再接再厉！";
+      var pier = ctx.stream === "xh";
+      var pay = pier ? "贝壳与航海值已照常发放。" : "历练值与灵露已照常发放。";
+      if (masteryAdded === 0) {
+        return (pier ? "这些词你本来就认得，航程没有变。" : "这些词你本来就掌握了，海拔没有变。") + pay;
+      }
+      /* ⚠️ 单位跟着学生自己那块屏幕：山上是 海拔 米，码头是 航程 海里（xh.js 全站
+         都印「N / 148 海里」）。ctx 不报数时干脆不印括号——宁可少一个数字，
+         也不要印一个学生在 我的词山／我的词语表 上核对不到的数。 */
+      var n = masteryAdded == null ? ""
+            : (pier ? "（航程 +" + masteryAdded + " 海里）" : "（海拔 +" + masteryAdded + " 米）");
+      return (pier ? "答对的新词已算进航程" : "答对的新词已计入「已掌握」") + n + "。" + pay;
     }
 
     /* ---------- result ---------- */
@@ -794,7 +846,7 @@
         '<div class="arena-sub">' +
         (isPk ? '你答对 <b style="color:#FFE9B0;font-size:20px">' + myCorrect + '</b> 题（共答 ' + myAnswered + ' 题）<br>'
               : '你的得分 <b style="color:#FFE9B0;font-size:20px">' + myScore + '</b>　答对 ' + myCorrect + '/' + myAnswered + '<br>') +
-        (correctIds.length ? '答对的词已计入「已掌握」（海拔 +' + correctIds.length + '，本场不计历练值）。' : '再接再厉！') + '</div>' +
+        rewardLine() + '</div>' +
         '<div id="arMedal"></div>' +
         '<div class="arena-board" id="arBoard"><div class="arena-sub">读取排名…</div></div>' +
         '<button class="arena-btn" id="arDone" style="margin-top:14px">完成</button></div>';
@@ -886,7 +938,10 @@
           pk: true,                                  // what the Firestore rule keys on
           hostUid: myUid, hostName: p.nickname || "同学", school: p.school || "",
           stream: ctx.stream, mode: cfg.mode, tier: cfg.tier || "3",
-          wordIds: cfg.wordIds, qCount: cfg.wordIds.length, durationS: cfg.durationS,
+          /* 同伴挑战 一向只有时钟一个上限（题库给到 40 词，跑不完是常态），
+             现在把这件事写出来而不是靠「恰好没写 qCount」来表达。 */
+          wordIds: cfg.wordIds, qCount: cfg.wordIds.length,
+          limitBy: cfg.limitBy || "time", durationS: cfg.durationS,
           status: "lobby", createdAt: ts(), startedAt: null, playerCount: 0,
           expiresAt: expiryTs()
         }).then(function () { doJoin(c); });
@@ -902,7 +957,8 @@
   window.WSArena = {
     open: open,
     /* host(ctx) = same overlay, but it opens a room first. cfg: {mode, tier,
-       wordIds, durationS}. The caller (app.js) owns scope selection. */
+       wordIds, durationS, limitBy}. The caller (app.js) owns scope selection.
+       ⚠️ limitBy 省略即 "time"——同伴挑战 两家都是限时的。 */
     host: function (ctx, cfg) {
       ctx = ctx || {};
       ctx.hostCfg = cfg;

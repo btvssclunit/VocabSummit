@@ -2429,7 +2429,7 @@
       window.WSArena.host(xhArenaCtx(), {
         mode: mode, tier: "3",
         wordIds: shuffle(words.map(function (w) { return w["词语"]; })).slice(0, 40),
-        durationS: dur
+        limitBy: "time", durationS: dur
       });
     };
   }

@@ -1477,7 +1477,7 @@
      exist in their stream. texts are the cross-stream join key (ids are
      stream-scoped by design, same rule the mastery-carryover design uses). */
   function conferMasteryFromRoom(ids, texts) {
-    var changed = false, mine = {}, valid = {}, want = {};
+    var changed = false, added = 0, mine = {}, valid = {}, want = {};
     WORDS.forEach(function (w) { valid[w.id] = 1; });
     (ids || []).forEach(function (id) { if (valid[id]) mine[id] = 1; });
     if (texts && texts.length) {
@@ -1487,7 +1487,7 @@
     ensureIdIndex();
     Object.keys(mine).forEach(function (id) {
       if (!store.mastered[id]) {
-        store.mastered[id] = 1; changed = true;
+        store.mastered[id] = 1; changed = true; added++;
         /* +10 首次掌握, the moment 海拔 rises — same as markMastered. Guarded
            once-per-word, so a room can never double-pay a word the student
            already mastered in 修行. */
@@ -1496,8 +1496,13 @@
       }
     });
     if (changed) { saveStore(); checkBadges(true); applyAmbience(); }
+    /* ⚠️ 返回**新增**的词数，不是答对的词数：arena 的结果页印的就是这个数字，
+       而早就掌握过的词答对多少次海拔都不动（上面的 if 守卫）。印 correctIds.length
+       会给出一个学生在 我的词山 上核对不到的数。码头的 conferMastery 一直是这么返回的。 */
+    return added;
   }
-  /* open the 结伴登峰 live room (arena.js). Awards 海拔 (mastery) but NO 历练值/灵露. */
+  /* open the 结伴登峰 live room (arena.js). 答对的词照常发 历练值 + 灵露（roomCorrect），
+     并在结束时计入「已掌握」（conferMasteryFromRoom）——§12，2026-08-14 起。 */
   function openArena() {
     if (!window.WSArena || !window.WSArena.open) { alert("结伴登峰暂不可用，请刷新页面后再试。"); return; }
     window.WSArena.open(arenaCtx());
@@ -1589,7 +1594,7 @@
       var ids = shuffle(words.slice()).slice(0, 40).map(function (w) { return w.id; });
       window.WSArena.host(arenaCtx(), {
         mode: store.pkMode || "cloze", tier: store.diff === "type" ? "3" : (store.diff || "3"),
-        wordIds: ids, durationS: store.pkDur || 300
+        wordIds: ids, limitBy: "time", durationS: store.pkDur || 300
       });
     };
   }
