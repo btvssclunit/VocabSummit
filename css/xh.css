@@ -1362,6 +1362,20 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .pop-body{font-size:14.5px;line-height:1.8;color:#41576A}
 .pop-note{font-size:12.5px;color:var(--ink-soft)}
 .pop-label{font-size:12.5px;font-weight:700;color:#3A5A70;margin:10px 0 6px;letter-spacing:.06em}
+/* ---------- 恢复码 (owner 2026-08-19) ----------
+   ⚠️ BIG, MONOSPACE, WIDE-TRACKED. This is the one string in the whole app a child
+   copies off a screen onto paper, so legibility beats elegance: the alphabet already
+   drops 0/O/1/I/L, and letter-spacing plus a monospace face is the rest of the job.
+   ⚠️ user-select:all so one tap selects the whole thing on a touch device — a partial
+   selection is a wrong code, and a wrong code reads to a student as「我的进度没了」.
+   ⚠️ Deliberately NOT a .code-ta: that box is a scrolling 74px textarea sized for an
+   ~800-character paste, and putting ten characters in it makes the short route look
+   like the long one. */
+.claim-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:23px;font-weight:800;
+  letter-spacing:.16em;text-align:center;color:var(--ink);user-select:all;
+  background:linear-gradient(180deg,#FFF8E6,#FDF0D2);border:2px solid var(--gold);
+  border-radius:12px;padding:11px 8px;margin:2px 0 6px;word-break:break-all}
+@media (max-width:560px){ .claim-code{font-size:19px;letter-spacing:.11em} }
 .code-ta{width:100%;box-sizing:border-box;height:74px;border:1px solid var(--glass-line);border-radius:11px; padding:9px 11px;font-size:12px;font-family:monospace;resize:none;color:var(--ink); background:rgba(255,255,255,.5);box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
 .code-link{display:inline-flex;align-items:center;gap:4px; background:#FDF6E4;border:2px solid var(--gold,#D9A72B);border-radius:8px; color:#5C4009;font-size:15px;font-weight:700;letter-spacing:.02em; text-decoration:none;cursor:pointer;padding:6px 12px;margin-top:4px; box-shadow:0 2px 0 0 #B8821A}
 .code-link:active{transform:translateY(1px);box-shadow:none}

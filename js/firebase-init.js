@@ -249,6 +249,27 @@
       }
       return out;
     },
+    /* One narrow field onto users/{uid}.profile, without shipping the whole profile.
+       Used for claimCode so a teacher can read a student's 恢复码 back off the dashboard
+       and email it to whoever forgot theirs — teachers already read this document, so
+       this needs no new permission and no second collection. */
+    saveProfileField: function (key, value) {
+      whenReady(function () {
+        var patch = {};
+        patch["profile." + key] = value;
+        patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        db.collection("users").doc(_uid).update(patch)
+          .catch(function () {
+            /* the doc may not exist yet on a brand-new device — update() fails where
+               set(merge) would not, and this field is never worth failing a save over */
+            var p = { profile: {}, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            p.profile[key] = value;
+            db.collection("users").doc(_uid).set(p, { merge: true })
+              .catch(function (e) { console.warn("saveProfileField failed:", e && e.code); });
+          });
+      });
+    },
+
     /* payload = the whole restore snapshot, assembled by profile.js. cb(ok) */
     saveClaim: function (code, payload, cb) {
       cb = cb || function () {};

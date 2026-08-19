@@ -918,6 +918,63 @@
      ⚠️ A section with no local store is OMITTED, not written as empty: an empty section
      would restore as「zero mastered」on the other device, and the merge is only safe
      because it is a union. Omission means「this code says nothing about that land」. */
+  /* ================= VS4 · 经济数据进入进度码 (owner 2026-08-19) =================
+     The offline twin of the 恢复码. VS3 carried mastery only; this adds the economy so a
+     student with no network still gets their 灵露 / 贝壳 / 营地 / 海滩 back.
+     ⚠️ SAFE ONLY BECAUSE OF THE VIRGIN-ACCOUNT GATE — the same gate the 恢复码 uses.
+     Monotonic fields merge as always; the economy is a SNAPSHOT applied only into an
+     untouched account. Remove the gate and the duplication exploit is back (see the
+     WHAT IS DELIBERATELY NOT IN THE CODE block above, which is kept for exactly that
+     reason).
+     ⚠️ Keys are one or two characters because a child retypes this string.
+     ⚠️ `wins` IS INCLUDED (owner 2026-08-19, VS4 handoff §7a): without it a wiped-and-
+     restored student re-farms already-milked words at full 灵露 rate. It is the single
+     biggest field here, which is the price of closing that.
+     ⚠️ `decoPos` / `berthPos` ARE OMITTED (owner, §7b): items come back OWNED but in
+     their default berths. They were the cheapest thing to drop per character saved.
+     ⚠️ EMPTY VALUES ARE OMITTED ENTIRELY, so a student with no economy adds ~4 chars. */
+  function ecoBlob() {
+    var eco = { v: 1 }, m = {}, any = false;
+    function put(o, k, v) {
+      if (v == null) return;
+      if (typeof v === "number" && !v) return;
+      if (typeof v === "object" && !Object.keys(v).length) return;
+      o[k] = v; any = true;
+    }
+    ["g1", "g2", "g3", "hcl"].forEach(function (k) {
+      var st = lsGet("ws2_" + k);
+      if (!st) return;
+      var o = {};
+      put(o, "l", st.lingLu || 0);
+      put(o, "i", st.items || {});
+      put(o, "s", st.itemSlots || {});
+      put(o, "e", st.equip || {});
+      put(o, "d", st.deco || {});
+      put(o, "w", st.wins || {});
+      if (Object.keys(o).length) m[k] = o;
+    });
+    if (Object.keys(m).length) { eco.m = m; any = true; }
+    var x = lsGet("ws_xh");
+    if (x) {
+      var o2 = {};
+      put(o2, "sh", x.shells || 0);
+      put(o2, "o", x.owned || {});
+      put(o2, "b", x.berth || {});
+      if (Object.keys(o2).length) eco.x = o2;
+    }
+    var prof = load() || {}, p2 = {};
+    if (prof.avatarsOwned && prof.avatarsOwned.length) { p2.av = prof.avatarsOwned; any = true; }
+    /* ⚠️ boatsOwned is a MAP (tier -> 1) and boatPick is which is currently sailed.
+       The VS4 handoff's table called this「boats owned, max tier」— the right CLASS
+       (monotonic) but the wrong SHAPE, which is exactly why it says to confirm against
+       the live repo. Carrying the map keeps every tier the student paid for; carrying
+       boatPick keeps them sailing the one they chose. */
+    if (prof.boatsOwned && Object.keys(prof.boatsOwned).length) { p2.bo = prof.boatsOwned; any = true; }
+    if (prof.boatPick) { p2.bp = prof.boatPick; any = true; }
+    if (Object.keys(p2).length) eco.p = p2;
+    return any ? eco : null;
+  }
+
   function encodeAll(cb) {
     loadOrders(function (ord) {
       var secs = [], missing = [];
@@ -946,8 +1003,16 @@
         }
       } else { missing.push(CODE_LABEL.xh); }
       if (!secs.length) return cb(null, missing);
-      var head = "VS3." + secs.join("~") + "." +
+      /* ⚠️ EVERYTHING BEFORE THE ECO FIELD IS BYTE-IDENTICAL TO VS3, and the checksum is
+         still computed over the whole payload — now including the eco field, so a
+         truncated blob fails the checksum and the WHOLE code is rejected rather than
+         restoring half an account.
+         ⚠️ ecoB64 is base64url, which cannot contain `.`, so it is safe in a `.`-field.
+         Do not invent a new separator (see the format note above). */
+      var eco = ecoBlob();
+      var head = (eco ? "VS4." : "VS3.") + secs.join("~") + "." +
                  utf8ToB64urlP((load() || {}).nickname || "");
+      if (eco) head += "." + utf8ToB64urlP(JSON.stringify(eco));
       cb(head + "." + _fnv1a(head), missing);
     });
   }
@@ -973,9 +1038,13 @@
     var p = raw.split(".");
     var myNick = (load() || {}).nickname || "";
 
-    if (p[0] === "VS3") {
-      if (p.length !== 4) return { err: "进度码格式不正确，请检查是否完整复制。" };
-      if (_fnv1a(p.slice(0, 3).join(".")) !== p[3]) {
+    if (p[0] === "VS3" || p[0] === "VS4") {
+      /* ⚠️ A VS4 DECODER MUST ACCEPT VS3 CODES. Students are holding VS3 strings today
+         and those must keep working — a VS3 code simply restores mastery and skips the
+         economy. The only structural difference is one extra field. */
+      var nF = (p[0] === "VS4") ? 5 : 4;
+      if (p.length !== nF) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (_fnv1a(p.slice(0, nF - 1).join(".")) !== p[nF - 1]) {
         return { err: "进度码不完整或已损坏，请重新复制一次。" };
       }
       var secs = [], bad = 0;
@@ -1001,7 +1070,16 @@
       });
       if (!secs.length) return { err: "进度码里没有可以恢复的内容。" };
       var nick = _b64urlToUtf8(p[2]);
-      return { ok: true, sections: secs, codeNick: nick, skipped: bad,
+      /* ⚠️ A CORRUPT ECO FIELD IS NOT A PARTIAL RESTORE. The checksum above already
+         covers it, so reaching here means the bytes are intact; if JSON.parse still
+         fails the field is dropped and mastery restores alone, which is the same
+         outcome as a VS3 code. What must never happen is half an economy landing. */
+      var eco = null;
+      if (p[0] === "VS4") {
+        try { eco = JSON.parse(_b64urlToUtf8(p[3])); } catch (e) { eco = null; }
+        if (eco && eco.v !== 1) eco = null;
+      }
+      return { ok: true, sections: secs, codeNick: nick, skipped: bad, eco: eco,
                mismatch: !!(nick && nick !== myNick) };
     }
 
@@ -1050,6 +1128,211 @@
   /* Snapshot every section this plan touches, so ONE undo restores all of them.
      ⚠️ sessionStorage, like the old per-stream key: an undo is offered for THIS sitting
      only. A snapshot surviving a week would let a student roll back a week of work. */
+  /* ================= 恢复码 claims/{code} (owner 2026-08-19) ====================
+     owner:「is there a way for the student to enter a shorter code…」+「override VS3,
+     let the students restore everything」. TEN characters instead of a long paste, and
+     it brings back the economy too.
+     ⚠️ THIS DOES NOT REPLACE THE LONG CODE. The claim code needs the network; the long
+     code does not. After §18ad's trailing-zero trim a single-stream student's long code
+     is ~37 characters, so both routes are genuinely usable and the long one stays.
+     ⚠️ THE CODE IS A SECRET. Never log it, never publish it to a board, never derive it
+     from the uid — the leaderboard already shows an 8-character uid prefix, so a derived
+     code would be forgeable from data we hand out on purpose. */
+  var CLAIM_SECS = ["g1", "g2", "g3", "hcl", "xh"];
+
+  /* ---- the virgin-account gate: the whole reason carrying currency is safe ----
+     ⚠️ READ §18ae BEFORE TOUCHING THIS. Mastery merges monotonically, so re-applying it
+     changes nothing. Currency does not have that property: earn 200 → claim → spend 200
+     → claim again would leave you holding the avatar AND the 200. The gate closes it by
+     writing SNAPSHOT fields only into an account that is still untouched — to re-claim
+     you must first wipe the account, which destroys the purchase too. Net gain zero.
+     ⚠️ OWNERSHIP MAPS ARE DELIBERATELY EXCLUDED FROM THE TEST (deco / owned /
+     avatarsOwned). They merge monotonically, and letting their presence fail the test
+     would block a legitimate first restore for anyone who had ever bought anything.
+     ⚠️ A device with no stores at all is virgin — that is the canonical case. */
+  function isVirginAccount() {
+    var i, st;
+    for (i = 0; i < 4; i++) {
+      st = lsGet("ws2_" + CLAIM_SECS[i]);
+      if (!st) continue;
+      if ((st.lingLu || 0) !== 0) return false;
+      if (Object.keys(st.items || {}).length) return false;
+      if (Object.keys(st.equip || {}).length) return false;
+    }
+    st = lsGet("ws_xh");
+    if (st) {
+      if ((st.shells || 0) !== 0) return false;
+      if (Object.keys(st.berth || {}).length) return false;
+    }
+    return true;
+  }
+
+  /* the restore snapshot. Whole stores, because「restore everything」means exactly that
+     and this rides in a Firestore document rather than in something a child retypes.
+     ⚠️ A land the student has never opened is OMITTED, never written as an empty store:
+     an empty store would restore as a half-built object that its engine's load() never
+     migrated, and every default that engine relies on would be missing (§18r). */
+  function claimPayload() {
+    var out = { v: 1, prof: load() || {}, m: {} };
+    ["g1", "g2", "g3", "hcl"].forEach(function (k) {
+      var st = lsGet("ws2_" + k);
+      if (st) out.m[k] = st;
+    });
+    var x = lsGet("ws_xh");
+    if (x) out.x = x;
+    if (!Object.keys(out.m).length) delete out.m;
+    return out;
+  }
+  function claimCode() { return (load() || {}).claimCode || ""; }
+  /* Mints once and never silently re-mints: the student may have written the code down.
+     Rotation is an explicit action (rotateClaimCode). cb(code|"") */
+  function ensureClaimCode(cb) {
+    cb = cb || function () {};
+    var have = claimCode();
+    if (have) { cb(have); return; }
+    if (!window.WSCloud || !WSCloud.isAvailable() || !WSCloud.makeClaimCode) { cb(""); return; }
+    var code = WSCloud.makeClaimCode();
+    save({ claimCode: code });
+    cb(code);
+  }
+  /* ⚠️ CALLED FROM THE SESSION-FLUSH PATH, NOT FROM EVERY save(). Mirroring the whole
+     store on each progress write would double this project's Firestore write volume
+     (§18ae), and「the state at the end of your last session」is the right granularity
+     for a lost-device backup. Fails soft while the rules block is unpublished. */
+  function pushClaim(cb) {
+    cb = cb || function () {};
+    if (!window.WSCloud || !WSCloud.isAvailable() || !WSCloud.saveClaim) { cb(false); return; }
+    ensureClaimCode(function (code) {
+      if (!code) { cb(false); return; }
+      WSCloud.saveClaim(code, claimPayload(), function (ok) {
+        /* mirror the code onto users/{uid} so a teacher can read it back and email it
+           to a student who has forgotten theirs. Teachers already read that document;
+           this adds one short field rather than a second permission. */
+        if (ok && WSCloud.saveProfileField) WSCloud.saveProfileField("claimCode", code);
+        cb(ok);
+      });
+    });
+  }
+  function rotateClaimCode(cb) {
+    cb = cb || function () {};
+    var old = claimCode();
+    save({ claimCode: "" });
+    if (old && window.WSCloud && WSCloud.deleteClaim) WSCloud.deleteClaim(old);
+    ensureClaimCode(function (code) {
+      if (!code) { cb(""); return; }
+      pushClaim(function () { cb(code); });
+    });
+  }
+
+  /* ---- applying a claim ----
+     cb({ok, virgin, lands:[], err}) */
+  function maxInto(dst, src) {          // numeric map: per-key max
+    Object.keys(src || {}).forEach(function (k) {
+      var a = Number(dst[k] || 0), b = Number(src[k] || 0);
+      if (b > a) dst[k] = b;
+    });
+  }
+  function unionInto(dst, src) {
+    Object.keys(src || {}).forEach(function (k) { if (!dst[k]) dst[k] = src[k]; });
+  }
+  /* ⚠️ MONOTONIC FIELDS ONLY. Everything here is union-or-max, so applying it twice is
+     a no-op — that is what makes it safe on an account that is NOT virgin. Currency,
+     items, equip and berth are absent by design; they ride the snapshot branch. */
+  function mergeMountain(local, inc) {
+    unionInto(local.mastered = local.mastered || {}, inc.mastered);
+    unionInto(local.badges = local.badges || {}, inc.badges);
+    unionInto(local.deco = local.deco || {}, inc.deco);
+    unionInto(local.gym = local.gym || {}, inc.gym);
+    local.best = local.best || {};
+    maxInto(local.best, inc.best);
+    if ((inc.bestStreak || 0) > (local.bestStreak || 0)) local.bestStreak = inc.bestStreak;
+    /* 历练值 only ever grows, so max is monotonic and safe. It is an effort TOTAL, not a
+       wallet — nothing is ever spent from it (§4.1). */
+    local.pts = local.pts || {};
+    if ((inc.pts && inc.pts.total || 0) > (local.pts.total || 0)) local.pts.total = inc.pts.total;
+    local.pts.terms = local.pts.terms || {};
+    maxInto(local.pts.terms, inc.pts && inc.pts.terms);
+    unionInto(local.pts.masteryAwarded = local.pts.masteryAwarded || {},
+              inc.pts && inc.pts.masteryAwarded);
+    maxInto(local.wins = local.wins || {}, inc.wins);
+    return local;
+  }
+  function mergePier(local, inc) {
+    unionInto(local.done = local.done || {}, inc.done);
+    unionInto(local.readLines = local.readLines || {}, inc.readLines);
+    unionInto(local.owned = local.owned || {}, inc.owned);
+    /* 航海值 is the pier's effort total, same argument as 历练值 */
+    if ((inc.sail || 0) > (local.sail || 0)) local.sail = inc.sail;
+    /* ⚠️ sailLog keeps the EARLIER first-earned date per badge: it records when a
+       threshold was crossed, and the earlier record is the true one (§18v). */
+    local.sailLog = local.sailLog || {};
+    Object.keys(inc.sailLog || {}).forEach(function (k) {
+      var a = local.sailLog[k], b = inc.sailLog[k];
+      if (!a || (b && b.first && b.first < a.first)) local.sailLog[k] = b;
+    });
+    return local;
+  }
+  function applyClaim(payload, cb) {
+    cb = cb || function () {};
+    if (!payload || payload.v !== 1) { cb({ ok: false, err: "这个恢复码的格式无法识别。" }); return; }
+    var virgin = isVirginAccount(), lands = [];
+    /* ⚠️ ONE SNAPSHOT OF EVERYTHING WE ARE ABOUT TO TOUCH, before touching any of it.
+       sessionStorage on purpose (§18r): a snapshot that outlived the browser session
+       would let a student roll back a week of learning. */
+    var snap = {};
+    CLAIM_SECS.forEach(function (k) {
+      var key = storeKeyFor(k);
+      try { snap[key] = localStorage.getItem(key); } catch (e) {}
+    });
+    try { snap[PROFILE_KEY] = localStorage.getItem(PROFILE_KEY); } catch (e) {}
+    try { sessionStorage.setItem(UNDO_ALL, JSON.stringify(snap)); } catch (e) {}
+
+    function put(key, obj) {
+      try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
+    }
+    Object.keys(payload.m || {}).forEach(function (k) {
+      var key = "ws2_" + k, inc = payload.m[k], local = lsGet(key);
+      if (virgin || !local) { put(key, inc); }
+      else { put(key, mergeMountain(local, inc)); }
+      lands.push(CODE_LABEL[k]);
+    });
+    if (payload.x) {
+      var local = lsGet("ws_xh");
+      if (virgin || !local) { put("ws_xh", payload.x); }
+      else { put("ws_xh", mergePier(local, payload.x)); }
+      lands.push(CODE_LABEL.xh);
+    }
+    /* ⚠️ THE PROFILE IS RESTORED BUT THE CLAIM CODE IS NOT INHERITED. Two devices
+       sharing one claim document would each overwrite the other's payload on flush, and
+       the second one to close would win. The new device mints its own. */
+    if (payload.prof) {
+      var prof = {};
+      Object.keys(payload.prof).forEach(function (k) { prof[k] = payload.prof[k]; });
+      delete prof.claimCode;
+      save(prof);
+    }
+    cb({ ok: true, virgin: virgin, lands: lands });
+  }
+  /* the whole round trip. cb({ok, virgin, lands, err}) */
+  function restoreFromClaim(raw, cb) {
+    cb = cb || function () {};
+    var code = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+    if (code.length < 8) { cb({ ok: false, err: "恢复码不完整，请检查有没有漏打。" }); return; }
+    if (!window.WSCloud || !WSCloud.isAvailable() || !WSCloud.readClaim) {
+      cb({ ok: false, err: "现在连不上网络，恢复码需要联网才能用。" }); return;
+    }
+    WSCloud.readClaim(code, function (payload, reason) {
+      if (!payload) {
+        cb({ ok: false, err:
+          reason === "denied" ? "恢复功能还没有开启，请告诉老师。" :
+          reason === "notfound" ? "找不到这个恢复码，请检查有没有打错。" :
+          "现在读不到你的进度，请稍后再试。" });
+        return;
+      }
+      applyClaim(payload, cb);
+    });
+  }
+
   var UNDO_ALL = "ws_prerestore_all";
   function snapshotAll(plan) {
     var snap = {};
@@ -1106,7 +1389,56 @@
       try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
       perSec[s.sec] = n; added += n;
     });
-    return { added: added, perSec: perSec };
+    var eco = applyEco(plan.eco);
+    return { added: added, perSec: perSec, eco: eco };
+  }
+
+  /* ---- VS4: the economy half of a restore ----
+     Returns { applied:bool, skipped:bool, lingLu, shells } so the summary can say what
+     happened — a silent skip is the one outcome a student must never get.
+     ⚠️ THE VIRGIN GATE IS THE WHOLE SAFETY ARGUMENT (§18ae). Snapshot fields are written
+     ONLY into an untouched account; on any other account they are skipped entirely and
+     the mastery half still lands. To re-claim you must first wipe, which destroys the
+     purchase too — net gain zero.
+     ⚠️ WALLET AND OWNERSHIP MOVE TOGETHER OR NOT AT ALL. Restoring 灵露 while merging
+     `deco`/`avatarsOwned` by union would let a bought item survive the wipe and hand the
+     student both the item and the money. That is the exploit, rebuilt from the other
+     end. This is the load-bearing line in the whole feature; do not「improve」it into a
+     union.
+     ⚠️ NO STORE, NO WRITE — same rule as the mastery half above: an economy blob must
+     never conjure a store the engine's load() has not migrated. */
+  function applyEco(eco) {
+    if (!eco || eco.v !== 1) return { applied: false, skipped: false };
+    if (!isVirginAccount()) return { applied: false, skipped: true };
+    var ling = 0, shells = 0;
+    Object.keys(eco.m || {}).forEach(function (k) {
+      var key = "ws2_" + k, cur = lsGet(key), o = eco.m[k];
+      if (!cur) return;
+      if (o.l) { cur.lingLu = o.l; ling += o.l; }
+      if (o.i) cur.items = o.i;
+      if (o.s) cur.itemSlots = o.s;
+      if (o.e) cur.equip = o.e;
+      if (o.d) cur.deco = o.d;
+      if (o.w) cur.wins = o.w;
+      try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
+    });
+    if (eco.x) {
+      var cx = lsGet("ws_xh");
+      if (cx) {
+        if (eco.x.sh) { cx.shells = eco.x.sh; shells = eco.x.sh; }
+        if (eco.x.o) cx.owned = eco.x.o;
+        if (eco.x.b) cx.berth = eco.x.b;
+        try { localStorage.setItem("ws_xh", JSON.stringify(cx)); } catch (e) {}
+      }
+    }
+    if (eco.p) {
+      var patch = {};
+      if (eco.p.av) patch.avatarsOwned = eco.p.av;
+      if (eco.p.bo) patch.boatsOwned = eco.p.bo;
+      if (eco.p.bp) patch.boatPick = eco.p.bp;
+      if (Object.keys(patch).length) save(patch);
+    }
+    return { applied: true, skipped: false, lingLu: ling, shells: shells };
   }
   function undoAll() {
     var snap;
@@ -1158,9 +1490,14 @@
      prints it, and printing one subject name for a five-land code would be a lie. */
   function peekCode(code) {
     var p = String(code || "").replace(/\s+/g, "").split(".");
-    if (p[0] === "VS3") {
-      if (p.length !== 4) return { err: "进度码格式不正确，请检查是否完整复制。" };
-      if (_fnv1a(p.slice(0, 3).join(".")) !== p[3]) {
+    /* ⚠️ VS4 = VS3 + one base64url economy field before the checksum. peekCode is
+       deliberately NOT taught what is inside that field: this runs on the landing page,
+       where it must be able to verify a code with no word data loaded at all. It only
+       needs to know how many fields to checksum. */
+    if (p[0] === "VS3" || p[0] === "VS4") {
+      var nF = (p[0] === "VS4") ? 5 : 4;
+      if (p.length !== nF) return { err: "进度码格式不正确，请检查是否完整复制。" };
+      if (_fnv1a(p.slice(0, nF - 1).join(".")) !== p[nF - 1]) {
         return { err: "进度码不完整或已损坏，请重新复制一次。" };
       }
       var names = [], total = 0, secs = p[1].split("~");
@@ -1525,6 +1862,31 @@
         '<div class="pop-note" id="profFbMine" style="margin-top:6px"></div></div>';
     }
 
+    /* ---- 恢复码: the short route (owner 2026-08-19) ----
+       ⚠️ SHOWN FIRST, and above the long code, because it is the one a student should
+       write down: ten characters instead of a paste, and it is the only route that
+       brings back 灵露 / 贝壳 / 营地 / 海滩.
+       ⚠️ RENDERED IN GROUPS OF FIVE (XXXXX XXXXX). The student copies this by hand off a
+       screen; an unbroken ten-character run is where transcription errors happen. The
+       stored value has no space in it and restoreFromClaim strips everything that is not
+       [0-9A-Z], so a student may type it with or without the gap, in any case.
+       ⚠️ The panel says plainly that it needs the network, because the long code does
+       not — two routes with different failure modes must not look interchangeable. */
+    function claimSectionHtml() {
+      var c = claimCode();
+      return '<div class="pop-label">恢复码 · 换了设备用这个' +
+          fbGloss("恢复码", "huī fù mǎ", "Recovery code — restores everything") + '</div>' +
+        '<div class="pop-body">把这十个字符抄下来。换了设备、清了浏览器资料，' +
+        '在开始的画面输入它，<b>全部进度都会回来</b>——包括灵露、贝壳、营地和海滩。<br>' +
+        '<span class="pop-note">⚠️ 需要联网才能用。不要给别人看：拿到它的人可以取走你的进度。</span></div>' +
+        '<div class="claim-code" id="profClaim">' + (c ? esc(fmtClaim(c)) : "正在准备…") + '</div>' +
+        '<div class="pop-note" id="profClaimNote"></div>' +
+        '<div class="nav-row">' +
+        '<button class="nav-btn" id="profClaimCopy">📋 复制恢复码</button>' +
+        '<button class="nav-btn" id="profClaimNew">换一个</button></div>';
+    }
+    function fmtClaim(c) { return String(c || "").replace(/(.{5})(.{1,5})/, "$1 $2"); }
+
     /* ⚠️ NO MORE「进度码在各科目页面里」 BRANCH, and no more per-stream heading. There is
        ONE code for all five lands (owner 2026-08-17) and it is available on every page
        including the landing page, which is the page a student on a new device actually
@@ -1534,11 +1896,14 @@
        word orders arrive: the code cannot be built synchronously any more because it is
        positional over five published files. A stale-render guard lives in that function. */
     function codeSectionHtml() {
-      return '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，' +
+      return claimSectionHtml() +
+        '<div class="pop-label" style="margin-top:14px">进度码（不必联网）' +
+          fbGloss("进度码", "jìn dù mǎ", "Progress code — works offline") + '</div>' +
+        '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，' +
         '把它粘贴到下方恢复。<br>' +
         '<span class="pop-note">一段进度码涵盖<b>五片陆地</b>：四个学段与启航码头。' +
         '里面有已掌握／已认得的词语、最高连对、各游戏纪录，并绑定你的昵称。' +
-        '灵露与贝壳不在里面。</span></div>' +
+        '⚠️ 这一段<b>不含</b>灵露与贝壳——要连它们一起找回，用上面的恢复码。</span></div>' +
         '<div class="pop-label">我的进度码' +
           fbGloss("我的进度码", "wǒ de jìn dù mǎ", "My progress code — all five lands") + '</div>' +
         '<textarea class="code-ta" id="profCodeOut" readonly>正在准备…</textarea>' +
@@ -1788,6 +2153,56 @@
       if (restoreBtn) restoreBtn.onclick = onRestore;
       var undoBtn = ov.querySelector("#profCodeUndo");
       if (undoBtn) undoBtn.onclick = onUndo;
+      wireClaim();
+    }
+
+    function claimNote(msg, ok) {
+      var n = ov.querySelector("#profClaimNote");
+      if (!n) return;
+      n.textContent = msg || "";
+      n.style.color = ok === false ? "#B4472F" : "";
+    }
+    function wireClaim() {
+      var el = ov.querySelector("#profClaim");
+      if (!el) return;
+      /* ⚠️ Minting also PUSHES, or the student walks away with a code that points at
+         nothing. The push is what creates claims/{code}; the local string alone is
+         useless. Both fail soft while the rules block is unpublished. */
+      ensureClaimCode(function (code) {
+        if (!el.isConnected) return;
+        if (!code) {
+          el.textContent = "—";
+          claimNote("现在连不上网络，恢复码要联网才能建立。", false);
+          return;
+        }
+        el.textContent = fmtClaim(code);
+        pushClaim(function (ok) {
+          if (!el.isConnected) return;
+          claimNote(ok ? "已经保存好了。抄下来收着。"
+                       : "还没能保存到云端——恢复功能可能还没开启，请告诉老师。", ok);
+        });
+      });
+      var cp = ov.querySelector("#profClaimCopy");
+      if (cp) cp.onclick = function () {
+        var txt = claimCode();
+        if (!txt) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(function () { claimNote("已复制恢复码。", true); });
+        } else { claimNote("请手动抄下上面的十个字符。", true); }
+      };
+      var nw = ov.querySelector("#profClaimNew");
+      /* ⚠️ CONFIRM FIRST. Rotating invalidates whatever the student already wrote down or
+         emailed to themselves, and the old code stops working the moment this succeeds. */
+      if (nw) nw.onclick = function () {
+        if (!window.confirm("换一个恢复码？\n旧的那个马上就不能用了，写下来的要重新抄。")) return;
+        claimNote("正在换…");
+        rotateClaimCode(function (code) {
+          if (!el.isConnected) return;
+          if (!code) { claimNote("换不成，请稍后再试。", false); return; }
+          el.textContent = fmtClaim(code);
+          claimNote("换好了。请重新抄下来。", true);
+        });
+      };
     }
 
     function flashCode(msg, ok) {
@@ -1819,7 +2234,22 @@
       var parts = (plan.sections || []).map(function (x) {
         return CODE_LABEL[x.sec].split(" \u00b7 ")[0] + " +" + (res.perSec[x.sec] || 0);
       });
-      flashCode("\u2705 \u6062\u590d\u6210\u529f\uff1a" + parts.join(" \u00b7 "), true);
+      /* ⚠️ THE ECONOMY OUTCOME IS ALWAYS STATED, never silent. A student whose snapshot
+         was skipped must be told WHY, or they read a successful restore as「我的灵露没了」
+         and there is nothing on screen to contradict them. */
+      var eco = res.eco || {}, tail = "";
+      if (eco.applied) {
+        var bits = [];
+        if (eco.lingLu) bits.push("灵露 " + eco.lingLu);
+        if (eco.shells) bits.push("贝壳 " + eco.shells);
+        tail = bits.length ? "\uff1b\u5df2\u6062\u590d " + bits.join(" \u00b7 ") : "";
+      } else if (eco.skipped) {
+        tail = "\u3002\u5b66\u4e60\u8fdb\u5ea6\u5df2\u6062\u590d\uff0c" +
+               "\u4f46\u7075\u9732\u548c\u8d1d\u58f3\u6ca1\u6709\u2014\u2014" +
+               "\u8fd9\u4e2a\u8bbe\u5907\u5df2\u7ecf\u6709\u4f7f\u7528\u8bb0\u5f55\uff0c" +
+               "\u53ea\u6709\u5168\u65b0\u7684\u8bbe\u5907\u624d\u80fd\u6062\u590d\u7ecf\u6d4e\u6570\u636e\u3002";
+      }
+      flashCode("\u2705 \u6062\u590d\u6210\u529f\uff1a" + parts.join(" \u00b7 ") + tail, true);
     }
 
     /* ⚠️ ONE ROW PER LAND, and the 只增不减 promise printed for each. A single combined
@@ -2196,8 +2626,21 @@
     /* ---- VS3 combined codec (owner 2026-08-17). ⚠️ ONE planner, ONE writer: app.js's
        new-device path calls decodeCode + commitAll rather than keeping a second decoder,
        because two decoders for one wire format is how a format silently forks. ---- */
+    /* encodeCode is the counterpart of decodeCode. It was internal while the only
+       caller was this panel; it is public now so the pair can be exercised end to end
+       (and so a future screen never grows a third encoder — two is already the limit,
+       see teacher.html). */
+    encodeCode: encodeAll,
     decodeCode: decodeCode,
     commitAll: commitAll,
+    /* ---- 恢复码 claims/{code} (owner 2026-08-19). Ten characters, needs the network,
+       brings back the economy too. The long code stays as the offline route. ---- */
+    claimCode: claimCode,
+    ensureClaimCode: ensureClaimCode,
+    pushClaim: pushClaim,
+    rotateClaimCode: rotateClaimCode,
+    restoreFromClaim: restoreFromClaim,
+    isVirginAccount: isVirginAccount,
     snapshotAll: snapshotAll,
     planDelta: planDelta,
     maybePromptClassUpdate: maybePromptClassUpdate,

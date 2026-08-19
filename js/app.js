@@ -507,6 +507,11 @@
     clearTimeout(_cloudSyncTimer);
     window.WSCloud.saveProgress(STREAM, store);
     pushLeaderboard();
+    /* ⚠️ 恢复码 mirror rides the FLUSH, never the 2.5s debounce (§18ae): refreshing the
+       whole-account snapshot on every progress write would double this project's
+       Firestore write volume, and「the state when you closed the tab」is the right
+       granularity for a lost-device backup. Fails soft while the rules are unpublished. */
+    if (window.WSProfile && WSProfile.pushClaim) WSProfile.pushClaim();
   }
   /* only 学生 profiles are published to the leaderboard (teachers/parents never are) */
   function pushLeaderboard() {
@@ -6290,13 +6295,20 @@
           chipGrid(NOUN_CATS[st.nounCat]) +
           '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
       } else if (st.step === "restore") {
-        html = '<div class="pop-title">🔄 用进度码找回' +
-            np("用进度码找回", "yòng jìn dù mǎ zhǎo huí", "Restore with a progress code") + '</div>' +
-          '<div class="pop-note">换了新设备的话，把旧设备「我的档案」里的进度码贴进来，' +
-          '就能用回原来的昵称，进度也会一起恢复。' +
-            np("", "", "On a new device, paste the progress code from your old device (My profile) " +
-                       "to get your nickname and progress back.") + '</div>' +
-          '<textarea id="npCode" class="code-ta" placeholder="把进度码贴在这里…">' + esc(st.codeVal || "") + '</textarea>' +
+        /* ⚠️ ONE BOX, TWO CODES (owner 2026-08-19). A student arrives holding whichever
+           code they wrote down; asking them to first classify it is asking them to know
+           something they do not. The 恢复码 is 10 characters of [0-9A-Z]; a 进度码 always
+           carries dots (VS1/VS2/VS3/VS4), so they are told apart by shape, never by the
+           student. See onRestoreCode(). */
+        html = '<div class="pop-title">🔄 换了设备？在这里找回' +
+            np("换了设备？在这里找回", "huàn le shè bèi？zài zhè lǐ zhǎo huí", "Changed device? Restore here") + '</div>' +
+          '<div class="pop-note">输入<b>恢复码</b>（十个字符）就能把<b>全部进度</b>找回来，' +
+          '包括灵露和贝壳——这个要联网。<br>' +
+          '也可以贴旧设备「我的档案」里的<b>进度码</b>：那一段不必联网，' +
+          '但里面没有灵露和贝壳。' +
+            np("", "", "Enter your 10-character recovery code to get everything back (needs internet), " +
+                       "or paste the long progress code from your old device (works offline).") + '</div>' +
+          '<textarea id="npCode" class="code-ta" placeholder="恢复码（十个字符），或者贴进度码…">' + esc(st.codeVal || "") + '</textarea>' +
           (st.codeErr ? '<div class="pop-note np-code-err">' + esc(st.codeErr) + '</div>' : "") +
           '<div class="nav-row"><button class="nav-btn" id="npCodeBack">‹ 返回' +
             np("返回", "fǎn huí", "Back") + '</button>' +
@@ -6360,8 +6372,8 @@
             np("确认", "què rèn", "Confirm") + '</button></div>' +
           '<div class="np-manual"><button id="npManual">我要自己选昵称' +
             np("我要自己选昵称", "wǒ yào zì jǐ xuǎn nì chēng", "Let me type my own") + '</button>' +
-          (st.restored ? "" : '<button id="npRestore">换了设备？用进度码找回' +
-            np("", "", "New device? Restore with a progress code") + '</button>') +
+          (st.restored ? "" : '<button id="npRestore">换了设备？在这里找回进度' +
+            np("", "", "Changed device? Restore your progress here") + '</button>') +
           '</div>' + closeBtn;
       }
       card.innerHTML = html;
@@ -6396,6 +6408,29 @@
         document.getElementById("npCodeGo").onclick = function () {
           var v = (document.getElementById("npCode") || {}).value || "";
           st.codeVal = v;
+          /* ⚠️ SHAPE, NOT A TOGGLE. A 恢复码 is 8-24 chars of [0-9A-Z] with no dot; every
+             进度码 has dots. Anything dotless and short enough is treated as a 恢复码 —
+             including a mistyped one, which is correct: the error a student then sees
+             is「找不到这个恢复码」rather than「进度码格式不正确」, and the first one is the
+             true statement about what they typed. */
+          var claim = String(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
+          if (v.indexOf(".") === -1 && claim.length >= 8 && claim.length <= 24) {
+            if (!(window.WSProfile && window.WSProfile.restoreFromClaim)) {
+              st.codeErr = "暂时无法恢复，请稍后再试。"; renderStep(); return;
+            }
+            st.codeErr = "正在找回…"; renderStep();
+            window.WSProfile.restoreFromClaim(claim, function (r) {
+              if (!r.ok) { st.codeErr = r.err || "恢复失败，请稍后再试。"; renderStep(); return; }
+              /* ⚠️ RELOAD, do not try to hand the restored stores to a running engine.
+                 app.js/xh.js hold `store` in memory and their next save would overwrite
+                 what we just wrote (§18r) — and a claim restore replaces WHOLE stores,
+                 not a merge, so there is no provider hook that could express it. A
+                 restore is a once-per-device event; a reload is the honest way to let
+                 every engine re-read from scratch. */
+              try { location.reload(); } catch (e) {}
+            });
+            return;
+          }
           var peek = window.WSProfile && window.WSProfile.peekCode
             ? window.WSProfile.peekCode(v) : { err: "暂时无法核对进度码，请稍后再试。" };
           if (peek.err) { st.codeErr = peek.err; renderStep(); return; }

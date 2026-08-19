@@ -245,6 +245,8 @@
     if (!window.WSCloud || !window.WSCloud.isAvailable() || !window.WSCloud.saveProgress) return;
     clearTimeout(_cloudSyncTimer);
     window.WSCloud.saveProgress("xh", store);
+    /* same rule as app.js: the 恢复码 snapshot rides the flush, not the debounce (§18ae) */
+    if (window.WSProfile && WSProfile.pushClaim) WSProfile.pushClaim();
   }
   window.addEventListener("pagehide", flushCloudSyncNow);
   window.addEventListener("beforeunload", flushCloudSyncNow);

@@ -258,6 +258,13 @@ textarea.sp-code{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;fo
   line-height:1.5;word-break:break-all;border:1px solid var(--line);border-radius:10px;
   padding:9px 10px;background:#fff;resize:vertical}
 .sp-codeact{display:flex;gap:10px;align-items:center;margin-top:7px;flex-wrap:wrap}
+/* same treatment as the student's own screen: this gets read aloud or copied into an
+   email, so legibility beats elegance. user-select:all — a partial selection is a
+   wrong code, and a wrong code reads to a student as「my progress is gone」. */
+.sp-claim{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:21px;font-weight:800;
+  letter-spacing:.15em;user-select:all;color:var(--ink);background:#fff;
+  border:2px solid var(--gold);border-radius:10px;padding:8px 10px;margin:2px 0 7px;
+  display:inline-block;word-break:break-all}
 .sp-foot{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
 /* the whole row opens the card, so it has to look clickable — and on a laptop trackpad
    hover is the only affordance there is. 操作 keeps its own buttons; they stopPropagation. */
@@ -555,7 +562,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260819"></script>
+<script src="js/podium.js?v=20260819b"></script>
 <script>
 (function () {
   "use strict";
@@ -563,7 +570,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260819";
+  var ASSET_V = "?v=20260819b";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -974,6 +981,49 @@ tbody tr.sp-row{cursor:pointer}
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     } catch (e) { return ""; }
   }
+  /* The economy half of a VS4 code, assembled from the CLOUD store rather than from
+     localStorage. Field names and shape must stay identical to profile.js's ecoBlob(),
+     which is what reads it back (applyEco).
+     ⚠️ `wins` is included and `decoPos`/`berthPos` are not — owner's calls, VS4 handoff
+     §7a / §7b. ⚠️ Empty values are omitted so a student with no economy still gets a
+     plain VS3 code of exactly the old length. */
+  function ecoBlobFor(u) {
+    var prog = u.data.progress || {}, prof = profOf(u);
+    var eco = { v: 1 }, m = {}, any = false;
+    function put(o, k, v) {
+      if (v == null) return;
+      if (typeof v === "number" && !v) return;
+      if (typeof v === "object" && !Object.keys(v).length) return;
+      o[k] = v; any = true;
+    }
+    STREAMS.forEach(function (k) {
+      var st = prog[k];
+      if (!st) return;
+      var o = {};
+      put(o, "l", st.lingLu || 0);
+      put(o, "i", st.items || {});
+      put(o, "s", st.itemSlots || {});
+      put(o, "e", st.equip || {});
+      put(o, "d", st.deco || {});
+      put(o, "w", st.wins || {});
+      if (Object.keys(o).length) m[k] = o;
+    });
+    if (Object.keys(m).length) { eco.m = m; any = true; }
+    if (prog.xh) {
+      var o2 = {};
+      put(o2, "sh", prog.xh.shells || 0);
+      put(o2, "o", prog.xh.owned || {});
+      put(o2, "b", prog.xh.berth || {});
+      if (Object.keys(o2).length) eco.x = o2;
+    }
+    var p2 = {};
+    if (prof.avatarsOwned && prof.avatarsOwned.length) { p2.av = prof.avatarsOwned; any = true; }
+    if (prof.boatsOwned && Object.keys(prof.boatsOwned).length) { p2.bo = prof.boatsOwned; any = true; }
+    if (prof.boatPick) { p2.bp = prof.boatPick; any = true; }
+    if (Object.keys(p2).length) eco.p = p2;
+    return any ? eco : null;
+  }
+
   /* cb({ code, lands:[中文名…], missing:[中文名…] }) — code is null when the student
      has no progress on any land whose order we could read. */
   function buildProgressCode(u, cb) {
@@ -1000,8 +1050,16 @@ tbody tr.sp-row{cursor:pointer}
         lands.push(CODE_LABEL.xh);
       }
       if (!secs.length) return cb({ code: null, lands: lands, missing: missing });
-      var head = "VS3." + secs.join("~") + "." + utf8ToB64url(profOf(u).nickname || "");
-      cb({ code: head + "." + _fnv1a(head), lands: lands, missing: missing });
+      /* ⚠️ EMIT VS4 WHEN THERE IS AN ECONOMY, exactly as profile.js does. A code issued
+         from this dashboard that silently restored LESS than the student's own would be
+         the worst kind of asymmetry: it only shows up weeks later as「老师给我的码把我的
+         灵露弄丢了」, and by then nobody can tell which code was used.
+         ⚠️ THIRD COPY OF NOTHING — this is the same two writers as before (profile.js and
+         here). Keep the blob shape identical; the reader is profile.js's applyEco. */
+      var eco = ecoBlobFor(u);
+      var head = (eco ? "VS4." : "VS3.") + secs.join("~") + "." + utf8ToB64url(profOf(u).nickname || "");
+      if (eco) head += "." + utf8ToB64url(JSON.stringify(eco));
+      cb({ code: head + "." + _fnv1a(head), lands: lands, missing: missing, eco: !!eco });
     });
   }
 
@@ -1866,6 +1924,27 @@ tbody tr.sp-row{cursor:pointer}
           (enRegressed(u) ? ' <span class="pill warn" title="连续关闭 5 次以上之后又重新开启，可能遇到更难的单元">🔁 最近曾关掉后又开回来</span>' : '') +
           '</div>' : '') +
         '</div>' +
+      /* ---- 恢复码 (owner 2026-08-19) ----
+         The student's own short code, read straight off users/{uid}.profile.claimCode
+         — the client mirrors it there on session flush precisely so this screen can
+         show it. This is the answer to「the child forgot their code but knows their
+         UID」: look them up here and email it.
+         ⚠️ READ-ONLY. The dashboard never mints or rotates one: minting also has to
+         WRITE claims/{code}, and only the student's own device may do that (the rules
+         require request.resource.data.uid == request.auth.uid). A code shown here that
+         had never been pushed would be a code that restores nothing.
+         ⚠️ It is a SECRET — it restores the whole account. Deliberately not a table
+         column: it belongs on the one screen a teacher opens on purpose, not printed
+         248 times down a page that gets projected in class. */
+      '<div class="sp-land code"><div class="sp-land-t">恢复码</div>' +
+        (profOf(u).claimCode
+          ? '<div class="sp-claim">' + esc(String(profOf(u).claimCode).replace(/(.{5})(.{1,5})/, "$1 $2")) + '</div>' +
+            '<div class="hint">学生换了设备、忘了自己的码，就把这十个字符给他，' +
+            '在开始的画面输入即可找回<b>全部</b>进度（含灵露与贝壳）。' +
+            '⚠️ 这等于账号的钥匙，只发给本人。</div>'
+          : '<div class="hint">这名学生还没有恢复码。' +
+            '（学生下次打开任何一个学段或码头、把那一次学习结束之后就会自动建立。）</div>') +
+      '</div>' +
       '<div class="sp-land code"><div class="sp-land-t">进度码</div>' +
         '<div class="hint">学生换了设备、清了浏览器资料时，把这段码给他，在「我的档案 › 恢复进度」贴上即可。' +
         '⚠️ 只包含掌握／认得与个人纪录，<b>不含灵露、贝壳、历练值、航海值</b>——' +
@@ -1909,7 +1988,8 @@ tbody tr.sp-row{cursor:pointer}
         out.innerHTML = '<textarea class="sp-code" readonly rows="4"></textarea>' +
           '<div class="sp-codeact"><button class="btn small primary" id="spCopy">复制进度码</button>' +
           '<span class="hint" id="spCopyMsg"></span></div>' +
-          '<div class="hint" style="margin-top:6px">包含：' + esc(r.lands.join("、")) + '。' +
+          '<div class="hint" style="margin-top:6px">包含：' + esc(r.lands.join("、")) +
+          (r.eco ? '，<b>以及灵露／贝壳等经济数据</b>（只会恢复到一台全新的设备上）' : '') + '。' +
           (r.missing.length ? ' <b>未包含</b>：' + esc(r.missing.join("、")) + '（词库未载入）。' : '') +
           /* ⚠️ says WHY a land is absent. A pier student whose code has no xh section
              would otherwise read it as「码头进度丢了」rather than「这台设备还没同步上来」. */
