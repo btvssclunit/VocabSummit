@@ -209,6 +209,89 @@
       });
     },
 
+    /* ================= 恢复码 claims/{code} (owner 2026-08-19) =================
+       owner:「is there a way for the student to enter a shorter code but still get their
+       progress restored?」+「override VS3, let the students restore everything」.
+       A student who changes device types ONE ten-character code instead of a long
+       progress string, and gets back mastery, records AND the economy.
+
+       ⚠️ THE DOCUMENT IS KEYED BY THE CODE, and firestore.rules explains why at length:
+       a lookup by query would require `list` on users/{uid}, and Firestore rules cannot
+       inspect a where-clause, so that would expose EVERY student's document. A get() of
+       a document whose id you must already know has exactly the property we want.
+       ⚠️ THE CODE IS A SECRET, so it must never be logged, never published to a board,
+       and never derived from the uid — a derived code would be forgeable from the 8-char
+       uid prefix the leaderboard already shows.
+       ⚠️ WRITE CADENCE IS DELIBERATELY SLOW (callers use the session-flush path, not the
+       2.5s progress debounce). Mirroring the whole store on every save would DOUBLE this
+       project's Firestore write volume, and 「the state at the end of your last session」
+       is the right granularity for a lost-device backup anyway.
+       ⚠️ EVERY ENTRY POINT FAILS SOFT. §16 notes several rules blocks ship unpublished;
+       until this one is live every call here returns permission-denied, and the app must
+       carry on exactly as before rather than blocking a student who just wants to play. */
+    /* ⚠️ NO 0/O/1/I/L. This code gets read off a screen and typed by an 11-year-old, and
+       those five are the transcription errors that actually happen. 31 symbols ^ 10 is
+       ~8×10^14, which is not the threat model anyway (see the rules file). */
+    makeClaimCode: function () {
+      var A = "23456789ABCDEFGHJKMNPQRSTUVWXYZ", out = "", i;
+      var buf = null;
+      try {
+        if (window.crypto && window.crypto.getRandomValues) {
+          buf = new Uint32Array(10);
+          window.crypto.getRandomValues(buf);
+        }
+      } catch (e) { buf = null; }
+      for (i = 0; i < 10; i++) {
+        /* ⚠️ Math.random is the FALLBACK, not the default: it is not a CSPRNG, and this
+           string is the only thing standing between a stranger and a student's account. */
+        var r = buf ? buf[i] : Math.floor(Math.random() * 0xffffffff);
+        out += A.charAt(r % A.length);
+      }
+      return out;
+    },
+    /* payload = the whole restore snapshot, assembled by profile.js. cb(ok) */
+    saveClaim: function (code, payload, cb) {
+      cb = cb || function () {};
+      if (!code) { cb(false); return; }
+      whenReady(function () {
+        db.collection("claims").doc(code).set({
+          uid: _uid, payload: payload,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: false })
+          .then(function () { cb(true); })
+          .catch(function (e) { console.warn("saveClaim failed:", e && e.code); cb(false); });
+      });
+    },
+    /* cb(payload | null, reason). reason is "notfound" | "denied" | "error" so the
+       restore screen can tell「打错了」from「规则还没发布」— they need different words. */
+    readClaim: function (code, cb) {
+      cb = cb || function () {};
+      if (!code) { cb(null, "notfound"); return; }
+      whenReady(function () {
+        db.collection("claims").doc(code).get()
+          .then(function (snap) {
+            if (!snap.exists) { cb(null, "notfound"); return; }
+            var d = snap.data() || {};
+            cb(d.payload || null, d.payload ? "" : "error");
+          })
+          .catch(function (e) {
+            cb(null, (e && e.code === "permission-denied") ? "denied" : "error");
+          });
+      });
+    },
+    /* rotating a code = drop the old document, then mint and save a new one. Only the
+       owner may delete (rules), so a failure here is never silent data loss for anyone
+       else — the old code simply keeps working until it is overwritten. */
+    deleteClaim: function (code, cb) {
+      cb = cb || function () {};
+      if (!code) { cb(false); return; }
+      whenReady(function () {
+        db.collection("claims").doc(code).delete()
+          .then(function () { cb(true); })
+          .catch(function (e) { console.warn("deleteClaim failed:", e && e.code); cb(false); });
+      });
+    },
+
     /* ---- 意见反馈工单 (2026-08-14) ----
        The ticket ID carries the rate limit (see firestore.rules): the client
        tries slot 0..4 for today and stops at the first that succeeds. A slot

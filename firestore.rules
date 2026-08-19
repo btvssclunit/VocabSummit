@@ -42,6 +42,46 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // ===== 恢复码 claims/{code} (owner 2026-08-19) =====================
+    // A student who changes device types ONE short code (10 chars) instead of an
+    // ~800-character progress string, and gets everything back — mastery, records,
+    // 灵露 / 贝壳 / 营地 / 海滩. The document IS the restore payload.
+    //
+    // ⚠️ KEYED BY THE CODE, NOT BY uid, AND THAT IS THE WHOLE SECURITY DESIGN.
+    // The obvious alternative — keep the code on users/{uid} and let a new device run
+    // users.where("claimCode","==",x) — CANNOT BE SECURED. Firestore rules cannot see a
+    // query's where-clause: `allow read` covers get AND list, so permitting that lookup
+    // means permitting ANY signed-in user to list every student's full progress
+    // document. There is no rule that says "only when filtered by claimCode".
+    // Keying by the code turns the lookup into a get() of a document whose ID you must
+    // already know, which is exactly the property we want.
+    //
+    // ⚠️ `list` IS DENIED EXPLICITLY. It is already denied by omission; it is spelled
+    // out because granting it later — even by writing a lazy `allow read` — would
+    // silently turn the code from a secret into an index and expose every payload.
+    // NEVER widen this to `allow read`.
+    //
+    // ⚠️ Guessing: 10 chars from a 32-symbol alphabet is ~10^15, one network
+    // round-trip per attempt, against a few hundred real documents. Brute force is not
+    // the threat model; a shoulder-surfed code is, which is why the code is rotatable
+    // (delete + re-mint) and why it is never printed on the leaderboard.
+    //
+    // ⚠️ The owning uid rides INSIDE the document so writes can be checked. create
+    // requires you to stamp your own uid; update requires the doc to already be yours,
+    // so nobody can squat on or overwrite another student's code.
+    match /claims/{code} {
+      allow get:    if request.auth != null;
+      allow list:   if false;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && code.size() >= 8 && code.size() <= 24;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+      // rotating a code = delete the old document; only its owner may do that
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
     // restore log: students append their own rows, never read/edit/delete them.
     match /restoreLog/{logId} {
       allow create: if request.auth != null

@@ -800,6 +800,20 @@
      saveStore()/save() from that engine.
 
      WHAT IS DELIBERATELY NOT IN THE CODE
+     ⚠️ THE NO-CURRENCY RULE BELOW WAS OVERRIDDEN BY THE OWNER ON 2026-08-19 — READ THE
+     WHOLE PARAGRAPH BEFORE ACTING ON EITHER HALF. Currency is to be restored, because
+     device repair and replacement are common enough that permanently losing 灵露 / 贝壳
+     is a real motivational cost, and it falls hardest on the students who played most.
+     ⚠️ THE ANALYSIS BELOW IS STILL CORRECT AND IS NOT REPEALED. It is now honoured by a
+     different mechanism — the virgin-account gate (CLAUDE.md §18ae): monotonic fields
+     (mastery / records / ownership) merge as they always did, while SNAPSHOT fields
+     (灵露, 贝壳, items, equip, berth) are written ONLY into an account that is still
+     untouched. Re-claiming therefore requires wiping the account first, which destroys
+     the purchase too, so the net gain is zero.
+     ⚠️ THE SNAPSHOT MUST BE APPLIED ATOMICALLY. Restoring the wallet while merging
+     ownership by union lets the avatar survive the wipe and re-opens the exploit. This
+     is the load-bearing decision; if you are here to remove the gate, the paragraph
+     below is what it is protecting.
      ⚠️ NO CURRENCY AND NO EFFORT TOTALS — no 灵露, no 贝壳, no 历练值, no 航海值. VS2 left
      them out and VS3 keeps that line, for a reason that is not tidiness: spend 200 灵露
      on an avatar, restore an older code, and you would have the avatar AND the 200 back.
