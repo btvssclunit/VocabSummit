@@ -954,6 +954,16 @@ tbody tr.sp-row{cursor:pointer}
     var bytes = [], i;
     for (i = 0; i < Math.ceil(order.length / 8); i++) bytes.push(0);
     order.forEach(function (k, ix) { if (has(k)) bytes[ix >> 3] |= (1 << (ix & 7)); });
+    /* ⚠️ TRAILING ZERO BYTES ARE DROPPED — keep this identical to profile.js's copy,
+       which carries the full explanation. Safe without a version bump because
+       b64ToKeys reads past the end as NaN and `NaN & x` is 0, so a short mask decodes
+       as「not mastered」. A G3 newcomer's section goes 179 → 12 characters.
+       ⚠️ THIS IS THE SECOND WRITER OF THE WIRE FORMAT. I shipped the profile.js half
+       first and this half stayed padded — the codes still decoded perfectly (the two
+       are interchangeable by design) and the ONLY symptom was that teacher-issued codes
+       were silently ~2× longer than student-issued ones. Exactly the failure mode the
+       duplication note warns about, so: change one, change the other. */
+    while (bytes.length && bytes[bytes.length - 1] === 0) bytes.pop();
     var bin = "";
     for (i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

@@ -864,6 +864,21 @@
     var bytes = [], i;
     for (i = 0; i < Math.ceil(order.length / 8); i++) bytes.push(0);
     order.forEach(function (k, ix) { if (has(k)) bytes[ix >> 3] |= (1 << (ix & 7)); });
+    /* ⚠️ DROP THE TRAILING ZERO BYTES (owner 2026-08-19：「is there a way for the student
+       to enter a shorter code」). The mask carried one bit for EVERY word in the stream —
+       1,069 bits for G3 whether the student had mastered 30 words or 900 — so everything
+       after their last mastered word was zeros being typed out by hand. A G3 newcomer's
+       section goes 179 → 12 characters; a whole five-land code roughly halves.
+       ⚠️ THIS IS SAFE WITHOUT A FORMAT VERSION BUMP, and the reason is precise: b64ToKeys
+       reads `bin.charCodeAt(i >> 3)`, which returns NaN past the end of the string, and
+       `NaN & x` is 0 in JS. A short mask therefore decodes as「those words are not
+       mastered」— exactly what the dropped zero bytes meant. Verified in WebKit against
+       the UNMODIFIED decoder: identical output at 30 / 200 / 600 mastered words.
+       ⚠️ So codes already in students' inboxes keep working, and a code minted here is
+       still readable by an older build. Do NOT「tidy」this by padding the mask back out.
+       ⚠️ The `n` field still carries the land's FULL word count — it validates the mask
+       length and is what b64ToKeys clamps to. It is not the mask's length. */
+    while (bytes.length && bytes[bytes.length - 1] === 0) bytes.pop();
     var bin = "";
     for (i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
