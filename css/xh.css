@@ -1788,6 +1788,28 @@ body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
    它读的是**那一块**，读单块不泄漏语序，与选项喇叭同理。 */
 .xh-ttts{background:none;border:0;cursor:pointer;font-size:14px;line-height:1;
   padding:6px 2px;color:var(--sea2);opacity:.72}
+/* ---------- 拼块拼音 (owner vetted 2026-08-19) ----------
+   ⚠️ EVERY RULE HERE CARRIES THE body.xh-py-on PREFIX (§18e). The gate itself is
+   `body.xh-py-on .xh-py` = (0,2,1); an unprefixed `.xh-sort .xh-tile-w .xh-py` is
+   (0,3,0), which beats the OFF half and loses to the ON half — the override silently
+   does nothing and the 拼音 renders at the shared 13px in the wrong colour. This has
+   already cost two rounds elsewhere (the 🔊 label, the 看句选词 English).
+   ⚠️ The tile becomes a two-line stack, so it needs its own block layout: the gate
+   sets the span to display:block, and a button does not lay that out sensibly on its
+   own. Tray and slots share the rules so a block looks identical before and after it
+   is placed — that sameness is what makes「it moved」readable.
+   ⚠️ 组字成词 (.xh-build) is NOT included: its tiles are single characters and its
+   answer IS a word's reading, so per-character 拼音 there would simply be the answer
+   (§18i — it has no speaker before answering for the same reason). */
+body.xh-py-on .xh-sort .xh-tile-w,
+body.xh-py-on .xh-sort .xh-slot{flex-direction:column;display:inline-flex;
+  align-items:center;justify-content:center;gap:1px;line-height:1.15}
+body.xh-py-on .xh-sort .xh-tile-w .xh-py,
+body.xh-py-on .xh-sort .xh-slot .xh-py{display:block;font-size:11px;font-weight:600;
+  letter-spacing:.01em;color:var(--sea1);opacity:.85;white-space:nowrap}
+/* the green prefix lock keeps its own ink, or the reading under a locked block would
+   still be the unlocked blue and read as「this one is different」 */
+body.xh-py-on .xh-sort .xh-slot.lock .xh-py{color:#2E6B44;opacity:.9}
 .xh-sort-acts{display:flex;justify-content:center;margin-top:2px}
 .xh-sort-acts .xh-btn[disabled]{opacity:.45;cursor:default}
 

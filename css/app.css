@@ -1815,7 +1815,40 @@ body{background-repeat:no-repeat;background-size:cover;background-position:cente
 .lb-row.gold{border-color:#E3A63C}
 .lb-row.silver{border-color:#B9C6D2}
 .lb-row.bronze{border-color:#CDA678}
-.lb-row.me{outline:2px solid var(--gold);background:#FDF6E4}
+/* ---------- 自己那一行 (owner 2026-08-19) ----------
+   owner:「the whole bar just stands out from the rest eg a diff colour or it glows」,
+   and「I don't want 你 to be there」. The old treatment was a flat #FDF6E4 with a hard
+   outline — at arm's length on a class projector that is nearly the same as the plain
+   card, which is exactly why the row needed a word bolted to the nickname to be found.
+   ⚠️ FOUR SIGNALS, NOT ONE, and that is the point: a gold gradient fill, a solid gold
+   border, an outer glow, and a gold bar down the leading edge. Colour alone fails for
+   a colour-blind student and fails again on a washed-out projector; the leading bar
+   and the weight survive both. This is what makes dropping「· 你」safe.
+   ⚠️ Deliberately NOT animated. §7 keeps decoration behind behaviour, a pulsing row on
+   a board that is re-rendered on every scope/board switch would fight its own repaint,
+   and G1/G2 are on the old iPads where a permanent animation costs battery for nothing.
+   ⚠️ inset, not outline: outline does not follow border-radius on older WebKit, so the
+   old rule drew a square halo around a 12px-rounded card on exactly the iPads that
+   matter. It also sat OUTSIDE the box and clipped against the neighbouring row.
+   ⚠️ Tier borders (gold/silver/bronze) are declared ABOVE this, so a 1st-place student
+   looking at their own row still gets the 自己 treatment — later rule wins at equal
+   specificity (§14). That is the right way round: 「which row is mine」 is the question
+   being asked, and the medal is already in the rank column. */
+.lb-row.me{border-color:var(--gold);border-width:2px;padding:9px 13px;
+  background:linear-gradient(180deg,#FFF6E0,#FDEDC8);
+  box-shadow:0 0 0 3px rgba(227,166,60,.22),0 4px 16px rgba(227,166,60,.30);
+  position:relative;overflow:hidden}
+/* the leading edge bar — the one cue that still reads with colour stripped out */
+.lb-row.me::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:linear-gradient(180deg,var(--gold),var(--gold-deep))}
+.lb-row.me .lb-id b{color:#5A3D05}
+.lb-row.me .lb-alt{color:#8A5A0F}
+/* ⚠️ the uid line needs its own ink on this fill. #9FB3C0 is a cool grey meant for a
+   white card (already only 2.17:1 there) and drops to 1.87:1 on the gold — on the ONE
+   row where it does its actual job, telling two identically-nicknamed students apart.
+   A warm grey at 4.20:1 keeps it quiet without making it decorative. */
+.lb-row.me .lb-uid{color:#7F7048}
+.lb-row.me .lb-school{color:#6B5A2E}
 .lb-rank{flex:none;width:58px;font-weight:800;color:var(--ink);font-size:14px}
 .lb-id{flex:1;min-width:0}
 .lb-id b{font-size:15px;color:var(--ink)}

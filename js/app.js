@@ -422,6 +422,26 @@
     s.enTel.promptTerm = s.enTel.promptTerm || "";           // 学期上限用
     s.enTel.promptTermCount = s.enTel.promptTermCount || 0;
     s.enTel.regressionAt = s.enTel.regressionAt || 0;        // 回退旗标: 记录当时的 sessionsTotal
+    /* ---- 支援开关的「什么时候」(owner 2026-08-19) ----
+       owner:「数据不足／观察中 is not helpful to me as a teacher … will it stamp when did
+       they turn on the support and when they turned it off?」— IT DID NOT. Everything
+       above is counters plus a 10-session rolling window of booleans: not one date, so
+       the dashboard could only ever say「趋势 持平」and needed 6 sessions before it said
+       even that. That is the whole reason it read 数据不足 to a teacher.
+       ⚠️ A CHANGE LOG, NOT A SESSION LOG. One entry per actual on→off / off→on flip,
+       so「8月14日 关掉，之后没再开」is answerable from the FIRST flip — a rolling ratio
+       needs six sessions before it can say anything at all. It is also tiny: a student
+       who flips twice a term stores two rows.
+       ⚠️ DATES START NOW AND ARE NEVER BACKFILLED, exactly as 航海徽章's sailLog (§18v).
+       An existing student's log starts empty and gains its baseline at their next round;
+       the dashboard says 未记录 rather than inventing a date. A made-up「开始使用」is
+       worse than admitting we do not know.
+       ⚠️ 拼音 gets its OWN log and had NO telemetry at all before. It is not folded into
+       enTel: they are two independent decisions by the student, and one array holding
+       both would make「关掉了哪一个」a parsing problem. */
+    s.enTel.log = (s.enTel.log instanceof Array) ? s.enTel.log : [];
+    s.pyTel = s.pyTel || {};
+    s.pyTel.log = (s.pyTel.log instanceof Array) ? s.pyTel.log : [];
     s.pkMode = s.pkMode || "cloze";    // 同伴挑战 题型
     s.pkDur = s.pkDur || 300;          // 同伴挑战 时长(秒)
     s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
@@ -514,6 +534,52 @@
   window.addEventListener("pagehide", flushCloudSyncNow);
   window.addEventListener("beforeunload", flushCloudSyncNow);
 
+  /* ---------- merging two devices' aid logs ----------
+     ⚠️ UNION BY (date, state), NOT「take the longer array」. A student really does use a
+     school Chromebook and a home iPad, and each only ever saw its own flips — whichever
+     array is longer, taking it whole would silently delete the other device's history.
+     Union keeps every decision, and re-running it changes nothing (the same property
+     that makes 进度码 restore safe, §18r).
+     ⚠️ Re-collapse after merging: interleaving two devices can put two rows with the
+     same state next to each other (both devices independently「开」), which reads as a
+     flip that never happened. Only genuine changes survive.
+     ⚠️ Trims from index 1, same as aidLogPush — the origin row is the one fact that
+     cannot be reconstructed. */
+  /* ⚠️ DECLARED HERE, not next to aidLogPush 2,700 lines below, even though that is
+     where it reads most naturally. mergeAidLog runs from a cloud callback and would
+     therefore find it assigned — but this file already carries a scar from exactly this
+     shape (xh.js load() normalises with literals「NOT ROUND_SIZES/OPT_TIERS … this runs
+     at module init, before those vars are assigned」). Keeping the constant above its
+     earliest user means no future caller can move into the gap and silently get
+     undefined, which trims the log to nothing rather than throwing. */
+  var AID_LOG_CAP = 30;
+  function mergeAidLog(lt, ct) {
+    if (!lt || !ct || !(ct.log instanceof Array) || !ct.log.length) return false;
+    var mine = (lt.log instanceof Array) ? lt.log : (lt.log = []);
+    var seen = {}, all = [];
+    mine.concat(ct.log).forEach(function (e) {
+      if (!e || typeof e.d !== "string") return;
+      var k = e.d + "|" + (e.on ? 1 : 0);
+      if (seen[k]) return;
+      seen[k] = 1; all.push({ d: e.d, on: e.on ? 1 : 0 });
+    });
+    all.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.on - b.on); });
+    var out = [];
+    all.forEach(function (e) {
+      var last = out.length ? out[out.length - 1] : null;
+      if (last && last.d === e.d) { out[out.length - 1] = e; return; }  // one row per day
+      if (last && last.on === e.on) return;                            // not a change
+      out.push(e);
+    });
+    while (out.length > AID_LOG_CAP) out.splice(1, 1);
+    var same = out.length === mine.length && out.every(function (e, i) {
+      return mine[i] && mine[i].d === e.d && (mine[i].on ? 1 : 0) === e.on;
+    });
+    if (same) return false;
+    lt.log = out;
+    return true;
+  }
+
   /* merge cloud progress into local store — union only, mastery never
      decreases; used when a device's local storage has less than the cloud
      (e.g. fresh browser, cleared storage) */
@@ -596,7 +662,9 @@
       } else if (ct.promptTerm && !lt.promptTerm) {
         lt.promptTerm = ct.promptTerm; lt.promptTermCount = ct.promptTermCount || 0; changed = true;
       }
+      if (mergeAidLog(lt, ct)) changed = true;
     }
+    if (cloud.pyTel && mergeAidLog(store.pyTel, cloud.pyTel)) changed = true;
     Object.keys(cloud.stats || {}).forEach(function (mode) {
       if (!store.stats[mode]) store.stats[mode] = { a: 0, c: 0 };
       var la = store.stats[mode].a || 0, lc = store.stats[mode].c || 0;
@@ -2480,7 +2548,11 @@
           out += '<button class="lb-row' + (tier ? " " + tier : "") + (mine ? " me" : "") +
             '" data-lbu="' + esc(r.uid) + '">' +
             '<span class="lb-rank">' + lbMedal(rank) + ' ' + rank + '</span>' +
-            '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + (mine ? " · 你" : "") + '</b>' +
+            /* ⚠️ NO「· 你」AFTER THE NICKNAME (owner 2026-08-19：「I don't want 你 to be
+               there」). The row already says it is yours by being lit up; a word glued
+               onto the nickname reads as part of the name — and it is the one name on
+               the board the student did not choose. 启航码头 has never done this. */
+            '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + '</b>' +
             (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
             /* ⚠️ PREFIX ONLY, never the whole uid. The line exists to separate two
                students who picked the same nickname out of the fixed picker, and 8
@@ -3163,6 +3235,7 @@
       } else {
         t.manualOffCount += 1;
       }
+      aidLogPush(t, store.enAid);
       saveStore();
       applyEnAid();
       b.classList.toggle("on", store.enAid);
@@ -3179,6 +3252,27 @@
   var EN_PROMPT_COOLDOWN = 10;   // 拒绝后至少再等 10 个 session
   var EN_PROMPT_TERM_CAP = 2;    // 每学期最多提示 2 次
   var EN_REGRESSION_RUN = 5;     // 连续关闭 5+ session 后重开 = 回退
+  /* ---------- 支援开关的变化日志 ----------
+     Appends ONLY when the state actually changes, so the array is a history of
+     decisions rather than a history of page loads.
+     ⚠️ THE FIRST ENTRY IS NEVER TRIMMED. When the cap is hit we drop the SECOND row,
+     because「什么时候开始用的」is the one fact that cannot be recovered from anywhere
+     else — the recent flips can still be read off the tail. Trimming from the front
+     would quietly delete the origin of every long-running student.
+     ⚠️ Same-day re-flips collapse: a student who toggles off and straight back on has
+     not changed anything by the end of the day, and two rows with the same date and
+     opposite values read as a contradiction on the teacher's screen. */
+  function aidLogPush(tel, on) {
+    if (!tel) return;
+    var L = (tel.log instanceof Array) ? tel.log : (tel.log = []);
+    var d = todaySG(), v = on ? 1 : 0, last = L.length ? L[L.length - 1] : null;
+    if (last && last.on === v) return;                 // no change, nothing to record
+    if (last && last.d === d) { L.pop(); }             // same-day flip-back: undo it
+    var prev = L.length ? L[L.length - 1] : null;
+    if (prev && prev.on === v) return;                 // …and it collapsed to no change
+    L.push({ d: d, on: v });
+    while (L.length > AID_LOG_CAP) L.splice(1, 1);     // keep [0], drop the next oldest
+  }
   var _enSessionCounted = false, _enPromptShown = false;
   /* called from bump(), i.e. the moment the first question of this load is
      answered — every mode routes its answers through bump() */
@@ -3190,6 +3284,10 @@
     if (on) t.sessionsWithEnOn += 1;
     t.last10Sessions.push(on);
     while (t.last10Sessions.length > 10) t.last10Sessions.shift();
+    /* baseline: the log needs a row saying what the state WAS before any flip, or the
+       first flip would look like the beginning of time. Costs one row, once, ever. */
+    aidLogPush(t, on);
+    aidLogPush(store.pyTel, !!store.pyAid);
     saveStore();
   }
   function enFadeEligible() {
@@ -3227,6 +3325,7 @@
     ov.querySelector("#enTry").onclick = function () {
       store.enAid = false;
       store.enTel.manualOffCount += 1;
+      aidLogPush(store.enTel, false);
       saveStore(); applyEnAid(); ov.remove();
       var b = document.getElementById("tbEn");
       if (b) { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); }
@@ -3266,7 +3365,9 @@
     var b = document.getElementById("tbPy");
     if (!b) return;
     b.onclick = function () {
-      store.pyAid = !store.pyAid; saveStore();
+      store.pyAid = !store.pyAid;
+      aidLogPush(store.pyTel, store.pyAid);
+      saveStore();
       b.classList.toggle("on", store.pyAid);
       b.setAttribute("aria-pressed", store.pyAid ? "true" : "false");
       applyPyAid();                       // interface pinyin: one class flip

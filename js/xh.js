@@ -219,7 +219,35 @@
   }
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+    scheduleCloudSync();
   }
+  /* ---------- cloud mirror of ws_xh (owner 2026-08-19) ----------
+     ⚠️ THE PIER HAD NO CLOUD BACKUP AT ALL until now. xh.js pushed dockScores (a
+     narrow leaderboard row: nickname + 航程 + 航海值) and nothing else, so
+     users/{uid}.progress had four mountains and no 启航码头. Two consequences, both
+     real: a pier student who cleared their browser lost everything with no way back,
+     and 教师后台 could not rebuild a student's 进度码 because a quarter of the format
+     (§18r's xh section) simply did not exist server-side.
+     ⚠️ THIS DOES NOT CROSS THE WATERLINE (§4). The guarantee that carries weight is
+     「app.js never reads ws_xh, xh.js never touches ws2_*」and neither engine gained a
+     line: this writes xh's OWN store to its OWN key (progress.xh) through the shared
+     WSCloud helper, exactly as app.js writes progress.{stream}. No currency converts,
+     no rate is implied, and app.js still has no path to this data.
+     ⚠️ Debounced 2.5s and flushed on pagehide, copied from app.js's scheduleCloudSync
+     — 连线 saves once per pair, and a write per pair would be a write storm. */
+  var _cloudSyncTimer = null;
+  function scheduleCloudSync() {
+    if (!window.WSCloud || !window.WSCloud.isAvailable() || !window.WSCloud.saveProgress) return;
+    clearTimeout(_cloudSyncTimer);
+    _cloudSyncTimer = setTimeout(flushCloudSyncNow, 2500);
+  }
+  function flushCloudSyncNow() {
+    if (!window.WSCloud || !window.WSCloud.isAvailable() || !window.WSCloud.saveProgress) return;
+    clearTimeout(_cloudSyncTimer);
+    window.WSCloud.saveProgress("xh", store);
+  }
+  window.addEventListener("pagehide", flushCloudSyncNow);
+  window.addEventListener("beforeunload", flushCloudSyncNow);
   /* ⚠️ counts KEYS, so a line the student re-reads is still one line. Deliberately
      NOT filtered against the current PHRASES ids: a sentence retired from the library
      (two went on 2026-08-16) should not quietly un-read itself. */
@@ -1228,6 +1256,28 @@
        Three sentences ship this way on purpose (樟宜机场 · 鱼汤 · 咖喱鸡).
        ⚠️ If an ask↔tile mapping is ever really needed, add an explicit field — do
        not go back to guessing it by string equality. */
+    return true;
+  }
+  /* ---------- segPy: may this sentence SHOW 拼音 (owner vetted 2026-08-19) ----------
+     ⚠️ DELIBERATELY NOT A FOURTH CLAUSE INSIDE segOK(), and the difference is not
+     cosmetic. segOK() decides whether a sentence may be PLAYED; a missing segPy would
+     therefore delete the sentence from 重整句子 altogether, silently shrinking the
+     library. Pinyin here is optional scaffolding, not content (backfill handoff §5),
+     so the correct failure is DEGRADE, not DROP — which is what that handoff's own §4
+     asks for in words (「否则这一句整句不发拼音」) even though it filed the check under
+     segOK. All 73 sentences pass today, so the difference would be invisible now and
+     would surface later as a sentence that simply stopped appearing.
+     ⚠️ WHOLE-SENTENCE GATE, never per block. Half a tray with 拼音 means「the blocks
+     WITH 拼音 are the real ones」— the decoys come from the word list and can always be
+     looked up, the seg blocks are ordinary words that mostly cannot. That asymmetry is
+     the entire reason this data had to be authored by hand (§18m); leaking it through a
+     per-block fallback would be worse than showing no 拼音 at all. */
+  function segPyOK(p) {
+    if (!p || !(p.segPy instanceof Array) || !(p.seg instanceof Array)) return false;
+    if (p.segPy.length !== p.seg.length) return false;
+    for (var i = 0; i < p.segPy.length; i++) {
+      if (typeof p.segPy[i] !== "string" || !p.segPy[i]) return false;
+    }
     return true;
   }
   /* ---------- 多个合法答案 (PATCH_03) ----------
@@ -4189,8 +4239,10 @@
      (see the head of js/tts.js) and a generated fallback is exactly what §8 forbids.
      The 拼音 gate having nothing to show here is the normal state, not a defect. */
   function sortTiles(p) {
-    /* [{i, t}] — `i` is identity, `t` is only what it says. */
-    var tiles = p.seg.map(function (t, i) { return { i: i, t: t }; });
+    /* [{i, t, py}] — `i` is identity, `t` is only what it says, `py` is the vetted
+       reading for that block (empty string when this sentence gets no 拼音). */
+    var pyOK = segPyOK(p);
+    var tiles = p.seg.map(function (t, i) { return { i: i, t: t, py: pyOK ? p.segPy[i] : "" }; });
     var extra = DIFF_SORT[diffIx()];
     if (extra) {
       /* ⚠️ DECOYS COME FROM THE ask WORD'S OWN 组别 — the one distractor rule the
@@ -4204,11 +4256,29 @@
         p.seg.forEach(function (t) { inSeg[t] = 1; });
         var pool = distractors(w, extra + 4, "sort").filter(function (o) { return !inSeg[o.词语]; });
         pool.slice(0, extra).forEach(function (o, k) {
-          tiles.push({ i: p.seg.length + k, t: o.词语, decoy: true });
+          /* ⚠️ the decoy's reading comes from ITS OWN word row, which always has one —
+             they are 词条 by construction. It is still only shown when the SENTENCE
+             qualifies, so「has 拼音」can never mark a block out either way. */
+          tiles.push({ i: p.seg.length + k, t: o.词语, decoy: true,
+                       py: pyOK ? String(o.拼音 || "") : "" });
         });
       }
     }
+    /* ⚠️ ONE LAST WHOLE-BOARD SWEEP. The sentence gate above is not sufficient on its
+       own: if a single decoy came back without a reading, it would be the one tile with
+       no 拼音 on an otherwise annotated board — the leak this whole exercise exists to
+       close, rebuilt from the other end. All 148 word rows carry 拼音 today, so this
+       never fires; it fires the day one does not, and it fails to「no 拼音 anywhere」
+       rather than to「the odd one out is the decoy」. */
+    for (var t = 0; t < tiles.length; t++) {
+      if (!tiles[t].py) { tiles.forEach(function (x) { x.py = ""; }); break; }
+    }
     return shuffle(tiles);
+  }
+  /* "" when this board gets no 拼音 — the empty string is what makes the gate a
+     whole-board decision rather than something each call site re-decides. */
+  function tilePy(t) {
+    return t && t.py ? '<span class="xh-py">' + esc(t.py) + "</span>" : "";
   }
   function renderSort() {
     var p = state.seq[state.i];
@@ -4240,9 +4310,12 @@
        teach, so making it tappable would just add a square that must be pressed. */
     h += (end ? '<span class="xh-slot-end">' + esc(end[0]) + "</span>" : "") + "</div>";
     h += '<div class="xh-tray" id="xhTray">';
+    /* ⚠️ 拼音 rides the ORDINARY body.xh-py-on gate, NOT .xh-always (backfill §5).
+       词语闪卡 is learn-then-test, so its reading is content; 重整句子 is the test, so the
+       reading is optional scaffolding and must follow the student's own toggle. */
     tiles.forEach(function (t) {
       h += '<div class="xh-tilewrap"><button class="xh-tile-w" data-i="' + t.i + '">' +
-        esc(t.t) + "</button>" +
+        esc(t.t) + tilePy(t) + "</button>" +
         /* ⚠️ sibling speaker, never nested (§14「喇叭嵌在选项里」). It reads ONE block,
            which gives away nothing about the order. */
         '<button class="xh-ttts" data-s="' + t.i + '" title="朗读" aria-label="朗读">🔊</button></div>';
@@ -4269,7 +4342,11 @@
     function paint() {
       slots.forEach(function (s, k) {
         var t = placed[k] === null ? null : tileById(placed[k]);
-        s.textContent = t ? t.t : "";
+        /* ⚠️ innerHTML + re-emit the annotation, NOT textContent (§14「textContent 抹掉
+           注解」). A slot is rewritten on every tap; textContent would drop the 拼音 the
+           moment a block was placed, so the tray would be annotated and the sentence
+           being built would not. */
+        s.innerHTML = t ? (esc(t.t) + tilePy(t)) : "";
         s.classList.toggle("filled", !!t);
         s.classList.toggle("lock", k < locked);
       });

@@ -131,6 +131,7 @@ tbody tr:hover{background:#F7FBFE}
 .col-n{text-align:right}
 td.col-n b{font-size:13.5px}
 .col-uid{width:1%}
+.col-act{width:1%;white-space:nowrap}
 code.uid{background:#F0F5FA;border:1px solid var(--line);border-radius:6px;padding:1px 5px}
 .btn.tiny{padding:2px 8px;font-size:11px;border-radius:8px;font-weight:600}
 .btn.tiny.ok{background:#E4F0E6;border-color:#8FBF9E;color:#2F5A3C}
@@ -146,7 +147,8 @@ th .fbtn{border:1px solid transparent;border-radius:6px;background:none;cursor:p
 th .fbtn:hover{background:#E3EEF7;color:var(--sea1)}
 th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
 .fdd{position:absolute;z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;
-  box-shadow:0 14px 36px rgba(23,58,90,.3);padding:11px 12px;width:262px;font-size:13px}
+  box-shadow:0 14px 36px rgba(23,58,90,.3);padding:11px 12px;width:262px;font-size:13px;
+  max-width:calc(100vw - 16px)}
 .fdd .fdd-t{font-family:var(--serif);font-weight:700;font-size:13px;color:var(--gold-deep);
   letter-spacing:.06em;margin-bottom:8px}
 .fdd input{width:100%}
@@ -157,7 +159,17 @@ th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
   font-weight:400;font-size:12.5px;letter-spacing:0;color:var(--ink);white-space:normal}
 .fdd .flist label input{width:auto;flex:none}
 .fdd .flist .fn{margin-left:auto;color:var(--ink-soft);font-size:11px;flex:none}
-.fdd .frange{display:flex;gap:6px;align-items:center}
+/* ⚠️ STACKED, not a 从[input]至[input] row (owner 2026-08-19: the end date was
+   invisible on her SSOE laptop but fine on the Mac mini). Chrome on Windows draws
+   input[type=date] far wider than Safari does — mm/dd/yyyy plus spinner plus a
+   calendar button — and a flex item does not shrink below that intrinsic width
+   (§14「grid/flex 子项不缩」), so the second box was pushed clean out of the 262px
+   dropdown and clipped. min-width:0 alone would fix the overflow but leave two
+   cramped boxes whose width depends on the platform; two rows are the same on
+   every machine. minmax(0,1fr), never 1fr, for the same reason. */
+.fdd .frange{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px 8px;align-items:center}
+.fdd .frange .fr-l{margin:0;font-size:12px;color:var(--ink-soft);letter-spacing:.04em;white-space:nowrap}
+.fdd .frange input{min-width:0}
 .fdd .fact{display:flex;gap:6px;margin-top:10px}
 /* active-filter summary above the table: every filter is visible and removable
    in one place, so a teacher can never be confused by a hidden filter. */
@@ -190,6 +202,70 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 .tov{position:fixed;inset:0;background:rgba(20,40,70,.5);display:flex;align-items:center;
   justify-content:center;z-index:50;padding:20px}
 .tov .card{max-width:420px;width:100%;margin-bottom:0}
+/* ---------- 学生档案卡 (owner 2026-08-19) ----------
+   ⚠️ THE CARD SCROLLS, THE OVERLAY DOES NOT. .tov is align-items:center; a centred
+   flex container whose child is taller than itself overflows in BOTH directions and
+   the top half can never be scrolled to (§18n — that is exactly how the room
+   leaderboard lost its top two places). Capping the CARD and letting it scroll means
+   the overlay is never taller than the viewport, so the trap does not exist here. */
+.tov.wide .card{max-width:880px;max-height:calc(100vh - 40px);overflow:auto;position:relative}
+.sp-x{position:absolute;top:10px;right:12px;border:none;background:none;cursor:pointer;
+  font-size:17px;line-height:1;color:#8AA2B4;padding:4px 6px;border-radius:8px}
+.sp-x:hover{background:#EAF1F8;color:var(--bad)}
+.sp-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding-right:26px}
+/* 132px matches 我的档案 on the student side (§18p): this is the one screen with room
+   for the avatar to read as the student's face rather than as a form icon. */
+.sp-av{width:96px;height:96px;border-radius:50%;overflow:hidden;background:#F0F5FA;
+  border:3px solid var(--gold);flex:none;box-shadow:0 4px 14px rgba(23,58,90,.18)}
+.sp-av img{width:100%;height:100%;object-fit:cover;display:block}
+.sp-id{min-width:0;flex:1 1 260px}
+.sp-id h2{margin:0 0 5px}
+.sp-meta{font-size:13px;color:var(--ink-soft);line-height:1.8}
+.sp-uid{font-size:12px;color:var(--ink-soft);margin-top:5px}
+.sp-uid code{background:#F0F5FA;border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+.sp-land{border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:12px;
+  background:#F9FCFE}
+.sp-land.pier{background:#F5FAFD;border-color:#CFE2EF}
+.sp-land.code{background:#FFFBF2;border-color:var(--gold)}
+.sp-land-t{font-family:var(--serif);font-weight:700;font-size:14px;color:var(--gold-deep);
+  letter-spacing:.06em;margin-bottom:9px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+/* auto-FIT, not auto-fill: auto-fill keeps the empty tracks, so a land with five stats
+   in an eleven-track grid stops three-quarters of the way across and reads as cut off
+   (§18q). minmax(0,…) so a long value shrinks instead of pushing the row out (§14). */
+.sp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px}
+.sp-stat{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+.sp-stat>b{display:block;font-family:var(--serif);font-size:19px;font-weight:900;color:var(--gold-deep);
+  line-height:1.25;word-break:break-all}
+.sp-stat>span{display:block;font-size:11px;color:var(--ink-soft);letter-spacing:.04em;margin-top:2px}
+.sp-stat>span>i{font-style:normal;opacity:.72}
+.sp-rec{font-size:12px;color:var(--ink-soft);margin-top:9px}
+.sp-aidland{border-top:1px solid var(--line);padding:8px 0 4px}
+.sp-aidland:first-child{border-top:0;padding-top:0}
+.sp-aidhead{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:5px;
+  display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.sp-aidrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:3px 0;font-size:12.5px}
+.sp-aidname{min-width:66px;color:var(--ink-soft)}
+.sp-aidwhen{font-weight:700;color:var(--ink-soft)}
+.sp-aidwhen.ok{color:#2F5A3C}
+.sp-aidwhen.warn{color:#7A5310}
+.sp-aidact{color:var(--ink-soft)}
+/* the flip history is the supporting detail, not the headline — it wraps to its own
+   line on a narrow card rather than competing with the verdict */
+.sp-aidtrail{flex:1 1 100%;font-size:11.5px;color:#8AA2B4;font-family:ui-monospace,Menlo,Consolas,monospace}
+.sp-empty{padding:14px 0}
+.sp-codebox{margin-top:9px}
+textarea.sp-code{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;
+  line-height:1.5;word-break:break-all;border:1px solid var(--line);border-radius:10px;
+  padding:9px 10px;background:#fff;resize:vertical}
+.sp-codeact{display:flex;gap:10px;align-items:center;margin-top:7px;flex-wrap:wrap}
+.sp-foot{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+/* the whole row opens the card, so it has to look clickable — and on a laptop trackpad
+   hover is the only affordance there is. 操作 keeps its own buttons; they stopPropagation. */
+tbody tr.sp-row{cursor:pointer}
+@media (max-width:560px){
+  .sp-av{width:72px;height:72px}
+  .sp-stats{grid-template-columns:repeat(auto-fit,minmax(84px,1fr))}
+}
 /* §2.2 出题设置: mode-specific settings sit in their own inset panel so it reads
    as "these belong to the mode you picked", not as more page-level controls. */
 .cfg-sub{background:#F4F9FD;border:1px solid #DBE7F1;border-radius:13px;
@@ -479,7 +555,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260818d"></script>
+<script src="js/podium.js?v=20260819"></script>
 <script>
 (function () {
   "use strict";
@@ -487,7 +563,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
      teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260818d";
+  var ASSET_V = "?v=20260819";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -503,6 +579,13 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var STREAMS = ["g1", "g2", "g3", "hcl"];
   var STREAM_LABEL = { g1: "G1", g2: "G2", g3: "G3", hcl: "HCL", xh: "码头" };
   var CAT_LABEL = { student: "学生", teacher: "教师", parent: "家长", public: "公众", "": "未填写" };
+  /* ⚠️ NOT STREAM_LABEL, and the split is the same one profile.js had to make (§18r):
+     STREAM_LABEL is printed in table headers and on the 擂台 top bar, where a two-line
+     name would wreck the row. These are the long names the 进度码 panel prints, and
+     "xh" has a row here that the short table has no business carrying. */
+  var CODE_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
+                     g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文",
+                     xh: "启航码头 · 学海启航" };
   /* 概览 icons: the five existing component badges, reused purely as category
      art (no new assets). They carry no achievement meaning here. 未填写 gets
      none — harbourCell hides its slot so the row stays aligned. */
@@ -606,6 +689,8 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
   var _restores = [];      // loaded restore log
   var _requests = [];      // pending teacher registration requests
   var _wordMap = null;     // id -> {w, zh, level, unit, stream}
+  var _wordOrder = null;   // stream -> [id,…] in PUBLISHED order (进度码 bitmask positions)
+  var _pierOrder = null;   // { xh:[词语,…], xhPhr:[phraseId,…] } — fetched on first 进度码
   var _tab = "overview";
   var _sort = { key: null, dir: 1 };
   /* per-column filters, keyed by column key. Shape depends on the column type:
@@ -794,19 +879,120 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
 
   function loadWordMap() {
     _wordMap = {};
+    _wordOrder = {};
     return Promise.all(STREAMS.map(function (s) {
       return fetch("data/" + s + ".json" + ASSET_V).then(function (r) { return r.json(); }).then(function (j) {
+        var ids = [];
         j.levels.forEach(function (lv) {
           lv.units.forEach(function (u) {
             u.components.forEach(function (c) {
               c.words.forEach(function (w) {
                 _wordMap[w.id] = { w: w.w, zh: w.zh, level: lv.level, unit: u.unit, stream: s };
+                /* ⚠️ PUBLISHED ORDER, captured in the same walk. 进度码 bitmasks are
+                   POSITIONAL over exactly this sequence (§18r), so it must be built by
+                   reading the file top to bottom — never from Object.keys(_wordMap),
+                   whose order is an implementation detail of the engine. */
+                ids.push(w.id);
               });
             });
           });
         });
+        if (ids.length) _wordOrder[s] = ids;
       }).catch(function () {});
     }));
+  }
+
+  /* ---------- 启航码头 word / phrase order, for 进度码 only ----------
+     Fetched separately from loadWordMap because the pier's two files have a different
+     shape entirely (a flat array of 词语 rows, and a {phrases:[…]} document) and
+     nothing else in this dashboard reads them. Cached for the page's lifetime. */
+  function loadPierOrder() {
+    if (_pierOrder) return Promise.resolve(_pierOrder);
+    var out = { xh: null, xhPhr: null };
+    return Promise.all([
+      fetch("data/xh_v3.json" + ASSET_V).then(function (r) { return r.json(); }).then(function (rows) {
+        var a = (rows || []).map(function (w) { return w["词语"]; });
+        if (a.length) out.xh = a;
+      }).catch(function () {}),
+      fetch("data/xh_phrases.json" + ASSET_V).then(function (r) { return r.json(); }).then(function (doc) {
+        var a = ((doc && doc.phrases) || []).map(function (ph) { return ph.id; });
+        if (a.length) out.xhPhr = a;
+      }).catch(function () {})
+    ]).then(function () { _pierOrder = out; return out; });
+  }
+
+  /* ================= 进度码 VS3, rebuilt from the CLOUD (owner 2026-08-19) ==========
+     owner: 「I need progress code for each student to be reflected in the teacher.html」.
+     A student who loses their device has no code to type in; the teacher can now read
+     one off the dashboard and hand it over.
+     ⚠️ THE FORMAT IS profile.js's, byte for byte (§18r) — this is the second WRITER of
+     a wire format, so it can never be「improved」on one side only:
+       VS3.{sec}~{sec}~….{nickB64}.{ck}
+       mountain: {stream}:{n}:{b64 mastered bitmask}:{bestStreak-rain-handle-assemble-sprint}
+       pier    : xh:{nWords}:{b64 done bitmask}:{nPhrases}:{b64 readLines bitmask}
+     ⚠️ _fnv1a / bitsToB64 / utf8ToB64url are DUPLICATED from profile.js on purpose,
+     the same deliberate duplication teacher.html already carries for the palette (§17):
+     this page loads no shared JS. Change one, change the other — the symptom of missing
+     it is a code the student's own device rejects as 已损坏.
+     ⚠️ SOURCE IS users/{uid}.progress, which is the student's whole store mirrored by
+     their engine. A land the student has never opened has no entry there and is OMITTED
+     from the code, never written as an empty section — an empty section would restore as
+    「zero mastered」on the other device, and the merge is only safe because it is a union.
+     ⚠️ NO CURRENCY, exactly as profile.js: no 灵露, no 贝壳, no 历练值, no 航海值. Spend
+     200 灵露 on an avatar, restore an older code, and you would have the avatar AND the
+     200 back. Mastery merges monotonically; currency does not. */
+  function _fnv1a(str) {
+    var h = 0x811c9dc5, i;
+    for (i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h.toString(36);
+  }
+  /* ⚠️ The `order` sequence IS the wire format; never sort it. */
+  function bitsToB64(order, has) {
+    var bytes = [], i;
+    for (i = 0; i < Math.ceil(order.length / 8); i++) bytes.push(0);
+    order.forEach(function (k, ix) { if (has(k)) bytes[ix >> 3] |= (1 << (ix & 7)); });
+    var bin = "";
+    for (i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function utf8ToB64url(str) {
+    try {
+      return btoa(unescape(encodeURIComponent(str)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch (e) { return ""; }
+  }
+  /* cb({ code, lands:[中文名…], missing:[中文名…] }) — code is null when the student
+     has no progress on any land whose order we could read. */
+  function buildProgressCode(u, cb) {
+    loadPierOrder().then(function (pier) {
+      var prog = u.data.progress || {}, secs = [], lands = [], missing = [];
+      STREAMS.forEach(function (k) {
+        if (!_wordOrder || !_wordOrder[k]) { missing.push(CODE_LABEL[k]); return; }
+        var st = prog[k];
+        if (!st) return;
+        var m = st.mastered || {}, best = st.best || {};
+        secs.push(k + ":" + _wordOrder[k].length + ":" +
+          bitsToB64(_wordOrder[k], function (id) { return !!m[id]; }) + ":" +
+          [st.bestStreak || 0, best.rain || 0, best.handle || 0,
+           best.assemble || 0, best.sprint || 0].join("-"));
+        lands.push(CODE_LABEL[k]);
+      });
+      if (!pier.xh) { missing.push(CODE_LABEL.xh); }
+      else if (prog.xh) {
+        var d = prog.xh.done || {}, rl = prog.xh.readLines || {};
+        secs.push("xh:" + pier.xh.length + ":" +
+          bitsToB64(pier.xh, function (w) { return !!d[w]; }) + ":" +
+          (pier.xhPhr ? pier.xhPhr.length : 0) + ":" +
+          (pier.xhPhr ? bitsToB64(pier.xhPhr, function (id) { return !!rl[id]; }) : ""));
+        lands.push(CODE_LABEL.xh);
+      }
+      if (!secs.length) return cb({ code: null, lands: lands, missing: missing });
+      var head = "VS3." + secs.join("~") + "." + utf8ToB64url(profOf(u).nickname || "");
+      cb({ code: head + "." + _fnv1a(head), lands: lands, missing: missing });
+    });
   }
 
   /* ---------- helpers ---------- */
@@ -829,37 +1015,127 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     });
     return best;
   }
-  /* 最近 5 session 的 on 比例 vs 再往前 5 的比例。
-     ⚠️ 上线默认阈值：差距 ≥ 0.4（5 次里差 2 次）才算升/降。设计文档要求累积
-     一学期真实数据后再校准，比照 段位 ladder 的做法。 */
-  var EN_TREND_DELTA = 0.4;
-  function enTrend(tel) {
-    var L = (tel && tel.last10Sessions) || [], i, offRun = 0;
-    if (L.length < 3) return { label: "数据不足", cls: "" };
-    for (i = L.length - 1; i >= 0 && !L[i]; i--) offRun++;
-    if (offRun >= 5) return { label: "已关闭", cls: "ok" };
-    if (L.length < 6) return { label: "观察中", cls: "" };
-    var recent = L.slice(-5), prev = L.slice(-10, -5);
-    function ratio(a) { return a.filter(Boolean).length / a.length; }
-    var d = ratio(recent) - ratio(prev);
-    if (d <= -EN_TREND_DELTA) return { label: "下降", cls: "ok" };
-    if (d >= EN_TREND_DELTA) return { label: "上升", cls: "warn" };
-    return { label: "持平", cls: "" };
+  /* ⚠️ enTrend / enTrendVal / EN_TREND_DELTA WERE DELETED HERE (owner 2026-08-19).
+     They computed「最近 5 session 的 on 比例 vs 再往前 5 的比例」and printed
+     数据不足／观察中／持平／上升／下降. Removed rather than reworded, because the measure
+     itself was wrong for the question a teacher asks: it needed ten sessions before it
+     said anything, and it scored 持平 for the student who switched English off on day
+     one and never went back — the best outcome the feature has. The dated change log
+     (aidVerdict, below) answers the same question from the first flip.
+     ⚠️ app.js still COLLECTS last10Sessions and regressionAt; only this readout went.
+     regressionAt survives in the card as「最近曾关掉后又开回来」, which is the one thing
+     it caught that a log starting on 2026-08-19 cannot yet see for older students. */
+  /* ================= 支援开关：说清楚「现在怎样」和「什么时候变的」================
+     owner:「数据不足／观察中 is not helpful to me as a teacher but it would be helpful to
+     know if they are weaning off. how to make this clearer and more actionable?」
+     ⚠️ THE OLD VERDICT COULD NOT BE MADE CLEARER — it was measuring the wrong thing.
+     提示趋势 compared the last 5 sessions' on-ratio against the 5 before, so it needed
+     TEN sessions before it could say anything and printed 数据不足 until then. Worse, a
+     student who turned English off on day one and never touched it again scored 持平 —
+     a flat trend — which is the single most encouraging outcome there is.
+     ⚠️ SO IT NOW REPORTS EVENTS, NOT A RATIO: what state they are in, since when, and
+     what changed before that. That is answerable from the FIRST flip, which is why the
+     「数据不足」problem disappears rather than being reworded.
+     ⚠️ DATES ONLY EXIST FROM 2026-08-19 (app.js aidLogPush). Anything earlier is
+     honestly 未记录 — never a guessed date (§18v, same rule as 航海徽章's first-earned). */
+  function aidLogOf(u, land, which) {
+    var st = (u.data.progress || {})[land];
+    if (!st) return [];
+    var tel = (which === "py") ? st.pyTel : st.enTel;
+    return (tel && tel.log instanceof Array) ? tel.log : [];
   }
-  /* 状态 and 趋势 are now two separate columns so each can be filtered on its
-     own (「给我所有趋势=下降的学生」). 回退 rides inside the 趋势 value rather
-     than being a third column: it is rare, and folding it in keeps it findable
-     in the filter list. */
-  function enStatus(u) { var e = enTelOf(u); return e ? (e.on ? "开" : "关") : "—"; }
-  function enTrendVal(u) {
+  function dLabel(d) { return String(d || "").replace(/^\d{4}-0?(\d+)-0?(\d+)$/, "$1月$2日"); }
+  function daysSince(d) {
+    var t = Date.parse(d + "T00:00:00");
+    if (isNaN(t)) return null;
+    return Math.floor((Date.now() - t) / 86400000);
+  }
+  /* one plain sentence a teacher can act on, plus the class it should be shown in */
+  /* ⚠️ `name` IS REQUIRED — this verdict is shared by 英文提示 AND 拼音辅助, and the
+     first draft hardcoded「不需要英文支援」, which printed under the PINYIN row for any
+     student who had never turned pinyin on. A shared judgement must not name one of the
+     two things it judges. */
+  function aidVerdict(log, on, name) {
+    if (!log.length) {
+      return { cls: "", txt: "开关变化未记录（2026-08-19 之后才开始记录）",
+               act: on ? "现在开着。" : "现在关着。" };
+    }
+    var last = log[log.length - 1], since = daysSince(last.d);
+    var flips = log.length - 1;   // the first row is the baseline, not a change
+    var days = (since !== null && since >= 0) ? "（已 " + since + " 天）" : "";
+    var when = dLabel(last.d) + "起" + days;
+    if (!last.on) {
+      /* off, and it has stuck: this is the outcome the whole feature is for */
+      if (flips === 0) {
+        /* ⚠️ NOT「一直没开过 · 8月2日起」— that date is when RECORDING began, not when
+           the student decided anything, and printing it as a start date claims we know
+           something we do not (§18v). */
+        return { cls: "ok", txt: "一直没开过（" + dLabel(last.d) + " 有记录以来）",
+                 act: "不需要" + name + "。" };
+      }
+      return { cls: "ok", txt: "已经关掉 · " + when,
+               act: since !== null && since >= 14 ? "两周以上没再开，可以视为断奶了。" : "刚关掉不久，留意会不会再开。" };
+    }
+    /* on. The useful split is「never tried without」vs「tried and came back」. */
+    if (flips === 0) return { cls: "warn", txt: "一直开着（" + dLabel(last.d) + " 有记录以来）",
+                              act: "还没试过关掉，可以鼓励他试一次。" };
+    return { cls: "warn", txt: "关掉后又开回来 · " + when,
+             act: "值得看一眼：可能是遇到更难的单元。" };
+  }
+  /* the flip history, oldest first — 「开 → 8月14日 关 → 8月18日 开」 */
+  function aidTrail(log) {
+    if (log.length < 2) return "";
+    return log.map(function (e, i) {
+      return (i === 0 ? "" : dLabel(e.d) + " ") + (e.on ? "开" : "关");
+    }).join(" → ");
+  }
+  /* ---- 学习支援：拼音 / 英文 的开关状态 (owner 2026-08-19) ----
+     owner:「can I also see if they've toggled pinyin on?」— it was nowhere in the
+     dashboard, even though it is the single clearest signal of how much scaffolding a
+     student is still leaning on.
+     ⚠️ NEITHER AID EXISTS ON HCL (§10: G1/G2/G3 有，HCL 一个字节都不发). app.js gates the
+     拼音 toggle behind pyAidAvailable(), and enAidAvailable() is literally defined as
+     the same function — so BOTH are absent there, not just 拼音. Both stored flags are
+     still normalised to false, so reading them naively would print 关 for every HCL
+     student and read as「they turned it off」rather than「there is nothing to turn」.
+     ⚠️ THE PIER USES DIFFERENT KEYS AND DIFFERENT DEFAULTS: store.py / store.en, both
+     defaulting to ON (§10 —「码头默认两个都开」), against the mountains' pyAid/enAid
+     which default OFF. Reading ws_xh with the mountain keys would report every pier
+     student as 关. */
+  function aidOf(u, land) {
+    var st = (u.data.progress || {})[land];
+    if (!st) return null;
+    if (land === "xh") return { py: st.py !== false, en: st.en !== false, na: false };
+    return { py: !!st.pyAid, en: !!st.enAid, na: (land === "hcl") };
+  }
+  /* the land the student has actually put the most into — the table has room for one
+     answer, and「their main subject」is the honest one. The card shows every land. */
+  function primaryLand(u) {
+    var prog = u.data.progress || {}, best = null, bestN = -1;
+    STREAMS.forEach(function (k) {
+      if (!prog[k]) return;
+      var n = Object.keys(prog[k].mastered || {}).length;
+      if (n > bestN) { bestN = n; best = k; }
+    });
+    if (prog.xh) {
+      var n2 = Object.keys(prog.xh.done || {}).length;
+      if (n2 > bestN) { bestN = n2; best = "xh"; }
+    }
+    return best;
+  }
+  function aidCellText(u) {
+    var land = primaryLand(u);
+    if (!land) return "—";
+    var a = aidOf(u, land);
+    if (a.na) return "拼 — · EN —";
+    return "拼 " + (a.py ? "开" : "关") + " · EN " + (a.en ? "开" : "关");
+  }
+  /* 回退: re-enabled after 5+ consecutive OFF sessions. Kept because it is the only
+     pre-2026-08-19 signal that survives for a student whose change log is still empty.
+     ⚠️ It is a SESSION INDEX, not a date, so it must never be printed as「N 月 N 日」. */
+  function enRegressed(u) {
     var e = enTelOf(u);
-    if (!e) return "—";
-    var tr = enTrend(e.tel);
-    /* 回退旗标: re-enabled after 5+ consecutive off sessions. Shown separately
-       because a rolling average would quietly absorb it. Not necessarily bad —
-       often a harder unit — but worth a teacher's eye. */
-    var back = (e.tel.regressionAt && (e.tel.sessionsTotal - e.tel.regressionAt) <= 10);
-    return tr.label + (back ? " · 🔁 回退" : "");
+    return !!(e && e.tel.regressionAt && (e.tel.sessionsTotal - e.tel.regressionAt) <= 10);
   }
   function lastActive(u) {
     var t = u.data.updatedAt;
@@ -914,22 +1190,27 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
           return n ? '<b>' + n + '</b>' : '<span class="hint">0</span>';
         } });
     });
-    cols.push({ k: "en", label: "英文提示", type: "list",
-      raw: enStatus,
+    /* ⚠️ ONE COLUMN, replacing 英文提示 + 提示趋势 (owner 2026-08-19). Two things drove it:
+       owner asked to see 拼音 (it was nowhere), and asked what 提示趋势 even was —
+       「is that pertaining to wordle? if so we can remove it」. It is not wordle: it is
+       the 英文提示 fading telemetry (is this student weaning off the English support).
+       ⚠️ THE TELEMETRY IS STILL COLLECTED AND STILL SHOWN — it moved into the student
+       card, it was not deleted. It reads「数据不足」for most of the cohort because it
+       needs 6+ sessions, so as a COLUMN it was two-fourteenths of the table's width
+       spent on a value that is usually blank; as one line on one student's page it is
+       exactly as informative and costs nothing.
+       ⚠️ Filterable on the combined text, so「给我所有 拼 开 的学生」still works. */
+    cols.push({ k: "aid", label: "学习支援", type: "list",
+      raw: aidCellText,
       cell: function (u) {
-        var v = enStatus(u);
-        if (v === "—") return '<span class="hint">—</span>';
-        return '<span class="pill ' + (v === "开" ? "warn" : "ok") + '">' + v + '</span>';
-      } });
-    cols.push({ k: "trend", label: "提示趋势", type: "list",
-      raw: enTrendVal,
-      cell: function (u) {
-        var e = enTelOf(u);
-        if (!e) return '<span class="hint">—</span>';
-        var tr = enTrend(e.tel);
-        var back = (e.tel.regressionAt && (e.tel.sessionsTotal - e.tel.regressionAt) <= 10)
-          ? ' <span class="pill warn" title="连续关闭后又重新开启，可能遇到更难的内容">🔁 回退</span>' : '';
-        return '<span class="pill' + (tr.cls ? " " + tr.cls : "") + '">' + tr.label + '</span>' + back;
+        var land = primaryLand(u);
+        if (!land) return '<span class="hint">—</span>';
+        var a = aidOf(u, land), t = " · 依据：" + (CODE_LABEL[land] || land);
+        if (a.na) return '<span class="hint" title="高级华文没有拼音／英文辅助">拼 — · EN —</span>';
+        return '<span class="pill ' + (a.py ? "warn" : "ok") + '" title="拼音辅助' + esc(t) + '">拼 ' +
+               (a.py ? "开" : "关") + '</span> ' +
+               '<span class="pill ' + (a.en ? "warn" : "ok") + '" title="英文提示' + esc(t) + '">EN ' +
+               (a.en ? "开" : "关") + '</span>';
       } });
     cols.push({ k: "active", label: "最近活跃", type: "date",
       raw: lastActive,
@@ -1012,9 +1293,12 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
       html += '<input type="text" id="fq" placeholder="包含…" value="' + esc(f ? f.q : "") + '">';
     } else {
       var t = (col.type === "date") ? "date" : "number";
-      html += '<div class="frange"><input type="' + t + '" id="fmin" placeholder="最小" value="' + esc(f ? f.min : "") + '">' +
-        '<span class="hint">至</span>' +
-        '<input type="' + t + '" id="fmax" placeholder="最大" value="' + esc(f ? f.max : "") + '"></div>';
+      var lab = (col.type === "date") ? ["从", "至"] : ["最小", "最大"];
+      html += '<div class="frange">' +
+        '<label class="fr-l" for="fmin">' + lab[0] + '</label>' +
+        '<input type="' + t + '" id="fmin" value="' + esc(f ? f.min : "") + '">' +
+        '<label class="fr-l" for="fmax">' + lab[1] + '</label>' +
+        '<input type="' + t + '" id="fmax" value="' + esc(f ? f.max : "") + '"></div>';
     }
     html += '<div class="fact"><button class="btn primary tiny" id="fApply">应用</button>' +
       '<button class="btn tiny" id="fClear">清除</button>' +
@@ -1028,8 +1312,14 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     // sits under its ▼ button, pulled back in when it would leave the viewport
     var r = anchor.getBoundingClientRect();
     var maxL = window.scrollX + document.documentElement.clientWidth - dd.offsetWidth - 10;
-    dd.style.top = (r.bottom + window.scrollY + 5) + "px";
     dd.style.left = Math.max(8, Math.min(r.left + window.scrollX, maxL)) + "px";
+    /* ⚠️ clamp VERTICALLY too, not just horizontally. 最近活跃 is the last column and
+       its ▼ sits near the bottom of a full table: unclamped, the dropdown opened
+       below the fold and 应用 could not be reached. Flip above the button when there
+       is no room below. */
+    var vh = document.documentElement.clientHeight, h = dd.offsetHeight;
+    var top = (r.bottom + 5 > vh - h - 8 && r.top > h + 8) ? (r.top - h - 5) : (r.bottom + 5);
+    dd.style.top = Math.max(8, Math.min(top, vh - h - 8)) + window.scrollY + "px";
 
     var q = dd.querySelector("#fq");
     if (col.type === "list") {
@@ -1302,23 +1592,29 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         '<span class="th-lab" data-s="' + esc(c.k) + '" title="点击排序">' + esc(c.label) + arrow + '</span>' +
         '<button class="fbtn' + (_colF[c.k] ? " on" : "") + '" data-f="' + esc(c.k) + '" title="筛选此列">▼</button>' +
         '</div></th>';
-    }).join("") + (canEdit ? '<th>操作</th>' : '') + '</tr>';
+    }).join("") + '<th>操作</th></tr>';
     var body = rows.map(function (u) {
-      return '<tr>' + cols.map(function (c) {
+      return '<tr class="sp-row" data-uid="' + esc(u.uid) + '">' + cols.map(function (c) {
         return '<td class="' + (c.cls || "") + '">' + c.cell(u) + '</td>';
       }).join("") +
-      (canEdit ? '<td><button class="btn small edit-prof" data-uid="' + esc(u.uid) + '">编辑</button></td>' : '') +
-      '</tr>';
+      /* ⚠️ 档案 is rendered for EVERY teacher, not just the HOD. The row click opens the
+         same card, but a click target with no visible control is invisible to anyone who
+         does not already know it is there — and non-HOD teachers had no 操作 column at
+         all, so they would have had no affordance whatsoever. */
+      '<td class="col-act"><button class="btn small view-prof" data-uid="' + esc(u.uid) + '">档案</button>' +
+      (canEdit ? ' <button class="btn small edit-prof" data-uid="' + esc(u.uid) + '">编辑</button>' : '') +
+      '</td></tr>';
     }).join("");
 
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">班级视图</h2>' +
       '<div class="hint" style="margin-bottom:10px">共 <b>' + rows.length + '</b> / ' + _users.length + ' 份档案。' +
       '点列名排序，点列名旁的 <b>▼</b> 按该列筛选，多列可叠加（与 Excel 相同）。' +
-      '筛选同时套用到「词语难点」。' + (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
+      '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、启航码头，以及可以给学生的进度码）。' +
+      (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
-      (body || '<tr><td colspan="' + (cols.length + (canEdit ? 1 : 0)) +
+      (body || '<tr><td colspan="' + (cols.length + 1) +
         '" class="hint">没有符合条件的档案（试试清除上方的筛选）。</td></tr>') +
       '</tbody></table></div></div>';
 
@@ -1334,12 +1630,20 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
     Array.prototype.forEach.call(panel.querySelectorAll(".fbtn"), function (b) {
       b.onclick = function (e) { e.stopPropagation(); openFilterDrop(colByKey(b.getAttribute("data-f")), b); };
     });
+    /* ⚠️ stopPropagation on every in-row control, or 复制/编辑 would ALSO open the
+       profile card behind the thing the teacher just pressed. */
     Array.prototype.forEach.call(panel.querySelectorAll(".copy-uid"), function (b) {
-      b.onclick = function () { copyUid(b.getAttribute("data-uid"), b); };
+      b.onclick = function (e) { e.stopPropagation(); copyUid(b.getAttribute("data-uid"), b); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".view-prof"), function (b) {
+      b.onclick = function (e) { e.stopPropagation(); openStudentCard(b.getAttribute("data-uid")); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll("tr.sp-row"), function (tr) {
+      tr.onclick = function () { openStudentCard(tr.getAttribute("data-uid")); };
     });
     if (canEdit) {
       Array.prototype.forEach.call(panel.querySelectorAll(".edit-prof"), function (b) {
-        b.onclick = function () { openEditProfile(b.getAttribute("data-uid")); };
+        b.onclick = function (e) { e.stopPropagation(); openEditProfile(b.getAttribute("data-uid")); };
       });
     }
   }
@@ -1388,6 +1692,235 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break
         ov.remove();
         renderPanel();
       }).catch(function (e) { msg.className = "msg bad"; msg.textContent = "保存失败：" + (e.code || e.message); });
+    };
+  }
+
+  /* ================= 学生档案卡 (owner 2026-08-19) =================================
+     owner: 「can it be redesigned such that when I click on a student, I can see their
+     profile page?」. 班级视图 is a 14-column wall: it answers「how is the class doing」
+     well and「how is THIS student doing」not at all — the four 掌握 columns are the only
+     per-student numbers in it, and everything the student actually accumulated (历练值,
+     灵露, 段位, 徽章, 纪录, 连续学习天数, the whole 启航码头) was loaded into the browser
+     and never shown. This card is that one student's page.
+     ⚠️ READ-ONLY except for the HOD's existing 编辑资料 path, which is unchanged and
+     still writes ONLY the top-level profile field (the Firestore rule enforces that, not
+     this code). Nothing here can touch mastery data.
+     ⚠️ THE CARD SCROLLS INSIDE ITSELF, the overlay does not. .tov is a centred flex box,
+     and §18n is the scar: a centred flex container whose content is taller than itself
+     overflows BOTH ways and the top half is unreachable, because scrollTop 0 is already
+     below the first row. Giving the card its own max-height + overflow means the overlay
+     never overflows at all, so the trap cannot be reached rather than being worked around. */
+  function avatarSrcById(id) {
+    /* every entry in profile.js's AVATAR_CATALOG follows art/avatar/avatar_{id}.png
+       (verified across all 21). ⚠️ The <img> carries an onerror that hides it, so a
+       future id that breaks the convention degrades to「no picture」rather than to a
+       broken-image glyph next to the student's name. */
+    return id ? ("art/avatar/avatar_" + id + ".png") : "";
+  }
+  var LADDER = {
+    g1:  [["初行客", 0], ["寻径人", 600], ["踏云者", 2500], ["凌霄客", 11000]],
+    g2:  [["初行客", 0], ["寻径人", 700], ["踏云者", 3100], ["凌霄客", 14000]],
+    g3:  [["初行客", 0], ["寻径人", 800], ["踏云者", 3500], ["凌霄客", 16000]],
+    hcl: [["初行客", 0], ["寻径人", 1000], ["踏云者", 4200], ["凌霄客", 18500]]
+  };
+  function rankOf(stream, total) {
+    var lad = LADDER[stream] || LADDER.g1, cur = lad[0];
+    for (var i = 0; i < lad.length; i++) if ((total || 0) >= lad[i][1]) cur = lad[i];
+    return cur[0];
+  }
+  /* ⚠️ Object.keys(badges).length is NOT the A-layer count (§12). Battle medals are
+     keyed b·… and live in the same map; counting the map would inflate every student
+     who has ever placed in a room. This is app.js's achBadgeCount() rule. */
+  function badgeCounts(st) {
+    var ks = Object.keys((st && st.badges) || {}), ach = 0, bat = 0;
+    ks.forEach(function (k) { if (k.indexOf("b\u00b7") === 0) bat++; else ach++; });
+    return { ach: ach, battle: bat };
+  }
+  function n0(v) { return Number(v || 0); }
+  function statHtml(label, value, sub) {
+    return '<div class="sp-stat"><b>' + esc(String(value)) + '</b>' +
+      '<span>' + esc(label) + (sub ? ' <i>' + esc(sub) + '</i>' : '') + '</span></div>';
+  }
+  /* one mountain. Returns "" when the student has never opened it — an empty card for
+     each of four untouched streams is what made the old table unreadable in the first
+     place, and「没有资料」repeated four times is not information. */
+  function mountainCardHtml(stream, st) {
+    if (!st) return "";
+    var pts = st.pts || {}, best = st.best || {}, bc = badgeCounts(st);
+    var termIds = Object.keys(pts.terms || {}).sort();
+    var thisTerm = termIds.length ? n0(pts.terms[termIds[termIds.length - 1]]) : 0;
+    var recs = [["词雨灵露", best.rain], ["词语汉兜", best.handle],
+                ["组词挑战", best.assemble], ["攀山竞速", best.sprint]]
+      .filter(function (r) { return n0(r[1]) > 0; })
+      .map(function (r) { return esc(r[0]) + " " + n0(r[1]); }).join(" · ");
+    return '<div class="sp-land">' +
+      '<div class="sp-land-t">' + esc(STREAM_LABEL[stream]) + ' ' + esc(CODE_LABEL[stream].split(" \u00b7 ")[0]) +
+        '<span class="pill">' + esc(rankOf(stream, n0(pts.total))) + '</span></div>' +
+      '<div class="sp-stats">' +
+        statHtml("海拔", Object.keys(st.mastered || {}).length, "掌握词数") +
+        statHtml("历练值", n0(pts.total), "累计") +
+        statHtml("本学期历练值", thisTerm) +
+        statHtml("灵露", n0(st.lingLu)) +
+        statHtml("最高连对", n0(st.bestStreak)) +
+        statHtml("成就徽章", bc.ach, "A层") +
+        statHtml("对战奖牌", bc.battle) +
+        statHtml("连续学习", n0(st.streak) + " 天") +
+      '</div>' +
+      (recs ? '<div class="sp-rec">个人纪录：' + recs + '</div>' : '') +
+      '</div>';
+  }
+  /* ⚠️ THE PIER IS NOT A FIFTH MOUNTAIN (§4 水线). Different words, different labels,
+     no 段位 — 航程 / 航海值 / 贝壳 never share a row or a heading with 海拔 / 历练值 /
+     灵露, and the three numbers are never summed. */
+  function pierCardHtml(st) {
+    if (!st) return "";
+    var bc = Object.keys(st.sailLog || {}).length;
+    return '<div class="sp-land pier">' +
+      '<div class="sp-land-t">' + esc(CODE_LABEL.xh) + '</div>' +
+      '<div class="sp-stats">' +
+        statHtml("航程", Object.keys(st.done || {}).length, "认得词数") +
+        statHtml("航海值", n0(st.sail)) +
+        statHtml("贝壳", n0(st.shells)) +
+        statHtml("读过", Object.keys(st.readLines || {}).length + " 句", "句子卡·走进社区") +
+        statHtml("航海徽章", bc + " / 9") +
+      '</div></div>';
+  }
+  /* per-land, because the answer genuinely differs per land: the mountains default
+     both aids OFF and the pier defaults both ON, so one summary line would be a
+     half-truth for whichever side it was not describing. */
+  function aidBlockHtml(u) {
+    var prog = u.data.progress || {}, out = [];
+    STREAMS.concat(["xh"]).forEach(function (k) {
+      if (!prog[k]) return;
+      var a = aidOf(u, k), name = (CODE_LABEL[k] || k).split(" \u00b7 ")[0];
+      if (a.na) {
+        out.push('<div class="sp-aidland"><div class="sp-aidhead">' + esc(name) +
+          '<span class="hint">这个学段刻意没有拼音／英文辅助</span></div></div>');
+        return;
+      }
+      var one = "";
+      [["en", "英文提示", a.en], ["py", "拼音辅助", a.py]].forEach(function (row) {
+        var log = aidLogOf(u, k, row[0]), v = aidVerdict(log, row[2], row[1]), trail = aidTrail(log);
+        one += '<div class="sp-aidrow">' +
+          '<span class="sp-aidname">' + row[1] + '</span>' +
+          '<span class="pill ' + (row[2] ? "warn" : "ok") + '">' + (row[2] ? "开" : "关") + '</span>' +
+          '<span class="sp-aidwhen' + (v.cls ? " " + v.cls : "") + '">' + esc(v.txt) + '</span>' +
+          '<span class="sp-aidact">' + esc(v.act) + '</span>' +
+          (trail ? '<span class="sp-aidtrail">' + esc(trail) + '</span>' : '') +
+          '</div>';
+      });
+      out.push('<div class="sp-aidland"><div class="sp-aidhead">' + esc(name) + '</div>' + one + '</div>');
+    });
+    return out.length ? out.join("") : '<div class="hint">还没有资料。</div>';
+  }
+  function openStudentCard(uid) {
+    var u = userByUid(uid);
+    if (!u) return;
+    var p = profOf(u), prog = u.data.progress || {};
+    var canEdit = _me && _me.role === "hod";
+    var av = avatarSrcById(p.avatarId);
+    var touched = STREAMS.filter(function (k) { return !!prog[k]; });
+    var lands = touched.map(function (k) { return mountainCardHtml(k, prog[k]); }).join("") +
+                pierCardHtml(prog.xh);
+    var e = enTelOf(u);
+
+    var ov = document.createElement("div");
+    ov.className = "tov wide";
+    ov.innerHTML = '<div class="card sp-card">' +
+      '<button class="sp-x" title="关闭">\u2715</button>' +
+      '<div class="sp-head">' +
+        '<div class="sp-av">' + (av ? '<img src="' + esc(av) + '" alt="">' : '') + '</div>' +
+        '<div class="sp-id">' +
+          '<h2>' + esc(p.nickname || "（未命名）") + '</h2>' +
+          '<div class="sp-meta">' +
+            '<span class="pill">' + CAT_LABEL[p.category || ""] + '</span> ' +
+            esc(canonSchool(p.school)) +
+            (p.mtlClass ? ' · ' + esc(p.mtlClass) : '') +
+            ' · 最近活跃 ' + esc(lastActive(u)) +
+          '</div>' +
+          '<div class="sp-uid">识别码 <code>' + esc(uid) + '</code> ' +
+            '<button class="btn tiny sp-cpuid">复制</button></div>' +
+        '</div>' +
+      '</div>' +
+      (lands || '<div class="hint sp-empty">这份档案还没有任何学习纪录 —— 已注册但尚未在任何一片陆地上答过题。</div>') +
+      '<div class="sp-land"><div class="sp-land-t">学习支援</div>' + aidBlockHtml(u) +
+        /* ⚠️ 提示趋势 lives HERE now, not in the table (see the 学习支援 column note).
+           It is the 英文提示 fading telemetry — NOT anything to do with 词语汉兜. */
+        /* ⚠️ the session counts stay, the 趋势 VERDICT does not. The rows above already
+           answer「是不是在断奶」with dates; printing 持平／数据不足 next to them would put
+           a second, vaguer answer beside a clear one — and 持平 is exactly what a student
+           who quit English on day one scores. */
+        (e ? '<div class="hint" style="margin-top:8px">英文提示共记录 ' +
+          n0(e.tel.sessionsTotal) + ' 次学习，其中 ' + n0(e.tel.sessionsWithEnOn) +
+          ' 次开着（只统计 G1／G2）。' +
+          (enRegressed(u) ? ' <span class="pill warn" title="连续关闭 5 次以上之后又重新开启，可能遇到更难的单元">🔁 最近曾关掉后又开回来</span>' : '') +
+          '</div>' : '') +
+        '</div>' +
+      '<div class="sp-land code"><div class="sp-land-t">进度码</div>' +
+        '<div class="hint">学生换了设备、清了浏览器资料时，把这段码给他，在「我的档案 › 恢复进度」贴上即可。' +
+        '⚠️ 只包含掌握／认得与个人纪录，<b>不含灵露、贝壳、历练值、航海值</b>——' +
+        '恢复不会退回已经花掉的货币。</div>' +
+        '<div class="sp-codebox"><button class="btn small" id="spGen">生成进度码</button>' +
+        '<div id="spCodeOut"></div></div>' +
+      '</div>' +
+      '<div class="sp-foot">' +
+        (canEdit ? '<button class="btn" id="spEdit">编辑资料</button>' : '') +
+        '<button class="btn primary" id="spClose">关闭</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    function shut() {
+      ov.remove();
+      document.removeEventListener("keydown", onKey, true);
+    }
+    /* Esc closes. The dashboard runs on laptops (SSOE / Chromebook), where a modal a
+       keyboard user cannot dismiss is a trap — the same rule xhPop() follows (§18v). */
+    function onKey(ev) { if (ev.key === "Escape") shut(); }
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", function (ev) { if (ev.target === ov) shut(); });
+    ov.querySelector(".sp-x").onclick = shut;
+    ov.querySelector("#spClose").onclick = shut;
+    var im = ov.querySelector(".sp-av img");
+    if (im) im.onerror = function () { im.style.display = "none"; };
+    ov.querySelector(".sp-cpuid").onclick = function () { copyUid(uid, this); };
+    if (canEdit) ov.querySelector("#spEdit").onclick = function () { shut(); openEditProfile(uid); };
+
+    var gen = ov.querySelector("#spGen"), out = ov.querySelector("#spCodeOut");
+    gen.onclick = function () {
+      gen.disabled = true; gen.textContent = "生成中…";
+      buildProgressCode(u, function (r) {
+        gen.style.display = "none";
+        if (!r.code) {
+          out.innerHTML = '<div class="msg bad">无法生成：这份档案在任何一片陆地上都没有可编码的进度' +
+            (r.missing.length ? '，而且以下词库没有载入成功：' + esc(r.missing.join("、")) : '') + '。</div>';
+          return;
+        }
+        out.innerHTML = '<textarea class="sp-code" readonly rows="4"></textarea>' +
+          '<div class="sp-codeact"><button class="btn small primary" id="spCopy">复制进度码</button>' +
+          '<span class="hint" id="spCopyMsg"></span></div>' +
+          '<div class="hint" style="margin-top:6px">包含：' + esc(r.lands.join("、")) + '。' +
+          (r.missing.length ? ' <b>未包含</b>：' + esc(r.missing.join("、")) + '（词库未载入）。' : '') +
+          /* ⚠️ says WHY a land is absent. A pier student whose code has no xh section
+             would otherwise read it as「码头进度丢了」rather than「这台设备还没同步上来」. */
+          (r.lands.indexOf(CODE_LABEL.xh) === -1 && r.missing.indexOf(CODE_LABEL.xh) === -1
+            ? ' 启航码头不在这段码里：这名学生的码头进度还没有同步到云端（学生下次打开码头后会自动补上）。' : '') +
+          '</div>';
+        out.querySelector(".sp-code").value = r.code;
+        out.querySelector("#spCopy").onclick = function () {
+          var ta = out.querySelector(".sp-code"), msg = out.querySelector("#spCopyMsg");
+          ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (err) {}
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(ta.value).then(function () {
+              msg.textContent = "已复制（" + ta.value.length + " 个字符）";
+            }).catch(function () {
+              msg.textContent = ok ? "已复制" : "复制失败，请手动全选复制";
+            });
+          } else { msg.textContent = ok ? "已复制" : "复制失败，请手动全选复制"; }
+        };
+      });
     };
   }
 
