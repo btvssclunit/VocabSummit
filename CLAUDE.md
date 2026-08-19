@@ -525,9 +525,16 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
   `rooms/{code}` + `players/{uid}`（房间，TTL 靠 `expiresAt`）·
   `feedback/{ticketId}` · `feedbackQuota/{uid}` · `teachers/{uid}` · `teacherRequests`。
 - 只有 `category === "student"` 的档案会发布到排行榜；老师／家长／公众只浏览。
-- ⚠️ **`firestore.rules` 有若干块尚未发布**（房间 rejoin 修复、HOD 改档案、feedback、dockScores…）。
-  未发布时对应功能显示读取失败／permission-denied，**其余功能不受影响**。
-  owner 的副本在 `Documents/VocabSummit/firestore/`；**仓库根目录的 `firestore.rules` 是真相来源**。
+- ✅ **规则已全部发布并在真实资料库验证过（2026-08-20）**：users · scores · dockScores ·
+  claims · rooms · moderation · feedbackQuota 逐一探测通过。
+  （2026-08-16 那句「若干块尚未发布」已经过时，本次核实后改写。）
+  未发布的块表现为 permission-denied，**其余功能不受影响**——这条判断方式仍然有效。
+- ⚠️ **owner 的副本在 `Documents/VocabSummit/firestore/`，`repo-clone/firestore.rules` 是真相来源。**
+  🐛 **那份副本 2026-08-15→08-20 是过期的**（少了 claims 区块），而它的 README 写着
+  「Claude Code 会同步更新这个文件夹」——**那是一句约定，不是一个机制**，加 claims 时就没做到。
+  症状很隐蔽：owner 打开副本、全选、粘贴，**Publish 是灰的**——因为粘贴的内容与线上
+  一模一样，Console 判定「没有改动」。**看起来像 Console 坏了，其实是副本落后了。**
+  ⚠️ **改完 `firestore.rules` 立刻 `cp` 到那个文件夹，并在它的 README 里加一段说明。**
 - ⚠️ **Firestore TTL 只删 room 文档，不级联删子集合**——player 行要自己清。
 - ⚠️ 新的 `orderBy` 字段需要**复合索引**；首次查询会抛出带控制台链接的错误，从那里建。
 - ⚠️ **教师端改档案只改云端**：没有 profile 的云→端同步，学生下次保存会把旧值推回去。
@@ -574,11 +581,11 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 **教师后台 学生档案卡 · 后台重建进度码 · 码头进度上云**（见 §18z）
 
 ### ⚠️ 未完成
-- ⚠️ **恢复码 `claims/{code}` 已全部落地，但 `firestore.rules` 的那一块仍待 owner 发布**（§18ae）。
-  发布之前：`saveClaim`／`readClaim` 一律 permission-denied，我的档案 会说
-  「还没能保存到云端——恢复功能可能还没开启，请告诉老师」，**其余功能不受影响**。
-  ⚠️ **发布之后要在真设备上走一遍**：铸码 → 另一台设备输入 → 全部回来。
-  离屏只证明了逻辑与闸门，**没有证明规则本身写对了**。
+- ✅ **恢复码 `claims/{code}` 全部落地，规则已发布并在真实资料库跨设备验证（2026-08-20）**：
+  A 设备生成码 → B 设备（**不同 uid**、完全空白）**小写带空格**输入 →
+  昵称、掌握词、灵露 340、贝壳 120、道具、装备、纪录、海滩摆位、头像与船只**全部回来**，
+  且**没有继承旧的恢复码**。四条安全性质同时验过：`list` 被拒 · 伪造他人 uid 建立被拒 ·
+  篡改既有文件的 uid 被拒 · 过短的码被拒。
 - ⚠️ **我的海滩的拖动没在真机上验过**（§15：营地拖动正是那两个「通过全部 headless 断言、
   真浏览器第一次接触就失败」的功能之一）。**iPad 上要再点一次。**
 - ✅ **`segPy` 已回填并上线**（owner 2026-08-19 审毕，见 §18aa）。
