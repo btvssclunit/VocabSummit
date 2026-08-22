@@ -773,7 +773,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* alpha raised 2026-08-14: these cards float over bg-01..05 and the bamboo
    ambience, where .68 left the muted body text unreadable. The blur still
    carries the glass read; do not take these back down without opening a
-   年级峰 popover over the brightest backdrop first. */
+   关卡 popover over the brightest backdrop first. */
 .pop-card{background:linear-gradient(150deg,rgba(255,255,255,.95),rgba(255,255,255,.90) 46%,rgba(232,243,251,.93));
   -webkit-backdrop-filter:saturate(170%) blur(26px);backdrop-filter:saturate(170%) blur(26px);
   border:1px solid var(--glass-line);border-radius:20px;max-width:520px;width:100%;max-height:86vh;
@@ -1318,7 +1318,7 @@ button.mtn-pill:active{transform:scale(.96)}
 .pop-v{display:inline-block;font-size:14.5px;color:#41576A}
 .pop-v b{font-size:16px;color:var(--ink)}
 .pop-t-k{font-weight:900}
-/* 单元 rows inside a 年级峰 card — the map's small chapter circles moved in here
+/* 单元 rows inside a 关卡 card — the map's small chapter circles moved in here
    (owner 2026-08-22). A row can say the unit's NAME, its theme and its count; a 19px
    dot on the trail could say none of the three without being hovered one at a time. */
 .pop-units{display:flex;flex-direction:column;gap:6px;margin-top:8px;
@@ -2048,7 +2048,7 @@ body{background-repeat:no-repeat;background-size:cover;background-position:cente
    they own into a badge they lost. Muted-but-still-gold says 「above your camp」, which
    is the true statement. */
 /* ⚠️ a LIGHT fade, and it got lighter when the unit dots left the map (§18ag). With
-   29 pins a faded one was still one of a crowd; with five, three faded 年级峰 flags are
+   29 pins a faded one was still one of a crowd; with five, three faded 关卡 flags are
    the ONLY way into three years' worth of unit lists. A landmark that is the sole route
    to its content must never be hard to find. */
 .mtn2-pin.beyond{filter:saturate(.72);opacity:.78}

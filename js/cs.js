@@ -2997,7 +2997,7 @@
     "生活空间": "Everyday life", "核心": "Core", "巩固": "Practice more",
     "进阶": "Advanced", "文化站": "Culture stop",
     /* 我的词山 landmark cards (owner 2026-08-22) */
-    "学习": "Learn", "挑战": "Challenge", "营地": "Camp", "年级峰": "Year peak", "顶峰": "Summit",
+    "学习": "Learn", "挑战": "Challenge", "营地": "Camp", "关卡": "Stage", "顶峰": "Summit",
     "本级单元": "Units in this year",
     "已掌握": "Mastered", "海拔": "Altitude", "单元完成": "Units finished",
     "单元营地 · 海拔": "Unit camp · altitude", "板块驿站 · 海拔": "Component post · altitude",
@@ -3111,7 +3111,7 @@
     "进阶": "jìn jiē", "文化站": "wén huà zhàn",
     /* 我的词山 landmark cards (owner 2026-08-22). ⚠️ one syllable per 汉字, symbols
        carried through unchanged — same shape as the 词雨 lines further down. */
-    "学习": "xué xí", "挑战": "tiǎo zhàn", "营地": "yíng dì", "年级峰": "nián jí fēng",
+    "学习": "xué xí", "挑战": "tiǎo zhàn", "营地": "yíng dì", "关卡": "guān kǎ",
     "本级单元": "běn jí dān yuán",
     "顶峰": "dǐng fēng", "已掌握": "yǐ zhǎng wò", "海拔": "hǎi bá", "单元完成": "dān yuán wán chéng",
     "单元营地 · 海拔": "dān yuán yíng dì · hǎi bá",
@@ -5294,7 +5294,7 @@
      我的词山 · persistent mountain world (Phase 3)
      One mountain per level app. Altitude = mastered count (1 词 = 1 米).
      Real curriculum landmarks: 板块驿站 (badge) · 单元营地 (tent+fire) ·
-     年级峰 (flag) · 顶峰 (pavilion). Drag to pan, tap landmarks for
+     关卡 (flag) · 顶峰 (pavilion). Drag to pan, tap landmarks for
      details + word chip lists. SDT goal panel highlights the next target.
      ================================================================== */
   var _badgeImgCache = {};
@@ -5344,7 +5344,7 @@
        stream has four 单元一 — 「距「单元一 营地」还差 55 词」 named a milestone the
        student could not locate. */
     if (m.t === "unit") return m.level + " · " + m.unit;
-    if (m.t === "level") return m.level + " 年级峰";
+    if (m.t === "level") return m.level + " 关卡";
     return "顶峰";
   }
   function nextGoal(alt) {
@@ -5403,7 +5403,7 @@
       ch.onclick = function () { speak(ch.getAttribute("data-say"), ch.getAttribute("data-py")); };
     });
   }
-  /* 年度试炼 block shown inside the 年级峰 popover (folded in to avoid a
+  /* 年度试炼 block shown inside the 关卡 popover (folded in to avoid a
      second landmark colliding with the level flag at the same altitude) */
   function gymSectionHtml(m) {
     var level = m.level, pet = petFor(level);
@@ -5471,7 +5471,7 @@
     renderHome();
     toast("复习范围已设为 " + level + " · " + unit);
   }
-  /* the 单元 rows that now live inside a 年级峰 card. Name, theme, and a mastered
+  /* the 单元 rows that now live inside a 关卡 card. Name, theme, and a mastered
      count — all three of which a 19px dot on the trail could never say without being
      hovered one at a time. Rebuilt from buildMarks so each row carries the SAME mark
      object the map used to hand to openMark: one code path, one card. */
@@ -5492,9 +5492,9 @@
     return h + '</div>';
   }
   /* ⚠️ `back` is the mark to return to, not a boolean. A unit card opened from inside a
-     年级峰 has to go BACK to that peak — dumping the student on the map would make them
+     关卡 has to go BACK to that peak — dumping the student on the map would make them
      re-find the flag and re-open it just to look at the next unit. Same three-level
-     return the pier settled on: 海图 ← 词山 ← 年级峰 ← 单元. */
+     return the pier settled on: 海图 ← 词山 ← 关卡 ← 单元. */
   function openMark(m, back) {
     ensureIdIndex();
     var html, ids, got, ov;
@@ -5540,7 +5540,7 @@
       var units = UNIT_LIST.filter(function (u) { return u.level === m.level; });
       var uDone = units.filter(function (u) { return store.badges[badgeKeyU(u.level, u.unit)]; }).length;
       html = '<div class="pop-title">🚩 ' + esc(m.level) +
-        ' <span class="pop-t-k">年级峰' + pyl("年级峰") + enl("年级峰") + '</span></div>' +
+        ' <span class="pop-t-k">关卡' + pyl("关卡") + enl("关卡") + '</span></div>' +
         '<div class="pop-body">' + popStat("海拔", m.alt + " 米") +
         popStat("单元完成", "<b>" + uDone + "</b> / " + units.length + (markDone(m) ? " · 年级徽章已获得 🏅" : "")) +
         '</div>' + gymSectionHtml(m) + unitRowsHtml(m.level);
@@ -5550,7 +5550,7 @@
         popStat("已掌握", "<b>" + Object.keys(store.mastered).length + "</b> / " + WORDS.length + " 词" +
           (markDone(m) ? " · 你已登顶！👑" : "")) + '</div>';
     }
-    ov = popOverlay(html + popActions(hasScope, back ? (back.level + " 年级峰") : ""));
+    ov = popOverlay(html + popActions(hasScope, back ? (back.level + " 关卡") : ""));
     ov.querySelector("#popBack").onclick = function () { ov.remove(); if (back) openMark(back); };
     if (hasScope) {
       ov.querySelector("#popLearn").onclick = function () { ov.remove(); scopeToUnit(sLevel, sUnit, "study"); };
@@ -6170,7 +6170,7 @@
      they climb and the one they picked are visibly the same place. This
      replaced the single shared art/bg/mountain_bg.png, which is now unreferenced
      (left in place, not deleted, like the retired camp scenery).
-     unit / 年级峰 / 你的营地 / 顶峰 pins placed along the painted trail by
+     unit / 关卡 / 你的营地 / 顶峰 pins placed along the painted trail by
      altitude fraction; the camp tent doubles as the "you are here" marker. No
      scroll / camera / joystick / render loop. Tapping a pin reuses openMark
      (unit words · 年度试炼 gym · 营地 camp+shop · summit), so all v0.4
@@ -6263,7 +6263,7 @@
        carries no glyph — an emoji here would cover the art the ring frames. */
     if (m.t === "summit") return "";
     /* a 🔒 flag is the ONE landmark that is actually stopping the climb — see the
-       gate note in startMountain. Every other unpassed 年级峰 keeps its 🚩. */
+       gate note in startMountain. Every other unpassed 关卡 keeps its 🚩. */
     if (m.t === "level") {
       if (locked) return "🔒";
       return (store.gym[m.level] && petFor(m.level)) ? petFor(m.level).emoji : "🚩";
@@ -6274,7 +6274,7 @@
      The perpendicular offsets in startMountain stop CONSECUTIVE pins colliding, and at
      ≥900px that is the whole story (0 unreachable pins on all four islands). They cannot
      stop the hand-traced trail's own SWITCHBACKS from folding two distant altitudes onto
-     the same few pixels: on a 640x393 phone stage, 中一单元三 and 中一年级峰 are 30px apart
+     the same few pixels: on a 640x393 phone stage, 中一单元三 and 中一关卡 are 30px apart
      ALONG the path and 12px apart on screen. No formula over MTN_PATHS knows that without
      re-deriving layout, so this asks the browser instead.
      ⚠️ Pins are only ever pushed FURTHER OUT along their own normal — the along-path
@@ -6370,7 +6370,7 @@
        19px dot: even with every one of them offset sideways and provably clickable, the
        chain reads as a smear and a student cannot count it — which is why 「中四 只有四
        个单元」 still looked true after the pins were all provably there.
-       ⚠️ The unit CARDS did not go anywhere: 年级峰 now lists its own units by name and
+       ⚠️ The unit CARDS did not go anywhere: 关卡 now lists its own units by name and
        theme with a mastered count each, and each row opens the same card the dot used
        to (§18ag). A landmark you can read beats a dot you have to hover to identify. */
     var pins = marks.filter(function (m) {
@@ -6394,7 +6394,7 @@
        and the old .mtn2-hero dot is gone (it would have sat exactly underneath).
        Only the RENDERED position changed — buildMarks still records the camp at
        alt 0, so goals, zone boundaries and markDone are all untouched. */
-    /* ⚠️ 你的营地 STOPS at the first 年级峰 whose 年度试炼 is still unpassed (owner
+    /* ⚠️ 你的营地 STOPS at the first 关卡 whose 年度试炼 is still unpassed (owner
        2026-08-22: 「I haven't passed the S1 final challenge so my campsite shouldn't
        be past that even though my mastery percentage is beyond」). Altitude alone
        used to move it, so a student who had never cleared 中一年度试炼 still saw the
@@ -6414,7 +6414,7 @@
 
     /* ⚠️ Pins are pushed SIDEWAYS off the trail, never along it. Two separate
        collisions were hiding units and eating their clicks (owner 2026-08-22):
-       (1) a 年级峰 flag sits at exactly the SAME altitude as that level's last unit,
+       (1) a 关卡 flag sits at exactly the SAME altitude as that level's last unit,
            so the 30px flag drew straight on top of the 19px dot — 中一/中二/中三 单元六
            and 中四单元五 were invisible on all four mountains, which is why 中四 read
            as 「单元一 to 单元四」;
@@ -6487,7 +6487,7 @@
       '<span class="m2pill">' + zoneName(alt) + '</span>' +
       '<button class="m2pill" id="mtGoal">🎯 目标</button></div>';
     html += '<div class="mtn2-goalbar" id="mtGoalbar"></div>';
-    html += '<div class="mtn2-tip">⛺ 你在这里 · 点 🚩 年级峰 看那一年的单元 · 🏯 顶峰' +
+    html += '<div class="mtn2-tip">⛺ 你在这里 · 点 🚩 关卡 看那一年的单元 · 🏯 顶峰' +
       (gateOn ? " · 🔒 先通过年度试炼" : "") + '</div></div>';
     view().innerHTML = html;
 

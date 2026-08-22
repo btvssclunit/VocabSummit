@@ -1,8 +1,8 @@
 # 词山学海 · Vocab Summit
 
-词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，涵盖 G1 至 G3 高级华文四大源流，另设「学海启航 · 启航码头」看图学词入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山竞速等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
+词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，涵盖 G1 至 G3 高级华文四大源流，另设「学海起步 · 出发码头」词语闪卡入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山快答等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
 
-Vocab Summit is developed by the Mother Tongue Languages (MTL) Chinese Language Unit at Bukit View Secondary School (BVSS), led by HOD/MTL Chun Kai Xin. It is a gamified Chinese vocabulary self-directed learning platform spanning the four curriculum streams from G1 to G3 Higher Chinese, plus a pre-G1 beginners' tier, 学海启航, for students starting from zero. Students climb a persistent "word mountain" through flashcards, cloze challenges, word-rain, a Wordle-style character game and a mountain-sprint mode, grounded in self-determination theory (SDT) and assessment-for-learning (AfL) principles.
+Vocab Summit is developed by the Mother Tongue Languages (MTL) Chinese Language Unit at Bukit View Secondary School (BVSS), led by HOD/MTL Chun Kai Xin. It is a gamified Chinese vocabulary self-directed learning platform spanning the four curriculum streams from G1 to G3 Higher Chinese, plus a pre-G1 beginners' tier, 学海起步, for students starting from zero. Students climb a persistent "word mountain" through flashcards, cloze challenges, word-rain, a Wordle-style character game and a mountain-sprint mode, grounded in self-determination theory (SDT) and assessment-for-learning (AfL) principles.
 
 名取「书山有路勤为径，学海无涯苦作舟」：攀词山，渡学海。
 
@@ -18,7 +18,7 @@ The landing page is a sea map. Each island is one destination:
 | 词将竞技场 | `G2_index.html` | G2 华文 |
 | 词王淬炼坊 | `G3_index.html` | G3 快捷华文 |
 | 词圣鸿文苑 | `HCL_index.html` | 高级华文 |
-| 启航码头 | `XH_index.html` | 学海启航 · 看图学词入门层 |
+| 出发码头 | `XH_index.html` | 学海起步 · 词语闪卡入门层 |
 
 `teacher.html` is a separate teacher dashboard (email sign-in, HOD approval), and
 `tools/` holds two device diagnostics.
@@ -31,7 +31,7 @@ because they are the published URLs; everything else is filed by kind.
 ```
 /                      index.html                     landing page + 航海选择页 sea map
                        G1|G2|G3|HCL_index.html        the four streams (each sets window.STREAM)
-                       XH_index.html                  启航码头 (学海启航, standalone tier)
+                       XH_index.html                  出发码头 (学海起步, standalone tier)
                        teacher.html                   teacher dashboard (standalone, loads no shared JS)
                        firestore.rules                Firestore security rules (publish from the console)
                        README.md · CLAUDE.md          this file · the engineering log
@@ -43,16 +43,16 @@ js/     cs.js         the whole stream engine: data loading, study modes, games,
         search.js      通用搜索 — one word lookup across all five stations, read-only
         podium.js      end-of-round podium + confetti — the one shared module teacher.html loads
         firebase-init.js  anonymous auth + Firestore helpers
-        xh.js          启航码头 (never loads cs.js; its own store, its own economy)
+        xh.js          出发码头 (never loads cs.js; its own store, its own economy)
 
 css/    cs.css        every stream-page style, incl. the BVSS palette tokens
-        xh.css         启航码头 styles (standalone; palette copied from cs.css by design)
+        xh.css         出发码头 styles (standalone; palette copied from cs.css by design)
 
 data/   g1|g2|g3|hcl.json   generated vocabulary, one file per stream
         id_registry.json    stable word IDs — always commit together with the JSON
-        xh_v3.json          启航码头 word list — 150 words in 8 groups (数字 has no sprites)
+        xh_v3.json          出发码头 word list — 148 words in 8 groups (数字 has no sprites)
         search_index.json   词/拼音/英文/所属站 only — the cross-station search index
-        xh_phrases.json     生活空间 sentence library (92 lines; distractors drawn at runtime)
+        xh_phrases.json     生活空间 sentence library (90 lines; distractors drawn at runtime)
 
 art/    bg/            scene + progression backdrops
         badge/         A层 里程碑徽章 (5) + B层 对战奖牌 (8)
@@ -62,7 +62,7 @@ art/    bg/            scene + progression backdrops
         mountain/      per-stream 我的词山 art
         seamap/        landing sea map: islands, sea, boats
         item/          consumable / powerup art (system not built)
-        xh/            启航码头 sprites, scenes (scene_*.png) and 航海徽 badges
+        xh/            出发码头 sprites, scenes (scene_*.png) and 航海徽 badges
 
 tools/  voices.html    TTS voice diagnostic — run on a student device to check the Chinese voice
         sound.html     audio diagnostic — WebAudio vs speech, for「no sound effects」reports
@@ -74,6 +74,13 @@ docs/   ARCHIVE_工程日志_2026-08.md   the engineering log — history, not s
 archived_art/          retired art, kept rather than deleted
 ```
 
+**Naming rule (2026-08-22):** one new word per user-facing label, and it must be
+the noun — the remaining characters have to keep the label guessable while that word
+is still undecoded. Transparent verb-object beats literary compound (看图识词 works at
+zero readiness; 词海垂钓 did not), and a coined name cannot be asked about at home.
+Renaming a label always means renaming its 拼音 and 英文 gloss-table keys in the same
+edit, or the ruby silently disappears for exactly the students it exists to help.
+
 **Two rules that are easy to break:** a stylesheet's `url()` is resolved against
 the *stylesheet*, so paths in `css/` climb with `../art/…`, while every path built
 in JavaScript is resolved against the *page* and therefore stays `art/…`. And the
@@ -84,16 +91,18 @@ CLAUDE.md, 部署缓存版本号.
 
 - Firebase anonymous authentication + Cloud Firestore (asia-southeast1) for progress
   sync; 进度码 available as a manual cross-device fallback.
-- Per stream: 填空挑战 · 华文解释 · 英文翻译 · 词语闪卡, plus 词雨灵露 · 攀山竞速 ·
-  组词挑战 (all four streams) and 词语汉兜 (G3/HCL).
+- Per stream: 学习 (填空挑战 · 华文解释 · 英文翻译 · 词语闪卡) and 闯关 (词雨灵露 ·
+  攀山快答 · 组字成词, all four streams; 词语汉兜 on G3/HCL).
 - 结伴登峰 (teacher-hosted live rooms) and 同伴挑战 (student-hosted duels).
-- 我的词山 per stream, with 年度试炼 at each year level and a 待巩固 review queue.
+- 我的词山 per stream: a 你在这里 pin, four 关卡 (one per year, each holding that
+  year's units and its 年度试炼) and the 顶峰, plus a 待巩固 review queue.
 - 营地 with 灵露, gear and 我的档案 / 头像 (some earned, some bought).
-- 启航码头: a zero-Chinese-required entry tier — 看图学词, 看图识词, 听音识图,
-  英文选词, 词海垂钓, 连线 — with its own currency and boards, sealed off from the
-  mountains' 海拔 / 历练值 / 灵露.
+- 出发码头: a zero-Chinese-required entry tier. 学习 holds 词语闪卡 and 学习挑战
+  (英文选词 · 看图识词 · 听音识图 ‖ 看句选词 · 组词成句 ‖ 连线 · 组字成词); 闯关 holds
+  词海钓鱼 and 沙滩快跑; 走进社区 walks the sentence library scene by scene. Its own
+  currency and boards, sealed off from the mountains' 海拔 / 历练值 / 灵露.
 - Vocabulary loads from external JSON (no hardcoded arrays): 3,741 stream entries
-  plus 100 at the pier.
+  plus 148 at the pier.
 - 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default. At the
   pier both default ON, and the flashcard always shows them: its readers are beginners.
 - 通用搜索: look up any word from any of the five stations — 词, toneless 拼音 or English.
