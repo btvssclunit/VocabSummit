@@ -2978,6 +2978,12 @@
     "释义": "Meaning", "英文": "English", "填空": "Fill in the blank",
     "生活空间": "Everyday life", "核心": "Core", "巩固": "Practice more",
     "进阶": "Advanced", "文化站": "Culture stop",
+    /* 我的词山 landmark cards (owner 2026-08-22) */
+    "学习": "Learn", "挑战": "Challenge", "营地": "Camp", "年级峰": "Year peak", "顶峰": "Summit",
+    "已掌握": "Mastered", "海拔": "Altitude", "单元完成": "Units finished",
+    "单元营地 · 海拔": "Unit camp · altitude", "板块驿站 · 海拔": "Component post · altitude",
+    "金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音":
+      "Gold = mastered · dashed = not yet · tap a word to hear it",
     "拼音 · 10% 历练值": "Pinyin · 10% XP",
     "打拼音 · 10% 历练值": "Type pinyin · 10% XP",
     "两个选项": "Two choices", "三个选项": "Three choices", "四个选项": "Four choices",
@@ -3084,6 +3090,14 @@
     "释义": "shì yì", "英文": "yīng wén", "填空": "tián kòng",
     "生活空间": "shēng huó kōng jiān", "核心": "hé xīn", "巩固": "gǒng gù",
     "进阶": "jìn jiē", "文化站": "wén huà zhàn",
+    /* 我的词山 landmark cards (owner 2026-08-22). ⚠️ one syllable per 汉字, symbols
+       carried through unchanged — same shape as the 词雨 lines further down. */
+    "学习": "xué xí", "挑战": "tiǎo zhàn", "营地": "yíng dì", "年级峰": "nián jí fēng",
+    "顶峰": "dǐng fēng", "已掌握": "yǐ zhǎng wò", "海拔": "hǎi bá", "单元完成": "dān yuán wán chéng",
+    "单元营地 · 海拔": "dān yuán yíng dì · hǎi bá",
+    "板块驿站 · 海拔": "bǎn kuài yì zhàn · hǎi bá",
+    "金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音":
+      "jīn sè = yǐ zhǎng wò · xū xiàn = dài zhǎng wò · diǎn cí kě fā yīn",
     "拼音 · 10% 历练值": "pīn yīn · 10% lì liàn zhí",
     "打拼音 · 10% 历练值": "dǎ pīn yīn · 10% lì liàn zhí",
     "两个选项": "liǎng gè xuǎn xiàng", "三个选项": "sān gè xuǎn xiàng",
@@ -5324,15 +5338,36 @@
     }
     return null;
   }
-  function chipListHtml(ids) {
-    var h = '<div class="chip-wrap">';
+  /* ⚠️ the chips carry 拼音 under the SAME body.py-aid gate as every other
+     annotation (owner 2026-08-22: 「the pinyin toggle also doesn't work here」).
+     They had carried data-py since day one purely to feed speak() and had never
+     rendered it, so the toggle really did nothing on this card.
+     ⚠️ NO English on the chips: §10 keeps enl() off 词汇资料, and what a word
+     MEANS is what 我的词语表 is for. The pinyin comes straight from w.py — hand
+     -written data, never generated at runtime (§8).
+     flat = drop the chip list's own scroll box, for when the caller wraps several
+     groups in one scroller (see the 单元营地 card). */
+  function chipListHtml(ids, flat) {
+    var h = '<div class="chip-wrap' + (flat ? " flat" : "") + '">';
     ids.forEach(function (id) {
       var w = WORDS[_idIndex[id]];
       if (!w) return;
       h += '<span class="wchip ' + (store.mastered[id] ? "got" : "not") + '" data-say="' + esc(w.w) +
-        '" data-py="' + esc(w.py || "") + '">' + esc(w.w) + '</span>';
+        '" data-py="' + esc(w.py || "") + '">' + esc(w.w) +
+        (w.py && pyAidAvailable() ? '<span class="pylab">' + esc(w.py) + '</span>' : "") + '</span>';
     });
-    return h + '</div><div class="pop-hint">金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音</div>';
+    return h + '</div>' + (flat ? "" : chipHintHtml());
+  }
+  function chipHintHtml() {
+    var k = "金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音";
+    return '<div class="pop-hint">' + k + pyl(k) + enl(k) + '</div>';
+  }
+  /* a label + its number, so the glossed span's visible Chinese is EXACTLY the
+     PY_LAB/EN_LAB key (§10) — 「海拔 264 米」 as one key would need a new entry per
+     altitude. The number rides alongside, unglossed. */
+  function popStat(k, val) {
+    return '<div class="pop-stat"><span class="pop-k">' + k + pyl(k) + enl(k) + '</span>' +
+      '<span class="pop-v">' + val + '</span></div>';
   }
   var _idIndex = {};
   function ensureIdIndex() {
@@ -5379,38 +5414,99 @@
       '<button class="nav-btn primary gym-go" id="gymGo">⚔️ 挑战 ' +
       esc(level) + ' 年度试炼' + petTxt + '</button></div>';
   }
+  /* ⚠️ 返回 / 学习 / 挑战 replaced the old 知道了 (owner 2026-08-22). 知道了 is an
+     acknowledgement, and this card is not an announcement — it is the ONE place a
+     student sees exactly which words of a unit they are still missing, so the useful
+     next move is to go and work on that unit.
+     ⚠️ Neither button LAUNCHES a mode. They set ①复习范围 to that unit and open the
+     matching ② tab; the student still picks 填空/闪卡/词雨…, so every existing guard
+     (板块 filter, ⭐ tiers, 打字档, 「共 0 词」) is still in front of them. Picking the
+     mode for them is exactly how a §4.4 silent failure gets built — the map has no
+     idea which modes that unit can actually run. */
+  function popActions(hasScope) {
+    var h = '<div class="nav-row">' +
+      '<button class="nav-btn" id="popBack">‹ 返回' + pyl("返回") + enl("返回") + '</button>';
+    if (hasScope) {
+      h += '<button class="nav-btn primary" id="popLearn">📖 学习' + pyl("学习") + enl("学习") + '</button>' +
+        '<button class="nav-btn primary" id="popPlay">⚔️ 挑战' + pyl("挑战") + enl("挑战") + '</button>';
+    }
+    return h + '</div>';
+  }
+  /* ⚠️ 板块 filters (store.compOff) are deliberately left alone: they are a
+     stream-wide narrowing the student set on purpose, and silently reopening them
+     here would undo a decision made on another screen. If the unit ends up empty
+     because of them, ①'s own 共 0 词 line says so — which is why this lands on the
+     home screen instead of inside a mode. */
+  function scopeToUnit(level, unit, tab) {
+    scope.clear();
+    scope.add(level + "·" + unit);
+    store.homeTab = tab;
+    store.accLevel = level;        // open that year, or the change is invisible
+    saveStore();
+    renderHome();
+    toast("复习范围已设为 " + level + " · " + unit);
+  }
   function openMark(m) {
     ensureIdIndex();
     var html, ids, got, ov;
     if (m.t === "base") { return openCampScene(); }
+    var sLevel = m.t === "comp" ? m.comp.level : m.level;
+    var sUnit  = m.t === "comp" ? m.comp.unit  : m.unit;
+    var hasScope = (m.t === "comp" || m.t === "unit");
     if (m.t === "comp") {
       ids = m.comp.ids;
       got = ids.filter(function (id) { return store.mastered[id]; }).length;
       html = '<div class="pop-title"><img class="pop-badge" src="' + (BADGE_IMG[m.comp.component] || "art/badge/badge_hx.png") + '" alt="">' +
         esc(m.comp.level + " · " + m.comp.unit + " · " + m.comp.component) + '</div>' +
-        '<div class="pop-body">板块驿站 · 海拔 ' + m.alt + ' 米<br>已掌握 <b>' + got + '</b> / ' + ids.length + ' 词' +
-        (markDone(m) ? " · 徽章已获得 🏅" : "") + '</div>' + chipListHtml(ids);
+        '<div class="pop-body">' + popStat("板块驿站 · 海拔", m.alt + " 米") +
+        popStat("已掌握", "<b>" + got + "</b> / " + ids.length + " 词" + (markDone(m) ? " · 徽章已获得 🏅" : "")) +
+        '</div>' + chipListHtml(ids);
     } else if (m.t === "unit") {
+      var comps = COMP_LIST.filter(function (c) { return c.level === m.level && c.unit === m.unit; });
       ids = [];
-      COMP_LIST.forEach(function (c) { if (c.level === m.level && c.unit === m.unit) ids = ids.concat(c.ids); });
+      comps.forEach(function (c) { ids = ids.concat(c.ids); });
       got = ids.filter(function (id) { return store.mastered[id]; }).length;
-      html = '<div class="pop-title">⛺ ' + esc(m.level + " · " + m.unit) + ' 营地</div>' +
-        '<div class="pop-body">单元营地 · 海拔 ' + m.alt + ' 米<br>已掌握 <b>' + got + '</b> / ' + ids.length + ' 词' +
-        (markDone(m) ? " · 单元徽章已获得 ✨" : "") + '</div>' + chipListHtml(ids);
+      html = '<div class="pop-title">⛺ ' + esc(m.level + " · " + m.unit) +
+        ' <span class="pop-t-k">营地' + pyl("营地") + enl("营地") + '</span></div>' +
+        '<div class="pop-body">' + popStat("单元营地 · 海拔", m.alt + " 米") +
+        popStat("已掌握", "<b>" + got + "</b> / " + ids.length + " 词" + (markDone(m) ? " · 单元徽章已获得 ✨" : "")) +
+        '</div>';
+      /* ⚠️ grouped by 板块 (owner 2026-08-22). One flat run of 21 chips said nothing
+         about WHICH part of the unit a student is behind on, and 板块 is the axis the
+         rest of the app already sorts by — ①筛选 narrows on it, the A-tier badges are
+         one per 板块, and the 板块驿站 card above uses the same badge art. ONE scroller
+         wraps all the groups: .chip-wrap's own 38vh box would give a four-板块 unit
+         four separate little scroll boxes. */
+      html += '<div class="pop-groups">';
+      comps.forEach(function (c) {
+        var cg = c.ids.filter(function (id) { return store.mastered[id]; }).length;
+        html += '<div class="pop-sub"><img class="pop-badge sm" src="' +
+          (BADGE_IMG[c.component] || "art/badge/badge_hx.png") + '" alt="">' +
+          '<span class="pop-sub-n">' + esc(c.component) + pyl(c.component) + enl(c.component) + '</span>' +
+          '<span class="pop-sub-c">' + cg + " / " + c.ids.length + '</span></div>' +
+          chipListHtml(c.ids, true);
+      });
+      html += '</div>' + chipHintHtml();
     } else if (m.t === "level") {
       var units = UNIT_LIST.filter(function (u) { return u.level === m.level; });
       var uDone = units.filter(function (u) { return store.badges[badgeKeyU(u.level, u.unit)]; }).length;
-      html = '<div class="pop-title">🚩 ' + esc(m.level) + ' 年级峰</div>' +
-        '<div class="pop-body">海拔 ' + m.alt + ' 米<br>单元完成 <b>' + uDone + '</b> / ' + units.length +
-        (markDone(m) ? " · 年级徽章已获得 🏅" : "") + '</div>' + gymSectionHtml(m);
+      html = '<div class="pop-title">🚩 ' + esc(m.level) +
+        ' <span class="pop-t-k">年级峰' + pyl("年级峰") + enl("年级峰") + '</span></div>' +
+        '<div class="pop-body">' + popStat("海拔", m.alt + " 米") +
+        popStat("单元完成", "<b>" + uDone + "</b> / " + units.length + (markDone(m) ? " · 年级徽章已获得 🏅" : "")) +
+        '</div>' + gymSectionHtml(m);
     } else {
-      html = '<div class="pop-title">🏯 顶峰</div>' +
-        '<div class="pop-body">海拔 ' + m.alt + ' 米 · 全部词语的终点<br>已掌握 <b>' +
-        Object.keys(store.mastered).length + '</b> / ' + WORDS.length + ' 词' +
-        (markDone(m) ? "<br>你已登顶！👑" : "") + '</div>';
+      html = '<div class="pop-title">🏯 <span class="pop-t-k">顶峰' + pyl("顶峰") + enl("顶峰") + '</span></div>' +
+        '<div class="pop-body">' + popStat("海拔", m.alt + " 米 · 全部词语的终点") +
+        popStat("已掌握", "<b>" + Object.keys(store.mastered).length + "</b> / " + WORDS.length + " 词" +
+          (markDone(m) ? " · 你已登顶！👑" : "")) + '</div>';
     }
-    ov = popOverlay(html + '<div class="nav-row"><button class="nav-btn primary" id="popOk">知道了</button></div>');
-    ov.querySelector("#popOk").onclick = function () { ov.remove(); };
+    ov = popOverlay(html + popActions(hasScope));
+    ov.querySelector("#popBack").onclick = function () { ov.remove(); };
+    if (hasScope) {
+      ov.querySelector("#popLearn").onclick = function () { ov.remove(); scopeToUnit(sLevel, sUnit, "study"); };
+      ov.querySelector("#popPlay").onclick  = function () { ov.remove(); scopeToUnit(sLevel, sUnit, "play"); };
+    }
     var gymGo = ov.querySelector("#gymGo");
     if (gymGo) gymGo.onclick = function () { ov.remove(); startGym(m.level); };
     wireChips(ov);
@@ -6083,7 +6179,21 @@
     var i = Math.floor(s), f = s - i, a = MTN_PATH[i], b = MTN_PATH[i + 1];
     return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f };
   }
-  function mtnPinIcon(m) {
+  /* Perpendicular direction at a point on the trail, as a UNIT vector in SCREEN
+     px space. Pin offsets are px (they must track the pin sizes, which are px,
+     not the stage), but MTN_PATHS is in sprite fractions — x of width, y of
+     height — so x has to be scaled by the aspect ratio before the vector is
+     normalised, or the offsets skew on the tall sprites (hcl is 1100x938).
+     +ve = right of travel. */
+  function mtnNormalAt(frac) {
+    var n = MTN_PATH.length - 1;
+    var s = Math.max(0, Math.min(n - 0.0001, frac * n));
+    var i = Math.floor(s), a = MTN_PATH[i], b = MTN_PATH[i + 1];
+    var dx = (b[0] - a[0]) * MTN_SKIN.ar, dy = b[1] - a[1];
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: -dy / len, y: dx / len };
+  }
+  function mtnPinIcon(m, locked) {
     /* the camp is the 你在这里 marker as well as a landmark, so its emoji sits in
        its own span: the span floats, the button keeps the translate(-50%,-50%)
        positioning and its hover scale (animating the button's transform would
@@ -6092,8 +6202,100 @@
     /* summit draws as a hollow ring AROUND the building (see MTN_CROWN), so it
        carries no glyph — an emoji here would cover the art the ring frames. */
     if (m.t === "summit") return "";
-    if (m.t === "level") return (store.gym[m.level] && petFor(m.level)) ? petFor(m.level).emoji : "🚩";
+    /* a 🔒 flag is the ONE landmark that is actually stopping the climb — see the
+       gate note in startMountain. Every other unpassed 年级峰 keeps its 🚩. */
+    if (m.t === "level") {
+      if (locked) return "🔒";
+      return (store.gym[m.level] && petFor(m.level)) ? petFor(m.level).emoji : "🚩";
+    }
     return "";   // unit: a plain dot (gold when its badge is earned)
+  }
+  /* ⚠️ MEASURED, not modelled — and it has to be, which is why it runs after layout.
+     The perpendicular offsets in startMountain stop CONSECUTIVE pins colliding, and at
+     ≥900px that is the whole story (0 unreachable pins on all four islands). They cannot
+     stop the hand-traced trail's own SWITCHBACKS from folding two distant altitudes onto
+     the same few pixels: on a 640x393 phone stage, 中一单元三 and 中一年级峰 are 30px apart
+     ALONG the path and 12px apart on screen. No formula over MTN_PATHS knows that without
+     re-deriving layout, so this asks the browser instead.
+     ⚠️ Pins are only ever pushed FURTHER OUT along their own normal — the along-path
+     coordinate never moves. A pin nudged up the mountain would be a lie about altitude,
+     which is the one thing this map has to be exact about (the camp is read against it);
+     a pin standing a little further off the trail is not.
+     ⚠️ Bounded (34px, 5 rounds). It is allowed to give up: a pin that ends up slightly
+     overlapped still draws and still takes its own tap, because .t-unit/.t-level sit
+     above the camp — the failure it exists to prevent is a landmark whose CENTRE is
+     inside another pin's box, which is the one that cannot be tapped at all. */
+  var _mtnResizeHooked = 0, _mtnResizeT = 0;
+  function mtnDeconflict() {
+    var all = [].slice.call(document.querySelectorAll(".mtn2-pin"));
+    var mov = [], base = [], nx = [], ny = [], cur = [], self = [], i;
+    all.forEach(function (p, ai) {
+      if (!p.hasAttribute("data-nx")) return;      // 顶峰 is an obstacle, never a mover
+      var k = mov.length;
+      mov.push(p); self[k] = ai;
+      base[k] = parseFloat(p.getAttribute("data-off")) || 0;
+      nx[k] = parseFloat(p.getAttribute("data-nx")) || 0;
+      ny[k] = parseFloat(p.getAttribute("data-ny")) || 0;
+      cur[k] = base[k];
+    });
+    if (mov.length < 2) return;
+    function put(k, v) {
+      mov[k].style.setProperty("--ox", (nx[k] * v).toFixed(1) + "px");
+      mov[k].style.setProperty("--oy", (ny[k] * v).toFixed(1) + "px");
+    }
+    /* ⚠️ no transition while the pass settles, or the pins visibly slide into place on
+       every visit. Lifted on the next frame, so hover still animates. */
+    var isle = document.querySelector(".mtn2-isle");
+    if (isle) {
+      isle.classList.add("settling");
+      requestAnimationFrame(function () { isle.classList.remove("settling"); });
+    }
+    for (i = 0; i < mov.length; i++) put(i, base[i]);   // reset: this must be idempotent
+
+    function box(el) {
+      var r = el.getBoundingClientRect();
+      return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height };
+    }
+    /* the failure this exists to prevent is a landmark whose CENTRE sits inside another
+       pin's box — that is the one that cannot be tapped at all. Mere overlap is fine:
+       .t-unit/.t-level draw above the camp, so an overlapped dot is still both visible
+       and clickable. */
+    function buried(a, b) {
+      return b.w > 0 && Math.abs(a.cx - b.cx) < b.w / 2 && Math.abs(a.cy - b.cy) < b.h / 2;
+    }
+    function clash(bx, me, B) {
+      for (var j = 0; j < all.length; j++) { if (j !== me && buried(bx, B[j])) return true; }
+      return false;
+    }
+    var STEP = 8, MAX = 38;
+    /* ⚠️ BOTH directions, current magnitude first. Pushing further along the normal is
+       not always away from the obstacle: where the trail switches back, the normal at
+       one pin points straight at its neighbour across the bend, so "further out" walks
+       INTO it. Trying only the outward sign left three pins buried on a phone. */
+    var CAND = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4], FLIP = [1, -1, 1, -1, 1, -1, 1, -1, 1, -1];
+    for (var round = 0; round < 3; round++) {
+      var B = all.map(box), moved = false;
+      for (i = 0; i < mov.length; i++) {
+        if (!clash(B[self[i]], self[i], B)) continue;
+        var sign = base[i] < 0 ? -1 : 1, best = null, c, v, cand;
+        for (c = 0; c < CAND.length; c++) {
+          v = sign * FLIP[c] * Math.min(MAX, Math.abs(base[i]) + CAND[c] * STEP);
+          /* ⚠️ the candidate box is COMPUTED, never measured. .mtn2-pin carries
+             `transition:transform .12s`, so writing --ox and reading the rect back in
+             the same tick returns the pin's OLD position — the search then thinks every
+             candidate is identical and gives up on all of them. (It did.) The offset is
+             a pure translation, so arithmetic is exact here anyway. */
+          cand = { cx: B[self[i]].cx + nx[i] * (v - cur[i]), cy: B[self[i]].cy + ny[i] * (v - cur[i]),
+                   w: B[self[i]].w, h: B[self[i]].h };
+          if (!clash(cand, self[i], B)) { best = v; break; }
+        }
+        if (best === null || best === cur[i]) continue;
+        B[self[i]] = { cx: B[self[i]].cx + nx[i] * (best - cur[i]), cy: B[self[i]].cy + ny[i] * (best - cur[i]),
+                       w: B[self[i]].w, h: B[self[i]].h };
+        cur[i] = best; put(i, best); moved = true;
+      }
+      if (!moved) break;
+    }
   }
   function startMountain() {
     setTopbar("home", "");
@@ -6122,47 +6324,133 @@
        and the old .mtn2-hero dot is gone (it would have sat exactly underneath).
        Only the RENDERED position changed — buildMarks still records the camp at
        alt 0, so goals, zone boundaries and markDone are all untouched. */
-    var meFrac = Math.min(1, alt / totalAlt);
-    /* .mtn2-isle sits INSIDE the stage at 86% of its width, so the island floats
+    /* ⚠️ 你的营地 STOPS at the first 年级峰 whose 年度试炼 is still unpassed (owner
+       2026-08-22: 「I haven't passed the S1 final challenge so my campsite shouldn't
+       be past that even though my mastery percentage is beyond」). Altitude alone
+       used to move it, so a student who had never cleared 中一年度试炼 still saw the
+       tent pitched somewhere up 中三. The HUD number is still the true 已掌握 count —
+       the tent is the CLIMB, and the climb has a gate.
+       ⚠️ Only the DRAWN position changes. buildMarks still records the camp at alt 0,
+       so goals, zone boundaries and markDone are untouched.
+       ⚠️ Landmarks above the gate stay tappable (owner 2026-08-22 chose 「单元仍可看」):
+       a student has to be able to read the words they are climbing towards. They are
+       greyed, not disabled — that is a statement about the CLIMB, not about the map. */
+    var gate = null, gi;
+    for (gi = 0; gi < pins.length; gi++) {
+      if (pins[gi].t === "level" && !store.gym[pins[gi].level]) { gate = pins[gi]; break; }
+    }
+    var gateOn = !!(gate && alt > gate.alt);
+    var meFrac = Math.min(1, (gateOn ? gate.alt : alt) / totalAlt);
+
+    /* ⚠️ Pins are pushed SIDEWAYS off the trail, never along it. Two separate
+       collisions were hiding units and eating their clicks (owner 2026-08-22):
+       (1) a 年级峰 flag sits at exactly the SAME altitude as that level's last unit,
+           so the 30px flag drew straight on top of the 19px dot — 中一/中二/中三 单元六
+           and 中四单元五 were invisible on all four mountains, which is why 中四 read
+           as 「单元一 to 单元四」;
+       (2) the chain is denser than the pins are wide: 23 unit dots over roughly 330px
+           of painted trail is ~12px between centres, under the dot's own diameter.
+       The ALONG-path coordinate still encodes altitude exactly — that is what the camp
+       is read against, so it must not be nudged. Offsets are perpendicular only, and
+       in px so they track the pin sizes rather than the stage. Unit dots alternate
+       ±9px; a flag takes 24px on the side its own last unit did NOT take. */
+    var UNIT_OFF = 9, LEVEL_OFF = 24, CAMP_OFF = 30, uSide = -1;
+    pins.forEach(function (m) {
+      if (m.t === "unit") { uSide = -uSide; m.off = UNIT_OFF * uSide; }
+      else if (m.t === "level") { m.off = -uSide * LEVEL_OFF; }
+      else m.off = 0;
+    });
+    /* the tent stands BESIDE the trail and drops an anchor dot back onto it (see
+       .mtn2-pin.t-base::before). A 64px disc centred on the path swallowed five unit
+       dots whole — owner 2026-08-22: 「the campsite icon overlaps with a number of
+       clickable circles so they are now unclickable」. It also steps aside from the
+       flag it may be parked against when the climb is gated. */
+    var campOff = (gateOn && gate.off > 0) ? -CAMP_OFF : CAMP_OFF;
+    /* .mtn2-isle sits INSIDE the stage at 84% of its width, so the island floats
        on open sea instead of running edge to edge (owner 2026-08-15). The margin
        is what lets the summit ring, and any pin label, sit outside the coastline
        without being clipped by the stage. Pins are children of the isle, so every
        fraction in MTN_PATHS / MTN_CROWN still means the same point of the sprite
        and nothing had to be re-traced for this. */
-    var html = '<div class="mtn2-wrap"><div class="mtn2-stage" id="mtStage" style="--ar:' +
+    var html = '<div class="mtn2-wrap"><div class="mtn2-scroll" id="mtScroll">' +
+      '<div class="mtn2-stage" id="mtStage" style="--ar:' +
       MTN_SKIN.ar.toFixed(4) + '"><div class="mtn2-isle">' +
       '<img class="mtn2-art" src="' + MTN_SKIN.src + '" alt="">';
     pins.forEach(function (m, i) {
-      var p, extra = "", cls;
+      var p, extra = "", cls, nrm, off, f, ox = 0, oy = 0;
       if (m.t === "summit") {
         p = { x: MTN_TOP.x, y: MTN_TOP.y };
         extra = ";width:" + (MTN_TOP.r * 200).toFixed(2) + "%";
       } else {
-        p = mtnPathAt(m.t === "base" ? meFrac : Math.min(1, m.alt / totalAlt));
+        f = m.t === "base" ? meFrac : Math.min(1, m.alt / totalAlt);
+        p = mtnPathAt(f);
+        off = m.t === "base" ? campOff : m.off;
+        if (off) { nrm = mtnNormalAt(f); ox = nrm.x * off; oy = nrm.y * off; }
       }
-      var lab = m.t === "base" ? (markLabel(m) + " · 你在这里") : markLabel(m);
+      extra += ";--ox:" + ox.toFixed(1) + "px;--oy:" + oy.toFixed(1) + "px";
+      var nAttr = nrm ? (' data-nx="' + nrm.x.toFixed(4) + '" data-ny="' + nrm.y.toFixed(4) +
+        '" data-off="' + (m.t === "base" ? campOff : m.off) + '"') : "";
+      var lab = m.t === "base"
+        ? (markLabel(m) + (gateOn ? " · 等 " + gate.level + " 年度试炼" : " · 你在这里"))
+        : markLabel(m);
       /* the name rides above the pin and appears on hover/keyboard focus, so a
          student can read the map without opening every popover. Pins near the
          top of the frame flip their label underneath instead — .mtn2-stage
          clips its overflow, so a label above them would be cut in half. */
       cls = "mtn2-pin t-" + m.t + (markDone(m) ? " done" : "") +
-        (p.y < 0.16 ? " lbl-below" : "");
-      html += '<button class="' + cls + '" data-i="' + i + '" title="' + esc(lab) +
+        (p.y < 0.16 ? " lbl-below" : "") +
+        (gateOn && m === gate ? " gate" : "") +
+        (gateOn && m.t !== "base" && m.alt > gate.alt ? " beyond" : "");
+      html += '<button class="' + cls + '" data-i="' + i + '"' + nAttr + ' title="' + esc(lab) +
         '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%' + extra + '">' +
-        mtnPinIcon(m) + '<span class="mtn2-name">' + esc(lab) + '</span></button>';
+        mtnPinIcon(m, gateOn && m === gate) + '<span class="mtn2-name">' + esc(lab) + '</span></button>';
     });
-    html += '</div></div>';   // .mtn2-isle / .mtn2-stage
+    html += '</div></div></div>';   // .mtn2-isle / .mtn2-stage / .mtn2-scroll
     html += '<div class="mtn2-hud">' +
       '<span class="m2pill">⛰️ 已掌握 <b>' + alt + '</b> 米</span>' +
       '<span class="m2pill">' + zoneName(alt) + '</span>' +
       '<button class="m2pill" id="mtGoal">🎯 目标</button></div>';
     html += '<div class="mtn2-goalbar" id="mtGoalbar"></div>';
-    html += '<div class="mtn2-tip">点地标查看进度 · ⛺ 你的营地 · 🚩 年度试炼 · 🏯 顶峰</div></div>';
+    html += '<div class="mtn2-tip">点地标查看进度 · ⛺ 你的营地 · 🚩 年度试炼 · 🏯 顶峰' +
+      (gateOn ? " · 🔒 先通过年度试炼" : "") + '</div></div>';
     view().innerHTML = html;
 
     var goal = nextGoal(alt);
     var gb = document.getElementById("mtGoalbar");
-    if (gb) gb.textContent = goal ? ("🎯 距「" + goal.label + "」还差 " + goal.need + " 词") : "🏯 全部目标已完成！";
+    /* ⚠️ a blocked camp OWNS the goal bar. Leaving 「距 X 还差 N 词」 up there while the
+       tent refuses to move is the app asking for something that will not move it. */
+    if (gb) gb.textContent = gateOn
+      ? ("🔒 先通过「" + gate.level + " 年度试炼」，营地才会继续往上")
+      : (goal ? ("🎯 距「" + goal.label + "」还差 " + goal.need + " 词") : "🏯 全部目标已完成！");
+
+    /* ⚠️ TWICE, and the second one is the load-bearing one. Called straight after
+       innerHTML the stage can still measure 0x0 — the island is sized off vh/vw and an
+       aspect-ratio, and the first pass then sees no collisions at all and does nothing
+       (that is exactly what happened the first time this was wired). The pass is
+       idempotent, so running it again on the next frame costs nothing and is the one
+       that has real geometry to work with. */
+    mtnDeconflict();
+    requestAnimationFrame(mtnDeconflict);
+    /* ⚠️ Rotating an iPad relays the stage out and every offset above was measured in
+       the OLD geometry. Redraw the whole map rather than just re-running the settle
+       pass: re-running it alone left a pin buried in testing, because it has to undo
+       offsets that are still mid-transition, and the map holds no state worth
+       preserving anyway. Debounced, and guarded on the map still being on screen.
+       ⚠️ Hooked once for the page's life — one listener per visit would pile up. */
+    if (!_mtnResizeHooked) {
+      _mtnResizeHooked = 1;
+      window.addEventListener("resize", function () {
+        clearTimeout(_mtnResizeT);
+        _mtnResizeT = setTimeout(function () {
+          if (document.getElementById("mtStage")) startMountain();
+        }, 200);
+      });
+    }
+    /* ⚠️ narrow screens pan instead of squeezing — see .mtn2-scroll. Open centred on
+       the trail, which runs up the middle third of every island sprite; starting at
+       scrollLeft 0 would show a phone student nothing but open sea. */
+    var sc = document.getElementById("mtScroll");
+    if (sc) sc.scrollLeft = Math.max(0, (sc.scrollWidth - sc.clientWidth) / 2);
 
     var stage = document.getElementById("mtStage");
     Array.prototype.forEach.call(stage.querySelectorAll(".mtn2-pin[data-i]"), function (btn) {

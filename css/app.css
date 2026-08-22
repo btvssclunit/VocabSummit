@@ -1268,6 +1268,34 @@ button.mtn-pill:active{transform:scale(.96)}
 .wchip.not{background:transparent;border:1.5px dashed #A8B4C0;color:#6B7885}
 /* was #8A94A0 — near-invisible on a glass card over bright art */
 .pop-hint{margin-top:8px;font-size:12px;color:#4E6273}
+/* ===== 我的词山 landmark card (owner 2026-08-22) ===== */
+/* ⚠️ ONE scroller around all the 板块 groups. .chip-wrap carries its own 38vh box,
+   so a four-板块 unit would otherwise render four separate little scroll boxes. */
+.pop-groups{max-height:44vh;overflow:auto;-webkit-overflow-scrolling:touch;margin-top:6px}
+.chip-wrap.flat{max-height:none;overflow:visible;margin-top:4px}
+.pop-sub{display:flex;align-items:center;gap:7px;margin-top:13px}
+.pop-sub:first-child{margin-top:2px}
+.pop-badge.sm{width:22px;height:22px;vertical-align:0;margin:0;flex:0 0 auto}
+.pop-sub-n{font-weight:800;font-size:13.5px;color:var(--ink);min-width:0}
+/* ⚠️ --gold-ink, not --gold-deep: this is small type on a light card (§7) */
+.pop-sub-c{margin-left:auto;flex:0 0 auto;font-size:12.5px;font-weight:800;color:var(--gold-ink)}
+/* label + number. The glossed span's visible Chinese is EXACTLY the PY_LAB key
+   (§10); the number rides alongside and is never part of the key. */
+.pop-stat{margin-top:5px}
+.pop-k{display:inline-block;vertical-align:top;margin-right:9px;
+  font-size:12.5px;font-weight:700;color:#3A5A70}
+.pop-v{display:inline-block;font-size:14.5px;color:#41576A}
+.pop-v b{font-size:16px;color:var(--ink)}
+.pop-t-k{font-weight:900}
+/* ⚠️ word chips finally render their 拼音, on the same body.py-aid gate as every
+   other annotation (owner 2026-08-22). ⚠️ The body.py-aid prefix is load-bearing:
+   a bare `.wchip .pylab` is (0,2,0) — it beats the display:none half and LOSES to
+   `body.py-aid .pylab` (0,2,0, later in this file), so the override would silently
+   do nothing. Same trap as §18e. */
+body.py-aid .wchip .pylab{font-size:10.5px;line-height:1.25;margin-top:0;letter-spacing:0;
+  font-weight:600}
+body.py-aid .wchip.got .pylab{color:#553F06}
+body.py-aid .wchip.not .pylab{color:#5A6875}
 .goal-opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 
 
@@ -1936,13 +1964,39 @@ body{background-repeat:no-repeat;background-size:cover;background-position:cente
   width:84%;aspect-ratio:var(--ar,1.6)}
 .mtn2-art{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;
   filter:drop-shadow(0 6px 14px rgba(6,26,48,.38))}
-.mtn2-pin{position:absolute;transform:translate(-50%,-50%);border:0;cursor:pointer;padding:0;
+/* --ox / --oy push a pin PERPENDICULAR to the trail, in px (set by startMountain).
+   The left/top percentages still carry altitude exactly; only the sideways nudge
+   lives here, which is what keeps the camp readable against the dots. In px on
+   purpose: it has to track the pin sizes, which are px, not the stage. */
+.mtn2-pin{position:absolute;
+  transform:translate(calc(-50% + var(--ox,0px)),calc(-50% + var(--oy,0px)));
+  border:0;cursor:pointer;padding:0;
   display:grid;place-items:center;border-radius:50%;line-height:1;font-size:13px;
   width:19px;height:19px;background:rgba(255,255,255,.4);box-shadow:0 2px 6px rgba(8,16,34,.55);
   border:2px solid rgba(255,255,255,.75);transition:transform .12s}
-.mtn2-pin:hover{transform:translate(-50%,-50%) scale(1.2);z-index:5}
+.mtn2-pin:hover{transform:translate(calc(-50% + var(--ox,0px)),calc(-50% + var(--oy,0px))) scale(1.2);z-index:5}
+/* while mtnDeconflict settles the offsets, or the pins visibly slide on every visit */
+.mtn2-isle.settling .mtn2-pin{transition:none}
 .mtn2-pin.t-unit.done{background:var(--gold);border-color:#fff}
 .mtn2-pin.t-level{width:30px;height:30px;font-size:16px;background:rgba(20,36,58,.72);border-color:var(--gold)}
+/* ⚠️ ABOVE the camp (z 7). The tent is the biggest thing on the trail, so wherever
+   it lands the landmarks under it must still draw and still take their own taps —
+   owner 2026-08-22: 「the campsite icon overlaps with a number of clickable circles
+   so they are now unclickable」. ⚠️ Must stay BEFORE the :hover{z-index:20} rule
+   below: media queries and hover states do not add specificity, and at equal
+   specificity the later rule wins — put this after it and a hovered pin drops back
+   to 9 and its label goes under its neighbours. */
+.mtn2-pin.t-unit,.mtn2-pin.t-level{z-index:9}
+/* Beyond the gate: faded, never disabled. The student can still open any of them and
+   read the words — what is blocked is the CLIMB, not the map.
+   ⚠️ Desaturate, do NOT grayscale. A student stopped at 中一年度试炼 can already have
+   earned unit badges further up, and those pins are GOLD; full grayscale turns a badge
+   they own into a badge they lost. Muted-but-still-gold says 「above your camp」, which
+   is the true statement. */
+.mtn2-pin.beyond{filter:saturate(.5) brightness(.96);opacity:.62}
+.mtn2-pin.beyond:hover,.mtn2-pin.beyond:focus-visible{filter:none;opacity:1}
+.mtn2-pin.t-level.gate{background:rgba(104,38,32,.86);border-color:#FFD9A0;z-index:10;
+  box-shadow:0 2px 8px rgba(8,16,34,.6),0 0 0 4px rgba(245,196,67,.3)}
 /* landmark name on hover / keyboard focus (owner 2026-08-15). The native title
    tooltip is still there for slow-hover and screen readers, but it takes about
    a second to appear and never shows on the camp, so the map read as a row of
@@ -1963,16 +2017,28 @@ body{background-repeat:no-repeat;background-size:cover;background-position:cente
    pin that must read at a glance. Bigger than every other pin, gold-ringed, with
    a breathing halo and a slow float. z-index above the other pins so it always
    draws on top when progress lands it next to a unit dot. */
-.mtn2-pin.t-base{width:64px;height:64px;font-size:32px;background:rgba(63,112,79,.92);
+/* ⚠️ 44px, not 64px, and it now stands BESIDE the trail (--ox/--oy from
+   startMountain) rather than centred on it. At 64px centred, plus a 7px invisible
+   ::before, the camp was a 78px click-swallowing disc sitting on a chain of dots
+   spaced ~12px apart: five unit landmarks at a time were covered and dead. */
+.mtn2-pin.t-base{width:44px;height:44px;font-size:24px;background:rgba(63,112,79,.92);
   border:3px solid #FFE9B0;z-index:7;
-  box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 5px rgba(245,196,67,.34),0 0 22px 6px rgba(245,196,67,.34);
+  box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 4px rgba(245,196,67,.34),0 0 18px 5px rgba(245,196,67,.34);
   animation:mtnCampGlow 2.8s ease-in-out infinite}
-.mtn2-pin.t-base::before{content:"";position:absolute;inset:-7px;border-radius:50%}
-.mtn2-tent{display:block;animation:mtnCampFloat 3.4s ease-in-out infinite;
+/* the anchor: the tent stands off-trail, this puts 你在这里 back ON the trail at
+   the exact altitude point (--ox/--oy undone). ⚠️ pointer-events:none — it hangs
+   outside the button, and it used to be an invisible hit-area extension instead. */
+.mtn2-pin.t-base::before{content:"";position:absolute;pointer-events:none;
+  left:calc(50% - var(--ox,0px));top:calc(50% - var(--oy,0px));
+  width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:#FFE9B0;
+  box-shadow:0 0 0 2px rgba(63,112,79,.92),0 2px 6px rgba(8,16,34,.5)}
+/* ⚠️ pointer-events:none: the glyph floats (mtnCampFloat) and overflows the button,
+   so without this the tent takes taps outside its own hit area. */
+.mtn2-tent{display:block;pointer-events:none;animation:mtnCampFloat 3.4s ease-in-out infinite;
   filter:drop-shadow(0 2px 3px rgba(8,16,34,.45))}
 @keyframes mtnCampGlow{
-  0%,100%{box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 5px rgba(245,196,67,.34),0 0 22px 6px rgba(245,196,67,.34)}
-  50%    {box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 11px rgba(245,196,67,.12),0 0 34px 12px rgba(245,196,67,.5)}}
+  0%,100%{box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 4px rgba(245,196,67,.34),0 0 18px 5px rgba(245,196,67,.34)}
+  50%    {box-shadow:0 4px 14px rgba(8,16,34,.5),0 0 0 9px rgba(245,196,67,.12),0 0 28px 10px rgba(245,196,67,.5)}}
 @keyframes mtnCampFloat{0%,100%{transform:translateY(-2px)}50%{transform:translateY(2px)}}
 /* 顶峰 = a hollow ring drawn AROUND the summit building, never a pin on top of
    it (owner 2026-08-15: "the feature on the top of the mountain should not be
@@ -2022,6 +2088,21 @@ button.m2pill{cursor:pointer}
   box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
 @media (prefers-reduced-motion:reduce){
   .mtn2-pin.t-base,.mtn2-tent,.mtn2-pin.t-summit,.mtn2-pin.t-summit::after{animation:none}}
+/* ⚠️ Below ~700px the stage is WIDTH-limited (96vw) and the whole climb collapses:
+   on a 390px phone the trail is ~143px of path carrying 27 landmarks, ~5px between
+   centres, and a pin is 19px — most of the chain is unreachable no matter how it is
+   offset. So the map keeps a floor width and PANS sideways instead. A map you scroll
+   is honest; a map with dead landmarks is not.
+   ⚠️ The scroller is .mtn2-scroll, wrapping the stage ONLY — putting it on .mtn2-wrap
+   would drag the HUD, the goal bar and the tip line off-screen with it, and putting it
+   on <body> is the §14 trap. 640px is measured, not picked: at ±9px alternation two
+   consecutive dots clear each other from ~6.2px of path spacing apart, and 640px gives
+   ~8.7px on g1 — the widest sprite, so the worst case of the four. */
+@media (max-width:700px){
+  .mtn2-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+    margin:0 -2vw;padding:0 2vw}
+  .mtn2-stage{min-width:640px}
+}
 
 /* ===== 你的营地 · static camp scene + shop (v2 场景化界面, 2026-08-13) ===== */
 .camp2-wrap{position:relative;padding:4px 0 14px}
