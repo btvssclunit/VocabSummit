@@ -1290,13 +1290,32 @@
     var p = loadProfile();
     return (window.WSProfile && window.WSProfile.avatarImgHtml) ? window.WSProfile.avatarImgHtml(p && p.avatarId) : "👤";
   }
+  /* ⚠️ attached ONCE for the page's life. setTopbar runs on every screen, so a
+     listener added here per call would pile up one per navigation.
+     ⚠️ passive:true — this only reads scrollY and flips a class; declaring it passive
+     keeps it off the critical path of touch scrolling on the old iPads G1/G2 run on. */
+  var _tbScrollHooked = 0;
+  function hookTopbarScrim(sel) {
+    if (_tbScrollHooked) return;
+    _tbScrollHooked = 1;
+    var apply = function () {
+      var b = document.querySelector(sel);
+      if (b) b.classList.toggle("scrolled", (window.pageYOffset || 0) > 6);
+    };
+    window.addEventListener("scroll", apply, { passive: true });
+    apply();
+  }
   function setTopbar(backTo, right) {
     showFab(true);          // timed games turn it off again right after
     _pyApply = null;        // each screen re-registers if it shows pinyin
     var tb = document.querySelector(".topbar");
     tb.innerHTML =
       '<button class="back" id="tbBack">‹</button>' +
-      '<div><div class="tb-name">' + META.zh + '</div>' +
+      /* ⚠️ .tb-id is a PLAQUE, not a wrapper div (owner 2026-08-22). The bar has no
+         panel any more, so this is the only thing keeping the stream's name legible
+         over applyAmbience()'s photo — and the name staying visible was the owner's
+         one condition for removing the bar. */
+      '<div class="tb-id"><div class="tb-name">' + META.zh + '</div>' +
       '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
       '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
         /* 中/EN 英文提示 toggle (G1/G2). Icon-only by design: findable without
@@ -1328,6 +1347,7 @@
     if (pf) pf.onclick = openProfilePanel;
     wireEnToggle();
     wirePyToggle();
+    hookTopbarScrim(".topbar");
   }
 
   /* 地景横幅 (handoff §3; art changed by the owner 2026-08-16 evening) — the
@@ -6453,7 +6473,11 @@
         (p.y < 0.16 ? " lbl-below" : "") +
         (gateOn && m === gate ? " gate" : "") +
         (gateOn && m.t !== "base" && m.alt > gate.alt ? " beyond" : "");
-      html += '<button class="' + cls + '" data-i="' + i + '"' + nAttr + ' title="' + esc(lab) +
+      /* ⚠️ aria-label, NOT title. A native title tooltip duplicates .mtn2-name — the
+         plaque shows at once, the tooltip about a second later and somewhere else, so
+         the landmark's name renders twice (owner 2026-08-22). aria-label keeps the
+         accessible name without drawing anything. */
+      html += '<button class="' + cls + '" data-i="' + i + '"' + nAttr + ' aria-label="' + esc(lab) +
         '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%' + extra + '">' +
         mtnPinIcon(m, gateOn && m === gate) + '<span class="mtn2-name">' + esc(lab) + '</span></button>';
     });

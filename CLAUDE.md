@@ -1,7 +1,13 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-08-22（**`20260822c`：术语改名 + 后端文件对齐**——
+Last updated: 2026-08-22（**`20260822d`：顶栏那条玻璃板整个拿掉**——
+owner：「like the seamap doesn't have a top bar … we just have to ensure that the labels
+stay visible」。**面板没了，内容还在**：返回、名牌、四颗控件各自带玻璃浮在画面上；
+学段名改挂在**自己的小名牌**上（海图能把名字挂在岛上，一局测验没有画可以挂）。
+滚动时才浮出一层**没有边缘**的柔光，静止时一点 chrome 都没有。
+连带修掉 **地标 hover 时名字出现两次**（原生 title 与 .mtn2-name 各画一次）。见 §18ai。
+前一批 **`20260822c`：术语改名 + 后端文件对齐**——
 八个学生读不懂的名字换掉了（`HANDOFF_术语改名_20260822.md`，owner 已批）：
 **攀山快答 · 沙滩快跑 · 词海钓鱼 · 组词成句 · 出发码头 · 结伴出海 · 学习（原 学行）· 学海起步**，
 外加 owner 当场签核的 **组字成词（山上原 组词挑战，与码头统一）**。
@@ -113,7 +119,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260822c`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260822d`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -3072,6 +3078,58 @@ right now the backend naming is a mix of two languages」。清点下来**混用
 
 ---
 
+## 18ai. 顶栏没有面板了 · 地标名字不再画两次（owner 2026-08-22，同日第四批）
+
+owner：「for all the liquid glass bars on top, maybe we can do away with them to increase
+the feeling of openness and game? like the seamap doesn't have a top bar. we just have to
+ensure that the labels stay visible (G1/2/3/hcl etc)」。
+
+### 拿掉的是**面板**，不是内容
+海图从来就没有顶栏，但它**有控件**：一颗 `返回首页` 药丸、两颗辅助药丸，以及**挂在每座岛上的
+名牌**。照这个做：`.topbar` / `.xh-top` 现在只是一排布局，背景、边框、投影、`backdrop-filter`
+全部去掉，每个子元素自己带玻璃。
+- ⚠️ **学段名必须活下来**（owner 唯一的条件），所以它拿到**自己的名牌**（`.tb-id` / `.xh-id`）。
+  **不是用带阴影的裸字**：这行字直接压在 `applyAmbience()` 的照片上，而 §7 明写
+  亮色画面上的答案是**深墨压玻璃**，不是浅色字压画。名牌只包住文字，所以读起来是一枚浮标，不是一条栏。
+- ⚠️ **海图能把名字挂在岛上，一局测验不能**：顶栏在**每一屏**都在，而内屏没有任何美术可以承载身份。
+  这就是名牌不能省的原因。
+- ⚠️ **整排 `pointer-events:none`，控件各自 `auto`**：它是 sticky 且 z-50，
+  一条透明的整宽条**照样吃掉**落在控件之间空隙上的每一次点击——包括点在它底下滚过的卡片上。
+- ⚠️ **两颗辅助药丸的 alpha 从 .55 抬到 .72**：它们本来背后有顶栏的玻璃，现在直接坐在照片上。
+- ⚠️ **`@supports not (backdrop-filter)` 里那两行 `.topbar` / `.xh-top` 底色必须删掉**，
+  改成给名牌。留着的话，没有模糊的旧 iPad 会把那块板**原样画回来**——而那正是这个回退块伺候的机型。
+
+### 🐛 滚动时会撞：所以有一层**只在滚动时**出现的柔光
+面板一去掉，sticky 的性质就暴露了：卡片会从控件**底下**滑上来，实测 1024×700 时
+复习范围 那张卡直接穿过名牌。
+- `.topbar::before` 是一层**底边淡到全透明**的渐变，`.scrolled` 时才 opacity 1。
+  ⚠️ **整条渐变里不许有任何硬边**——加一条 `border-bottom` 或 `box-shadow` 就等于把栏装回去。
+- ⚠️ **静止时（scrollY 0）chrome 是零**。那是第一眼，也是 owner 当时在看的那一屏。
+- 一个 `passive` 的 scroll 监听翻一次 class，**整页寿命只挂一次**
+  （`setTopbar` 每屏都跑，按次挂会一次导航攒一个）。挂上时先跑一次 `apply()`，
+  这样从 bfcache 还原到半截位置也是对的。
+- ⚠️ **没有用 IntersectionObserver 哨兵**（那是这类需求的标准写法）：iOS 12.2 才支持，
+  而 G1/G2 的机队正是更旧的 iPad。
+- ⚠️ **`window.scrollTo()` 在自动化环境里不派发 scroll 事件**，自己写的监听同样收不到——
+  查这个 class 没生效时别怀疑代码，先 `dispatchEvent(new Event("scroll"))` 复核。
+
+### 🐛 地标 hover 时名字画两次
+owner：「somehow the name appears twice at times when hovered - I can't really replicate
+that though」。**每次都会重现，但要停留约一秒**：pin 同时带着原生 `title=""` 和
+`.mtn2-name` 名牌。名牌 `:hover` 立刻出现，浏览器自己的 tooltip 延迟出现、而且落在另一个位置——
+「有时候」正是因为它取决于鼠标停了多久。
+- `title` 是 2026-08-15 特意加的（**「for slow-hover and screen readers」**），
+  然后 2026-08-15 又在它上面加了名牌，**没有把它退役**。
+- 改成 `aria-label`：**读屏那一半留着，重复的那张图没了。**
+- ⚠️ **规矩**：一个元素只要自带可见的 hover 标签，就**不许**再挂 `title`。
+
+### 没有动的两块
+- **`teacher.html`**：教职员的资料工具，它要的是密度不是开阔。
+- **`guide.html`**：它是一份文档，而且 §18o 把顶栏高度实测进 `--gd-topbar-h` 驱动粘住的目录条；
+  拆栏要连那套一起重做，换不到任何「游戏感」。
+
+---
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -3134,6 +3192,9 @@ right now the backend naming is a mix of two languages」。清点下来**混用
 | 提示趋势 到底是什么、为什么删了 | §18ab（英文提示的淡出遥测，**不是**词语汉兜；它要 10 个 session 才说话，还把最好的结果评成「持平」） |
 | 学生什么时候开／关的拼音英文 | §18ab（`enTel.log`／`pyTel.log` 变化日志，日期从 2026-08-19 起，永不回填） |
 | 后台怎么看学生开没开拼音 | §18ab（学习支援 一栏；HCL 印「—」因为那里刻意没有这两个辅助） |
+| 顶栏那条玻璃板去哪了 | §18ai（面板拿掉，控件各自浮着；学段名挂到自己的名牌上） |
+| 滚动时那层柔光是什么 | §18ai（sticky 的卡片会从控件底下滑上来；静止时 chrome 是零） |
+| 地标名字为什么出现两次 | §18ai（原生 title 与 .mtn2-name 各画一次；已改 aria-label） |
 | 攀山快答／词海钓鱼 这些名字什么时候换的 | §18ah（2026-08-22；旧名只留在 docs/ 的历史交接文里） |
 | 取新名字要守什么规则 | §18ah §0（一词一难：一个标签只放一个生词，而且必须是名词） |
 | 改标签为什么会弄丢拼音 | §18ah（注解表用中文当 key；值里也可能嵌着那个词） |

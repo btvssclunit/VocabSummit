@@ -1631,6 +1631,19 @@
      boxed-stat row somewhere, which is the layout the owner just asked to remove. */
 
   /* ---------- menu ---------- */
+  /* ⚠️ its own copy — xh.js never loads cs.js (§17 deliberate duplication). Keep it
+     in step with cs.js hookTopbarScrim(). */
+  var _tbScrollHooked = 0;
+  function hookTopbarScrim() {
+    if (_tbScrollHooked) return;
+    _tbScrollHooked = 1;
+    var apply = function () {
+      var b = document.querySelector(".xh-top");
+      if (b) b.classList.toggle("scrolled", (window.pageYOffset || 0) > 6);
+    };
+    window.addEventListener("scroll", apply, { passive: true });
+    apply();
+  }
   function renderMenu() {
     state = null;
     runTeardown();                          // the beach never outlives its round
@@ -5428,6 +5441,7 @@
          「+0」on a perfectly good code. */
       registerCode();
       renderMenu();
+      hookTopbarScrim();
     })
     .catch(function () {
       view().innerHTML = '<div class="xh-board xh-err">词语资料加载失败，请检查网络后重新整理页面。<br>' +

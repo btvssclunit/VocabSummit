@@ -64,12 +64,30 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
    top edge catches light. Do not flatten it back to one alpha.
    ⚠️ Keep the .xh-top / .topbar pair in step (§17 deliberate duplication): xh.css
    never loads cs.css. */
+/* ⚠️ NO PANEL, in step with cs.css .topbar (owner 2026-08-22). See the long note
+   there for why, including the pointer-events:none on the row. */
 .xh-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
-  padding:10px 16px;
-  background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.48));
+  padding:10px 16px;background:none;border-bottom:0;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;pointer-events:none}
+.xh-back,.xh-id,.xh-tools>*{pointer-events:auto}
+/* ⚠️ NO hard edge anywhere in this gradient — it fades to zero alpha at the
+   bottom. A border-bottom or a box-shadow here would put the bar straight back.
+   ⚠️ pointer-events:none: it spans the full width, and the row above it is only
+   click-through because nothing in it catches events. */
+.xh-top::before{content:"";position:absolute;left:0;right:0;top:0;
+  height:calc(100% + 30px);pointer-events:none;opacity:0;transition:opacity .2s;
+  background:linear-gradient(180deg,rgba(244,250,253,.94),rgba(244,250,253,.66) 52%,rgba(244,250,253,0))}
+.xh-top.scrolled::before{opacity:1}
+@media (prefers-reduced-motion:reduce){.xh-top::before{transition:none}}
+
+/* the tier name on its own plaque, so it survives on every screen the way the sea
+   map's island labels do. ⚠️ .xh-back keeps its WORDS, not reduced to a bare arrow —
+   §18h records that as a deliberate pier/mountain difference. */
+.xh-id{display:flex;flex-direction:column;justify-content:center;min-width:0;
+  padding:5px 14px;border-radius:15px;background:rgba(255,255,255,.74);
+  border:1px solid var(--glass-line);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
-  border-bottom:1px solid var(--glass-line);
-  box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.15)}
 /* ⚠️ The 海图 pill becomes glass with it. A 2px #B9CEDD outline round a solid white
    pill on a glass bar is the「opaque sticker on glass」cs.css warns about; the
    mountain's own .back is var(--glass) with a 1px --glass-line. Kept as a PILL with
@@ -82,7 +100,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   border-radius:999px;padding:8px 14px;touch-action:manipulation}
 /* the title block must be allowed to SHRINK, or the three topbar controls push
    the subline into a three-line wrap on a phone and the bar grows to 98px */
-.xh-top>div:not(.xh-tools){min-width:0;flex:1}
+.xh-top>div:not(.xh-tools){min-width:0;flex:0 1 auto}
 .xh-top h1{margin:0;font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em;
   white-space:nowrap}
 .xh-top .lv{font-size:12px;color:var(--ink-soft);font-weight:700;
@@ -1323,7 +1341,8 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   /* ⚠️ .xh-back joins the fallback with the bar: now that both are var(--glass)
      (.5–.72 alpha) instead of near-white, an old iPad with no backdrop-filter would
      show the pier's painted sea straight through the label. */
-  .xh-top{background:rgba(255,255,255,.97)}
+  /* ⚠️ NOT .xh-top — no panel there any more; the plaque takes the fallback. */
+  .xh-id{background:rgba(255,255,255,.95)}
   .xh-back{background:rgba(255,255,255,.94)}
   /* ⚠️ 走进社区's cards join the fallback list. Missing it would not show up on any
      machine I can test on, which is precisely why this block is easy to forget —

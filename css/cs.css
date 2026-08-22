@@ -62,11 +62,40 @@ img{max-width:100%}
 .landing-foot{position:relative;z-index:6;text-align:center;color:#DCEAF4;font-size:11.5px;padding:0 20px 34px;text-shadow:0 1px 6px rgba(23,58,90,.5)}
 
 /* ---------- app shell ---------- */
+/* ⚠️ NO PANEL (owner 2026-08-22). This was a full-width glass slab with a border
+   and a drop shadow — the single heaviest piece of chrome on the page, and it read as
+   a document header rather than as a game. The sea map has never had one: it floats a
+   返回首页 pill, two aid pills, and hangs each name on its own plaque over the art.
+   The bar is now just a layout row; every child carries its own glass.
+   ⚠️ pointer-events:none on the ROW. It is sticky and z-50, so a transparent
+   full-width strip would still swallow every click landing in the gaps between the
+   controls — including on cards scrolled underneath it. Each real control switches
+   pointer-events back on; the gaps stay dead.
+   ⚠️ Keep the .topbar / .xh-top pair in step (§17 deliberate duplication). */
 .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;
-  padding:12px 20px;background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.48));
+  padding:12px 20px;background:none;border-bottom:0;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;pointer-events:none}
+.topbar .back,.topbar .tb-id,.topbar .tb-right>*{pointer-events:auto}
+/* ⚠️ NO hard edge anywhere in this gradient — it fades to zero alpha at the
+   bottom. A border-bottom or a box-shadow here would put the bar straight back.
+   ⚠️ pointer-events:none: it spans the full width, and the row above it is only
+   click-through because nothing in it catches events. */
+.topbar::before{content:"";position:absolute;left:0;right:0;top:0;
+  height:calc(100% + 30px);pointer-events:none;opacity:0;transition:opacity .2s;
+  background:linear-gradient(180deg,rgba(244,250,253,.94),rgba(244,250,253,.66) 52%,rgba(244,250,253,0))}
+.topbar.scrolled::before{opacity:1}
+@media (prefers-reduced-motion:reduce){.topbar::before{transition:none}}
+
+/* ⚠️ THE LABEL THAT HAD TO SURVIVE (owner: 「we just have to ensure that the labels
+   stay visible (G1/2/3/hcl etc)」). It gets a plaque rather than bare type with a
+   shadow: this sits directly on applyAmbience()'s photo backdrop, and §7 is explicit
+   that on bright painted art the answer is dark ink on glass, never light type on the
+   picture. It hugs its text, so it reads as a floating label and not as a bar. */
+.topbar .tb-id{display:flex;flex-direction:column;justify-content:center;min-width:0;
+  padding:6px 15px;border-radius:15px;background:rgba(255,255,255,.74);
+  border:1px solid var(--glass-line);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
-  border-bottom:1px solid var(--glass-line);
-  box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.15)}
 .topbar .back{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-line);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
@@ -974,8 +1003,10 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
 .enlab-always{display:block;font-size:12.5px;color:#4E6273;line-height:1.5}
 /* 中/EN toggle — icon-only on purpose: a student who cannot read the interface
    must still be able to find the control that fixes that. */
+/* ⚠️ .72, up from .55: these used to have the topbar's own glass behind them and
+   now sit straight on the ambience photo. Same reason §7 pushes dense panels up. */
 .tb-en{display:inline-flex;align-items:center;gap:4px;flex:none;height:42px;padding:0 14px;
-  background:rgba(255,255,255,.55);border:1px solid var(--glass-line);border-radius:999px;
+  background:rgba(255,255,255,.72);border:1px solid var(--glass-line);border-radius:999px;
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14);
   color:#3A5A70;cursor:pointer;margin-left:6px;touch-action:manipulation;line-height:1}
@@ -989,7 +1020,7 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
 /* 拼音辅助 — same shape and size as 中/EN so the two aids read as a pair.
    The label is INSIDE the pill and the pill grows to fit it; it never spills. */
 .tb-py{display:inline-flex;align-items:center;gap:6px;flex:none;height:42px;padding:0 14px;
-  background:rgba(255,255,255,.55);border:1px solid var(--glass-line);border-radius:999px;
+  background:rgba(255,255,255,.72);border:1px solid var(--glass-line);border-radius:999px;
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14);
   color:#3A5A70;cursor:pointer;margin-left:6px;touch-action:manipulation;line-height:1.15;
@@ -2444,10 +2475,12 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
 @supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){
   .wss-card{background:rgba(255,255,255,.97)}
   .wss-overlay{background:rgba(20,44,68,.55)}
-  .topbar{background:rgba(240,247,252,.96)}
+  /* ⚠️ NOT .topbar — it has no panel any more (owner 2026-08-22). Repainting it
+     here would put the slab back on exactly the old iPads the fallback exists for. */
+  .topbar .tb-id{background:rgba(255,255,255,.95)}
   .card{background:rgba(255,255,255,.93)}
   .pop-card{background:rgba(255,255,255,.97)}
-  .tb-profile,.tb-en,.topbar .back,.prof-x{background:rgba(255,255,255,.92)}
+  .tb-profile,.tb-en,.tb-py,.topbar .back,.prof-x{background:rgba(255,255,255,.94)}
   .dopt,.nav-btn,.prof-chip,.ach-tab{background:rgba(255,255,255,.9)}
   .section-label,.mtn2-tip{background:rgba(255,255,255,.95)}
   .prof-input,.np-select,.code-ta,.prof-uid,.prof-prog div{background:rgba(255,255,255,.88)}

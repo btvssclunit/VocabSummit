@@ -19,7 +19,7 @@
      than any duplication. cs.css is still NEVER loaded; the handful of rules
      those two files need are copied into xh.css. Progress stays sealed: nothing
      here reads or writes ws2_*. -->
-<link rel="stylesheet" href="css/xh.css?v=20260822c">
+<link rel="stylesheet" href="css/xh.css?v=20260822d">
 </head>
 <body>
 
@@ -30,7 +30,9 @@
        that never re-render). Keep the .xh-py / .xh-en class names: the same
        body.xh-py-on / body.xh-en-on gates drive them. -->
   <a class="xh-back" href="index.html">← 海图<span class="xh-uipy">hǎi tú</span><span class="xh-en">sea map</span></a>
-  <div>
+  <!-- ⚠️ .xh-id is a plaque: the bar lost its panel (owner 2026-08-22) and this is
+       what keeps 出发码头 / 学海起步 legible over the pier's painted sea. -->
+  <div class="xh-id">
     <h1>出发码头<span class="xh-uipy">chū fā mǎ tóu</span><span class="xh-en">The Beginner's Pier</span></h1>
     <!-- ⚠️ TIER, NOT MODE (owner 2026-08-16 晚). This read 「学海起步 · 看图学词 /
          Learn words from pictures」, which was wrong twice: 看图学词 was renamed
@@ -48,9 +50,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260822c"></script>
-<script src="js/profile.js?v=20260822c"></script>
-<script src="js/nickname.js?v=20260822c"></script>
+<script src="js/firebase-init.js?v=20260822d"></script>
+<script src="js/profile.js?v=20260822d"></script>
+<script src="js/nickname.js?v=20260822d"></script>
 <!-- ⚠️ 结伴出海 / 同伴挑战 (owner 2026-08-17). The pier reuses the mountain's room engine
      rather than growing a second one: the lobby, roster, reconnect, host controls and TTL
      are identical for both families, and what differs (the question renderer, the award
@@ -58,10 +60,10 @@
      ⚠️ podium.js comes WITH it — arena calls it to show the top three, and without it the
      end of a room round is a blank panel. It is the one shared module teacher.html also
      loads (§18b): no dependencies, no state, pure presentation. -->
-<script src="js/podium.js?v=20260822c"></script>
-<script src="js/arena.js?v=20260822c"></script>
-<script src="js/search.js?v=20260822c"></script>
-<script src="js/tts.js?v=20260822c"></script>
-<script src="js/xh.js?v=20260822c"></script>
+<script src="js/podium.js?v=20260822d"></script>
+<script src="js/arena.js?v=20260822d"></script>
+<script src="js/search.js?v=20260822d"></script>
+<script src="js/tts.js?v=20260822d"></script>
+<script src="js/xh.js?v=20260822d"></script>
 </body>
 </html>
