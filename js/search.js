@@ -47,7 +47,7 @@
 
   /* Dock first, then the four mountains. ⚠️ This is the DEFAULT ORDER, not a
      filter the student sets (§3.3): a dock beginner searching 水 must reach
-     their own 100 words before 3,741 secondary-school ones, or the feature is
+     their own 148 words before 3,741 secondary-school ones, or the feature is
      useless to precisely the learner it was built for. */
   var STATIONS = ["xh", "g1", "g2", "g3", "hcl"];
   var STATION_LABEL = {
