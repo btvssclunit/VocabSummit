@@ -1,6 +1,6 @@
 # 词山学海 · Vocab Summit
 
-词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，涵盖 G1 至 G3 高级华文四大源流，另设「学海起步 · 出发码头」词语闪卡入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山快答等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
+词山学海是百德中学母语部华文组出品，由母语部主任郑凯欣老师主导设计与开发，是为学生打造的华文词汇自主学习平台，涵盖 G1 至 G3 高级华文四大源流，另设「学海起步 · 出发码头」零起点入门层，共三千八百余个词条。学生可通过词语闪卡、填空挑战、词雨灵露、词语汉兜、攀山快答等多种游戏化模式，在「词山」上逐步攀登，巩固词汇掌握。平台设计参考自主学习动机理论与形成性评价原则。
 
 Vocab Summit is developed by the Mother Tongue Languages (MTL) Chinese Language Unit at Bukit View Secondary School (BVSS), led by HOD/MTL Chun Kai Xin. It is a gamified Chinese vocabulary self-directed learning platform spanning the four curriculum streams from G1 to G3 Higher Chinese, plus a pre-G1 beginners' tier, 学海起步, for students starting from zero. Students climb a persistent "word mountain" through flashcards, cloze challenges, word-rain, a Wordle-style character game and a mountain-sprint mode, grounded in self-determination theory (SDT) and assessment-for-learning (AfL) principles.
 
@@ -18,7 +18,7 @@ The landing page is a sea map. Each island is one destination:
 | 词将竞技场 | `G2_index.html` | G2 华文 |
 | 词王淬炼坊 | `G3_index.html` | G3 快捷华文 |
 | 词圣鸿文苑 | `HCL_index.html` | 高级华文 |
-| 出发码头 | `XH_index.html` | 学海起步 · 词语闪卡入门层 |
+| 出发码头 | `XH_index.html` | 学海起步 · 零起点入门层 |
 
 `teacher.html` is a separate teacher dashboard (email sign-in, HOD approval), and
 `tools/` holds two device diagnostics.
@@ -97,7 +97,7 @@ CLAUDE.md, 部署缓存版本号.
 - 我的词山 per stream: a 你在这里 pin, four 关卡 (one per year, each holding that
   year's units and its 年度试炼) and the 顶峰, plus a 待巩固 review queue.
 - 营地 with 灵露, gear and 我的档案 / 头像 (some earned, some bought).
-- 出发码头: a zero-Chinese-required entry tier. 学习 holds 词语闪卡 and 学习挑战
+- 出发码头: a beginners' tier, for students with no prior Chinese. 学习 holds 词语闪卡 and 学习挑战
   (英文选词 · 看图识词 · 听音识图 ‖ 看句选词 · 组词成句 ‖ 连线 · 组字成词); 闯关 holds
   词海钓鱼 and 沙滩快跑; 走进社区 walks the sentence library scene by scene. Its own
   currency and boards, sealed off from the mountains' 海拔 / 历练值 / 灵露.
