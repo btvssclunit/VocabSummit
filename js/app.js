@@ -2980,6 +2980,7 @@
     "进阶": "Advanced", "文化站": "Culture stop",
     /* 我的词山 landmark cards (owner 2026-08-22) */
     "学习": "Learn", "挑战": "Challenge", "营地": "Camp", "年级峰": "Year peak", "顶峰": "Summit",
+    "本级单元": "Units in this year",
     "已掌握": "Mastered", "海拔": "Altitude", "单元完成": "Units finished",
     "单元营地 · 海拔": "Unit camp · altitude", "板块驿站 · 海拔": "Component post · altitude",
     "金色 = 已掌握 · 虚线 = 待掌握 · 点词可发音":
@@ -3093,6 +3094,7 @@
     /* 我的词山 landmark cards (owner 2026-08-22). ⚠️ one syllable per 汉字, symbols
        carried through unchanged — same shape as the 词雨 lines further down. */
     "学习": "xué xí", "挑战": "tiǎo zhàn", "营地": "yíng dì", "年级峰": "nián jí fēng",
+    "本级单元": "běn jí dān yuán",
     "顶峰": "dǐng fēng", "已掌握": "yǐ zhǎng wò", "海拔": "hǎi bá", "单元完成": "dān yuán wán chéng",
     "单元营地 · 海拔": "dān yuán yíng dì · hǎi bá",
     "板块驿站 · 海拔": "bǎn kuài yì zhàn · hǎi bá",
@@ -5319,7 +5321,11 @@
   function markLabel(m) {
     if (m.t === "base") return "你的营地";
     if (m.t === "comp") return m.comp.unit + " · " + m.comp.component;
-    if (m.t === "unit") return m.unit + " 营地";
+    /* ⚠️ the level is part of the name now that 单元 pins are off the map (§18ag).
+       markLabel's only remaining callers are the goal bar and the pin titles, and every
+       stream has four 单元一 — 「距「单元一 营地」还差 55 词」 named a milestone the
+       student could not locate. */
+    if (m.t === "unit") return m.level + " · " + m.unit;
     if (m.t === "level") return m.level + " 年级峰";
     return "顶峰";
   }
@@ -5423,9 +5429,10 @@
      (板块 filter, ⭐ tiers, 打字档, 「共 0 词」) is still in front of them. Picking the
      mode for them is exactly how a §4.4 silent failure gets built — the map has no
      idea which modes that unit can actually run. */
-  function popActions(hasScope) {
+  function popActions(hasScope, backLabel) {
     var h = '<div class="nav-row">' +
-      '<button class="nav-btn" id="popBack">‹ 返回' + pyl("返回") + enl("返回") + '</button>';
+      '<button class="nav-btn" id="popBack">‹ ' + (backLabel || "返回") +
+        pyl(backLabel || "返回") + enl(backLabel || "返回") + '</button>';
     if (hasScope) {
       h += '<button class="nav-btn primary" id="popLearn">📖 学习' + pyl("学习") + enl("学习") + '</button>' +
         '<button class="nav-btn primary" id="popPlay">⚔️ 挑战' + pyl("挑战") + enl("挑战") + '</button>';
@@ -5446,7 +5453,31 @@
     renderHome();
     toast("复习范围已设为 " + level + " · " + unit);
   }
-  function openMark(m) {
+  /* the 单元 rows that now live inside a 年级峰 card. Name, theme, and a mastered
+     count — all three of which a 19px dot on the trail could never say without being
+     hovered one at a time. Rebuilt from buildMarks so each row carries the SAME mark
+     object the map used to hand to openMark: one code path, one card. */
+  function unitRowsHtml(level) {
+    var rows = buildMarks().filter(function (m) { return m.t === "unit" && m.level === level; });
+    var h = '<div class="pop-label">本级单元' + pyl("本级单元") + enl("本级单元") + '</div><div class="pop-units">';
+    rows.forEach(function (m, i) {
+      var ids = [], u;
+      COMP_LIST.forEach(function (c) { if (c.level === m.level && c.unit === m.unit) ids = ids.concat(c.ids); });
+      var got = ids.filter(function (id) { return store.mastered[id]; }).length;
+      u = null;
+      UNIT_LIST.forEach(function (x) { if (x.level === m.level && x.unit === m.unit) u = x; });
+      h += '<button class="pop-unit' + (markDone(m) ? " done" : "") + '" data-u="' + i + '">' +
+        '<span class="pu-n">' + esc(m.unit) + (markDone(m) ? " ✨" : "") + '</span>' +
+        '<span class="pu-t">' + esc((u && u.theme) || "") + '</span>' +
+        '<span class="pu-c">' + got + ' / ' + ids.length + '</span></button>';
+    });
+    return h + '</div>';
+  }
+  /* ⚠️ `back` is the mark to return to, not a boolean. A unit card opened from inside a
+     年级峰 has to go BACK to that peak — dumping the student on the map would make them
+     re-find the flag and re-open it just to look at the next unit. Same three-level
+     return the pier settled on: 海图 ← 词山 ← 年级峰 ← 单元. */
+  function openMark(m, back) {
     ensureIdIndex();
     var html, ids, got, ov;
     if (m.t === "base") { return openCampScene(); }
@@ -5494,19 +5525,30 @@
         ' <span class="pop-t-k">年级峰' + pyl("年级峰") + enl("年级峰") + '</span></div>' +
         '<div class="pop-body">' + popStat("海拔", m.alt + " 米") +
         popStat("单元完成", "<b>" + uDone + "</b> / " + units.length + (markDone(m) ? " · 年级徽章已获得 🏅" : "")) +
-        '</div>' + gymSectionHtml(m);
+        '</div>' + gymSectionHtml(m) + unitRowsHtml(m.level);
     } else {
       html = '<div class="pop-title">🏯 <span class="pop-t-k">顶峰' + pyl("顶峰") + enl("顶峰") + '</span></div>' +
         '<div class="pop-body">' + popStat("海拔", m.alt + " 米 · 全部词语的终点") +
         popStat("已掌握", "<b>" + Object.keys(store.mastered).length + "</b> / " + WORDS.length + " 词" +
           (markDone(m) ? " · 你已登顶！👑" : "")) + '</div>';
     }
-    ov = popOverlay(html + popActions(hasScope));
-    ov.querySelector("#popBack").onclick = function () { ov.remove(); };
+    ov = popOverlay(html + popActions(hasScope, back ? (back.level + " 年级峰") : ""));
+    ov.querySelector("#popBack").onclick = function () { ov.remove(); if (back) openMark(back); };
     if (hasScope) {
       ov.querySelector("#popLearn").onclick = function () { ov.remove(); scopeToUnit(sLevel, sUnit, "study"); };
       ov.querySelector("#popPlay").onclick  = function () { ov.remove(); scopeToUnit(sLevel, sUnit, "play"); };
     }
+    /* ⚠️ pass `m` through as the return address, so the unit card knows which peak
+       opened it. Rebuilding the marks here keeps the row -> mark mapping identical to
+       the one unitRowsHtml rendered from. */
+    var uMarks = (m.t === "level")
+      ? buildMarks().filter(function (x) { return x.t === "unit" && x.level === m.level; }) : [];
+    Array.prototype.forEach.call(ov.querySelectorAll(".pop-unit[data-u]"), function (btn) {
+      btn.onclick = function () {
+        ov.remove();
+        openMark(uMarks[parseInt(btn.getAttribute("data-u"), 10)], m);
+      };
+    });
     var gymGo = ov.querySelector("#gymGo");
     if (gymGo) gymGo.onclick = function () { ov.remove(); startGym(m.level); };
     wireChips(ov);
@@ -6303,8 +6345,18 @@
     var alt = altitudeNow();
     var totalAlt = WORDS.length || 1;
     var marks = buildMarks();
+    /* ⚠️ 单元 pins are NOT on the map any more (owner 2026-08-22: 「would it work
+       better if only the 4 level final stages and the ultimate challenge is preserved
+       on the mountain images? … maybe it's not so important to have the small chapter
+       circles?」). 23 dots over ~330px of painted trail is ~12px between centres for a
+       19px dot: even with every one of them offset sideways and provably clickable, the
+       chain reads as a smear and a student cannot count it — which is why 「中四 只有四
+       个单元」 still looked true after the pins were all provably there.
+       ⚠️ The unit CARDS did not go anywhere: 年级峰 now lists its own units by name and
+       theme with a mastered count each, and each row opens the same card the dot used
+       to (§18ag). A landmark you can read beats a dot you have to hover to identify. */
     var pins = marks.filter(function (m) {
-      return m.t === "base" || m.t === "unit" || m.t === "level" || m.t === "summit";
+      return m.t === "base" || m.t === "level" || m.t === "summit";
     });
 
     /* four altitude zones by year-level boundary (for the HUD label only) */
@@ -6354,18 +6406,19 @@
        is read against, so it must not be nudged. Offsets are perpendicular only, and
        in px so they track the pin sizes rather than the stage. Unit dots alternate
        ±9px; a flag takes 24px on the side its own last unit did NOT take. */
-    var UNIT_OFF = 9, LEVEL_OFF = 24, CAMP_OFF = 30, uSide = -1;
+    var LEVEL_OFF = 26, uSide = -1;
     pins.forEach(function (m) {
-      if (m.t === "unit") { uSide = -uSide; m.off = UNIT_OFF * uSide; }
-      else if (m.t === "level") { m.off = -uSide * LEVEL_OFF; }
+      if (m.t === "level") { uSide = -uSide; m.off = uSide * LEVEL_OFF; }
       else m.off = 0;
     });
-    /* the tent stands BESIDE the trail and drops an anchor dot back onto it (see
-       .mtn2-pin.t-base::before). A 64px disc centred on the path swallowed five unit
-       dots whole — owner 2026-08-22: 「the campsite icon overlaps with a number of
-       clickable circles so they are now unclickable」. It also steps aside from the
-       flag it may be parked against when the climb is gated. */
-    var campOff = (gateOn && gate.off > 0) ? -CAMP_OFF : CAMP_OFF;
+    /* ⚠️ the tent is a 「你在这里」 map pin now (owner 2026-08-22, with a reference
+       image): the bubble stands ABOVE the trail and its tail points down at the exact
+       altitude point, instead of a disc sitting ON the trail. A 64px disc centred on the
+       path swallowed five landmarks whole; a pin standing above it covers nothing at all.
+       ⚠️ campOff is 0 and stays 0, and the camp carries no data-nx, so mtnDeconflict
+       treats it as an obstacle and never a mover. The whole point of the tail is that it
+       marks THE spot — nudge the pin sideways and the tail is pointing at nothing. */
+    var campOff = 0;
     /* .mtn2-isle sits INSIDE the stage at 84% of its width, so the island floats
        on open sea instead of running edge to edge (owner 2026-08-15). The margin
        is what lets the summit ring, and any pin label, sit outside the coastline
@@ -6388,8 +6441,9 @@
         if (off) { nrm = mtnNormalAt(f); ox = nrm.x * off; oy = nrm.y * off; }
       }
       extra += ";--ox:" + ox.toFixed(1) + "px;--oy:" + oy.toFixed(1) + "px";
-      var nAttr = nrm ? (' data-nx="' + nrm.x.toFixed(4) + '" data-ny="' + nrm.y.toFixed(4) +
-        '" data-off="' + (m.t === "base" ? campOff : m.off) + '"') : "";
+      var nAttr = (nrm && m.t !== "base")
+        ? (' data-nx="' + nrm.x.toFixed(4) + '" data-ny="' + nrm.y.toFixed(4) +
+           '" data-off="' + m.off + '"') : "";
       var lab = m.t === "base"
         ? (markLabel(m) + (gateOn ? " · 等 " + gate.level + " 年度试炼" : " · 你在这里"))
         : markLabel(m);
@@ -6411,7 +6465,7 @@
       '<span class="m2pill">' + zoneName(alt) + '</span>' +
       '<button class="m2pill" id="mtGoal">🎯 目标</button></div>';
     html += '<div class="mtn2-goalbar" id="mtGoalbar"></div>';
-    html += '<div class="mtn2-tip">点地标查看进度 · ⛺ 你的营地 · 🚩 年度试炼 · 🏯 顶峰' +
+    html += '<div class="mtn2-tip">⛺ 你在这里 · 点 🚩 年级峰 看那一年的单元 · 🏯 顶峰' +
       (gateOn ? " · 🔒 先通过年度试炼" : "") + '</div></div>';
     view().innerHTML = html;
 
