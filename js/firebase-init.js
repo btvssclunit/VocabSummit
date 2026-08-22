@@ -1,7 +1,7 @@
 /* 词山学海 · Firebase init (v1)
    Anonymous auth + Firestore cloud backup/sync.
-   Loaded before app.js via <script> tags (no build step, flat-file deploy).
-   Exposes window.WSCloud — a small async API app.js calls into.
+   Loaded before cs.js via <script> tags (no build step, flat-file deploy).
+   Exposes window.WSCloud — a small async API cs.js calls into.
    NOTE: anonymous auth is per-device (Firebase cannot link two devices as
    the same person without a real login). This layer provides cloud backup
    + reach analytics now, and becomes the foundation for true cross-device
@@ -107,7 +107,7 @@
 
     /* leaderboard: one narrow doc per student per stream, holding ONLY
        nickname + school + altitude (no PII, no per-word progress). Call only
-       for role === "student" (app.js gates this). entry = {nickname, school, altitude} */
+       for role === "student" (cs.js gates this). entry = {nickname, school, altitude} */
     saveLeaderboard: function (streamKey, entry) {
       whenReady(function () {
         db.collection("leaderboard").doc(streamKey).collection("entries").doc(_uid).set({
@@ -121,7 +121,7 @@
 
     /* read the whole stream leaderboard, sorted high→low; cb(array|null).
        Each row: {uid, nickname, school, altitude}. Filtering (校内/跨校) is
-       done client-side in app.js on the returned set. (Legacy Board A store;
+       done client-side in cs.js on the returned set. (Legacy Board A store;
        superseded by scores/{uid} below, kept for backward compatibility.) */
     getLeaderboard: function (streamKey, cb) {
       whenReady(function () {
@@ -137,7 +137,7 @@
       });
     },
 
-    /* ---------- dockScores/{uid} : 启航码头 boards ----------
+    /* ---------- dockScores/{uid} : 出发码头 boards ----------
        A SEPARATE collection from scores/{uid} by design: 航程 / 航海值 must never
        merge with 海拔 / 历练值, and separate documents make an accidental join
        impossible rather than merely discouraged. Written only for
@@ -183,7 +183,7 @@
     /* ---------- scores/{uid} : the leaderboard model (LEADERBOARD_DESIGN §6.2) ----------
        One doc per anonymous uid; each stream is a map field. Holds ONLY
        leaderboard-relevant figures (no per-word progress, no PII beyond the
-       chosen nickname + school). Called only for role === "student" (app.js gates).
+       chosen nickname + school). Called only for role === "student" (cs.js gates).
        entry = { nickname, school, alt, totalPts, bestStreak, pts:{termId->n} } */
     saveScore: function (streamKey, entry) {
       whenReady(function () {
@@ -195,7 +195,7 @@
           bestStreak: entry.bestStreak || 0,
           pts: entry.pts || {},
           /* speed boards (DESIGN_排行榜扩展): canonical-config runs only —
-             90s 攀山竞速 and 递增速度 词雨. pts.week rides inside pts. */
+             90s 攀山快答 and 递增速度 词雨. pts.week rides inside pts. */
           bestSprint90: entry.bestSprint90 || 0,
           bestRainRamp: entry.bestRainRamp || 0,
           /* 对战徽章 counts, published so a classmate tapping your name on the
@@ -389,7 +389,7 @@
 
     /* top-N board ordered by a nested field path (e.g. "g3.alt",
        "g3.totalPts", "g3.pts.2026T3"). cb(rows|null); each row: {uid, data}
-       where data is the full score doc — app.js pulls the ranked value out. */
+       where data is the full score doc — cs.js pulls the ranked value out. */
     getScoreBoard: function (fieldPath, n, cb) {
       whenReady(function () {
         db.collection("scores").orderBy(fieldPath, "desc").limit(n || 20).get()

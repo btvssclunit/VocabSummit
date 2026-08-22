@@ -36,17 +36,17 @@ because they are the published URLs; everything else is filed by kind.
                        firestore.rules                Firestore security rules (publish from the console)
                        README.md · CLAUDE.md          this file · the engineering log
 
-js/     app.js         the whole stream engine: data loading, study modes, games, 我的词山, 营地
-        arena.js       结伴登峰 / 同伴挑战 live rooms (deliberately isolated from app.js)
+js/     cs.js         the whole stream engine: data loading, study modes, games, 我的词山, 营地
+        arena.js       结伴登峰 / 同伴挑战 live rooms (deliberately isolated from cs.js)
         profile.js     我的档案, 头像目录, 进度码, 意见反馈 — the sole owner of ws2_profile
         nickname.js    landing gate, nickname picker, sea map + sailing
         search.js      通用搜索 — one word lookup across all five stations, read-only
         podium.js      end-of-round podium + confetti — the one shared module teacher.html loads
         firebase-init.js  anonymous auth + Firestore helpers
-        xh.js          启航码头 (never loads app.js; its own store, its own economy)
+        xh.js          启航码头 (never loads cs.js; its own store, its own economy)
 
-css/    app.css        every stream-page style, incl. the BVSS palette tokens
-        xh.css         启航码头 styles (standalone; palette copied from app.css by design)
+css/    cs.css        every stream-page style, incl. the BVSS palette tokens
+        xh.css         启航码头 styles (standalone; palette copied from cs.css by design)
 
 data/   g1|g2|g3|hcl.json   generated vocabulary, one file per stream
         id_registry.json    stable word IDs — always commit together with the JSON

@@ -6,13 +6,13 @@
 <title>教师后台 · 词山学海 Vocab Summit · 百德中学</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-/* teacher.html is a STANDALONE page: it never loads app.js / profile.js.
+/* teacher.html is a STANDALONE page: it never loads cs.js / profile.js.
    Real Firebase Email/Password accounts + the teachers/{uid} allowlist are the
    only boundary (the repo is public, so a client-side password is not one). */
 /* §2.2: the teacher side now carries the SAME identity as the student side —
    same palette tokens, same 山水 backdrop, Noto Serif SC headings over Noto Sans
    SC body, gold primaries on deep-sea navy. Tokens below are copied from
-   app.css :root deliberately; if the school palette ever changes, change both. */
+   cs.css :root deliberately; if the school palette ever changes, change both. */
 :root{
   --sky1:#DFEDF7; --sky2:#BAD6E8;
   --sea1:#2E6391; --sea2:#1F4A70; --sea3:#173A5A;
@@ -24,7 +24,7 @@
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
 }
 *{box-sizing:border-box}
-/* 仪表板环境背景: the same one-line ambience app.css gives every student page
+/* 仪表板环境背景: the same one-line ambience cs.css gives every student page
    ("study ambience: campsite backdrop under all app pages"). Fixed art/bg/study_bg.png —
    teacher.html deliberately does NOT import applyAmbience() / bg-01..05, the
    teacher backdrop never changes with mastery. The old sky→sea gradient stays as
@@ -104,7 +104,7 @@ body.gate .signin{margin:auto;width:100%;
   background:rgba(255,255,255,.85);color:var(--ink-soft);cursor:pointer;touch-action:manipulation}
 .tab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;font-weight:700;
   box-shadow:0 4px 14px rgba(227,166,60,.35)}
-/* 概览统计条 = app.css 的 .harbour 深海军玻璃条（金色衬线数字），取代原来的
+/* 概览统计条 = cs.css 的 .harbour 深海军玻璃条（金色衬线数字），取代原来的
    平面浅蓝方块；每个分类配一枚现成徽章当图标，零新增美术。 */
 .harbour{background:rgba(18,42,66,.82);border:1px solid rgba(255,255,255,.2);border-radius:16px;
   padding:16px 22px;display:flex;gap:28px;color:#EAF4FA;justify-content:space-evenly;flex-wrap:wrap}
@@ -284,9 +284,9 @@ tbody tr.sp-row{cursor:pointer}
    and every other control was a stacked <label> + widget. The student home solved
    the same problem long ago (accordion by 年级, gold unit chips, one 全选/清空 pair
    sharing the summary row, quantities on sliders), so the values below are COPIED
-   from css/app.css and marked ⟨app.css⟩ — the same deliberate duplication
+   from css/cs.css and marked ⟨cs.css⟩ — the same deliberate duplication
    teacher.html already carries for the palette (CLAUDE.md §17).
-   ⚠️ app.css 改了，这里要跟着改。
+   ⚠️ cs.css 改了，这里要跟着改。
    ⚠️ Two knowing differences from the student card, both because this is a
    teacher on a laptop and not a G1 student on an iPad:
    · no 拼音/英文 glosses (this whole page is Chinese, staff only);
@@ -299,7 +299,7 @@ tbody tr.sp-row{cursor:pointer}
    screen while stacked columns pushed 模式 below the fold. */
 @media (min-width:1000px){.ar-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}}
 .ar-col{min-width:0}                    /* §14: grid children do not shrink on their own */
-/* ⟨app.css .section-label⟩ — the numbered 动线 pill. This screen IS a multi-step
+/* ⟨cs.css .section-label⟩ — the numbered 动线 pill. This screen IS a multi-step
    decision (科目 → 范围 → 模式 → 题数), which is what §7 reserves numbering for;
    mode-specific settings stay UNNUMBERED, they are a detail of ③ and not a step. */
 .ar-step{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.2em;
@@ -314,7 +314,7 @@ tbody tr.sp-row{cursor:pointer}
    游戏」，与学生端 学习挑战 / 闯关 的分法一致。列数写死，不用 auto-fill。 */
 .ar-tiles.m3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:700px){.ar-tiles.m3{grid-template-columns:repeat(2,minmax(0,1fr))}}
-/* ⟨app.css .dopt⟩ — flex:1 1 auto so two, four or five tiles all fill the row */
+/* ⟨cs.css .dopt⟩ — flex:1 1 auto so two, four or five tiles all fill the row */
 .ar-tile{flex:1 1 auto;border:1px solid #C9DCE9;border-radius:13px;padding:9px 14px;
   background:#fff;color:var(--ink);text-align:left;cursor:pointer;line-height:1.3;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 2px 8px rgba(23,58,90,.09);
@@ -331,7 +331,7 @@ tbody tr.sp-row{cursor:pointer}
    click. Height, not max-height — max-height still grows to the ceiling. */
 .scope-box{height:clamp(240px,42vh,420px);overflow-y:auto;overscroll-behavior:contain;
   background:#F7FAFC;border:1px solid var(--line);border-radius:12px;padding:10px 13px}
-/* ⟨app.css .scope-top/.scope-sum/.scope-acts⟩ — 已选 N 个单元 left, the pair right.
+/* ⟨cs.css .scope-top/.scope-sum/.scope-acts⟩ — 已选 N 个单元 left, the pair right.
    ⚠️ A normal flex child, NOT position:absolute: the box scrolls inside itself and
    an absolute corner would scroll away with it. */
 .scope-top{display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -339,14 +339,14 @@ tbody tr.sp-row{cursor:pointer}
 .scope-sum{font-size:13px;color:#8A5A0F;font-weight:700;min-width:0}  /* not --gold-deep: 3.19:1 fails for small text */
 .scope-acts{display:flex;gap:6px;margin-left:auto;flex:none}
 .scope-acts .unit{font-weight:700;padding:5px 12px;font-size:13px}
-/* ⟨app.css .scope-acc⟩ — exclusive accordion: at most one 年级 open at a time */
+/* ⟨cs.css .scope-acc⟩ — exclusive accordion: at most one 年级 open at a time */
 .scope-acc{display:flex;align-items:center;width:100%;gap:8px;background:none;border:none;
   border-top:1px solid #E4EDF4;padding:11px 2px 8px;font-size:14px;font-weight:700;
   color:#3A5A70;cursor:pointer;text-align:left;font-family:inherit}
 .scope-acc .cnt{font-weight:400;font-size:12.5px;color:var(--ink-soft)}
 .scope-acc .chev{margin-left:auto;color:#4E6273;transition:transform .18s}
 .scope-acc.open .chev{transform:rotate(90deg)}
-/* ⟨app.css .units/.unit⟩ — gold when picked, same as the student's units */
+/* ⟨cs.css .units/.unit⟩ — gold when picked, same as the student's units */
 .units{display:flex;flex-wrap:wrap;gap:8px}
 .units.collapsed{display:none}
 .unit{border:1px solid #B9CEDD;border-radius:14px;padding:7px 13px;font-size:14px;
@@ -358,7 +358,7 @@ tbody tr.sp-row{cursor:pointer}
 .unit.on{background:var(--gold);border-color:var(--gold)}
 .unit.on b,.unit.on .unit-n{color:#3A2A08}
 .unit.on .unit-theme{color:#6B5010}
-/* ⟨app.css .qty*⟩ — 题数 / 时长 were native <select> dropdowns, the only two
+/* ⟨cs.css .qty*⟩ — 题数 / 时长 were native <select> dropdowns, the only two
    controls on the page you had to open before you could see the choices.
    ⚠️ The readout sits ABOVE the track, never beside it, or the track length
    changes with the label's width. */
@@ -418,9 +418,9 @@ tbody tr.sp-row{cursor:pointer}
 
 
 /* ---------- 颁奖台 (js/podium.js) ----------
-   ⚠️ 这段在 app.css 与 teacher.html 各有一份：教师端不加载 app.css。改一处要改两处。 */
+   ⚠️ 这段在 cs.css 与 teacher.html 各有一份：教师端不加载 cs.css。改一处要改两处。 */
 /* 颁奖台底图 = 落地页那张登山图（owner 2026-08-16）。压淡是为了让名字和分数读得清。
-   ⚠️ 这里写 art/…（内联 <style> 相对**页面**解析）；app.css 那一份写 ../art/…
+   ⚠️ 这里写 art/…（内联 <style> 相对**页面**解析）；cs.css 那一份写 ../art/…
    （相对**样式表**解析）。这是两份拷贝唯一合理的差异。 */
 .pod-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
   justify-content:center;padding:20px;overflow:hidden;
@@ -560,17 +560,17 @@ tbody tr.sp-row{cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
-     the「teacher.html is standalone」rule is about app.css/app.js/profile.js, which carry
+     the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260822b"></script>
+<script src="js/podium.js?v=20260822c"></script>
 <script>
 (function () {
   "use strict";
   /* Cache-bust for the vocabulary JSONs (GitHub Pages sends max-age=600).
-     teacher.html is standalone — it loads no local .js, so unlike app.js/arena.js
+     teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260822b";
+  var ASSET_V = "?v=20260822c";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -592,7 +592,7 @@ tbody tr.sp-row{cursor:pointer}
      "xh" has a row here that the short table has no business carrying. */
   var CODE_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
                      g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文",
-                     xh: "启航码头 · 学海启航" };
+                     xh: "出发码头 · 学海起步" };
   /* 概览 icons: the five existing component badges, reused purely as category
      art (no new assets). They carry no achievement meaning here. 未填写 gets
      none — harbourCell hides its slot so the row stays aligned. */
@@ -909,7 +909,7 @@ tbody tr.sp-row{cursor:pointer}
     }));
   }
 
-  /* ---------- 启航码头 word / phrase order, for 进度码 only ----------
+  /* ---------- 出发码头 word / phrase order, for 进度码 only ----------
      Fetched separately from loadWordMap because the pier's two files have a different
      shape entirely (a flat array of 词语 rows, and a {phrases:[…]} document) and
      nothing else in this dashboard reads them. Cached for the page's lifetime. */
@@ -1090,7 +1090,7 @@ tbody tr.sp-row{cursor:pointer}
      said anything, and it scored 持平 for the student who switched English off on day
      one and never went back — the best outcome the feature has. The dated change log
      (aidVerdict, below) answers the same question from the first flip.
-     ⚠️ app.js still COLLECTS last10Sessions and regressionAt; only this readout went.
+     ⚠️ cs.js still COLLECTS last10Sessions and regressionAt; only this readout went.
      regressionAt survives in the card as「最近曾关掉后又开回来」, which is the one thing
      it caught that a log starting on 2026-08-19 cannot yet see for older students. */
   /* ================= 支援开关：说清楚「现在怎样」和「什么时候变的」================
@@ -1104,7 +1104,7 @@ tbody tr.sp-row{cursor:pointer}
      ⚠️ SO IT NOW REPORTS EVENTS, NOT A RATIO: what state they are in, since when, and
      what changed before that. That is answerable from the FIRST flip, which is why the
      「数据不足」problem disappears rather than being reworded.
-     ⚠️ DATES ONLY EXIST FROM 2026-08-19 (app.js aidLogPush). Anything earlier is
+     ⚠️ DATES ONLY EXIST FROM 2026-08-19 (cs.js aidLogPush). Anything earlier is
      honestly 未记录 — never a guessed date (§18v, same rule as 航海徽章's first-earned). */
   function aidLogOf(u, land, which) {
     var st = (u.data.progress || {})[land];
@@ -1161,7 +1161,7 @@ tbody tr.sp-row{cursor:pointer}
      owner:「can I also see if they've toggled pinyin on?」— it was nowhere in the
      dashboard, even though it is the single clearest signal of how much scaffolding a
      student is still leaning on.
-     ⚠️ NEITHER AID EXISTS ON HCL (§10: G1/G2/G3 有，HCL 一个字节都不发). app.js gates the
+     ⚠️ NEITHER AID EXISTS ON HCL (§10: G1/G2/G3 有，HCL 一个字节都不发). cs.js gates the
      拼音 toggle behind pyAidAvailable(), and enAidAvailable() is literally defined as
      the same function — so BOTH are absent there, not just 拼音. Both stored flags are
      still normalised to false, so reading them naively would print 关 for every HCL
@@ -1678,7 +1678,7 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="card"><h2 style="margin-top:0">班级视图</h2>' +
       '<div class="hint" style="margin-bottom:10px">共 <b>' + rows.length + '</b> / ' + _users.length + ' 份档案。' +
       '点列名排序，点列名旁的 <b>▼</b> 按该列筛选，多列可叠加（与 Excel 相同）。' +
-      '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、启航码头，以及可以给学生的进度码）。' +
+      '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、出发码头，以及可以给学生的进度码）。' +
       (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
@@ -1768,7 +1768,7 @@ tbody tr.sp-row{cursor:pointer}
      profile page?」. 班级视图 is a 14-column wall: it answers「how is the class doing」
      well and「how is THIS student doing」not at all — the four 掌握 columns are the only
      per-student numbers in it, and everything the student actually accumulated (历练值,
-     灵露, 段位, 徽章, 纪录, 连续学习天数, the whole 启航码头) was loaded into the browser
+     灵露, 段位, 徽章, 纪录, 连续学习天数, the whole 出发码头) was loaded into the browser
      and never shown. This card is that one student's page.
      ⚠️ READ-ONLY except for the HOD's existing 编辑资料 path, which is unchanged and
      still writes ONLY the top-level profile field (the Firestore rule enforces that, not
@@ -1798,7 +1798,7 @@ tbody tr.sp-row{cursor:pointer}
   }
   /* ⚠️ Object.keys(badges).length is NOT the A-layer count (§12). Battle medals are
      keyed b·… and live in the same map; counting the map would inflate every student
-     who has ever placed in a room. This is app.js's achBadgeCount() rule. */
+     who has ever placed in a room. This is cs.js's achBadgeCount() rule. */
   function badgeCounts(st) {
     var ks = Object.keys((st && st.badges) || {}), ach = 0, bat = 0;
     ks.forEach(function (k) { if (k.indexOf("b\u00b7") === 0) bat++; else ach++; });
@@ -1818,7 +1818,7 @@ tbody tr.sp-row{cursor:pointer}
     var termIds = Object.keys(pts.terms || {}).sort();
     var thisTerm = termIds.length ? n0(pts.terms[termIds[termIds.length - 1]]) : 0;
     var recs = [["词雨灵露", best.rain], ["词语汉兜", best.handle],
-                ["组词挑战", best.assemble], ["攀山竞速", best.sprint]]
+                ["组字成词", best.assemble], ["攀山快答", best.sprint]]
       .filter(function (r) { return n0(r[1]) > 0; })
       .map(function (r) { return esc(r[0]) + " " + n0(r[1]); }).join(" · ");
     return '<div class="sp-land">' +
@@ -1994,7 +1994,7 @@ tbody tr.sp-row{cursor:pointer}
           /* ⚠️ says WHY a land is absent. A pier student whose code has no xh section
              would otherwise read it as「码头进度丢了」rather than「这台设备还没同步上来」. */
           (r.lands.indexOf(CODE_LABEL.xh) === -1 && r.missing.indexOf(CODE_LABEL.xh) === -1
-            ? ' 启航码头不在这段码里：这名学生的码头进度还没有同步到云端（学生下次打开码头后会自动补上）。' : '') +
+            ? ' 出发码头不在这段码里：这名学生的码头进度还没有同步到云端（学生下次打开码头后会自动补上）。' : '') +
           '</div>';
         out.querySelector(".sp-code").value = r.code;
         out.querySelector("#spCopy").onclick = function () {
@@ -2072,11 +2072,11 @@ tbody tr.sp-row{cursor:pointer}
   /* ================= 结伴登峰 (arena) teacher room console ================= */
   var ARENA_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no O/0/I/1/L (whiteboard-safe)
   var ARENA_MODE_ZH = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译",
-                        sprint: "攀山竞速", rain: "词雨灵露", pic: "看图识词" };
+                        sprint: "攀山快答", rain: "词雨灵露", pic: "看图识词" };
   /* ⚠️ WHICH MODES EACH FAMILY CAN ACTUALLY ASK. The pier has no 填空句 and no 中文释义,
-     so cloze/zhmcq cannot be built from its data at all; 攀山竞速 and 词雨灵露 are
+     so cloze/zhmcq cannot be built from its data at all; 攀山快答 and 词雨灵露 are
      mountain games. What is left is the two the pier's own 同伴挑战 offers, for the same
-     reasons (§18w): 连线 is a whole board rather than a question, 词海垂钓 needs a
+     reasons (§18w): 连线 is a whole board rather than a question, 词海钓鱼 needs a
      keyboard, the sentence modes need their scene backdrop.
      ⚠️ Listing them rather than filtering by hand at each use keeps the mode row, the
      default and the create-time guard reading from ONE table. */
@@ -2096,11 +2096,11 @@ tbody tr.sp-row{cursor:pointer}
   /* ⚠️ NOT folded into STREAM_LABEL — that map is printed in tables and on the
      live 擂台 header, where a two-line name would break the row. */
   var STREAM_SUB = { g1: "基础华文", g2: "华文", g3: "快捷华文", hcl: "高级华文",
-                     xh: "学海启航 · 零起点" };
+                     xh: "学海起步 · 零起点" };
   /* ⚠️ THE PIER IS ARENA-ONLY, and this list exists so it stays that way. STREAMS is
      read by loadWordMap() (which walks levels→units→components) and by the moderation
      「科目」<select> (which zeroes a ws2_{stream} store). The pier has neither that JSON
-     shape nor a ws2_ store, so adding "xh" to STREAMS would break both. 并肩航海 needs
+     shape nor a ws2_ store, so adding "xh" to STREAMS would break both. 结伴出海 needs
      it in exactly one place — the room setup — so it gets its own list.
      ⚠️ 码头 goes LAST: the four mountains are the daily case, and a teacher scanning the
      row should not have the odd one out sitting first. */
@@ -2112,8 +2112,8 @@ tbody tr.sp-row{cursor:pointer}
      what the teacher is looking at. */
   function scopeNoun(stream) { return isPierStream(stream) ? "组别" : "单元"; }
   /* ⚠️ 同一条理由：这块屏幕现在开得了两家的房（§18x），标题就不能一直写山上那个名字。
-     码头的老师房叫 并肩航海。 */
-  function arenaName(stream) { return isPierStream(stream) ? "并肩航海" : "结伴登峰"; }
+     码头的老师房叫 结伴出海。 */
+  function arenaName(stream) { return isPierStream(stream) ? "结伴出海" : "结伴登峰"; }
   /* ⚠️ 说出真的会发生的事（owner 2026-08-18）。这段说明原来写着「不计历练值」——
      那是 2026-08-12 的规则，owner 2026-08-14 就推翻了（CLAUDE.md §12：房间模式照常计分），
      而 roomCorrect() 从那天起一直在发。老师照着这句话跟学生说「擂台不计分」，
@@ -2145,7 +2145,7 @@ tbody tr.sp-row{cursor:pointer}
      词语/拼音/英文释义/图档/组别/子类, not levels→units→components. It is normalised HERE,
      into the same {units, byKey} the accordion already speaks, so nothing downstream
      (the scope picker, the counts, generateRoom, tryCreate) needs a second code path.
-     ⚠️ ONE PSEUDO-LEVEL, 「启航码头」, and the units are the eight 组别. A teacher opening
+     ⚠️ ONE PSEUDO-LEVEL, 「出发码头」, and the units are the eight 组别. A teacher opening
      a pier room thinks in 动物 / 食物, not in 中三·单元四; mapping 组别 onto `level` and
      子类 onto `unit` would have produced a two-deep accordion whose top level has one
      child in most branches.
@@ -2163,7 +2163,7 @@ tbody tr.sp-row{cursor:pointer}
                         pic: w["图档"], grp: g });
       });
       order.forEach(function (g) {
-        units.push({ key: g, level: "启航码头", unit: g, theme: "", count: byKey[g].length });
+        units.push({ key: g, level: "出发码头", unit: g, theme: "", count: byKey[g].length });
       });
       _arena.json.xh = { units: units, byKey: byKey };
       return _arena.json.xh;
@@ -2349,7 +2349,7 @@ tbody tr.sp-row{cursor:pointer}
 
   function renderArena(panel) { if (_arena.code) return renderArenaLive(panel); renderArenaSetup(panel); }
 
-  /* ⟨app.css .qty*⟩ quantity slider, ported from app.js qtySlider/wireQtySlider.
+  /* ⟨cs.css .qty*⟩ quantity slider, ported from cs.js qtySlider/wireQtySlider.
      The range is indexed over the ALLOWED values (0..n-1, step 1), so a drag can
      only ever land on a legal value and the stops stay evenly spaced even when
      the values are not (180/300/480/600/900). */

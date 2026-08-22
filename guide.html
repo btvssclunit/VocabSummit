@@ -9,28 +9,28 @@
 <!--
   词山学海 · 使用与设计指南
   ⚠️ THIS PAGE IS DELIBERATELY SELF-CONTAINED: its own CSS, its own JS, no
-  css/app.css and no js/*.js. That keeps it OUT of the seven-place ?v= deploy
+  css/cs.css and no js/*.js. That keeps it OUT of the seven-place ?v= deploy
   ritual (CLAUDE.md §3) — a document page that loads nothing shared can never
   serve a new stylesheet with an old script. It reads art/ directly; art files
   are not versioned anywhere in this repo.
-  ⚠️ The palette AND the shared components below are COPIED from css/app.css on
+  ⚠️ The palette AND the shared components below are COPIED from css/cs.css on
   purpose, the same deliberate duplication teacher.html carries (CLAUDE.md §17).
-  Change them there, change them here. Copied verbatim, marked ⟨app.css⟩ at each
+  Change them there, change them here. Copied verbatim, marked ⟨cs.css⟩ at each
   rule: :root · .topbar/.back/.tb-name/.tb-sub · .section-label · .card ·
   .nav-btn / .nav-btn.primary · --glass-edge.
   ⚠️ ONE deliberate difference, and it is measured, not taste: every plate on
-  this page is raised roughly .90-.94 where app.css ships .56-.74. This page is
+  this page is raised roughly .90-.94 where cs.css ships .56-.74. This page is
   solid dense bilingual prose, and in 双语 every English line is --ink-soft
   (#5A7080). The body gradient is background-attachment:fixed and bottoms out at
-  --sea1, so a panel at the foot of the viewport sits on #2E6391: app.css's card
+  --sea1, so a panel at the foot of the viewport sits on #2E6391: cs.css's card
   alphas put --ink-soft at 2.54:1 there, below AA. The raised plates hold it at
-  4.3-4.7:1. This is the same exception app.css itself makes for .pop-card and
+  4.3-4.7:1. This is the same exception cs.css itself makes for .pop-card and
   搜索结果 (CLAUDE.md §7: dense small text goes UP, not down). The gradient shape,
   the lit top edge and the lift shadow are unchanged — those are what read as
   the site, not the alpha.
 -->
 <style>
-/* ⟨app.css :root⟩ — verbatim. */
+/* ⟨cs.css :root⟩ — verbatim. */
 :root{
   --sky1:#DFEDF7; --sky2:#BAD6E8;
   --sun-core:#FFEDA8; --sun:#F5C443;
@@ -51,8 +51,8 @@
   --serif:"Noto Serif SC","Songti SC","STSong",serif;
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
 
-  /* PAGE-LOCAL, not in app.css: the raised plate this page's dense bilingual
-     prose needs. Same three stops and the same 150deg as app.css's .card, just
+  /* PAGE-LOCAL, not in cs.css: the raised plate this page's dense bilingual
+     prose needs. Same three stops and the same 150deg as cs.css's .card, just
      lifted — see the ⚠️ in the header comment for the measured reason. */
   --gd-plate:linear-gradient(150deg,rgba(255,255,255,.95),rgba(255,255,255,.92) 46%,rgba(232,243,251,.93));
 }
@@ -101,10 +101,10 @@ body.L-both h2 .en, body.L-both h3 .en{font-size:.5em;letter-spacing:.06em;
 body.L-en .en{color:inherit}
 
 /* ============ 顶栏 ============
-   ⟨app.css .topbar / .back / .tb-name / .tb-sub⟩ — the same component every
+   ⟨cs.css .topbar / .back / .tb-name / .tb-sub⟩ — the same component every
    stream and pier page carries, so arriving here from a stream page does not
    read as switching apps. The gradient, the --glass-line hairline and the inset
-   lit edge in the shadow are app.css's; only the two alphas are raised (.82/.70
+   lit edge in the shadow are cs.css's; only the two alphas are raised (.82/.70
    for .66/.48) because this bar sits over prose, not over painted art. */
 .gd-top{position:sticky;top:0;z-index:40;
   background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.70));
@@ -112,26 +112,26 @@ body.L-en .en{color:inherit}
   border-bottom:1px solid var(--glass-line);
   box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
 .gd-topin{max-width:1120px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-/* ⟨app.css .topbar .back⟩ — verbatim, plus the <a> bits app.css's <button>
+/* ⟨cs.css .topbar .back⟩ — verbatim, plus the <a> bits cs.css's <button>
    version does not need. Every other page's back control is this circle. */
 .gd-top .back{width:36px;height:36px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-line);
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
   color:#3A5A70;font-size:16px;flex:none;
   display:grid;place-items:center;text-decoration:none}
-/* ⟨app.css .topbar .tb-name / .tb-sub⟩ — verbatim. */
+/* ⟨cs.css .topbar .tb-name / .tb-sub⟩ — verbatim. */
 .gd-top .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em}
 .gd-top .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
 .gd-langs{margin-left:auto;display:flex;gap:0;border:1px solid var(--glass-line);
   border-radius:999px;overflow:hidden;background:var(--glass-strong);
   box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.12)}
 .gd-langs button{padding:5px 13px;font-size:12.5px;font-weight:500;color:var(--ink-soft)}
-/* ⚠️ the site's「this is the one that is on」is the gold gradient (app.css
+/* ⚠️ the site's「this is the one that is on」is the gold gradient (cs.css
    .nav-btn.primary / .prof-chip.on / .wchip.got), never a flat blue fill. */
 .gd-langs button[aria-pressed="true"]{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   color:#3A2A08;font-weight:700}
 .gd-tabs{display:flex;gap:8px;width:100%;padding-bottom:2px}
-/* ⟨app.css .nav-btn⟩ vocabulary: glass plate, --glass-line hairline, inset lit
+/* ⟨cs.css .nav-btn⟩ vocabulary: glass plate, --glass-line hairline, inset lit
    edge. Squared off at the bottom because these are tabs, not free buttons. */
 .gd-tabs button{flex:1 1 0;min-width:0;padding:9px 10px;border-radius:13px 13px 0 0;
   background:rgba(255,255,255,.62);border:1px solid var(--glass-line);border-bottom:none;
@@ -140,7 +140,7 @@ body.L-en .en{color:inherit}
   font-family:var(--serif);font-weight:700;font-size:15px;letter-spacing:.05em;color:#3A5A70}
 .gd-tabs button .sub{display:block;font-family:var(--sans);font-weight:400;font-size:10.5px;
   letter-spacing:.04em;margin-top:1px}
-/* ⟨app.css .nav-btn.primary⟩ — verbatim gold. */
+/* ⟨cs.css .nav-btn.primary⟩ — verbatim gold. */
 .gd-tabs button[aria-selected="true"]{background:linear-gradient(180deg,#EEBC5E,var(--gold));
   border-color:rgba(183,121,31,.55);color:#3A2A08;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
@@ -150,11 +150,11 @@ body.L-en .en{color:inherit}
    ⚠️ This used to be a hand-drawn flat-colour SVG horizon (three peaks, sun on
    the right — the school-crest language of CLAUDE.md §7). It has been replaced
    by the landing page's OWN painting, art/bg/landing_hero_bg.png, the same file
-   app.css hands to .lp-hero. The crest rule governs horizons this repo DRAWS;
+   cs.css hands to .lp-hero. The crest rule governs horizons this repo DRAWS;
    the front door of the platform is this painting, so arriving at the guide now
-   looks like arriving at the site. ⚠️ image-rendering:pixelated, as app.css
+   looks like arriving at the site. ⚠️ image-rendering:pixelated, as cs.css
    does with the very same file.
-   ⚠️ background-position is `center top`, NOT app.css's `center center`. .lp-hero
+   ⚠️ background-position is `center top`, NOT cs.css's `center center`. .lp-hero
    is 100vh tall, so centre-cover shows nearly the whole picture; this header is
    ~380px, where centre-cover crops to the busy middle band (measured: luminance
    swings 51-202 straight across the title line, which no single text colour
@@ -171,7 +171,7 @@ body.L-en .en{color:inherit}
   background:linear-gradient(180deg,rgba(234,244,250,0),rgba(234,244,250,.62) 60%,#EAF4FA);
   pointer-events:none}
 .gd-herotext{position:absolute;top:12%;left:0;right:0;text-align:center;z-index:5;padding:0 16px}
-/* ⚠️ light-on-art now, and the colour + shadow stack are app.css's .lp-couplet /
+/* ⚠️ light-on-art now, and the colour + shadow stack are cs.css's .lp-couplet /
    .lp-school verbatim: #FFE9B0 over a triple dark shadow is what this repo puts
    on painted art everywhere. At clamp(26px,5vw,44px)/900 the title is large text,
    so 3.15:1 against the measured sky clears AA-large, and the shadow stack darkens
@@ -189,7 +189,7 @@ body.L-en .en{color:inherit}
 .gd-herotext .en1{font-size:clamp(9px,1.3vw,12px);letter-spacing:.5em;color:#FFF4D6;
   text-transform:uppercase}
 .gd-herotext .sch{margin-top:5px;font-size:12.5px;color:#EAF4FA;letter-spacing:.05em}
-/* ⚠️ NOT app.css's .lp-couplet's mechanism, and deliberately so: .lp-couplet
+/* ⚠️ NOT cs.css's .lp-couplet's mechanism, and deliberately so: .lp-couplet
    stacks with writing-mode:vertical-rl, which CLAUDE.md §7 bans outright as
    unreliable; the width:1.15em + word-break below is the documented way.
    Everything else IS .lp-couplet now that the art underneath is the same
@@ -242,7 +242,7 @@ section.gd{scroll-margin-top:150px;margin-bottom:30px}
 section.gd > h2{font-family:var(--serif);font-weight:900;font-size:clamp(20px,2.6vw,27px);
   letter-spacing:.06em;color:var(--sea3);display:flex;flex-direction:column;
   padding-bottom:9px;border-bottom:2px solid rgba(46,99,145,.22);margin-bottom:16px}
-/* ⟨app.css .section-label⟩ — verbatim, and for the same reason it exists there:
+/* ⟨cs.css .section-label⟩ — verbatim, and for the same reason it exists there:
    a small wide-tracked eyebrow sitting directly on the painted ambience needs a
    glass pill under it, not just a colour.
    ⚠️ align-self is this page's addition and is load-bearing: the h2 is a COLUMN
@@ -258,7 +258,7 @@ h3{font-family:var(--serif);font-size:18px;letter-spacing:.04em;color:var(--ridg
 p + p, p + ul, ul + p, .card + p{margin-top:10px}
 ul{padding-left:1.25em}
 li{margin-bottom:4px}
-/* ⟨app.css .card⟩ — the 150deg plate, the --glass-line hairline, r18, and
+/* ⟨cs.css .card⟩ — the 150deg plate, the --glass-line hairline, r18, and
    --glass-lift + --glass-edge together. The lit top edge is the whole point:
    without it a glass panel is a white rectangle. Alphas raised, see header. */
 .card{background:var(--gd-plate);
@@ -315,7 +315,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .badgerow b{display:block;font-family:var(--serif);font-size:12.5px;letter-spacing:.02em;line-height:1.3}
 .badgerow .en{font-size:10.5px;color:var(--ink-soft);line-height:1.3}
 .badgerow i{display:block;font-style:normal;font-size:11px;font-weight:700;color:var(--gold-ink);margin-top:2px}
-/* ⟨app.css .ling-icon / xh.css .shell-icon⟩ — the same 14/17px inline chip the
+/* ⟨cs.css .ling-icon / xh.css .shell-icon⟩ — the same 14/17px inline chip the
    platform draws wherever a currency is named. */
 .cur-icon{display:inline-block;width:16px;height:auto;vertical-align:-3px;
   margin-right:5px;image-rendering:pixelated}
@@ -342,13 +342,13 @@ td b{font-family:var(--serif);letter-spacing:.03em}
   text-shadow:0 1px 3px rgba(15,28,50,.95),0 0 9px rgba(15,28,50,.75)}
 .gd-band .cap b{font-family:var(--serif);font-size:14.5px;letter-spacing:.05em;color:#FFE9B0}
 /* ⚠️ 有东西站在带子底下的时候，说明文字必须搬到顶上去。海图那条带子的五个岛名就在
-   底边，而 .cap 的渐变正好盖住那一条——第一版把 启航码头 与 词星大冒险 两个名字整个
+   底边，而 .cap 的渐变正好盖住那一条——第一版把 出发码头 与 词星大冒险 两个名字整个
    吃掉了。把它翻到顶上，渐变方向也跟着翻。 */
 .gd-band .cap.top{top:0;bottom:auto;padding:10px 16px 20px;
   background:linear-gradient(180deg,rgba(15,32,56,.68),rgba(15,32,56,.42) 52%,rgba(15,32,56,0))}
 /* ① 海图：真的海面瓦片，真的五座岛，由近到远排开。
    ⚠️ This is NOT a scale reproduction of the sea map and must not be read as one.
-   app.css positions the islands in vw/vh against a 100vw×100vh map, so the real
+   cs.css positions the islands in vw/vh against a 100vw×100vh map, so the real
    distances only hold at the real aspect ratio — re-deriving them for a 1120×140
    strip would print DIFFERENT distances while looking authoritative, and §18c's
    20-route clearance check would have to be redone for a decoration. What the
@@ -363,7 +363,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 /* 船停在开阔水面上，不压在任何一座岛上：z-index 1 让它在岛后面，像真的泊在外海。 */
 .gd-band.sea .boat{position:absolute;left:15%;bottom:56px;width:46px;height:auto;z-index:1}
 /* ③ 学段页顶上那条横幅：sea tile 打底、学段自己的岛 contain 在上面。
-   ⟨app.css .lscape⟩ — same two layers, same 16/9 feel, same object-fit:contain. */
+   ⟨cs.css .lscape⟩ — same two layers, same 16/9 feel, same object-fit:contain. */
 .gd-band.lscape-mock{background-image:url("art/seamap/sea_tile.png")}
 .gd-band.lscape-mock > img{position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;object-position:center bottom;image-rendering:pixelated}
@@ -418,7 +418,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .gd-row.avatars{grid-template-columns:repeat(12,minmax(0,1fr));gap:12px 6px}
 .gd-row.avatars .gd-fig{max-width:none}
 .gd-row.avatars .ic{height:54px}
-/* ---------- 踏浪竞速：真的天空、真的沙滩、真的跨栏与拱门 ----------
+/* ---------- 沙滩快跑：真的天空、真的沙滩、真的跨栏与拱门 ----------
    ⚠️ xh_foam_lap.png 与 xh_wave_chase.png 一张都没有用到，这是刻意的：两张都还
    留着约 9,000 个洋红去溢余像素，CLAUDE.md §13 明写在重画并验过去溢之前不许接回。
    潮水本来就只是反馈、从来不是失败条件，所以这条带子不缺它。 */
@@ -433,7 +433,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 /* ⚠️ 27%，不是 34%：34% 时棕榈的树冠顶到 79px，而说明文字的最后一行底边在 80px——
    差 1px 就是「字压在树上」。量过，不是估的。 */
 .gd-band.run .palm{position:absolute;left:1.5%;bottom:27%;height:28%;width:auto;z-index:1}
-/* ⚠️ one frame out of the SAME six-frame sheet 攀山竞速 and 词海垂钓 draw from
+/* ⚠️ one frame out of the SAME six-frame sheet 攀山快答 and 词海钓鱼 draw from
    (art/sprite/avatar/*_sprite.png, 768×104 = 6×128). background-position 0 0 is
    frame 1, the standing frame. No spriteScale here on purpose: that table exists
    to make DIFFERENT creatures read the same size next to each other, and there is
@@ -460,7 +460,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .demo-foot .lbl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--sea2);font-weight:700;margin-bottom:3px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-/* ⟨app.css .nav-btn / .nav-btn.primary⟩ — the site's actual button pair. This
+/* ⟨cs.css .nav-btn / .nav-btn.primary⟩ — the site's actual button pair. This
    page shipped flat --sea1 blue buttons, which appear NOWHERE on the platform:
    a primary action is the gold gradient and a secondary is a glass plate. */
 .btn{background:linear-gradient(180deg,#EEBC5E,var(--gold));border:1px solid rgba(183,121,31,.55);
@@ -489,7 +489,7 @@ td b{font-family:var(--serif);letter-spacing:.03em}
 .msg.no{color:var(--bad);font-weight:500}
 
 /* ⚠️ The demo widgets below stay bespoke — they teach things nothing else on the
-   site does. But their PLATES follow app.css's rule for controls inside a glass
+   site does. But their PLATES follow cs.css's rule for controls inside a glass
    card:「Inner controls are translucent too, or the card looks like glass with
    opaque stickers on it.」That is why .opt / .mtile / .tile / .slot / .meter /
    .wl-side are rgba(255,255,255,.80) + --glass-line + a lit top edge and no
@@ -528,7 +528,7 @@ body.aid-en .opt .eng{display:block}
 .mtile.done{background:rgba(62,125,87,.13);border-color:var(--ok);opacity:.65;cursor:default}
 .mtile.clash{border-color:var(--bad);box-shadow:0 0 0 3px rgba(180,74,60,.25)}
 
-/* 重整句子 demo */
+/* 组词成句 demo */
 .tray{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
 .tile{background:rgba(255,255,255,.80);border:1.5px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);border-radius:10px;padding:7px 13px;
   font-family:var(--serif);font-size:18px;letter-spacing:.04em}
@@ -553,7 +553,7 @@ body.aid-en .opt .eng{display:block}
 .meter.part{background:rgba(227,166,60,.18);border-color:var(--gold)}
 .meter.part .st{color:var(--gold-ink)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-/* ⟨app.css .prof-chip / .prof-chip.on⟩ — verbatim, at this page's smaller size. */
+/* ⟨cs.css .prof-chip / .prof-chip.on⟩ — verbatim, at this page's smaller size. */
 .chip{background:rgba(255,255,255,.78);border:1px solid var(--glass-line);border-radius:999px;
   padding:5px 12px;font-size:13px;color:#3A5A70;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 8px rgba(23,58,90,.1)}
@@ -597,7 +597,7 @@ body.L-both .gd-herosub .en{color:#FFF4D6}
 /* ⚠️ THE OTHER HALF OF THE SAME TRAP, and it is the reason this block is not
    just「dark surfaces」any more. The three「on」states below used to be flat
    --sea1/--sea2 fills and lived in the rule above; they are now the site's gold
-   gradient (app.css .nav-btn.primary), which is LIGHT. Left in the white list
+   gradient (cs.css .nav-btn.primary), which is LIGHT. Left in the white list
    they would have gone invisible — exactly the failure the block exists to
    prevent, arriving from the opposite direction.
    ⚠️ Every one of these still needs the body.L-both prefix: a bare
@@ -633,7 +633,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 @media (max-width:560px){
   .badgerow{grid-template-columns:repeat(3,minmax(0,1fr))}
   /* ⚠️ the couplets go last, not the picture: at 340px wide, two vertical gold
-     columns leave the title about 60% of the header to live in. app.css hides
+     columns leave the title about 60% of the header to live in. cs.css hides
      them below 900px on the landing page for the same reason. */
   .gd-couplet{display:none}
   /* ⚠️ 竖屏手机上说明文字**搬到图的下面／上面去，不再压在图上**。
@@ -678,7 +678,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   /* ⚠️ Old iPads are the G1/G2 students' machines and have no backdrop-filter.
      Without the blur, the plate alpha is the only thing between text and art.
      ⚠️ EVERY new glass surface has to be added here — the same standing rule as
-     the block at the bottom of app.css. A panel left out of this list is not
+     the block at the bottom of cs.css. A panel left out of this list is not
      visibly broken on a modern machine, which is exactly why it gets missed. */
   .gd-top{background:rgba(255,255,255,.96)}
   .toc{background:rgba(255,255,255,.96)}
@@ -697,7 +697,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 <body class="L-both aid-py aid-en" data-tab="use">
 
 <!-- ⚠️ The art is the landing page's own painting (art/bg/landing_hero_bg.png,
-     the file app.css gives .lp-hero), not a drawing made for this page. The flat
+     the file cs.css gives .lp-hero), not a drawing made for this page. The flat
      SVG horizon that used to live here is gone: a document about the platform
      should open on the platform's own front door. -->
 <header class="gd-hero">
@@ -756,7 +756,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     <a href="#u5"><span class="zh">⑤ 码头的玩法</span><span class="en">⑤ At the pier</span></a>
     <a href="#u6"><span class="zh">⑥ 试：填空挑战</span><span class="en">⑥ Try: cloze</span></a>
     <a href="#u7"><span class="zh">⑦ 试：连线</span><span class="en">⑦ Try: matching</span></a>
-    <a href="#u8"><span class="zh">⑧ 试：重整句子</span><span class="en">⑧ Try: word order</span></a>
+    <a href="#u8"><span class="zh">⑧ 试：组词成句</span><span class="en">⑧ Try: word order</span></a>
     <a href="#u9"><span class="zh">⑨ 三个数字</span><span class="en">⑨ Three numbers</span></a>
     <a href="#u10"><span class="zh">⑩ 拼音与英文</span><span class="en">⑩ Pinyin &amp; English</span></a>
     <a href="#u11"><span class="zh">⑪ 没声音怎么办</span><span class="en">⑪ Troubleshooting</span></a>
@@ -773,7 +773,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
     <!-- ⚠️ 海面是站上那张 sea_tile.png，五座岛是海图上那五张图，一张新美术都没有。
          ⚠️ 岛的间距是等距，不是海图上的真实距离——真实坐标是按 100vw×100vh 定的
-         （app.css .i-g1 等），换成这条 140px 高的带子就只在纸面上像那张图、
+         （cs.css .i-g1 等），换成这条 140px 高的带子就只在纸面上像那张图、
          数字全变了。带子诚实承载的是「顺序」，而顺序正是下面那条 ⚠️ 讲的事。 -->
     <!-- ⚠️ 不加 aria-hidden：带子上那句说明是文字，不是装饰（岛的图各自 alt=""，
          所以读屏软件读到的正好是那一句话与五个名字）。 -->
@@ -829,7 +829,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     <p class="zh">每个学段页都是同一条动线，编号就印在屏幕上。<b>每一屏都从 ① 重新开始</b>，所以看到 ① 不代表回到最前面，只代表「这一屏的第一步」。</p>
     <p class="en">Every stream page runs the same three steps, numbered on screen. <b>Each screen restarts at ①</b>, so seeing ① does not mean you went back to the beginning — it means "first step on this screen".</p>
 
-    <!-- ⟨app.css .lscape⟩ — 学段页顶上那条横幅就是这两层：sea_tile 打底，
+    <!-- ⟨cs.css .lscape⟩ — 学段页顶上那条横幅就是这两层：sea_tile 打底，
          学段自己那座岛 object-fit:contain 在上面。这里放 G2 的那一座。 -->
     <div class="gd-band tall lscape-mock">
       <img src="art/mountain/mtn_g2.png" alt="">
@@ -851,8 +851,8 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       </div>
       <div class="card">
         <h3><span class="zh">② 选择学习方式</span><span class="en">② Learn or play</span></h3>
-        <p class="zh">两个按钮：<b>修行</b>（安静地练）与 <b>闯关</b>（游戏）。这只是切换，不会跳页。</p>
-        <p class="en">Two buttons: <b>修行 (practice)</b>, the quiet modes, and <b>闯关 (play)</b>, the games. It is a switch, not a page change.</p>
+        <p class="zh">两个按钮：<b>学习</b>（安静地练）与 <b>闯关</b>（游戏）。这只是切换，不会跳页。</p>
+        <p class="en">Two buttons: <b>学习 (practice)</b>, the quiet modes, and <b>闯关 (play)</b>, the games. It is a switch, not a page change.</p>
       </div>
       <div class="card">
         <h3><span class="zh">③ 就地铺出活动</span><span class="en">③ The activities appear</span></h3>
@@ -866,7 +866,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <p class="en"><b>⚠️ Numbers appear only on genuine multi-step decisions.</b> The leaderboard, the badge wall and 我的词山 are <b>never numbered</b> — they are destinations, not steps, and there is no right order in which to visit them.</p>
     </div>
 
-    <!-- 板块 chip 上就是这五枚徽章（app.js BADGE_IMG）。同一份美术在成就墙上当里程碑章。 -->
+    <!-- 板块 chip 上就是这五枚徽章（cs.js BADGE_IMG）。同一份美术在成就墙上当里程碑章。 -->
     <div class="gd-strip">
       <h4><span class="zh">板块长什么样</span><span class="en">What the component blocks look like</span></h4>
       <p class="zh">「筛选」里的板块不是文字药丸，是这五枚徽章。哪些板块存在<b>按学段不同</b>：G1 三个、G2 与 G3 四个、高级华文五个。关掉的那一枚变灰，那是<b>筛选</b>状态，不是「还没拿到」。</p>
@@ -887,7 +887,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
         <span class="en">Every word mastered adds one metre of altitude and moves you a little further up. This painting is that mountain.</span></div>
     </div>
 
-    <h3 style="margin-top:16px"><span class="zh">修行 · 安静地练</span><span class="en">修行 — the quiet modes</span></h3>
+    <h3 style="margin-top:16px"><span class="zh">学习 · 安静地练</span><span class="en">学习 — the quiet modes</span></h3>
     <div class="grid" id="mtnStudy"></div>
 
     <h3 style="margin-top:18px"><span class="zh">闯关 · 游戏</span><span class="en">闯关 — the games</span></h3>
@@ -908,13 +908,13 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
   <!-- ============ ⑤ ============ -->
   <section class="gd" id="u5">
-    <h2><span class="num">05</span><span class="zh b">启航码头的玩法</span><span class="en b">What you can do at the pier</span></h2>
+    <h2><span class="num">05</span><span class="zh b">出发码头的玩法</span><span class="en b">What you can do at the pier</span></h2>
     <p class="zh">码头是给<b>零起点</b>学生的：没读过华文、刚转校、或者只想先认得几个字的人。这里的词是看图学的，题目从图片和声音出发，不假设你已经认得任何一个汉字。</p>
     <p class="en">The pier is for students starting from <b>zero</b>: no prior Chinese, newly transferred, or simply wanting to recognise a few words first. Words are learned from pictures; questions start from an image or a sound and assume no character knowledge at all.</p>
 
     <!-- art/xh/dock_bg.png — 码头首页 hero 那张沙滩，原样。 -->
     <div class="gd-band tall" style="background-image:url('art/xh/dock_bg.png')">
-      <div class="cap"><b>启航码头</b>
+      <div class="cap"><b>出发码头</b>
         <span class="zh">这就是码头首页那张画。认得一个词，航程加一，海滩上会多一样东西。</span>
         <span class="en">This is the painting on the pier's own front page. Each word you come to recognise adds one to your distance, and the beach gains something.</span></div>
     </div>
@@ -938,12 +938,12 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <div class="gd-row boats" id="boatRow"></div>
     </div>
 
-    <!-- 踏浪竞速用的就是这几张：天空、沙滩、跨栏、终点拱门，跑者是六帧行走表的第一帧。 -->
+    <!-- 沙滩快跑用的就是这几张：天空、沙滩、跨栏、终点拱门，跑者是六帧行走表的第一帧。 -->
     <!-- ⚠️ 说明写在**最前面**，不是最后面。它在画面上本来就在顶上，DOM 顺序跟着视觉顺序
          是对读屏软件的礼貌；更重要的是 ≤560px 那一档会把它从 absolute 变回 static，
          那时候它落在哪一边就完全由 DOM 顺序决定，而跑道要留在下半截。 -->
     <div class="gd-band run">
-      <div class="cap top"><b>踏浪竞速</b>
+      <div class="cap top"><b>沙滩快跑</b>
         <span class="zh">答对一题，跑一步、跨一栏。跑到拱门就是一局结束——<b>没有输的条件</b>。</span>
         <span class="en">One correct answer, one hop, one hurdle. Reaching the arch is the end of the round — <b>there is no way to lose</b>.</span></div>
       <img class="palm" src="art/xh/run/prop_palm.png" alt="">
@@ -954,7 +954,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     </div>
 
     <div class="rule">
-      <p class="zh"><b>⚠️ 踏浪竞速 是一层皮，不是另一种题目。</b>同一盘题，开不开踏浪竞速，题目、贝壳、航程<b>完全一样</b>，只有反馈不同：答对一题，沙滩上的小人往前跳一步、跨过一根栏。<b>没有东西在追你，也没有输的条件</b>，一局到题数结束就结束。</p>
+      <p class="zh"><b>⚠️ 沙滩快跑 是一层皮，不是另一种题目。</b>同一盘题，开不开沙滩快跑，题目、贝壳、航程<b>完全一样</b>，只有反馈不同：答对一题，沙滩上的小人往前跳一步、跨过一根栏。<b>没有东西在追你，也没有输的条件</b>，一局到题数结束就结束。</p>
       <p class="en"><b>⚠️ Beach run is a skin, not a different game.</b> The same round with beach run on or off gives exactly the same questions, shells and progress — only the feedback changes: each correct answer hops the runner one step along the sand and over a hurdle. <b>Nothing is chasing you and there is no way to lose</b>; the round ends when the questions run out.</p>
     </div>
 
@@ -1019,13 +1019,13 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
 
   <!-- ============ ⑧ ============ -->
   <section class="gd" id="u8">
-    <h2><span class="num">08</span><span class="zh b">试一试：重整句子</span><span class="en b">Try it: put the words in order</span></h2>
+    <h2><span class="num">08</span><span class="zh b">试一试：组词成句</span><span class="en b">Try it: put the words in order</span></h2>
     <p class="zh">按顺序点出句子的词。托盘里还混着几块<b>不属于这句</b>的干扰词。</p>
     <p class="en">Tap out the words of the sentence in order. The tray also holds a few decoy tiles that <b>do not belong</b> in this sentence.</p>
 
     <div class="demo">
       <div class="demo-head"><span class="tag">试一试 · live</span>
-        <b>重整句子</b><span class="en">Put the words in order</span></div>
+        <b>组词成句</b><span class="en">Put the words in order</span></div>
       <div class="demo-body">
         <p style="font-size:15px;margin-bottom:6px" id="sortEn"></p>
         <div class="slots" id="sortSlots"></div>
@@ -1058,7 +1058,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <div class="demo-body">
         <div class="ctl">
           <button class="chip" type="button" data-side="mtn" aria-pressed="true"><span class="zh">四座山</span><span class="en">The mountains</span></button>
-          <button class="chip" type="button" data-side="xh" aria-pressed="false"><span class="zh">启航码头</span><span class="en">The pier</span></button>
+          <button class="chip" type="button" data-side="xh" aria-pressed="false"><span class="zh">出发码头</span><span class="en">The pier</span></button>
         </div>
         <div class="chips" id="numModes"></div>
         <div class="meters" id="numMeters"></div>
@@ -1066,7 +1066,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       </div>
       <div class="demo-foot">
         <span class="lbl zh">注意看</span><span class="lbl en">Notice</span>
-        <p class="zh">只有<b>四个模式</b>能推高海拔：填空挑战 · 攀山竞速 · 华文解释 · 英文翻译（房间对战另算）。词雨灵露 玩得再久，海拔也不动——它练的是反应，不是「认得这个词」。<b>打拼音档只给一成历练值、不给海拔</b>，所以没办法靠它刷便宜的连对倍率。</p>
+        <p class="zh">只有<b>四个模式</b>能推高海拔：填空挑战 · 攀山快答 · 华文解释 · 英文翻译（房间对战另算）。词雨灵露 玩得再久，海拔也不动——它练的是反应，不是「认得这个词」。<b>打拼音档只给一成历练值、不给海拔</b>，所以没办法靠它刷便宜的连对倍率。</p>
         <p class="en">Only <b>four modes</b> can raise altitude: cloze, mountain sprint, Chinese definition, English translation (live rooms count separately). No amount of word-rain moves it — that mode trains reaction speed, not "I know this word". The <b>pinyin-typing tier pays a tenth of the effort points and no altitude</b>, so it cannot be farmed for a cheap streak multiplier.</p>
       </div>
     </div>
@@ -1086,8 +1086,8 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       <p class="zh"><b>⚠️ 只有界面文字有注解，题目没有。</b>题干、释义、句子、选项<b>永远是纯中文</b>——这是刻意的，和「朗读只读中文」是同一个沉浸逻辑。唯一的例外是拼音可以注在句子上。</p>
       <p class="en"><b>⚠️ Only the interface is annotated, never the questions.</b> Prompts, definitions, sentences and options stay <b>pure Chinese</b> on purpose — the same immersion logic as "only Chinese is ever spoken aloud". The single exception is that pinyin may be rubied over a sentence.</p>
     </div>
-    <p class="zh">哪里有：<b>G1／G2／G3 有，高级华文一个字节都不发</b>（那一层的学生不需要）。<b>码头默认两个都开</b>，而且词语闪卡的卡片、词海垂钓答错后的拼音、重整句子的英文题干<b>永远显示</b>，不受开关影响——对零起点学生来说，把这几处藏起来等于让他盯着两个不认识的字。</p>
-    <p class="en">Where: <b>G1, G2 and G3 have them; Higher Chinese ships not one byte of either</b> — its students do not need them. <b>At the pier both default to ON</b>, and a few places ignore the switches entirely: the flashcard face, the pinyin shown after a wrong answer in the fishing game, and the English prompt in 重整句子. For a zero-start learner, hiding those would mean staring at two characters they cannot read.</p>
+    <p class="zh">哪里有：<b>G1／G2／G3 有，高级华文一个字节都不发</b>（那一层的学生不需要）。<b>码头默认两个都开</b>，而且词语闪卡的卡片、词海钓鱼答错后的拼音、组词成句的英文题干<b>永远显示</b>，不受开关影响——对零起点学生来说，把这几处藏起来等于让他盯着两个不认识的字。</p>
+    <p class="en">Where: <b>G1, G2 and G3 have them; Higher Chinese ships not one byte of either</b> — its students do not need them. <b>At the pier both default to ON</b>, and a few places ignore the switches entirely: the flashcard face, the pinyin shown after a wrong answer in the fishing game, and the English prompt in 组词成句. For a zero-start learner, hiding those would mean staring at two characters they cannot read.</p>
   </section>
 
   <!-- ============ ⑪ ============ -->
@@ -1198,7 +1198,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
           </div>
           <div class="wl-line"><span>水 线</span></div>
           <div class="wl-side sea">
-            <h4><span class="zh">启航码头</span><span class="en">The pier</span></h4>
+            <h4><span class="zh">出发码头</span><span class="en">The pier</span></h4>
             <dl>
               <dt><span class="zh">掌握度</span><span class="en">mastery</span></dt><dd>航程 <span style="font-size:12px;color:var(--ink-soft)">Distance sailed</span></dd>
               <dt><span class="zh">努力值</span><span class="en">effort</span></dt><dd>航海值 <span style="font-size:12px;color:var(--ink-soft)">Seafaring points</span></dd>
@@ -1253,7 +1253,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   <!-- ============ ③ 掌握 ============ -->
   <section class="gd" id="w3">
     <h2><span class="num">03</span><span class="zh b">什么算「掌握」，写死在四个模式上</span><span class="en b">What counts as mastery is pinned to four modes</span></h2>
-    <p class="zh">只有<b>填空挑战 · 攀山竞速 · 华文解释 · 英文翻译</b>会让一个词计入海拔（房间对战另经一条按词文本计分的路）。<b>词语闪卡不算</b>，<b>词雨灵露不算</b>，<b>打拼音不算</b>。</p>
+    <p class="zh">只有<b>填空挑战 · 攀山快答 · 华文解释 · 英文翻译</b>会让一个词计入海拔（房间对战另经一条按词文本计分的路）。<b>词语闪卡不算</b>，<b>词雨灵露不算</b>，<b>打拼音不算</b>。</p>
     <p class="en">Only <b>cloze, mountain sprint, Chinese definition and English translation</b> can mark a word as mastered (live rooms confer it by a separate, text-matched route). <b>Flashcards do not. Word-rain does not. Typing pinyin does not.</b></p>
     <div class="why">
       <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
@@ -1470,7 +1470,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   <!-- ============ ⑪ 没有失败条件 ============ -->
   <section class="gd" id="w11">
     <h2><span class="num">11</span><span class="zh b">给零起点学生的模式，没有失败条件</span><span class="en b">The beginners' mode has no fail state</span></h2>
-    <p class="zh">「踏浪竞速」里，答对一题，跑者就在沙滩上跳过一格、跨过一根栏，一直跑到终点拱门。<b>没有任何东西在追他</b>，也没有时钟。<b>不要给它加失败条件。</b></p>
+    <p class="zh">「沙滩快跑」里，答对一题，跑者就在沙滩上跳过一格、跨过一根栏，一直跑到终点拱门。<b>没有任何东西在追他</b>，也没有时钟。<b>不要给它加失败条件。</b></p>
     <p class="en">In "beach run", each correct answer hops the runner one step along the sand and over a hurdle, all the way to the finishing arch. <b>Nothing is chasing them</b> and there is no clock. <b>Do not give it a fail state.</b></p>
     <div class="why">
       <span class="lbl zh">为什么</span><span class="lbl en">Why</span>
@@ -1576,7 +1576,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
       </div>
     </div>
     <div class="rule">
-      <p class="zh"><b>⚠️ 一条刻意保留的偏差。</b>「重整句子」教的是<b>语序</b>，而记录里存的是<b>词</b>。学生可能已经认得某个词，却从没排对过那句话，出题时会当成复习。要精确就得新建一份「排对过的句子」记录——而当前阶段的原则是<b>先加词，别再加系统</b>。这个偏差是知情的，写下来，不假装它不存在。</p>
+      <p class="zh"><b>⚠️ 一条刻意保留的偏差。</b>「组词成句」教的是<b>语序</b>，而记录里存的是<b>词</b>。学生可能已经认得某个词，却从没排对过那句话，出题时会当成复习。要精确就得新建一份「排对过的句子」记录——而当前阶段的原则是<b>先加词，别再加系统</b>。这个偏差是知情的，写下来，不假装它不存在。</p>
       <p class="en"><b>⚠️ One bias we knowingly keep.</b> The sentence-ordering game teaches <b>word order</b>, but the record it consults stores <b>words</b>. A student may know a word and never have ordered that sentence correctly, and the sampler will treat it as revision. Fixing it properly means a second record of "sentences ordered correctly" — and the current principle is <b>add words, not more systems</b>. The bias is documented rather than denied.</p>
     </div>
   </section>
@@ -1674,8 +1674,8 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   ];
 
   var STATIONS = [
-    { img: "art/seamap/dock_jetty.png", zh: "启航码头", en: "The Beginner's Pier",
-      lv: "学海启航 · pre-G1", href: "XH_index.html",
+    { img: "art/seamap/dock_jetty.png", zh: "出发码头", en: "The Beginner's Pier",
+      lv: "学海起步 · pre-G1", href: "XH_index.html",
       /* ⚠️「看图学词」是**退役的玩法名**（2026-08-16 改叫 词语闪卡），不要写回屏幕上。
          这里要的是「看着图认词」这件事，所以写成一句白话，不借用任何一扇门的名字。 */
       dzh: "零起点。看着图认词，从第一个汉字开始。149 个词，八个组别。",
@@ -1706,8 +1706,8 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   ];
   var MTN_PLAY = [
     { i: "🌧️", zh: "词雨灵露", en: "Word rain", dzh: "词从天上落，接住对的。限时。练反应，不计海拔。", den: "Words fall; catch the right one. Timed. Trains reaction, not altitude." },
-    { i: "🏔️", zh: "攀山竞速", en: "Mountain sprint", dzh: "限时四选一，三种题型。计入海拔。", den: "Timed four-option questions in three flavours. Counts toward altitude." },
-    { i: "🧩", zh: "组词挑战", en: "Build the word", dzh: "从一盘字里按顺序点出词语，2–8 字。滑杆上写几块，屏幕上就是几块。", den: "Tap the characters of a word in order, two to eight characters. The slider reads in tiles, and the board holds exactly that many." },
+    { i: "🏔️", zh: "攀山快答", en: "Mountain sprint", dzh: "限时四选一，三种题型。计入海拔。", den: "Timed four-option questions in three flavours. Counts toward altitude." },
+    { i: "🧩", zh: "组字成词", en: "Build the word", dzh: "从一盘字里按顺序点出词语，2–8 字。滑杆上写几块，屏幕上就是几块。", den: "Tap the characters of a word in order, two to eight characters. The slider reads in tiles, and the board holds exactly that many." },
     { i: "🀄", zh: "词语汉兜", en: "Character guess", dzh: "猜字游戏，12 次机会，两栏。仅 G3 与高级华文。", den: "A twelve-guess character game in two columns. G3 and Higher Chinese only." }
   ];
   var MTN_ELSE = [
@@ -1720,16 +1720,16 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   ];
 
   /* ⚠️ 码头的活动清单是数据驱动的：改版只改这三个数组，正文不必动。
-     2026-08-17（第八批）：学习 面收成**两张卡**，与山上 修行 逐字对应。
+     2026-08-17（第八批）：学习 面收成**两张卡**，与山上 学习 逐字对应。
      `词语挑战` 这个名字已退役，门叫 学习挑战；连线 与 组字成词 不再是门，
      变成 ①挑战方式 里 配对与拼字 那一排的题型。 */
   var XH_LEARN = [
     { i: "📖", zh: "词语闪卡", en: "Flashcards", dzh: "两面：词语卡（图＋词＋拼音＋英文）与句子卡（整句读完，不挖空）。不计航程。", den: "Two faces: word cards (picture, word, pinyin, English) and sentence cards, read whole with nothing blanked. Does not count toward distance." },
-    { i: "🎯", zh: "学习挑战", en: "Quiz yourself", dzh: "七种题型，分三排：认词（英文选词 · 看图识词 · 听音识图）· 用词 · 生活空间（看句选词 · 重整句子）· 配对与拼字（连线 · 组字成词）。一局只跑一种。", den: "Seven question types on three shelves: knowing the word (English to word, picture to word, listen and pick the picture); using it in a sentence (fill the sentence, put the words in order); and pairing and spelling (match them up, build the word). One type per round." }
+    { i: "🎯", zh: "学习挑战", en: "Quiz yourself", dzh: "七种题型，分三排：认词（英文选词 · 看图识词 · 听音识图）· 用词 · 生活空间（看句选词 · 组词成句）· 配对与拼字（连线 · 组字成词）。一局只跑一种。", den: "Seven question types on three shelves: knowing the word (English to word, picture to word, listen and pick the picture); using it in a sentence (fill the sentence, put the words in order); and pairing and spelling (match them up, build the word). One type per round." }
   ];
   var XH_PLAY = [
-    { i: "🎣", zh: "词海垂钓", en: "Reel it in", dzh: "打出拼音，把鱼钓上来。", den: "Type the pinyin to land the catch." },
-    { i: "🏃", zh: "踏浪竞速", en: "Beach run", dzh: "同一批题目换一层皮：答对一题，角色跨过一个路标向前跑。题目、贝壳、航程都和普通闯关一样，只有反馈不同。门后选用哪一种题型来跑。", den: "The same questions wearing a different skin: each correct answer makes your character hop a hurdle and run on. Same questions, same shells, same distance as a plain round — only the feedback differs. Pick which question type to run behind this tile." }
+    { i: "🎣", zh: "词海钓鱼", en: "Reel it in", dzh: "打出拼音，把鱼钓上来。", den: "Type the pinyin to land the catch." },
+    { i: "🏃", zh: "沙滩快跑", en: "Beach run", dzh: "同一批题目换一层皮：答对一题，角色跨过一个路标向前跑。题目、贝壳、航程都和普通闯关一样，只有反馈不同。门后选用哪一种题型来跑。", den: "The same questions wearing a different skin: each correct answer makes your character hop a hurdle and run on. Same questions, same shells, same distance as a plain round — only the feedback differs. Pick which question type to run behind this tile." }
   ];
   var XH_ELSE = [
     /* ⚠️ 走进社区 是**浏览层，不是活动**，所以它在这一排而不在③：③ 的每扇门都受
@@ -1766,7 +1766,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
     { f: "avatar_pet_long.png",       zh: "瑞兽·龙",     en: "Beast · Dragon",    i: "中四" }
   ];
 
-  /* ⚠️ app.js BADGE_IMG — the same five files, and the same five names the
+  /* ⚠️ cs.js BADGE_IMG — the same five files, and the same five names the
      板块 chips carry. G1 ships three of them, G2/G3 four, HCL five. */
   var COMPS = [
     { f: "art/badge/badge_hx.png",   zh: "核心",     en: "Core" },
@@ -2239,7 +2239,7 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
   $("mBlack").addEventListener("change", mDraw);
   mDraw();
 
-  /* =================== ⑧ 重整句子 ===================
+  /* =================== ⑧ 组词成句 ===================
      scene_farm-3, verbatim from data/xh_phrases.json including its accepted_zh. */
   var SEG = ["农夫", "在", "喂", "牛", "和", "鸡"];
   var ACCEPT = ["农夫在喂牛和鸡", "农夫在喂鸡和牛"];
@@ -2323,11 +2323,11 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
           note: "掌握闸门四个模式之一。 One of the four mastery modes." },
         { zh: "英文翻译", en: "English translation", a: 2, p: 2, c: 2,
           note: "掌握闸门四个模式之一。 One of the four mastery modes." },
-        { zh: "攀山竞速", en: "Mountain sprint", a: 2, p: 2, c: 2,
+        { zh: "攀山快答", en: "Mountain sprint", a: 2, p: 2, c: 2,
           note: "掌握闸门四个模式之一，三种题型全是四选一。 One of the four; all three of its question types are four-option items." },
         { zh: "词雨灵露", en: "Word rain", a: 0, p: 2, c: 2,
           note: "练的是反应速度，不是词义——所以不动海拔。 Trains reaction speed, not meaning, so it moves no altitude." },
-        { zh: "组词挑战", en: "Build the word", a: 0, p: 2, c: 2,
+        { zh: "组字成词", en: "Build the word", a: 0, p: 2, c: 2,
           note: "组装，不是从词义生产，所以不动海拔。 Assembly rather than production from meaning; no altitude." },
         { zh: "词语汉兜", en: "Character guess", a: 0, p: 2, c: 2,
           note: "仅 G3 与高级华文。 G3 and Higher Chinese only." },
@@ -2350,8 +2350,8 @@ body.L-both .btn.ghost .en{color:var(--ink-soft)}
         { zh: "看图识词", en: "Picture → word", a: 2, p: 2, c: 2, note: "航海值 2 · 贝壳 1。⚠️ 无图组别整组封锁。 2 points, 1 shell; blocked entirely for groups without pictures." },
         { zh: "听音识图", en: "Listen → picture", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。 3 points, 1 shell." },
         { zh: "看句选词", en: "Fill the sentence", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。⚠️ 这个模式曾经因为费率表缺了一个键，上线后一颗贝壳都没发过。 3 points, 1 shell — this mode paid nothing at all for a while because its key was missing from both rate tables." },
-        { zh: "重整句子", en: "Words in order", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，产出型。 4 points, 2 shells; a productive mode." },
-        { zh: "词海垂钓", en: "Reel it in", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，要打字。 4 points, 2 shells; typed." },
+        { zh: "组词成句", en: "Words in order", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，产出型。 4 points, 2 shells; a productive mode." },
+        { zh: "词海钓鱼", en: "Reel it in", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2，要打字。 4 points, 2 shells; typed." },
         { zh: "连线", en: "Match them up", a: 2, p: 2, c: 2, note: "航海值 3 · 贝壳 1。 3 points, 1 shell." },
         { zh: "组字成词", en: "Build the word", a: 2, p: 2, c: 2, note: "航海值 4 · 贝壳 2。 4 points, 2 shells." }
       ]

@@ -10,7 +10,7 @@
      GitHub Pages serves every file with cache-control: max-age=600, so for ten
      minutes a browser will not even ASK whether there is a newer copy — and it
      ages each file independently. That is how a device ends up running a NEW
-     app.css beside an OLD app.js (hover styling works, click handlers missing).
+     cs.css beside an OLD cs.js (hover styling works, click handlers missing).
      It has cost this project real debugging time more than once.
      The HTML tags carry ?v=YYYYMMDD; this reads the version straight off our own
      <script> tag so the data JSONs are pinned to the SAME build with no second
@@ -400,8 +400,8 @@
        that is a fixed-height scroll box. A student who never opens it gets every
        板块 and the 单元 source, which is the correct default anyway. */
     if (typeof s.filtOpen !== "boolean") s.filtOpen = false;
-    s.sprintSecs = s.sprintSecs || 90; // 攀山竞速 timer preference
-    s.sprintMode = s.sprintMode || "zh"; // 攀山竞速 question mode: zh|en|cloze
+    s.sprintSecs = s.sprintSecs || 90; // 攀山快答 timer preference
+    s.sprintMode = s.sprintMode || "zh"; // 攀山快答 question mode: zh|en|cloze
     /* rainSpeed / rainRamp retired 2026-08-14: 词雨 is progressive-only now.
        Old values may linger in a student's store; nothing reads them. */
     s.diff = s.diff || ((STREAM === "g1" || STREAM === "g2") ? "2" : "3");  // cloze difficulty: 2|3|4|type
@@ -444,7 +444,7 @@
     s.pyTel.log = (s.pyTel.log instanceof Array) ? s.pyTel.log : [];
     s.pkMode = s.pkMode || "cloze";    // 同伴挑战 题型
     s.pkDur = s.pkDur || 300;          // 同伴挑战 时长(秒)
-    s.quizLen = s.quizLen || 20;       // 修行 quiz questions per session: 10/20/30/40/50
+    s.quizLen = s.quizLen || 20;       // 学习 quiz questions per session: 10/20/30/40/50
     s.quizMode = s.quizMode || "cloze"; // 学习挑战 题型: cloze|zhmcq|enmcq (§2.1 merged entry)
     s.compMode = s.compMode || "cloze"; // 徽章「去挑战」 practice mode
     s.goalMode = s.goalMode || { type: "unit", n: 20 }; // 我的词山 SDT goal
@@ -467,8 +467,8 @@
     s.gym = s.gym || {};               // 年度试炼 passed: level -> 1
     s.gymTodo = s.gymTodo || {};       // 试炼失手待巩固: level -> { wordId: 1 }
     s.homeTab = s.homeTab || "study";  // last home tab: study | play
-    s.asmPrompt = s.asmPrompt || (STREAM === "g1" ? "py" : "def"); // 组词挑战 prompt: def|en|cloze|py (py earns 10% 历练值); G1 defaults to the easier 拼音 tier
-    s.asmChips = s.asmChips || 9;      // 组词挑战 字块数量 (incl. the answer's own chars)
+    s.asmPrompt = s.asmPrompt || (STREAM === "g1" ? "py" : "def"); // 组字成词 prompt: def|en|cloze|py (py earns 10% 历练值); G1 defaults to the easier 拼音 tier
+    s.asmChips = s.asmChips || 9;      // 组字成词 字块数量 (incl. the answer's own chars)
     s.streak = s.streak || 0;          // 连续学习天数 (daily)
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
@@ -743,7 +743,7 @@
          final year rather than being ornamental.
      ⚠️ PER STREAM, and deliberately so: the same student can be 踏云者 on G3 and
      初行客 on HCL. 历练值 lives in ws2_{stream}, so ranks never pool across
-     mountains — and this ladder belongs to the MOUNTAINS only. 启航码头 has its own
+     mountains — and this ladder belongs to the MOUNTAINS only. 出发码头 has its own
      航海值 and its own boards; it must never show a 段位. */
   var LADDER = {
     g1:  [["初行客", 0], ["寻径人", 600], ["踏云者", 2500], ["凌霄客", 11000]],
@@ -828,7 +828,7 @@
      understanding-based answer earns (owner 2026-08-14: "affirm their efforts in
      pinyin"). They still do NOT confer 海拔 — mastery is the documented gate and
      there is no such thing as 10% of a binary — and they still do not build 连对,
-     or a student could farm a cheap streak multiplier and carry it into 修行. */
+     or a student could farm a cheap streak multiplier and carry it into 学习. */
   var PY_PRACTICE_MULT = 0.10;
   /* ================= 灵露 award engine (DESIGN_economy_pricing_2026-08-14) =====
      灵露 = base × tier × pinyin × decay, on correct answers only. It sits BESIDE
@@ -836,7 +836,7 @@
      (depth), 灵露 is spending money. Both are computed at the same call sites.
 
      ⚠️ LINGLU_BASE is MINE — the design doc gives the formula but no base_rate.
-     Derived from its own anchor «1 session ≈ 30 灵露 at steady state»: a 修行
+     Derived from its own anchor «1 session ≈ 30 灵露 at steady state»: a 学习
      session is 20 questions at tier 1x, and by then most words sit in the
      25%/10% decay bands (~0.15 average), so 30 / (20 × 0.15) ≈ 10. The doc
      itself asks for a re-calibration from real Firestore data after 3–4 weeks —
@@ -848,8 +848,8 @@
   var LINGLU_TIER = {          // §1.1 效果分级: harder recall earns more
     flash: 0.5,                // 词语闪卡 — passive self-rating
     cloze: 1, zhmcq: 1, enmcq: 1,   // standard MCQ (baseline)
-    sprint: 1.25,              // 攀山竞速 — timed MCQ
-    assemble: 1.5,             // 组词挑战 — assembly, no free typing
+    sprint: 1.25,              // 攀山快答 — timed MCQ
+    assemble: 1.5,             // 组字成词 — assembly, no free typing
     handle: 2, rain: 2, pinyin: 2   // free typing, nothing to recognise from
   };
   var LINGLU_TYPED = { handle: 1, rain: 1, pinyin: 1 };   // where §1.2 applies
@@ -1167,7 +1167,7 @@
      borrowed is the 😊😐☹️ rating — see the CLAUDE.md note; this app needs
      actionable defect reports, not a sentiment score.
 
-     ⚠️ HIDDEN during timed games (词雨灵露, 攀山竞速). Bottom-left is where 词雨
+     ⚠️ HIDDEN during timed games (词雨灵露, 攀山快答). Bottom-left is where 词雨
      words land, and a stray tap during a timed run is exactly the near-miss
      hazard the 可及性 pass spent a whole session removing. A student reports
      after the round; nothing is lost. */
@@ -1227,7 +1227,7 @@
      (owner 2026-08-16), so a single 「请先选择至少一个单元」 would send someone hunting
      through the unit list when what they actually did was switch every 板块 off. */
   function scopeEmptyMsg(where) {
-    var lead = where ? "请先在「修行」页" : "请先";
+    var lead = where ? "请先在「学习」页" : "请先";
     if (!scope.size) return lead + "选择至少一个单元。";
     if (!streamComps().some(compIsOn)) return lead + "打开至少一个板块（板块筛选目前全部关闭）。";
     return lead + "选择至少一个有词语的单元。";
@@ -1398,7 +1398,7 @@
        sprint   PTS_BASE.sprint                                   + awardLingLu 1.25x
        assemble PTS_BASE.assemble                                 + awardLingLu 1.5x
        handle   6 + max(0, 12 - 已用行数)                          + awardLingLu 2x
-       rooms    ctx.roomCorrect → 修行 的公式                      + awardLingLu   */
+       rooms    ctx.roomCorrect → 学习 的公式                      + awardLingLu   */
 
   /* ================= B层 · 对战徽章 (DESIGN_徽章体系_对战与排行榜.md §3/§6.5) ====
      Awarded for a PLACING in a live room, not for learning. Two families that
@@ -1502,7 +1502,7 @@
   /* ================= 房间模式计分 (owner 2026-08-14) ==========================
      ⚠️ THIS REVERSES the 2026-08-12 D-2 rule ("arena code must NEVER call
      scoreCorrect/bankPts"). Owner decision, taken to motivate engagement:
-     结伴登峰 and 同伴挑战 now earn 历练值 and 灵露 exactly like 修行 modes.
+     结伴登峰 and 同伴挑战 now earn 历练值 and 灵露 exactly like 学习 modes.
      DESIGN_徽章体系 §0 asked for this; §7 left the formula open, so the call
      below reuses the SOLO formula rather than inventing a room-only one —
      see the CLAUDE.md section for what that implies and what to watch.
@@ -1563,7 +1563,7 @@
         store.mastered[id] = 1; changed = true; added++;
         /* +10 首次掌握, the moment 海拔 rises — same as markMastered. Guarded
            once-per-word, so a room can never double-pay a word the student
-           already mastered in 修行. */
+           already mastered in 学习. */
         var w = WORDS[_idIndex[id]];
         if (w) awardMasteryBonus(w);
       }
@@ -1585,7 +1585,7 @@
      ⚠️ Student-facing name is 同伴挑战 ONLY. The 「· PK对决」 suffix was removed
      2026-08-16 (owner); the design doc's own name is not the shipped one.
      Student-hosted sibling of 结伴登峰. The host PLAYS like everyone else (§2),
-     so app.js only owns the setup screen — arena.js owns the room itself.
+     so cs.js only owns the setup screen — arena.js owns the room itself.
      Owner decisions 2026-08-14:
        · win condition = fixed time, most correct (ties broken by time answering)
        · word pool     = the host picks it for everyone, using the SAME 复习范围
@@ -1634,7 +1634,7 @@
         mdLine("2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。") + '</div>' +
       '<div class="pk-scope"><span class="rb-item">出题范围：<b>' + pool.length + '</b> 词' +
       pyl("出题范围") + enl("出题范围") + '</span>' +
-      '<span class="pk-scope-note">' + mdLine("用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。") + '</span></div>' +
+      '<span class="pk-scope-note">' + mdLine("用你在「学习」页选的复习范围，和自己复习时一样。要改就回上一页选单元。") + '</span></div>' +
       '<div class="diff-label">' + stepNo(1) + '题型' + pyl("题型") + enl("题型") + '</div><div class="diff" id="pkMode">' +
       PK_MODES.map(function (m) {
         return '<button class="dopt' + (m.k === mode ? " on" : "") + '" data-m="' + m.k +
@@ -1661,7 +1661,7 @@
         words = words.filter(function (w) { return w.cloze && w.cloze.indexOf("__") !== -1; });
       }
       if (words.length < 4) {
-        alert("所选范围可用的词太少（这个题型至少需要 4 个）。请回「修行」页多选几个单元。");
+        alert("所选范围可用的词太少（这个题型至少需要 4 个）。请回「学习」页多选几个单元。");
         return;
       }
       var ids = shuffle(words.slice()).slice(0, 40).map(function (w) { return w.id; });
@@ -1792,14 +1792,14 @@
 
     html += '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择学习方式") + enl("选择学习方式") + '</div>' +
       '<div class="htabs">' +
-      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 修行' + pyl("修行") + enl("修行") + '</button>' +
+      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 学习' + pyl("学习") + enl("学习") + '</button>' +
       '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + pyl("闯关") + enl("闯关") + '</button></div>';
 
     if (store.homeTab === "play") {
       html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("词语游乐场") + enl("词语游乐场") + '</div><div class="camps">' +
         camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
-        camp("sprint", "⛰️", "攀山竞速", "90 秒登山冲刺 · 答对就攀升") +
-        camp("assemble", "🧩", "组词挑战", "看释义点字，拼出词语") +
+        camp("sprint", "⛰️", "攀山快答", "90 秒登山冲刺 · 答对就攀升") +
+        camp("assemble", "🧩", "组字成词", "看释义点字，拼出词语") +
         ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 十二次机会") : "") + '</div>';
     } else {
       /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
@@ -2479,7 +2479,7 @@
     setTopbar("home", "");
     var scope = store.lbScope || "school", board = store.lbBoard || "alt";
     var headline =
-      board === "sprint90" ? "只统计 90 秒的攀山竞速 · 比的是答对题数，答错要倒扣 3 秒。"
+      board === "sprint90" ? "只统计 90 秒的攀山快答 · 比的是答对题数，答错要倒扣 3 秒。"
       : board === "rainRamp" ? "词雨灵露 · 每局都从最慢开始、随时间加速，所有人跑的是同一套节奏。"
       : board === "pts" ? (store.lbTerm === "week" ? "本周历练值 · 每周日重新开始。"
           : store.lbTerm === "total" ? "累计历练值 · 永不清零。"
@@ -2489,7 +2489,7 @@
       '<div class="lb-tabs2">' +
       '<button class="lb-tab2' + (board === "alt" ? " on" : "") + '" data-b="alt">掌握词数</button>' +
       '<button class="lb-tab2' + (board === "pts" ? " on" : "") + '" data-b="pts">历练值</button>' +
-      '<button class="lb-tab2' + (board === "sprint90" ? " on" : "") + '" data-b="sprint90">⛰️ 攀山竞速</button>' +
+      '<button class="lb-tab2' + (board === "sprint90" ? " on" : "") + '" data-b="sprint90">⛰️ 攀山快答</button>' +
       '<button class="lb-tab2' + (board === "rainRamp" ? " on" : "") + '" data-b="rainRamp">🌧️ 词雨手速</button></div>';
     if (board === "pts") {
       html += '<div class="lb-subtoggle">' +
@@ -2556,7 +2556,7 @@
             /* ⚠️ NO「· 你」AFTER THE NICKNAME (owner 2026-08-19：「I don't want 你 to be
                there」). The row already says it is yours by being lit up; a word glued
                onto the nickname reads as part of the name — and it is the one name on
-               the board the student did not choose. 启航码头 has never done this. */
+               the board the student did not choose. 出发码头 has never done this. */
             '<div class="lb-id"><b>' + esc(r.nickname || "（无昵称）") + '</b>' +
             (scope === "all" && r.school ? '<span class="lb-school">' + esc(r.school) + '</span>' : "") +
             /* ⚠️ PREFIX ONLY, never the whole uid. The line exists to separate two
@@ -2834,7 +2834,7 @@
     }, diffGloss);
   }
   /* 拼音辅助 (D1): student-toggled, default off. Shown wherever options are
-     answered (cloze MCQ rail + 攀山竞速 pre-start). Reveals pronunciation only,
+     answered (cloze MCQ rail + 攀山快答 pre-start). Reveals pronunciation only,
      not meaning — full 历练值 either way (D-5).
      NOT offered in HCL (owner 2026-08-13): 高级华文 students are expected to read
      without support. This governs SENTENCE + OPTION pinyin only — the per-word
@@ -2877,7 +2877,7 @@
   /* ================================================================
      英文提示 (EN aid) — DESIGN_english-toggle-fading-and-flow-numbering
      决定一：G1/G2 only. ONLY navigation/button shell text carries a tiny
-     English gloss (修行/闯关/词语闪卡/出发…). Quiz CONTENT — 题干、释义、
+     English gloss (学习/闯关/词语闪卡/出发…). Quiz CONTENT — 题干、释义、
      句子、选项 — stays pure Chinese whether the toggle is on or off; that is
      the same immersion rule as the Chinese-only TTS policy, and it is why the
      toggle cannot really weaken 中文沉浸.
@@ -2904,15 +2904,14 @@
     "全选": "Select all",
     "清空": "Clear",
     "选择学习方式": "Pick a path",
-    "修行": "Practice",
     "闯关": "Games",
     "词语游乐场": "Pick a game",
     "今日路线 · 选择你的营地": "Pick an activity",
     "学习挑战": "Quiz",
     "词语闪卡": "Flashcards",
     "词雨灵露": "Word Rain",
-    "攀山竞速": "Climb Race",
-    "组词挑战": "Build the Word",
+    "攀山快答": "Quick Climb",
+    "组字成词": "Build the Word",
     "词语汉兜": "Word Puzzle",
     "出发": "Start",
     "我的词语表": "My word list",
@@ -2942,7 +2941,6 @@
        they are in scope; quiz CONTENT stays Chinese-only, as always. */
     "答对": "Correct",
     "连对": "Streak",
-    "海拔": "Altitude",
     "历练值": "XP",
     "正确率": "Accuracy",
     "最高连对": "Best streak",
@@ -3037,8 +3035,8 @@
     "2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。":
       "2 to 8 players. Nobody can join once it starts; if you drop out, use the room code to come back.",
     "出题范围": "Word pool",
-    "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
-      "Uses the units you picked on the 修行 page, the same as your own revision. To change it, go back a page.",
+    "用你在「学习」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
+      "Uses the units you picked on the 学习 page, the same as your own revision. To change it, go back a page.",
     /* ---- 汉兜 hint redesign (owner 2026-08-15): the old progressive-声母
        button had no label text of its own (just bare letters), so this pair
        is genuinely new shell text, not a reuse. */
@@ -3060,11 +3058,11 @@
     "来源": "lái yuán", "筛选": "shāi xuǎn",
     "单元": "dān yuán",
     "复习范围 · 可多选": "fù xí fàn wéi · kě duō xuǎn", "全选": "quán xuǎn", "清空": "qīng kōng",
-    "选择学习方式": "xuǎn zé xué xí fāng shì", "修行": "xiū xíng", "闯关": "chuǎng guān",
+    "选择学习方式": "xuǎn zé xué xí fāng shì", "闯关": "chuǎng guān",
     "词语游乐场": "cí yǔ yóu lè chǎng",
     "今日路线 · 选择你的营地": "jīn rì lù xiàn · xuǎn zé nǐ de yíng dì",
     "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
-    "词雨灵露": "cí yǔ líng lù", "攀山竞速": "pān shān jìng sù", "组词挑战": "zǔ cí tiǎo zhàn",
+    "词雨灵露": "cí yǔ líng lù", "攀山快答": "pān shān kuài dá", "组字成词": "zǔ zì chéng cí",
     "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
     "查词": "chá cí",
     "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
@@ -3075,7 +3073,7 @@
     "速度模式": "sù dù mó shì", "下落速度": "xià luò sù dù", "拼音辅助": "pīn yīn fǔ zhù", "拼音": "pīn yīn",
     "开始挑战": "kāi shǐ tiǎo zhàn", "开始攀登": "kāi shǐ pān dēng", "开始游戏": "kāi shǐ yóu xì",
     "回营地": "huí yíng dì", "下一题": "xià yī tí",
-    "答对": "dá duì", "连对": "lián duì", "海拔": "hǎi bá", "历练值": "lì liàn zhí",
+    "答对": "dá duì", "连对": "lián duì", "历练值": "lì liàn zhí",
     "正确率": "zhèng què lǜ", "最高连对": "zuì gāo lián duì", "已掌握词语": "yǐ zhǎng wò cí yǔ",
     "得分": "dé fēn", "连击": "lián jī", "波次": "bō cì", "拼对": "pīn duì",
     "出题方式": "chū tí fāng shì", "字块数量": "zì kuài shù liàng", "时长": "shí cháng",
@@ -3151,8 +3149,8 @@
     "2 至 8 人。开局后不能中途加入，掉线的人可以用房间号回来。":
       "2 zhì 8 rén。kāi jú hòu bù néng zhōng tú jiā rù，diào xiàn de rén kě yǐ yòng fáng jiān hào huí lái",
     "出题范围": "chū tí fàn wéi",
-    "用你在「修行」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
-      "yòng nǐ zài「xiū xíng」yè xuǎn de fù xí fàn wéi，hé zì jǐ fù xí shí yī yàng。" +
+    "用你在「学习」页选的复习范围，和自己复习时一样。要改就回上一页选单元。":
+      "yòng nǐ zài「xué xí」yè xuǎn de fù xí fàn wéi，hé zì jǐ fù xí shí yī yàng。" +
       "yào gǎi jiù huí shàng yī yè xuǎn dān yuán",
     /* ---- 汉兜 hint redesign (owner 2026-08-15) ---- */
     "首字声母": "shǒu zì shēng mǔ", "词性": "cí xìng"
@@ -3201,7 +3199,7 @@
     return '<button class="' + (cls || "tts") + '" id="' + id + '">🔊 <span class="tts-lab">' +
       zh + pyl(zh) + enl(zh) + '</span></button>';
   }
-  /* Per-CHARACTER 拼音 for the 组词挑战 tiles (owner 2026-08-15: pinyin support
+  /* Per-CHARACTER 拼音 for the 组字成词 tiles (owner 2026-08-15: pinyin support
      must reach the single characters too — but NOT English, which would be
      meaningless on a lone character).
      Built once from this stream's own word list by walking every word whose
@@ -3625,7 +3623,7 @@
             state.correct++; sfxOk();
             /* ⚠️ 华文解释 与 英文翻译 NOW CONFER MASTERY (owner 2026-08-16, HANDOFF
                §1). The popover has always told students these four modes count;
-               the code only credited 填空挑战 and 攀山竞速. The owner ruled that the
+               the code only credited 填空挑战 and 攀山快答. The owner ruled that the
                CODE was wrong, not the copy — so the popover is untouched and this
                branch gained markMastered.
                ⚠️ ORDER IS LOAD-BEARING, and it was wrong here before: gymNote used
@@ -3745,7 +3743,7 @@
         '<div class="big">🏅 ' + esc(level) + ' 年度试炼通过！</div>' +
         '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
         (pet ? '<div class="msg">登山伙伴加入队伍：' + pet.emoji + ' <b>' + esc(pet.name) + '</b>' +
-               '<br><span style="font-size:12px">新头像「' + esc(pet.name) + '」已解锁，攀山竞速里也会换成它</span></div>' : '') +
+               '<br><span style="font-size:12px">新头像「' + esc(pet.name) + '」已解锁，攀山快答里也会换成它</span></div>' : '') +
         '<div class="nav-row">' +
         (canWear ? '<button class="nav-btn" id="wearPet">换上 ' + pet.emoji + ' ' + esc(pet.name) + '</button>' : '') +
         '<button class="nav-btn primary" id="home">回到词山</button></div></div>';
@@ -3765,7 +3763,7 @@
     view().innerHTML = '<div class="result">' +
       '<div class="big">' + state.correct + ' / ' + total + '</div>' +
       '<div class="sub">' + esc(level) + ' 年度试炼 · 还差一点</div>' +
-      '<div class="msg">这些词进入「待巩固」，在修行中答对即可重开试炼：<br><b>' + words.join("、") + '</b><br>' +
+      '<div class="msg">这些词进入「待巩固」，在学习中答对即可重开试炼：<br><b>' + words.join("、") + '</b><br>' +
       '<span style="font-size:12px">（掌握与海拔不受影响，只是试炼暂时上锁）</span></div>' +
       '<div class="nav-row"><button class="nav-btn" id="again">再试一次</button>' +
       '<button class="nav-btn primary" id="home">回到词山</button></div></div>';
@@ -3795,7 +3793,7 @@
              pct: Math.round(p * 100) };
   }
   /* 排行榜扩展 (DESIGN_排行榜扩展_周榜与游戏数据):
-     - Only a 90-second 攀山竞速 run and a 递增速度 词雨 run count toward the two
+     - Only a 90-second 攀山快答 run and a 递增速度 词雨 run count toward the two
        speed boards, so everyone is ranked on the same course. Other configs stay
        personal-best-only.
      - A wrong sprint answer costs 3s of the run (anti-mashing, D-1 locked).
@@ -4028,7 +4026,7 @@
     }
     /* ---------- 接雨的角色 (owner 2026-08-16) ----------
        The student's avatar runs along the sea line chasing whatever is closest to
-       landing, and celebrates on every catch. Same 6-frame sheets 攀山竞速 and the
+       landing, and celebrates on every catch. Same 6-frame sheets 攀山快答 and the
        dock's angler use (art/sprite/avatar) — ⚠️ never art/avatar/*.png (square,
        faces LEFT) or art/camp/pet_*.png.
        Drawn as a DOM background-position sprite rather than on a canvas, because
@@ -4046,7 +4044,7 @@
         }
       };
       if (runSheet.complete) runFit(); else runSheet.addEventListener("load", runFit);
-      /* ⚠️ per-sheet size correction — the same problem 攀山竞速 solves with
+      /* ⚠️ per-sheet size correction — the same problem 攀山快答 solves with
          avatarInk/AVATAR_INK_H, except this runner is a DOM element sized off the
          CELL, and the cells are not drawn to a common size: 沙僧 fills far less of
          its cell than 鼠 does, so at one height the monk looked half the rat's size
@@ -4404,7 +4402,7 @@
 
 
   /* ==================================================================
-     组词挑战 · character-assembly game (G2)
+     组字成词 · character-assembly game (G2)
      Show the definition, tap the word's characters in order among
      decoys. Playground game: does not mark mastery.
      ================================================================== */
@@ -4425,7 +4423,7 @@
       return w.w.length >= ASM_MIN_LEN && w.w.length <= ASM_MAX_LEN && !ASM_PUNCT.test(w.w);
     });
     if (pool.length < 10) {
-      alert("所选范围内适合组词挑战的词语不足（需要至少 10 个 2–8 字词语）。请扩大复习范围。");
+      alert("所选范围内适合组字成词的词语不足（需要至少 10 个 2–8 字词语）。请扩大复习范围。");
       return;
     }
     var charSet = {};
@@ -4533,7 +4531,7 @@
   }
   /* 拼音 under a tile. ⚠️ Never in the 拼音 prompt mode: there the prompt IS the
      answer's pinyin, so annotated tiles would turn the round into syllable
-     matching and the character-recognition step — the whole point of 组词挑战 —
+     matching and the character-recognition step — the whole point of 组字成词 —
      would disappear. Every other prompt mode is safe: the characters are already
      on screen, so a reading adds no information about which ones are the answer
      (all tiles are annotated, decoys included). */
@@ -4543,7 +4541,7 @@
     return p ? '<span class="asm-py">' + esc(p) + '</span>' : "";
   }
   function renderAssemble(state) {
-    setFbCtx("组词挑战", state.seq[state.i]);
+    setFbCtx("组字成词", state.seq[state.i]);
     setTopbar("home", "");
     var w = state.seq[state.i];
     var target = w.w.split("");
@@ -4573,7 +4571,7 @@
     var promptHtml = promptBody();
 
     var html = '<div class="study"><div class="rail card">' +
-      '<div class="mode-name">🧩 组词挑战' + pyl("组词挑战") + enli("组词挑战") + '</div>' +
+      '<div class="mode-name">🧩 组字成词' + pyl("组字成词") + enli("组字成词") + '</div>' +
       '<div class="mode-desc">' + mdLine("按顺序点出词语的字。") + '</div>' +
       '<div class="prog-big">' + (state.i + 1) + ' <small>/ ' + state.seq.length + '</small></div>' +
       '<div class="streak">拼对' + pyl("拼对") + enli("拼对") + ' <b>' + state.perfect + '</b> 🧩</div>' +
@@ -4680,7 +4678,7 @@
       pct >= 50 ? "越拼越顺，再来一局！" : "多看释义提示，慢慢来。";
     view().innerHTML = '<div class="result">' +
       '<div class="big">' + state.perfect + ' / ' + state.seq.length + '</div>' +
-      '<div class="sub">组词挑战 · 一次拼对 ' + state.perfect + ' 题</div>' +
+      '<div class="sub">组字成词 · 一次拼对 ' + state.perfect + ' 题</div>' +
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
@@ -4690,7 +4688,7 @@
   }
 
   /* ==================================================================
-     攀山竞速 · 90-second climb sprint (all streams) — Phase 2
+     攀山快答 · 90-second climb sprint (all streams) — Phase 2
      Fixed viewport, camera-follow canvas world (no scrolling).
      Answering is the movement; altitude = mastered count (1 词 = 1 米).
      8-bit spritesheet climbers (4 attire rows) + tileset landmarks,
@@ -4713,7 +4711,7 @@
      ⚠️ THIS IS A THIRD ASSET FAMILY. Never point one at another (§5):
        art/avatar/avatar_*.png        square 320px, faces LEFT   → 头像选择器 / AvatarInfoCard
        art/camp/pet_*.png             own aspect ratios          → 营地 PET_LAYOUT
-       art/sprite/avatar/*_sprite.png 6-frame strip, faces RIGHT  → 攀山竞速 (here)
+       art/sprite/avatar/*_sprite.png 6-frame strip, faces RIGHT  → 攀山快答 (here)
      Frame semantics are IDENTICAL to the built-in climber sheet (0 idle · 1-2 walk ·
      3-4 climb A/B · 5 celebrate), which is why drawClimber's frame maths is shared.
      ⚠️ Cell WIDTH is per creature (鼠 128px wide, 唐僧 76px); height is a uniform 104.
@@ -4798,7 +4796,7 @@
   var SPRINT_BG = new Image();
   SPRINT_BG.src = "art/bg/sprint_bg.png";   // vertical panorama backdrop (separate repo file)
   var WALL_IMG = new Image();
-  WALL_IMG.src = "art/bg/climb-wall-tile.png";   // 攀山竞速 vertically-tiling rock wall
+  WALL_IMG.src = "art/bg/climb-wall-tile.png";   // 攀山快答 vertically-tiling rock wall
   /* Ledges (protruding shelves) traced on art/bg/climb-wall-tile.png, ordered bottom→top
      within one tile: {x, y} as image fractions of each shelf's top surface. The
      climber lands on one of these every jump; the list repeats each tile. Re-trace
@@ -4867,7 +4865,7 @@
     avatarSheet();
     var best = store.best.sprint || 0;
     view().innerHTML = '<div class="game-config card">' +
-      '<div class="mode-name">⛰️ 攀山竞速' + pyl("攀山竞速") + enli("攀山竞速") + '</div>' +
+      '<div class="mode-name">⛰️ 攀山快答' + pyl("攀山快答") + enli("攀山快答") + '</div>' +
       '<div class="mode-desc">' + mdLine("登山冲刺：答对就向上攀登！") +
         mdLine("第一次答对的新词会永久提升你的海拔（1 词 = 1 米）。优先出现你还没掌握的词。") + '</div>' +
       '<div class="sprint-stats"><span>我的海拔' + pyl("我的海拔") + enli("我的海拔") + ' <b>' + altitudeNow() + ' 米</b></span>' +
@@ -4900,7 +4898,7 @@
      「用横屏」 on arrival and 「用竖屏」 later will ignore both. Each hint fires ONLY
      when the current orientation is the wrong one for THAT activity, so the two can
      never both appear.
-       攀山竞速 / 词雨灵露   fire in portrait  → suggest landscape
+       攀山快答 / 词雨灵露   fire in portrait  → suggest landscape
        typing modes         fire in landscape → suggest portrait (the on-screen
                             keyboard eats a landscape screen)
      ⚠️ Gated on VIEWPORT WIDTH, not device type: a school iPad in portrait is wide
@@ -5008,7 +5006,7 @@
       if (over || !document.getElementById("spPrompt")) return;
       locked = false;
       cur = nextWordS();
-      setFbCtx("攀山竞速", cur);
+      setFbCtx("攀山快答", cur);
       var say = document.getElementById("spSay");
       var pr = document.getElementById("spPrompt");
       if (smode === "en") {
@@ -5016,7 +5014,7 @@
         say.style.display = "none";   // English is never read aloud (TTS rule)
       } else {
         var isCl = smode === "cloze";
-        // blank stays a literal __ here, as it always has in 攀山竞速
+        // blank stays a literal __ here, as it always has in 攀山快答
         pr.innerHTML = isCl ? qHtml(cur.cloze, cur.clozePy) : qHtml(cur.zh, cur.zhPy);
         say.style.display = "";
         say.onclick = isCl ? function () { speakCloze(cur.cloze, cur.clozePy); }
@@ -5258,7 +5256,7 @@
       sfxBadge();
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + ok + ' 题</div>' +
-        '<div class="sub">攀山竞速 · 新掌握 ' + newMastered + ' 词 · 海拔 +' + newMastered + ' 米</div>' +
+        '<div class="sub">攀山快答 · 新掌握 ' + newMastered + ' 词 · 海拔 +' + newMastered + ' 米</div>' +
         '<div class="msg">' + (isBest ? "🚩 个人新纪录！" : "我的海拔：" + altitudeNow() + " 米") + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
@@ -5404,7 +5402,7 @@
       }).filter(Boolean);
       return '<div class="gym-sec lock">🔒 ' + esc(level) + ' 年度试炼 · 待巩固 ' + words.length + ' 词<br>' +
         '<span class="gym-todo">' + words.join("、") + '</span><br>' +
-        '<span class="pop-hint">在「修行」中答对这些词即可重新开启试炼</span></div>';
+        '<span class="pop-hint">在「学习」中答对这些词即可重新开启试炼</span></div>';
     }
     var lvWords = WORDS.filter(function (w) { return w.level === level; });
     var lvGot = lvWords.filter(function (w) { return store.mastered[w.id]; }).length;
@@ -5412,7 +5410,7 @@
     if (lvPct < 80) {   // gate: master 80% of the year's words first
       return '<div class="gym-sec lock">🔒 先掌握本年级 80% 词语才能开启年度试炼<br>' +
         '<span class="gym-todo">当前进度 ' + lvPct + '%（' + lvGot + ' / ' + lvWords.length + ' 词）</span><br>' +
-        '<span class="pop-hint">继续在「修行」中掌握本年级词语' + petTxt + '</span></div>';
+        '<span class="pop-hint">继续在「学习」中掌握本年级词语' + petTxt + '</span></div>';
     }
     var n = buildGymSeq(level).seq.length;
     return '<div class="gym-sec">' +
@@ -5606,7 +5604,7 @@
 
      ⚠️ 词雨 consumables are safe by construction: 词雨 produces 灵露 only, never
      mastery, so a bought advantage cannot move anything that is ranked on knowing
-     words. 攀山竞速 is the exception that had to be argued — it DOES confer mastery,
+     words. 攀山快答 is the exception that had to be argued — it DOES confer mastery,
      so its three items are restricted to time and option-count, never to meaning.
 
      ⚠️ REAL-TIME COMPETITION IS ITEM-FREE, and it needs no switch: 结伴登峰 and
@@ -5745,7 +5743,7 @@
   function campSprite(cls, file, cx, by, w, title, key) {
     /* draggable="false": an <img> is natively draggable, and on Safari that
        native drag hijacks the gesture so the sprite never moves. See the
-       matching -webkit-user-drag rule on .camp-move in app.css. */
+       matching -webkit-user-drag rule on .camp-move in cs.css. */
     return '<img class="' + cls + '" draggable="false" ' + (key ? 'data-key="' + esc(key) + '" ' : '') +
       'src="' + file + '" alt="" title="' + esc(title || "") + '" ' +
       'style="left:' + cx + '%;bottom:' + (100 - by) + '%;width:' + w + '%' +
@@ -5806,8 +5804,8 @@
          shop section"). It used to print seven activity buttons under the scene,
          a second launcher for the same seven modes ② already lists twelve lines
          further up the same page — and it launched them against「the scope you
-         picked on 修行」, a rule stated in one line of small print and nowhere else.
-         Nothing is orphaned: 填空/华文/英文 live behind 学习挑战 in 修行, and
+         picked on 学习」, a rule stated in one line of small print and nowhere else.
+         Nothing is orphaned: 填空/华文/英文 live behind 学习挑战 in 学习, and
          词雨/攀山/组词/汉兜 are the four cards in 闯关. The camp is now what its
          art has always shown it to be: your tent, your things, and the shop. */
       '<div class="nav-row" style="max-width:520px;margin:14px auto 0"><button class="nav-btn" id="campBack">‹ 返回</button></div>' +
@@ -5818,8 +5816,8 @@
     document.getElementById("campShopBtn").onclick = openShopScene;
     document.getElementById("campUidBtn").onclick = showCampUid;
     document.getElementById("campTidyBtn").onclick = function () {
-      /* popOverlay + two nav buttons is app.js's own confirm pattern — profile.js
-         has a confirmDialog() helper but it is NOT exported to app.js. */
+      /* popOverlay + two nav buttons is cs.js's own confirm pattern — profile.js
+         has a confirmDialog() helper but it is NOT exported to cs.js. */
       var ov = popOverlay(
         '<div class="pop-title">🧹 整理营地</div>' +
         '<div class="pop-body">把所有装备摆回建议的位置。<br>你拥有的东西一件都不会少，只是位置回到默认。</div>' +
@@ -5841,7 +5839,7 @@
      Pointer events, so mouse / touch / stylus all work from one code path.
      No press-and-hold gate: this is a cosmetic action, not a quiz answer, so
      the dwellGate rules elsewhere in the app deliberately do not apply.
-     touch-action:none on .camp-move (app.css) stops a drag from scrolling the
+     touch-action:none on .camp-move (cs.css) stops a drag from scrolling the
      page instead of moving the item. */
   /* ONE drag record, with move/up bound to the DOCUMENT and wired exactly once.
      They used to be bound to each sprite and to rely on setPointerCapture — but
@@ -6017,7 +6015,7 @@
                      esc((window.WSBoats.byTier(b.t - 1) || {}).zh || "") + "</span>"
                  : shopCost(b.ling)) +
               (own || b.shells === undefined ? ""
-                 : '<span class="shop-alt">或 ' + b.shells + " 贝壳（启航码头）</span>")
+                 : '<span class="shop-alt">或 ' + b.shells + " 贝壳（出发码头）</span>")
           });
         }).join("") + '</div>';
     }
@@ -6041,7 +6039,7 @@
       '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉，赛前最多带 ' +
         ITEM_SLOTS + ' 件</span></div><div class="shop-grid">' +
       CONSUMABLES.map(function (it) { return itemRow(it, "rain"); }).join("") + '</div>' +
-      '<div class="shop-tier-label">攀山竞速道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字</span></div>' +
+      '<div class="shop-tier-label">攀山快答道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字</span></div>' +
       '<div class="shop-grid">' +
       POWERUPS.map(function (it) { return itemRow(it, "sprint"); }).join("") + '</div>';
 
@@ -6069,7 +6067,7 @@
       };
     });
     /* deduct → verify → persist lives inside WSBoats.buyLingLu, which spends through
-       our own registerCodeProvider hook, so app.js stays the only writer of the wallet */
+       our own registerCodeProvider hook, so cs.js stays the only writer of the wallet */
     Array.prototype.forEach.call(view().querySelectorAll("[data-item]"), function (btn) {
       btn.onclick = function () {
         var it = itemByKey(btn.getAttribute("data-item"));
@@ -6764,7 +6762,7 @@
             window.WSProfile.restoreFromClaim(claim, function (r) {
               if (!r.ok) { st.codeErr = r.err || "恢复失败，请稍后再试。"; renderStep(); return; }
               /* ⚠️ RELOAD, do not try to hand the restored stores to a running engine.
-                 app.js/xh.js hold `store` in memory and their next save would overwrite
+                 cs.js/xh.js hold `store` in memory and their next save would overwrite
                  what we just wrote (§18r) — and a claim restore replaces WHOLE stores,
                  not a merge, so there is no provider hook that could express it. A
                  restore is a once-per-device event; a reload is the honest way to let
@@ -6846,8 +6844,8 @@
   function showMasteryInfo() {
     var ov = popOverlay(
       '<div class="pop-title">什么算「已掌握」？</div>' +
-      '<div class="pop-body">在 <b>填空挑战、华文解释、英文翻译、攀山竞速</b> 中第一次答对某个词语，' +
-      '它就记为已掌握。<br><br>词语闪卡与游乐场游戏（词雨、组词挑战、词语汉兜）帮助你练习，但不计入掌握。<br><br>' +
+      '<div class="pop-body">在 <b>填空挑战、华文解释、英文翻译、攀山快答</b> 中第一次答对某个词语，' +
+      '它就记为已掌握。<br><br>词语闪卡与游乐场游戏（词雨、组字成词、词语汉兜）帮助你练习，但不计入掌握。<br><br>' +
       '掌握数只增不减，它也是你的登山海拔：<b>1 词 = 1 米</b>。</div>' +
       '<div class="nav-row"><button class="nav-btn primary" id="popOk">知道了</button></div>');
     ov.querySelector("#popOk").onclick = function () { ov.remove(); };
@@ -7020,7 +7018,7 @@
             decode: decodeProgress,          // pure planner (no writes)
             commit: commitProgress,          // the only writer
             snapshot: function () { return JSON.parse(JSON.stringify(store)); },
-            /* 灵露 wallet for 头像兑换 (HANDOFF v2 §3.2). app.js stays the ONLY writer of
+            /* 灵露 wallet for 头像兑换 (HANDOFF v2 §3.2). cs.js stays the ONLY writer of
                the store: profile.js must never touch ws2_{stream} itself, or the next
                saveStore() from this page would write the pre-purchase wallet back over
                it. Deducted from the CURRENT stream's wallet, exactly like the camp shop;
@@ -7089,7 +7087,7 @@
           var pend = window.WSProfile.takePendingCode(STREAM);
           if (!pend || !pend.code) return;
           /* ⚠️ THE DECODE IS profile.js's NOW, not decodeProgress(). A VS3 code covers all
-             five lands and is positional over five published files; app.js has one word
+             five lands and is positional over five published files; cs.js has one word
              list in memory and could only ever read its own section — a five-land code
              pasted into the picker would have been rejected here as a format error.
              ⚠️ decodeCode is ASYNC (it fetches the word orders). Nothing below may assume
@@ -7105,7 +7103,7 @@
               return '<div style="margin-top:3px">' + esc(r.label.split(" \u00b7 ")[0]) +
                 '\uff1a<b>' + r.have + '</b> \u2192 <b>' + (r.have + r.newly) + '</b></div>';
             }).join("");
-            /* popOverlay + two nav buttons — app.js's own confirm pattern.
+            /* popOverlay + two nav buttons — cs.js's own confirm pattern.
                profile.js has confirmDialog() but it is NOT exported here (see 营地). */
             var ov = popOverlay(
               '<div class="pop-title">\ud83d\udd04 \u6062\u590d\u4f60\u7684\u8fdb\u5ea6\uff1f</div>' +

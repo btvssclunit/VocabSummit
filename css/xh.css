@@ -1,7 +1,7 @@
-/* 学海启航 · 启航码头 — styles for the MVP v2 modes.
+/* 学海起步 · 出发码头 — styles for the MVP v2 modes.
    Standalone by design (see the header of xh.js): never loaded by the four
-   stream pages, and app.css is never loaded here. The palette tokens below are
-   COPIED from app.css :root — if the school palette changes, change both. Same
+   stream pages, and cs.css is never loaded here. The palette tokens below are
+   COPIED from cs.css :root — if the school palette changes, change both. Same
    deliberate duplication as teacher.html.
 
    Spec §5 diagnosed the page as reading flat, and named the cause: a
@@ -13,7 +13,7 @@
    (art/seamap/harbour_bg.png + @2x) and replaces the sea_tile + dock_jetty
    composite. That is the §5.1 fix; the earlier「not the full §5.1」note is done.
 
-   ⚠️ ONE exception to「app.css is never loaded here」: it still is not, but the
+   ⚠️ ONE exception to「cs.css is never loaded here」: it still is not, but the
    page now loads profile.js + nickname.js for identity, and the rules their
    markup needs are COPIED into the block at the bottom of this file. */
 :root{
@@ -22,12 +22,12 @@
   --ink:#243B4A;--ink-soft:#5A7387;--gold:#E3A63C;--gold-lt:#F5C443;--gold-deep:#B7791F;
   /* --gold-ink is the SMALL-TEXT gold: --gold-deep measures only 3.19:1 on a card,
      fine for large serif numerals and short of 4.5:1 for anything small. Added
-     2026-08-16 with the search block, same value as app.css. */
+     2026-08-16 with the search block, same value as cs.css. */
   --gold-ink:#8A5A0F;
   --wood:#8A5A32;--wood-lt:#B4794A;--wood-dk:#5C3A1E;
   --bad:#B44A3C;
   /* the glass tokens the copied 我的档案 panel styles at the bottom of this file
-     depend on — same values as app.css :root */
+     depend on — same values as cs.css :root */
   --glass:rgba(255,255,255,.60);--glass-strong:rgba(255,255,255,.72);
   --glass-soft:rgba(255,255,255,.40);
   --glass-line:rgba(255,255,255,.65);
@@ -52,7 +52,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   image-rendering:pixelated}
 .xh-wrap,.xh-top{image-rendering:auto;position:relative;z-index:1}
 
-/* ⚠️ LIQUID GLASS, COPIED VALUE FOR VALUE FROM app.css .topbar (owner 2026-08-17:
+/* ⚠️ LIQUID GLASS, COPIED VALUE FOR VALUE FROM cs.css .topbar (owner 2026-08-17:
    「the top bar should be liquid glass to match the mountains」). It was a flat
    rgba(255,255,255,.9) slab with a hardcoded blur(8px) — the one bar on the platform
    that had not joined the design system, and against the pier's own painted sea it
@@ -63,7 +63,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
    ⚠️ The GRADIENT is what makes it read as glass rather than as translucency — the
    top edge catches light. Do not flatten it back to one alpha.
    ⚠️ Keep the .xh-top / .topbar pair in step (§17 deliberate duplication): xh.css
-   never loads app.css. */
+   never loads cs.css. */
 .xh-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
   padding:10px 16px;
   background:linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.48));
@@ -71,7 +71,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   border-bottom:1px solid var(--glass-line);
   box-shadow:0 6px 22px rgba(23,58,90,.13),inset 0 1px 0 rgba(255,255,255,.85)}
 /* ⚠️ The 海图 pill becomes glass with it. A 2px #B9CEDD outline round a solid white
-   pill on a glass bar is the「opaque sticker on glass」app.css warns about; the
+   pill on a glass bar is the「opaque sticker on glass」cs.css warns about; the
    mountain's own .back is var(--glass) with a 1px --glass-line. Kept as a PILL with
    its label, not reduced to the mountain's bare circle: §18h records that as a
    deliberate difference — pier controls keep their words. */
@@ -121,11 +121,11 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
 
 .xh-wrap{max-width:900px;margin:0 auto;padding:16px 14px 60px}
 
-/* ---------- 单屏布局 (DESIGN_迭代规划_启航码头布局_2026-08-16) ----------
+/* ---------- 单屏布局 (DESIGN_迭代规划_出发码头布局_2026-08-16) ----------
    The dock was the only main screen still a single scrolling column, so on a
    classroom Chromebook in landscape 出发 — the control every round depends on —
    sat below the fold on first paint. This mirrors the mountain's split at
-   app.css's .home-grid rather than inventing a second system.
+   cs.css's .home-grid rather than inventing a second system.
    Below 900px, and in portrait at any width, nothing changes: the two wrappers
    are plain blocks and the source order IS the phone stack. */
 .xh-col-l>*:last-child,.xh-col-r>*:last-child{margin-bottom:0}
@@ -204,7 +204,7 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
    SPEC §5.2's「frame it in something diegetic」was a SPEC ERROR: xh.css followed
    it exactly and the result read as a different app beside the G2 arena. Every
    other surface on the platform is liquid glass, so this is the .card recipe from
-   app.css, copied (this file duplicates by design — same as teacher.html).
+   cs.css, copied (this file duplicates by design — same as teacher.html).
    Wood survives as ACCENT only: the rule line under a section head and the
    signboard plate behind the question sprite. It is never a panel fill again.
    Rule going forward: the dock may have its own SCENERY, never its own CHROME. */
@@ -398,7 +398,7 @@ body.xh-en-on .xh-stat .xh-en{color:#E2EEF7;font-size:11px}
 
 /* ---------- the slimmed hero (owner 2026-08-17) ----------
    ⚠️ ONE LINE ON ONE PLATE, replacing the subtitle plus three boxed .xh-stat cells.
-   The mountain's banner (app.js .lscape) shows a name, a quiet line and a corner link;
+   The mountain's banner (cs.js .lscape) shows a name, a quiet line and a corner link;
    the pier was showing five stacked blocks over the same amount of art, and with 拼音
    and 英文 both on by default at the pier every one of them was three lines deep.
    ⚠️ .xh-stats / .xh-stat are NOT deleted — 我的海滩 has its own uses and the classes
@@ -448,10 +448,10 @@ body.xh-py-on .xh-hero-line .xh-uipy{color:#E8F2FA}
 .xh-tile-n{display:block;font-size:12.5px;font-weight:700;color:#46596A}
 .xh-tile-go{align-self:center;flex:none;padding:0 16px;font-size:24px;color:#8A5A0F}
 
-/* ---------- 并肩航海 / 同伴挑战 pills (owner 2026-08-17) ----------
-   Mirrors app.js's .lscape-rooms: the two social modes sit ON the hero, out of the solo
+/* ---------- 结伴出海 / 同伴挑战 pills (owner 2026-08-17) ----------
+   Mirrors cs.js's .lscape-rooms: the two social modes sit ON the hero, out of the solo
    ①②③ funnel, because they need a teacher or a friend and are occasional.
-   ⚠️ ONE FLEX ROW, never two absolutely-positioned pills. app.css carries the scar:
+   ⚠️ ONE FLEX ROW, never two absolutely-positioned pills. cs.css carries the scar:
    positioning them separately put them at identical coordinates, exactly on top of
    each other.
    ⚠️ The hero is `position:relative` already (it holds .xh-hero-go), so absolute here
@@ -601,7 +601,7 @@ body.xh-py-on .xh-bd-chip .xh-py{font-size:11px;font-weight:700;color:var(--ink-
    listened for a pointer on these sprites. What the owner was fighting is Safari's
    NATIVE image drag — press an <img>, a ghost follows the finger, release and it
    snaps back. So the art advertised a gesture that was never implemented. Same rule
-   app.css already applies to the sea-map islands for the same reason. */
+   cs.css already applies to the sea-map islands for the same reason. */
 .beach-item{position:absolute;transform:translateX(-50%);image-rendering:pixelated;
   -webkit-user-drag:none;user-drag:none;-webkit-user-select:none;user-select:none;
   filter:drop-shadow(0 3px 7px rgba(6,26,48,.45))}
@@ -775,7 +775,7 @@ body.xh-en-on .xh-gchip .xh-en{font-size:11px;line-height:1.3}
    three boards; at 16px padding in a column layout these two alone were 150px, and
    ② is the least informative of the three — it says「learn or play」and nothing else.
    Icon and label share a LINE now, glosses under, which is also how the mountain's
-   修行/闯关 pair reads. */
+   学习/闯关 pair reads. */
 .xh-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* ⚠️ WRAPPING ROW, not a column. The icon and the label are SIBLINGS in xh.js, and a
    flex container blockifies its children — `display:inline` on them does nothing.
@@ -985,11 +985,11 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
 .xh-badgestrip img.got{filter:drop-shadow(0 1px 3px rgba(23,58,90,.3))}
 .xh-badgerow .xh-tile-n{flex:none;margin:0}
 
-/* ---------- 词海垂钓 (addendum §5) ----------
+/* ---------- 词海钓鱼 (addendum §5) ----------
    ⚠️ This water panel is deliberately a DARK surface, not a glass card:
    dock_ripple / dock_splash are white line art and are invisible on anything
    light. Scenery may be diegetic; the input below it stays platform chrome. */
-/* ---------- 词海垂钓 场景 (owner 2026-08-16: purpose-drawn jetty backdrop) ----------
+/* ---------- 词海钓鱼 场景 (owner 2026-08-16: purpose-drawn jetty backdrop) ----------
    art/xh/dock_fishing_bg.png, 2172x724 (ratio exactly 3/1), kept at full resolution
    because it is pixel art — downscaling is the documented cause of the sea map's
    "water looks blurrier than the islands" problem.
@@ -1327,12 +1327,12 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   .xh-back{background:rgba(255,255,255,.94)}
   /* ⚠️ 走进社区's cards join the fallback list. Missing it would not show up on any
      machine I can test on, which is precisely why this block is easy to forget —
-     same standing rule as app.css's own fallback block at the end of the file. */
+     same standing rule as cs.css's own fallback block at the end of the file. */
   .xh-scene{background:rgba(255,255,255,.95)}
   /* ⚠️ the badge tiles and detail chips join the no-backdrop-filter fallback: both moved
      to var(--glass) alphas, which without blur show the pier's painted sea straight
      through. Missing this shows up on nobody's machine here — which is exactly why this
-     block is easy to forget (same standing rule as app.css's own fallback block). */
+     block is easy to forget (same standing rule as cs.css's own fallback block). */
   .sailbadge{background:rgba(255,255,255,.94)}
   .xh-bd-chip{background:rgba(255,255,255,.94)}
   .xh-room{background:rgba(255,255,255,.96)}
@@ -1342,13 +1342,13 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 }
 
 /* ================= 我的档案 · 我要反馈 · 换头像/换昵称 =================
-   ⚠️ COPIED from app.css, not shared. This page never links app.css (see the
+   ⚠️ COPIED from cs.css, not shared. This page never links cs.css (see the
    header of this file and of xh.js), but it DOES load profile.js + nickname.js
    so a student is the same person at the dock as on the mountain — identity is
    the one thing that crosses, progress is not. These are the rules those two
    files' markup needs, lifted verbatim.
    If a panel ever renders unstyled here, the rule for its class is missing from
-   this block — copy it across rather than linking app.css. */
+   this block — copy it across rather than linking cs.css. */
 .nav-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
 .nav-btn{flex:1 1 116px;border:1px solid var(--glass-line);border-radius:13px;padding:13px;font-size:15px; background:rgba(255,255,255,.62);color:#3A5A70; -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px); box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12);touch-action:manipulation}
 .nav-btn.primary{background:linear-gradient(180deg,#EEBC5E,var(--gold));border-color:rgba(183,121,31,.55);color:#3A2A08;font-weight:700; box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
@@ -1409,7 +1409,7 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .prof-head-txt{min-width:0;flex:1}
 .prof-head-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.5;word-break:break-word}
 .prof-head-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px}
-/* ⚠️ Keep in step with app.css (§17 deliberate duplication) — 132px, owner
+/* ⚠️ Keep in step with cs.css (§17 deliberate duplication) — 132px, owner
    2026-08-17. Source art is 320×320, so this is still a downscale. */
 .prof-avatar.lg{width:132px;height:132px;border-width:3px;
   box-shadow:var(--glass-edge),0 4px 14px rgba(23,58,90,.20)}
@@ -1486,7 +1486,7 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
 .wchip.got{background:linear-gradient(180deg,#F5C443,#D99A1B);color:#4A3305;font-weight:600; border:1.5px solid #B8821A}
 .wchip.not{background:transparent;border:1.5px dashed #A8B4C0;color:#6B7885}
 
-/* two REAL columns above 900px, copied with app.css's own reasoning: as four
+/* two REAL columns above 900px, copied with cs.css's own reasoning: as four
    grid cells the row heights coupled and half the panel sat empty */
 @media(min-width:900px){
   .prof-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);gap:20px;align-items:start}
@@ -1496,8 +1496,8 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
 
 /* ---------- ②学词 / ②闯关 配置页 (owner 2026-08-16) ----------
    The dock's version of the mountain's 学习挑战 card: ①题型 ②每次题数 ③挑战难度 and
-   ONE start button. The slider block below is copied from app.css — this file never
-   loads app.css, so the two are duplicated on purpose (same rule as the palette). */
+   ONE start button. The slider block below is copied from cs.css — this file never
+   loads cs.css, so the two are duplicated on purpose (same rule as the palette). */
 .xh-cfg{max-width:620px;margin:0 auto}
 .xh-cfg-scope{margin:6px 0 4px;font-size:13.5px;font-weight:700;color:var(--sea2)}
 .xh-cfg-note{margin:4px 0 2px;font-size:13.5px;color:var(--ink-soft);line-height:1.7}
@@ -1570,8 +1570,8 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
 
 
 /* ---------- 通用搜索 · 五站 (js/search.js, §3.3) ----------
-   ⚠️ DUPLICATED VERBATIM FROM app.css. That is deliberate and matches the standing
-   convention in this repo: XH_index.html never loads app.css, so the dock needs
+   ⚠️ DUPLICATED VERBATIM FROM cs.css. That is deliberate and matches the standing
+   convention in this repo: XH_index.html never loads cs.css, so the dock needs
    its own copy, exactly as it already carries copies of the palette tokens and
    of the rules profile.js needs. Change one, change the other.
    z-index 72: above .pop-card (60) and the avatar info card (68) because it is a
@@ -1638,7 +1638,7 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
   .wss-overlay{background:rgba(20,44,68,.55)}
 }
 
-/* the static topbar labels (海图 / 启航码头 / subtitle) carry their own gloss spans,
+/* the static topbar labels (海图 / 出发码头 / subtitle) carry their own gloss spans,
    written into XH_index.html because they never pass through xhPy(). They must not
    widen the bar — the three pills on the right already compete for it — so they
    wrap underneath, exactly like the HUD glosses. */
@@ -1655,7 +1655,7 @@ body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   background:linear-gradient(180deg,#FCF6E8,#EFE3C8);border:2px solid var(--gold);
   border-radius:18px;line-height:1}
 /* ⚠️ 通用数字瓦片：img() 在没有图档时改吐这个 span，所以它要能长在
-   连线板、词海垂钓 的渔获、回合末复习列表里，位置与 <img> 一致。
+   连线板、词海钓鱼 的渔获、回合末复习列表里，位置与 <img> 一致。
    （词语卡 另有自己的 .xh-sprite.numeral，96px 带卡框，不走这一条。） */
 .xh-num{display:inline-flex;align-items:center;justify-content:center;
   min-width:2ch;padding:2px 10px;font-family:var(--serif),serif;font-weight:900;
@@ -1757,8 +1757,8 @@ body.xh-en-on .xh-ph-en{font-size:14px;font-weight:600;color:var(--ink-soft);
 .xh-round-bar{position:relative;z-index:1}
 /* ⚠️ 旧 iPad 上 backdrop-filter 很吃效能，而旧 iPad 正是 G1/G2 学生的主力机型。
    没有 backdrop-filter 时直接给纯色，成本为零，可读性反而更稳。 */
-/* ---------- 重整句子 (HANDOFF_学以致用 §4–§5) ----------
-   ⚠️ 版面照抄四座山的 组词挑战：上面一排空槽，下面一盘词块，点选放置。
+/* ---------- 组词成句 (HANDOFF_学以致用 §4–§5) ----------
+   ⚠️ 版面照抄四座山的 组字成词：上面一排空槽，下面一盘词块，点选放置。
    学生只需要学一套手势。 */
 .xh-sort{gap:12px}
 .xh-sort-ask{margin-bottom:2px;text-align:center}
@@ -1827,7 +1827,7 @@ body.xh-py-on .xh-sort .xh-slot.lock .xh-py{color:#2E6B44;opacity:.9}
 .xh-sort-acts{display:flex;justify-content:center;margin-top:2px}
 .xh-sort-acts .xh-btn[disabled]{opacity:.45;cursor:default}
 
-/* ---------- 组字成词 (HANDOFF_XH_踏浪竞速 §2) ----------
+/* ---------- 组字成词 (HANDOFF_XH_沙滩快跑 §2) ----------
    ⚠️ It reuses .xh-sort wholesale and only narrows the boxes: the tiles hold ONE
    character each, and word-sized slots leave a four-character word spread across
    half the panel with the picture stranded above it. Everything else — the green
@@ -1839,7 +1839,7 @@ body.xh-py-on .xh-sort .xh-slot.lock .xh-py{color:#2E6B44;opacity:.9}
 .xh-build .xh-ph-pic{width:clamp(104px,19vw,150px);margin-bottom:2px}
 body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 
-/* ---------- 踏浪竞速 (HANDOFF_XH_踏浪竞速 §1, rebuilt 2026-08-17) ----------
+/* ---------- 沙滩快跑 (HANDOFF_XH_沙滩快跑 §1, rebuilt 2026-08-17) ----------
    ⚠️ THE RUNNER MOVES, THE BEACH DOES NOT (owner 2026-08-17:「can we see the avatar
    run across the beach instead of having the beach items move to the left?」). The
    first build scrolled the world under a runner pinned at 26%, which is the standard
@@ -1895,7 +1895,7 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
   transform:translateX(-50%);
   filter:drop-shadow(0 5px 12px rgba(6,26,48,.34))}
 /* the runner walks the beach; --rx is written by JS from state.i (§6.5 layer 7).
-   ⚠️ height is the CELL, not the creature — same trap as the 词海垂钓 angler above:
+   ⚠️ height is the CELL, not the creature — same trap as the 词海钓鱼 angler above:
    the sheets are 104 tall with the figure inset, so 38% drew a ~79px person on a
    300px beach. */
 /* ⚠️ 50 IS A BASE, NOT THE SIZE — --av-k multiplies it (沙僧 72%, 龟 44.5%). The
@@ -1935,7 +1935,7 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 
 /* ---------- 意见反馈 floating button (owner 2026-08-16 晚) ----------
    ⚠️ DELIBERATE DUPLICATION, and it is the §17 kind: these rules also exist in
-   app.css and the pier never loads app.css. Change one, change both — the symptom
+   cs.css and the pier never loads cs.css. Change one, change both — the symptom
    of missing that is「反馈 has no styling at the pier」, i.e. a bare browser button
    pinned to the corner. Only two things differ from the mountain's copy, and both
    follow from the label being glossed here: the pill is taller, and the phone

@@ -1,7 +1,7 @@
 /* js/search.js — 通用搜索 · 五站词语查询
    (DESIGN_迭代规划_码头生活空间与传声筒_20260816.md §3.3)
 
-   Scope is LOCKED by the owner: 启航码头 + the four mountains (G1 / G2 / G3 /
+   Scope is LOCKED by the owner: 出发码头 + the four mountains (G1 / G2 / G3 /
    HCL). Any student at any station can look up any word at any other station.
 
    ⚠️⚠️ THIS DOES NOT BREAK THE WATERLINE — and the reason must stay written down,
@@ -20,12 +20,12 @@
        a mode. The moment a result becomes navigable, a dock student can reach
        mountain scoring and the seal is gone.
 
-   ⚠️ WHY THIS IS ITS OWN FILE, not a function in app.js or xh.js: XH_index.html
-   deliberately never loads app.css/app.js, and index.html never loads app.js
+   ⚠️ WHY THIS IS ITS OWN FILE, not a function in cs.js or xh.js: XH_index.html
+   deliberately never loads cs.css/cs.js, and index.html never loads cs.js
    either. This is the only module besides profile.js that all six pages share,
    so the search exists exactly once instead of twice.
 
-   ⚠️ NO TTS STACK OF ITS OWN. speak() in app.js and in xh.js each encode
+   ⚠️ NO TTS STACK OF ITS OWN. speak() in cs.js and in xh.js each encode
    hard-won device lessons (voice scoring so eSpeak loses, cancel-then-50ms for
    ChromeOS, the iOS gesture primer). A third copy would rot. The host page
    passes its own speak function to open(); where none is passed — the landing
@@ -34,7 +34,7 @@
 (function () {
   "use strict";
 
-  /* Same trick app.js/arena.js/xh.js use: read our own ?v= off the script tag so
+  /* Same trick cs.js/arena.js/xh.js use: read our own ?v= off the script tag so
      the index can never be served stale beside new code. Falls back to no query,
      which is just the pre-cache-bust behaviour and can never break a load. */
   var ASSET_V = (function () {
@@ -51,7 +51,7 @@
      useless to precisely the learner it was built for. */
   var STATIONS = ["xh", "g1", "g2", "g3", "hcl"];
   var STATION_LABEL = {
-    xh:  "启航码头",
+    xh:  "出发码头",
     g1:  "词星大冒险 · G1",
     g2:  "词将竞技场 · G2",
     g3:  "词王淬炼坊 · G3",
@@ -71,7 +71,7 @@
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  /* Toneless pinyin, matching tonelessPy() in xh.js and app.js: NFD then drop
+  /* Toneless pinyin, matching tonelessPy() in xh.js and cs.js: NFD then drop
      the combining marks, fold ü/v to u, drop spaces, lowercase. ⚠️ Deliberately
      toneless — a student who cannot yet type tone marks is exactly the student
      who most needs to search. */

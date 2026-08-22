@@ -409,7 +409,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .comp-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
   gap:6px;align-items:stretch;margin:2px 0 10px}
 .comp-lab{grid-column:1 / -1;font-size:12px;font-weight:700;color:var(--ink-soft)}
-/* four 板块 (G2 · G3) sit 2x2, never 3 + 1 — see the note in app.js renderHome() */
+/* four 板块 (G2 · G3) sit 2x2, never 3 + 1 — see the note in cs.js renderHome() */
 .comp-row.n4{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* 徽章 + 小字 (owner 2026-08-16 evening). The chip is now a little COLUMN: the same
    medallion the 成就墙 uses on top, the 板块 name under it.
@@ -428,7 +428,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .comp-chip.on{background:linear-gradient(180deg,#FBEBC4,#F2D89A);border-color:var(--gold);color:#6B4A05}
 .comp-chip:active{transform:scale(.96)}
 /* .lv-acts / .lv-act (全选本级 · 清空本级) removed 2026-08-16 evening — see the
-   matching note in app.js renderHome(). */
+   matching note in cs.js renderHome(). */
 
 /* ---------- 数量滑杆 (2026-08-14, redesigned same day) ----------
    The readout is ABOVE the track, not beside it: as a flex sibling it changed the
@@ -630,7 +630,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 /* HINT_REDESIGN_2026-08-15: three one-time 灵露-bought hints, not a
    progressive 声母 stack. ⚠️ .handle-hintrow/.handle-hint are kept as DEAD CSS
    on purpose: GitHub Pages ages each file independently, so a device can run
-   the new app.css beside a cached old app.js, and that old build still emits
+   the new cs.css beside a cached old cs.js, and that old build still emits
    the 声母 row. Three lines of dead style is cheaper than an unstyled row for
    ten minutes. Delete them a release later. */
 .handle-hintrow{display:flex;gap:9px;justify-content:center;margin-bottom:10px}
@@ -1010,7 +1010,7 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
 }
 /* ---------- 动线编号 (决定四) ----------
    Permanent, small, and ONLY on genuinely multi-step decision flows. Never on
-   浏览/目的地 pages (排行榜/成就墙/我的词山) — see the note in app.js stepNo(). */
+   浏览/目的地 pages (排行榜/成就墙/我的词山) — see the note in cs.js stepNo(). */
 .step-no{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;
   background:var(--gold);color:#3A2A08;font-family:var(--sans);font-size:11px;font-weight:800;
   letter-spacing:0;margin-right:7px;vertical-align:middle;flex:none}
@@ -1131,7 +1131,7 @@ button.shop-tile:active:not([disabled]){transform:translateY(1px)}
 .shop-state.locked{color:#7C8B99;font-weight:700}
 .shop-alt{margin-top:1px;font-size:11px;font-weight:700;color:#7C8B99}
 
-/* ---------- 攀山竞速 ---------- */
+/* ---------- 攀山快答 ---------- */
 /* The shell must never exceed the viewport — a scrolling page during a TIMED
    climb is the worst possible moment to lose the question below the fold.
    `min-height:520px` used to win over the height cap on any short screen
@@ -1165,7 +1165,7 @@ button.shop-tile:active:not([disabled]){transform:translateY(1px)}
 .sprint-stats{display:flex;gap:22px;font-size:14.5px;color:#3A5A70;margin:14px 0 4px}
 .sprint-stats b{color:var(--gold-ink)}   /* inherits 14.5px — small text, needs 4.5:1 */
 
-/* ---------- 组词挑战 ---------- */
+/* ---------- 组字成词 ---------- */
 /* 2026-08-15: targets are 2–8 characters now, so the answer row must wrap
    rather than run off a phone */
 .asm-slots{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin:14px 0}
@@ -2276,7 +2276,7 @@ button.m2pill{cursor:pointer}
 .lscape-chip:active{transform:translateY(1px)}
 
 /* .rwd-* (游戏卡片上的 历练值/灵露 标记) removed 2026-08-16 evening — see the note
-   above camp() in app.js. */
+   above camp() in cs.js. */
 
 /* §2 来源 row inside ①复习范围 */
 /* ---------- 筛选 fold: 来源 + 板块 (owner 2026-08-16 late) ----------
@@ -2317,7 +2317,7 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
 
 /* ---------- 通用搜索 · 五站 (js/search.js, §3.3) ----------
    ⚠️ DUPLICATED VERBATIM IN xh.css. That is deliberate and matches the standing
-   convention in this repo: XH_index.html never loads app.css, so the dock needs
+   convention in this repo: XH_index.html never loads cs.css, so the dock needs
    its own copy, exactly as it already carries copies of the palette tokens and
    of the rules profile.js needs. Change one, change the other.
    z-index 72: above .pop-card (60) and the avatar info card (68) because it is a
@@ -2394,7 +2394,7 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
 .arena-av.none{display:flex;align-items:center;justify-content:center;font-size:13px}
 
 /* ---------- 颁奖台 (js/podium.js) ----------
-   ⚠️ 这段在 app.css 与 teacher.html 各有一份：教师端不加载 app.css。改一处要改两处。 */
+   ⚠️ 这段在 cs.css 与 teacher.html 各有一份：教师端不加载 cs.css。改一处要改两处。 */
 /* 颁奖台底图 = 落地页那张登山图（owner 2026-08-16）。压淡是为了让名字和分数读得清：
    底图只是气氛，台上的字才是内容。
    ⚠️ url() 相对**样式表**解析，所以这里是 ../art/…；teacher.html 那一份的同一条规则

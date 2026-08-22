@@ -1,9 +1,9 @@
 /* 词山学海 · arena.js — 结伴登峰 (teacher-hosted live in-class competition), STUDENT side.
    ================================================================================
-   Loaded on stream pages BEFORE app.js. Owns a full-screen overlay and a minimal,
+   Loaded on stream pages BEFORE cs.js. Owns a full-screen overlay and a minimal,
    self-contained question renderer. It deliberately does NOT call renderCloze /
    scoreCorrect / bankPts directly — every award goes through a narrow ctx hook, so
-   nothing else of app.js is touched.
+   nothing else of cs.js is touched.
    ⚠️ THE OLD「arena awards NO 历练值 and NO 灵露 (locked decision 2026-08-12)」 NOTE THAT
    STOOD HERE WAS STALE AND IS NOW REMOVED. The owner reversed it on 2026-08-14 and
    CLAUDE.md §12 records the current rule:「房间模式（结伴登峰／同伴挑战）照常计分：
@@ -21,7 +21,7 @@
      rooms/{code}/players/{uid}   one row per student, throttled writes
 
    v1 modes here: cloze | zhmcq | enmcq. The two real-time game modes
-   (攀山竞速 / 词雨灵露) are a later pass. Unknown modes degrade gracefully. */
+   (攀山快答 / 词雨灵露) are a later pass. Unknown modes degrade gracefully. */
 (function () {
   "use strict";
 
@@ -39,8 +39,8 @@
   }
   function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
-  /* same cache-busting version app.js uses, read off our own <script src=…?v=>.
-     See the note at the top of app.js. */
+  /* same cache-busting version cs.js uses, read off our own <script src=…?v=>.
+     See the note at the top of cs.js. */
   var ASSET_V = (function () {
     try {
       var src = (document.currentScript && document.currentScript.src) || "";
@@ -86,7 +86,7 @@
       ".arena-msg{font-size:13.5px;margin-top:10px;min-height:18px;color:#FFCF8F}" +
       ".arena-code-chip{background:rgba(255,233,176,.16);border:1px solid rgba(255,233,176,.5);border-radius:999px;padding:2px 10px}" +
       ".arena-code-chip b{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:#FFE9B0}" +
-      /* B层 对战徽章, shown in the result card itself — NOT via app.js's
+      /* B层 对战徽章, shown in the result card itself — NOT via cs.js's
          cel-overlay, which sits at z-index 300 and would cover this board. */
       ".arena-medal{display:flex;align-items:center;gap:13px;margin:14px 0 0;padding:11px 14px;border-radius:14px;" +
       "background:rgba(255,233,176,.13);border:1px solid rgba(255,233,176,.45)}" +
@@ -131,7 +131,7 @@
       ".arena-rin{display:flex;gap:8px;width:100%;max-width:620px}" +
       ".arena-rin input{flex:1;font-size:20px;padding:12px;border-radius:12px;border:2px solid #B9CEDD;text-align:center}" +
       ".arena-rin button{border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;background:var(--gold,#E3A63C);color:#3A2A08;cursor:pointer}" +
-      /* catch/miss feedback, ported from app.js's own 词雨灵露 (collectToBarrel/splashAt) so
+      /* catch/miss feedback, ported from cs.js's own 词雨灵露 (collectToBarrel/splashAt) so
          room-mode rain has the same satisfying feedback as solo practice — see 1.3. */
       ".arena-rword.collect{transition:transform .45s cubic-bezier(.4,.1,.7,1),opacity .45s;opacity:.15;z-index:3}" +
       ".arena-rainfx{position:absolute;background-repeat:no-repeat;image-rendering:pixelated;pointer-events:none;z-index:3;" +
@@ -145,11 +145,11 @@
 
   function open(ctx) {
     injectStyle();
-    /* ⚠️ the pier's rooms are called 并肩航海 / 同伴挑战, so naming 结伴登峰 here would
+    /* ⚠️ the pier's rooms are called 结伴出海 / 同伴挑战, so naming 结伴登峰 here would
        be a mountain word on a pier screen — the same class of mislabel the topbar arrow
        and the round-bar tag had to be taught about. */
     if (!db()) {
-      alert((ctx && ctx.stream === "xh" ? "并肩航海和同伴挑战" : "结伴登峰") +
+      alert((ctx && ctx.stream === "xh" ? "结伴出海和同伴挑战" : "结伴登峰") +
             "需要联网。请检查网络后再试。");
       return;
     }
@@ -230,7 +230,7 @@
     /* ---------- join ---------- */
     function renderJoin(msg) {
       detach();
-      /* ⚠️ 这一屏是四种房间共用的入口——老师开的（结伴登峰／并肩航海）与朋友开的
+      /* ⚠️ 这一屏是四种房间共用的入口——老师开的（结伴登峰／结伴出海）与朋友开的
          （同伴挑战），山上与码头各两种。**进来之前无从知道是哪一种**：码就是六个字符，
          `pk` 要读到房间文档才知道。所以标题只说家族（§4 水线：码头不印 结伴登峰），
          副标把两条来路都说出来——原来那句「请老师在白板上写出擂台码」对着一个
@@ -238,7 +238,7 @@
       var pier = ctx.stream === "xh";
       ov.innerHTML =
         '<div class="arena-card"><div class="arena-t">' +
-        (pier ? "⛵ 并肩航海 · 同伴挑战" : "🏔️ 结伴登峰 · 同伴挑战") + '</div>' +
+        (pier ? "⛵ 结伴出海 · 同伴挑战" : "🏔️ 结伴登峰 · 同伴挑战") + '</div>' +
         '<div class="arena-sub">输入 6 位房间码加入：老师写在白板上的，或朋友给你的。</div>' +
         '<input class="arena-code-in" id="arCode" maxlength="6" autocomplete="off" placeholder="ABC123">' +
         '<button class="arena-btn" id="arJoin">加入</button>' +
@@ -271,7 +271,7 @@
         if ((room.stream === "xh") !== (ctx.stream === "xh")) {
           renderJoin(ctx.stream === "xh"
             ? "这个房间是四座山的，码头进不去。请确认擂台码。"
-            : "这个房间在启航码头，学段页进不去。请到码头加入。");
+            : "这个房间在出发码头，学段页进不去。请到码头加入。");
           return;
         }
         var p = ctx.profile || {};
@@ -405,7 +405,7 @@
        那是 renderQ 的序列走完，不是第二个上限）。 */
     function byCount() { return !!room && room.limitBy === "qty"; }
     function scopeLine() {
-      var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山竞速",
+      var m = { cloze: "填空挑战", zhmcq: "华文解释", enmcq: "英文翻译", sprint: "攀山快答",
                 rain: "词雨灵露", pic: "看图识词" };
       return (m[room.mode] || room.mode) + " · " +
         (byCount() ? (room.qCount || (room.wordIds || []).length) + " 题"
@@ -598,8 +598,8 @@
        per-device random (it recycles the pool), fairness = pool + config.
        Score = 字数×10×combo, the game's own formula. NO 灵露 is banked (D-2);
        correctly typed words DO confer mastery via correctIds. */
-    /* 2026-08-14: progressive-only, mirroring app.js's rainCfgAt. Kept as its own
-       copy because arena.js is deliberately isolated from app.js (§7) — if the
+    /* 2026-08-14: progressive-only, mirroring cs.js's rainCfgAt. Kept as its own
+       copy because arena.js is deliberately isolated from cs.js (§7) — if the
        solo curve is retuned, retune these five numbers to match. */
     var AR_BASE_FALL = 12, AR_MAX_FALL = 62, AR_BASE_SPAWN = 5600, AR_MIN_SPAWN = 2000, AR_RAMP_SECS = 90;
     function arRainCfg(playedS) {
@@ -607,7 +607,7 @@
       return [AR_BASE_FALL + (AR_MAX_FALL - AR_BASE_FALL) * p,
               AR_BASE_SPAWN - (AR_BASE_SPAWN - AR_MIN_SPAWN) * p];
     }
-    /* same sprite-sheet crop coordinates as app.js's RAINFX_MAP */
+    /* same sprite-sheet crop coordinates as cs.js's RAINFX_MAP */
     var ARENA_RAINFX_MAP = {"sp1": [0, 57, 37, 44], "sp2": [39, 56, 56, 45], "sp3": [97, 62, 52, 39], "bolt1": [151, 8, 26, 93], "bolt2": [179, 0, 40, 101], "rip1": [221, 83, 44, 18], "rip2": [267, 79, 60, 22]};
     function startRainPlay() {
       var cfg = room.gameCfg || {};
@@ -643,7 +643,7 @@
       input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !composing) fire(); });
       ov.querySelector("#arRFire").onclick = fire;
 
-      /* Same fix as app.js's own 词雨灵露 (.rain-shell fitViewport): iOS keeps
+      /* Same fix as cs.js's own 词雨灵露 (.rain-shell fitViewport): iOS keeps
          the layout viewport (and 52vh) fixed when the 拼音 keyboard opens —
          only the visual viewport shrinks — so the fixed-height rain area kept
          its full size while the visible area shrank underneath it, pushing
@@ -661,7 +661,7 @@
       }
       fitRainArea();
 
-      /* catch/miss feedback ported from app.js's fxShow/fxSeq/collectToBarrel/splashAt (1.3) */
+      /* catch/miss feedback ported from cs.js's fxShow/fxSeq/collectToBarrel/splashAt (1.3) */
       var barrel = ov.querySelector("#arBarrel"), water = ov.querySelector("#arWater");
       function fxShow(name, x, y, ms) {
         var m = ARENA_RAINFX_MAP[name]; if (!m) return;
@@ -785,9 +785,9 @@
       if (!writeTimer) writeTimer = setTimeout(function () { writeTimer = null; writeNow(false); }, 5000 - (Date.now() - lastWrite));
     }
     /* 房间模式计分 (owner 2026-08-14) — REVERSES the old D-2 zero-reward rule.
-       app.js owns the formula and the store; arena.js only reports that a word
+       cs.js owns the formula and the store; arena.js only reports that a word
        was answered correctly, so the §7 isolation is unchanged in shape: this is
-       one more ctx hook, not a reach into app.js internals.
+       one more ctx hook, not a reach into cs.js internals.
        ctx.roomCorrect also plays the reward chime, so a room sounds like the
        rest of the app even on the rare path where scoring is skipped. */
     function reward(w, mode, entering) {
@@ -886,7 +886,7 @@
 
     /* B层 对战徽章 (DESIGN_徽章体系_对战与排行榜 §3). The ranking is only known
        here, after the final board read, so this is where the medal is awarded.
-       app.js owns the badge store — arena.js just asks through ctx.awardBattle
+       cs.js owns the badge store — arena.js just asks through ctx.awardBattle
        and renders whatever comes back, keeping the §7 isolation intact.
 
        Guards, both deliberate: a room with a single player is not a placing, and
@@ -957,7 +957,7 @@
   window.WSArena = {
     open: open,
     /* host(ctx) = same overlay, but it opens a room first. cfg: {mode, tier,
-       wordIds, durationS, limitBy}. The caller (app.js) owns scope selection.
+       wordIds, durationS, limitBy}. The caller (cs.js) owns scope selection.
        ⚠️ limitBy 省略即 "time"——同伴挑战 两家都是限时的。 */
     host: function (ctx, cfg) {
       ctx = ctx || {};

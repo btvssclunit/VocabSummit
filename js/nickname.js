@@ -1,9 +1,9 @@
 /* 词山学海 · Vocab Summit — standalone nickname picker for the landing page
    (index.html). This intentionally duplicates the DESC_CATS/NOUN_CATS word
-   pools + picker UI from app.js rather than loading app.js itself, because
-   app.js boots straight into fetching a level's word JSON (g1/g2/g3/hcl)
+   pools + picker UI from cs.js rather than loading cs.js itself, because
+   cs.js boots straight into fetching a level's word JSON (g1/g2/g3/hcl)
    and expects level-specific DOM that doesn't exist on the landing page.
-   PROFILE_KEY / profile shape must stay in sync with app.js. */
+   PROFILE_KEY / profile shape must stay in sync with cs.js. */
 (function () {
   "use strict";
 
@@ -46,7 +46,7 @@
 
   /* ---------- profile ----------
      Owned solely by profile.js / window.WSProfile; these are thin delegations
-     so the shape never drifts between this file and app.js. */
+     so the shape never drifts between this file and cs.js. */
   function loadProfile() { return window.WSProfile ? window.WSProfile.load() : null; }
   function saveProfileLocal(p) { if (window.WSProfile) window.WSProfile.save(p); }
 
@@ -289,7 +289,7 @@
             window.WSProfile.restoreFromClaim(claim, function (r) {
               if (!r.ok) { st.codeErr = r.err || "恢复失败，请稍后再试。"; renderStep(); return; }
               /* ⚠️ RELOAD, do not try to hand the restored stores to a running engine.
-                 app.js/xh.js hold `store` in memory and their next save would overwrite
+                 cs.js/xh.js hold `store` in memory and their next save would overwrite
                  what we just wrote (§18r) — and a claim restore replaces WHOLE stores,
                  not a merge, so there is no provider hook that could express it. A
                  restore is a once-per-device event; a reload is the honest way to let
@@ -370,9 +370,9 @@
 
 
   /* ---------- 航海选择页 · sea map ----------
-     Four islands plus the 启航码头 dock on open water. Clicking one sails the
+     Four islands plus the 出发码头 dock on open water. Clicking one sails the
      boat there and then navigates. Every coordinate is a CSS custom property on
-     the button (app.css .i-*); nothing here hardcodes a position.
+     the button (cs.css .i-*); nothing here hardcodes a position.
 
      The five boat sprites cover eight bearings because the hull is left-right
      symmetric, so each diagonal/broadside file mirrors with scaleX(-1). Which
@@ -407,7 +407,7 @@
      clears — verified by checking all 20 routes at a range of arc heights.
      Values are % of the viewport, y measured from the BOTTOM. */
   /* ⚠️ LANDSCAPE ONLY. Portrait stacks the islands in a column with a clear channel
-     down the right (app.css), so every voyage there is a straight run and this
+     down the right (cs.css), so every voyage there is a straight run and this
      waypoint — placed for the landscape geometry — would bend the boat straight
      into G1. Re-verified 2026-08-16 after G3 moved up and HCL moved down: the
      corridor is now between G3's foot and G1's peak, so the waypoint moved with
@@ -740,7 +740,7 @@
      pinyin toggle so that non chinese users can also create their profile with ease」
 
      ⚠️ THE LANDING PAGE IS THE ONLY PAGE WITH NO ENGINE, which is why it is the only
-     caller of WSProfile.ownAid(): app.js and xh.js drive body.py-aid / body.xh-py-on
+     caller of WSProfile.ownAid(): cs.js and xh.js drive body.py-aid / body.xh-py-on
      from their own per-stream settings, and a second writer would fight them on every
      render. Everything else here — the pills, the preference, the gloss spans — lives
      in profile.js so the picker and the profile panel behave the same wherever they
@@ -832,7 +832,7 @@
   }
 
   /* The picker is exported so pages other than the landing can offer 换昵称
-     without a second copy of it. 启航码头 (XH_index.html) is the first such page.
+     without a second copy of it. 出发码头 (XH_index.html) is the first such page.
      initLandingGate() below returns immediately when the landing markup is
      absent, so loading this file elsewhere costs nothing. */
   window.WSNickname = { picker: renderNicknamePicker };

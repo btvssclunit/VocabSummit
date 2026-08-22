@@ -1,8 +1,8 @@
 /* 词山学海 · profile.js — single owner of the shared profile (window.WSProfile)
    ------------------------------------------------------------------------
-   Loaded AFTER firebase-init.js and BEFORE nickname.js (landing) / app.js
+   Loaded AFTER firebase-init.js and BEFORE nickname.js (landing) / cs.js
    (stream pages). This is the ONLY place the profile is read or written:
-   app.js and nickname.js delegate loadProfile / saveProfileLocal here so the
+   cs.js and nickname.js delegate loadProfile / saveProfileLocal here so the
    shape can never drift between the two files again.
 
    Profile shape (see HANDOFF_dashboard_and_bound_codes.md §2):
@@ -27,7 +27,7 @@
   }
 
   /* deployed asset version, read off this file's own <script src> — the same
-     trick app.js/arena.js use for the data fetches. Reported with every ticket so
+     trick cs.js/arena.js use for the data fetches. Reported with every ticket so
      a bug report says which build it came from. */
   var WS_ASSET_V = (function () {
     try {
@@ -54,7 +54,7 @@
 
   /* ---------- Singapore secondary schools (shared dropdown source) ----------
      The ONE source of truth for the school <select> in the nickname picker
-     (nickname.js / app.js) and the 我的档案 panel below. profile.js loads before
+     (nickname.js / cs.js) and the 我的档案 panel below. profile.js loads before
      both on every page, so they read window.SG_SCHOOLS. Format "中文 English";
      百德 pinned first, the rest A→Z by English name; 其他 = free-text escape
      hatch. Verified 2026 (see sg_secondary_schools.md). Edit the list here only. */
@@ -361,9 +361,9 @@
      condition lives in a per-stream store (ws2_{stream}), so an avatar is unlocked
      if ANY stream satisfies its condition. Otherwise a 麒麟 earned in G3 would read
      as locked the moment the student opens G2. Also the only workable rule on the
-     landing page and at 启航码头, where there is no current stream at all.
+     landing page and at 出发码头, where there is no current stream at all.
 
-     ⚠️ PTS_UNLOCK duplicates the THIRD rung (踏云者) of app.js's LADDER. Same
+     ⚠️ PTS_UNLOCK duplicates the THIRD rung (踏云者) of cs.js's LADDER. Same
      standing duplication convention as teacher.html's palette: if LADDER moves,
      move this too. Each stream is compared against ITS OWN row — never take the
      highest pts.total and test it against one row. Per-stream because the ladder is
@@ -398,7 +398,7 @@
   }
   function walletLingLu() { return (_provider && _provider.wallet) ? _provider.wallet() : null; }
   /* same icon + ✨ fallback the camp wallet uses; the path is page-root relative, so
-     it resolves on the landing page and at 启航码头 too */
+     it resolves on the landing page and at 出发码头 too */
   function lingLuHtml() { return '<img class="ling-icon" src="art/camp/linglu.png" alt="灵露" onerror="this.outerHTML=\'✨\'">'; }
 
   /* Returns null when the avatar is available, else a lock descriptor:
@@ -436,7 +436,7 @@
                  : "历练值达到段位「踏云者」后可兑换" };
       }
       var have = walletLingLu();
-      /* no wallet in reach: the landing page and 启航码头 have no stream, so there is
+      /* no wallet in reach: the landing page and 出发码头 have no stream, so there is
          no wallet to spend from — say where to go, never 「灵露不足」 */
       if (have == null) return { price: a.price, btn: "🔒 到科目页里兑换", why: "灵露 " + a.price + " · 到科目页里兑换" };
       if (have < a.price) return { price: a.price, btn: "🔒 灵露不足", why: "灵露 " + a.price + "（还差 " + (a.price - have) + "）" };
@@ -446,7 +446,7 @@
   }
   function isAvatarUnlocked(id) { return !avatarLock(id); }
   /* The ONLY writer of avatarsOwned. Deducts from the CURRENT stream's wallet through
-     app.js (which owns the store) and only records the purchase if the deduction
+     cs.js (which owns the store) and only records the purchase if the deduction
      actually happened — a purchase that debits but fails to persist is the worst
      possible bug here, so the order is deduct → verify → persist. */
   function buyAvatar(id) {
@@ -541,7 +541,7 @@
     save({ boatsOwned: owned, boatPick: t });    // wear what you just bought
     return true;
   }
-  /* 灵露 purchase, from the CURRENT stream's wallet via app.js's provider hook.
+  /* 灵露 purchase, from the CURRENT stream's wallet via cs.js's provider hook.
      Identical shape to buyAvatar; the 贝壳 half lives in xh.js, which owns that purse. */
   function buyBoatLingLu(t) {
     var b = boatByTier(t);
@@ -660,7 +660,7 @@
      someone who cannot read it yet. Immersion is what the ACTIVITIES are for.
 
      ⚠️ NOTHING HERE APPLIES ITSELF. A page must call ownAid() to say「no engine on
-     this page owns body.py-aid」. app.js and xh.js drive those classes from their own
+     this page owns body.py-aid」. cs.js and xh.js drive those classes from their own
      per-stream settings, and a second writer would fight them on every render — the
      landing page is the only page with no engine, so it is the only caller. */
   var _ownAid = false;
@@ -671,7 +671,7 @@
   function aidPy() { return aidOn("aidPy"); }
   function aidEn() { return aidOn("aidEn"); }
   /* ⚠️ BOTH CLASS FAMILIES, exactly like fbGloss below: the landing page loads
-     app.css, a future caller might load xh.css, and an unrecognised class name is
+     cs.css, a future caller might load xh.css, and an unrecognised class name is
      inert. That is cheaper than sniffing which stylesheet is present. */
   function applyAid() {
     if (!_ownAid || !document.body) return;
@@ -683,7 +683,7 @@
   }
   function ownAid(v) { _ownAid = (v !== false); applyAid(); }
   /* the same two pills the stream topbars use, same classes, so there is one visual
-     control for this idea across the whole platform. ⚠️ EN FIRST, matching app.js and
+     control for this idea across the whole platform. ⚠️ EN FIRST, matching cs.js and
      (since 2026-08-16) the pier — the order was aligned once already, do not re-flip
      it here. */
   function aidPillsHtml() {
@@ -731,10 +731,10 @@
      restore to the stream page, where commitProgress — the ONLY writer — still
      does it behind the existing confirm / snapshot / undo / logRestore path.
 
-     ⚠️ fnv1a and b64urlToUtf8 are duplicated from app.js on purpose. They are the
+     ⚠️ fnv1a and b64urlToUtf8 are duplicated from cs.js on purpose. They are the
      wire format: changing either would invalidate every code ever issued, so they
-     can never drift. Do NOT "share" them by importing app.js — this file is loaded
-     on the landing page, where app.js is not. */
+     can never drift. Do NOT "share" them by importing cs.js — this file is loaded
+     on the landing page, where cs.js is not. */
   function _fnv1a(str) {
     var h = 0x811c9dc5;
     for (var i = 0; i < str.length; i++) {
@@ -758,10 +758,10 @@
      `if (!STREAM_LABEL[sec])` guard was reading the OTHER table. The code looked right, the
      summary was simply missing a land.
      ⚠️ Do not merge the two tables. They print in different places and at different lengths
-     («启航码头 · 学海启航» in a code summary, «词圣鸿文苑 HCL» in a one-line progress row). */
+     («出发码头 · 学海起步» in a code summary, «词圣鸿文苑 HCL» in a one-line progress row). */
   var CODE_LABEL = { g1: "词星大冒险 · G1 基础华文", g2: "词将竞技场 · G2 普通学术华文",
                      g3: "词王淬炼坊 · G3 快捷华文", hcl: "词圣鸿文苑 · 高级华文",
-                     xh: "启航码头 · 学海启航" };
+                     xh: "出发码头 · 学海起步" };
 
   /* ================= VS3 · ONE CODE FOR ALL FIVE LANDS (owner 2026-08-17) =========
      owner: 「is progress code shared across all 5 sections (pier and mountains)? they
@@ -787,7 +787,7 @@
      of the page the student happens to be on. The landing page can now produce and
      restore one, which is the whole point: a student on a new device has not chosen a
      subject yet.
-     ⚠️ THE WATERLINE IS NOT CROSSED (§4). The guarantee that matters is「app.js never
+     ⚠️ THE WATERLINE IS NOT CROSSED (§4). The guarantee that matters is「cs.js never
      reads ws_xh, xh.js never touches ws2_*」and it still holds exactly: neither engine
      gained a line. profile.js is the identity layer, which §4 already allows across,
      and carrying two stores side by side in a backup is TRANSPORT, not EXCHANGE —
@@ -1349,7 +1349,7 @@
   /* THE ONLY WRITER. Returns {added, perSec}.
      ⚠️ The live section goes through its own engine's commit(); the rest are merged into
      localStorage here. Getting that backwards is the bug this whole structure exists to
-     prevent: app.js holds `store` in memory and its next saveStore() would silently
+     prevent: cs.js holds `store` in memory and its next saveStore() would silently
      erase a direct write to ws2_{current}. */
   function commitAll(plan) {
     var live = _provider && _provider.stream;
@@ -1486,7 +1486,7 @@
      ⚠️ ALL WHITESPACE STRIPPED, same reason as decodeAll: a VS3 code is ~800 characters
      and gets wrapped by every mail client. This is the FIRST place a returning student
      pastes one, so a false「已损坏」here is the worst place to have it.
-     ⚠️ `streamLabel` is now a LIST for VS3 ("四个学段与启航码头" style). The picker only
+     ⚠️ `streamLabel` is now a LIST for VS3 ("四个学段与出发码头" style). The picker only
      prints it, and printing one subject name for a five-land code would be a lie. */
   function peekCode(code) {
     var p = String(code || "").replace(/\s+/g, "").split(".");
@@ -1559,7 +1559,7 @@
     try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
     return raw;
   }
-  /* async decode for callers outside the panel (app.js's new-device path). ⚠️ It hands
+  /* async decode for callers outside the panel (cs.js's new-device path). ⚠️ It hands
      back the SAME plan shape the panel uses, so there is one planner and one commit
      path for every code in the app — the alternative is a second decoder that drifts. */
   function decodeCode(code, cb) {
@@ -1742,7 +1742,7 @@
         /* WHAT THE STUDENT WAS LOOKING AT. The moment someone notices a broken
            cloze sentence is while answering it — asking them to describe which
            word it was, from a settings panel, loses exactly the information the
-           report needs. app.js publishes the live question through
+           report needs. cs.js publishes the live question through
            window.WS_FEEDBACK_CTX; absent on the landing page, which is fine. */
         ctx: ctxLine(),
         nickname: prof.nickname || "", school: prof.school || "",
@@ -1839,9 +1839,9 @@
        ⚠️ The test is「does a .fb-fab exist right now」, read off the DOM, NOT
        `_provider`: the pier registers no code provider yet still has the button,
        and the LANDING PAGE has the button nowhere (index.html loads neither
-       app.js nor xh.js), so there the panel is the only way in and the button
+       cs.js nor xh.js), so there the panel is the only way in and the button
        must stay. A proxy for this fact would be wrong on two of the six pages.
-       ⚠️ The mountain HIDES its fab during 词雨/攀山竞速 with display:none — the
+       ⚠️ The mountain HIDES its fab during 词雨/攀山快答 with display:none — the
        element stays connected, which is what we want: the button is still one
        tap away once the round ends.
        The status line survives in both branches: it is information (how many of
@@ -1901,7 +1901,7 @@
           fbGloss("进度码", "jìn dù mǎ", "Progress code — works offline") + '</div>' +
         '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，' +
         '把它粘贴到下方恢复。<br>' +
-        '<span class="pop-note">一段进度码涵盖<b>五片陆地</b>：四个学段与启航码头。' +
+        '<span class="pop-note">一段进度码涵盖<b>五片陆地</b>：四个学段与出发码头。' +
         '里面有已掌握／已认得的词语、最高连对、各游戏纪录，并绑定你的昵称。' +
         '⚠️ 这一段<b>不含</b>灵露与贝壳——要连它们一起找回，用上面的恢复码。</span></div>' +
         '<div class="pop-label">我的进度码' +
@@ -2623,7 +2623,7 @@
     peekCode: peekCode,
     setPendingCode: setPendingCode,
     takePendingCode: takePendingCode,
-    /* ---- VS3 combined codec (owner 2026-08-17). ⚠️ ONE planner, ONE writer: app.js's
+    /* ---- VS3 combined codec (owner 2026-08-17). ⚠️ ONE planner, ONE writer: cs.js's
        new-device path calls decodeCode + commitAll rather than keeping a second decoder,
        because two decoders for one wire format is how a format silently forks. ---- */
     /* encodeCode is the counterpart of decodeCode. It was internal while the only
@@ -2648,7 +2648,7 @@
     openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml,
     avatarFile: avatarFile,
-    /* 词雨 runner, 攀山竞速 climber, 词海垂钓 angler and 踏浪竞速 runner all size the
+    /* 词雨 runner, 攀山快答 climber, 词海钓鱼 angler and 沙滩快跑 runner all size the
        6-frame sheets themselves; this is the one place that knows how big each
        creature is actually drawn inside its cell. */
     spriteScale: spriteScale,
@@ -2663,7 +2663,7 @@
     /* the dual-class gloss span both families recognise; used by the nickname
        picker and the profile panel, which are shown on every page. */
     gloss: fbGloss,
-    /* app.js asks before drawing the 攀山竞速 sprite; keep the unlock rules in one place */
+    /* cs.js asks before drawing the 攀山快答 sprite; keep the unlock rules in one place */
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,
     openFeedback: openFeedback
@@ -2671,7 +2671,7 @@
 
   /* 船只 — its own namespace rather than more keys on WSProfile, because FIVE very
      different consumers touch it: nickname.js (sea map), xh.js (pier scene, shop,
-     贝壳 purchase), app.js (camp shop, 灵露 purchase). Ownership is global and this
+     贝壳 purchase), cs.js (camp shop, 灵露 purchase). Ownership is global and this
      is the only writer. */
   window.WSBoats = {
     list: function () { return BOATS.slice(); },

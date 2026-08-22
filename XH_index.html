@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>学海启航 · 启航码头 · 词山学海</title>
+<title>学海起步 · 出发码头 · 词山学海</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-<!-- 学海启航 · 启航码头 — the pre-G1 tier for absolute beginners, reached from
+<!-- 学海起步 · 出发码头 — the pre-G1 tier for absolute beginners, reached from
      the dock on the landing sea map.
-     STANDALONE on purpose: it loads xh.css / xh.js only, never app.css/app.js,
+     STANDALONE on purpose: it loads xh.css / xh.js only, never cs.css/cs.js,
      and shares no storage with g1/g2/g3/hcl. See the header comment in xh.js.
      Exactly one berth is built (看图识词). The pinyin berths (声母 韵母 四声
      拼读 出海测验) are designed but explicitly out of scope for this slice.
@@ -16,10 +16,10 @@
      profile.js + nickname.js are loaded so the topbar carries the student's real
      nickname and avatar and opens the same 我的档案 panel as a stream page —
      being a different person at the dock than on the mountain would be worse
-     than any duplication. app.css is still NEVER loaded; the handful of rules
+     than any duplication. cs.css is still NEVER loaded; the handful of rules
      those two files need are copied into xh.css. Progress stays sealed: nothing
      here reads or writes ws2_*. -->
-<link rel="stylesheet" href="css/xh.css?v=20260822b">
+<link rel="stylesheet" href="css/xh.css?v=20260822c">
 </head>
 <body>
 
@@ -31,14 +31,14 @@
        body.xh-py-on / body.xh-en-on gates drive them. -->
   <a class="xh-back" href="index.html">← 海图<span class="xh-uipy">hǎi tú</span><span class="xh-en">sea map</span></a>
   <div>
-    <h1>启航码头<span class="xh-uipy">qǐ háng mǎ tóu</span><span class="xh-en">The Beginner's Pier</span></h1>
-    <!-- ⚠️ TIER, NOT MODE (owner 2026-08-16 晚). This read 「学海启航 · 看图学词 /
+    <h1>出发码头<span class="xh-uipy">chū fā mǎ tóu</span><span class="xh-en">The Beginner's Pier</span></h1>
+    <!-- ⚠️ TIER, NOT MODE (owner 2026-08-16 晚). This read 「学海起步 · 看图学词 /
          Learn words from pictures」, which was wrong twice: 看图学词 was renamed
          词语闪卡, and it named ONE activity in the place where every mountain page
-         names the stream's LEVEL (app.js setTopbar: 词山学海 Vocab Summit · G2
+         names the stream's LEVEL (cs.js setTopbar: 词山学海 Vocab Summit · G2
          普通学术华文). The pier is a tier of the same platform, so it says so.
          ⚠️ The pinyin covers the WHOLE visible Chinese string, not just the tail. -->
-    <div class="lv">词山学海 Vocab Summit · 学海启航<span class="xh-uipy">cí shān xué hǎi · xué hǎi qǐ háng</span><span class="xh-en">The Beginner's Pier</span></div>
+    <div class="lv">词山学海 Vocab Summit · 学海起步<span class="xh-uipy">cí shān xué hǎi · xué hǎi qǐ bù</span><span class="xh-en">The Beginner's Pier</span></div>
   </div>
   <div class="xh-tools" id="xhTools"></div>
 </div>
@@ -48,20 +48,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260822b"></script>
-<script src="js/profile.js?v=20260822b"></script>
-<script src="js/nickname.js?v=20260822b"></script>
-<!-- ⚠️ 并肩航海 / 同伴挑战 (owner 2026-08-17). The pier reuses the mountain's room engine
+<script src="js/firebase-init.js?v=20260822c"></script>
+<script src="js/profile.js?v=20260822c"></script>
+<script src="js/nickname.js?v=20260822c"></script>
+<!-- ⚠️ 结伴出海 / 同伴挑战 (owner 2026-08-17). The pier reuses the mountain's room engine
      rather than growing a second one: the lobby, roster, reconnect, host controls and TTL
      are identical for both families, and what differs (the question renderer, the award
      hook, the distractor rule) arena.js already takes through ctx.
      ⚠️ podium.js comes WITH it — arena calls it to show the top three, and without it the
      end of a room round is a blank panel. It is the one shared module teacher.html also
      loads (§18b): no dependencies, no state, pure presentation. -->
-<script src="js/podium.js?v=20260822b"></script>
-<script src="js/arena.js?v=20260822b"></script>
-<script src="js/search.js?v=20260822b"></script>
-<script src="js/tts.js?v=20260822b"></script>
-<script src="js/xh.js?v=20260822b"></script>
+<script src="js/podium.js?v=20260822c"></script>
+<script src="js/arena.js?v=20260822c"></script>
+<script src="js/search.js?v=20260822c"></script>
+<script src="js/tts.js?v=20260822c"></script>
+<script src="js/xh.js?v=20260822c"></script>
 </body>
 </html>
