@@ -152,9 +152,16 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
    三个已退役的名字（启航码头／攀山竞速／看图学词）和三个对不上的数字
    （码头 150 词、句库 92 句、「plus 100 at the pier」）——那些都是几周前就改掉的。
    ⚠️ 改模式名、改词数、改玩法清单，**同一次会话里就要落进 README**。
-3. **GitHub 的 About**（repo 描述）—— 仓库页右上角那一段，不在仓库里，`git push` 带不上去。
-   ⚠️ 本机**没有装 `gh` CLI**，所以这一步目前只能 owner 在网页上改
-   （仓库页 → About 右边的齿轮 → Description）。装了 `gh` 并登录之后可以自动化。
+3. **GitHub 的 About**（描述 · 网址 · 主题）—— 仓库页右上角那一段。
+   ⚠️ **它不在仓库里，`git push` 带不上去**，所以它是三份里唯一一个「提交了也没更新」的。
+   跑 `local-admin/update_github_about.sh`（`--dry` 只印不写）。
+   ⚠️ **`gh` 装在 `~/.local/bin/gh`，不是 Homebrew 装的**（这台机器没有 Homebrew，
+   而装 Homebrew 要密码）。它是 GitHub 官方 release 的 macOS arm64 版，
+   下载后核对过官方 SHA-256 才解压；`~/.zshrc` 里加了一行把 `~/.local/bin` 放进 PATH。
+   ⚠️ **登录只需一次**（token 存 macOS 钥匙串）：`gh auth login` →
+   GitHub.com → HTTPS → Login with a web browser，用 unit 账号。
+   ⚠️ **描述上限 350 字符，中文一个字算一个**；脚本会印出当前长度。
+   改描述时顺手核对 README 开头那段说的是同一件事——**那两处最容易只改一边**。
 
 **部署流程**：本地 `git commit` → push 到 `main` → GitHub Pages 一两分钟后生效。
 （Repo Settings → Pages → Source: `main` / root。）
