@@ -890,7 +890,17 @@ body.xh-en-on .xh-answer .xh-en{display:block;font-size:clamp(13px,1.7vw,17px);m
   .xh-qrow{flex-direction:column;gap:6px}
   .xh-answer{text-align:center}
 }
+/* ⚠️ max-width:100% + object-fit:contain, added 2026-08-22 with the 交通 expansion.
+   The height clamp alone sets no width ceiling, so a WIDE sprite renders as wide as
+   its aspect demands and simply walks off a narrow screen: 渔船 (320x106) measured
+   588px across a 375px viewport, bow and stern both cut off and the signboard frame
+   broken. This was already true before the boats — xh_bus / xh_car / xh_bicycle
+   forced a 510px horizontal scroll on the same viewport — the wide boats only made
+   it impossible to miss. object-fit:contain is what keeps the aspect honest once
+   max-width bites: without it the explicit height would squash the picture instead.
+   ⚠️ Same correction .xh-sic img already carries (see the note above it). */
 .xh-sprite img{display:block;width:auto;height:clamp(130px,24vh,210px);image-rendering:pixelated;
+  max-width:100%;object-fit:contain;
   filter:drop-shadow(0 6px 12px rgba(12,30,48,.25))}
 .xh-sprite:hover img{filter:drop-shadow(0 8px 16px rgba(12,30,48,.32)) brightness(1.04)}
 /* 英文选词: the English prompt IS the question, so it carries the weight the
@@ -949,7 +959,15 @@ body.xh-en-on .xh-hint .xh-en{display:inline;margin-left:8px;font-size:14px}
 .xh-pic{cursor:pointer;touch-action:manipulation;padding:10px;border-radius:14px;
   border:1px solid rgba(150,185,212,.45);background:linear-gradient(180deg,#fff,#F2F7FC);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 3px 12px rgba(23,58,90,.14)}
-.xh-pic img{display:block;margin:0 auto;height:clamp(74px,14vh,120px);width:auto;image-rendering:pixelated}
+/* ⚠️ min-width:0 on the TILE as well as max-width on the image (2026-08-22).
+   The tile is a grid item, and a grid item's default min-width:auto refuses to
+   shrink below its content — so a wide sprite widened the whole column and pushed
+   the two-column board off-screen (§14「grid/flex 子项不缩」). Measured at 375px:
+   four existing 交通 sprites already scrolled the page to 510px, the new ones to
+   730px; with these two rules it is 375px and the tiles sit at 149px each. */
+.xh-pic{min-width:0}
+.xh-pic img{display:block;margin:0 auto;height:clamp(74px,14vh,120px);width:auto;image-rendering:pixelated;
+  max-width:100%;object-fit:contain}
 .xh-pic.right{border-color:#3F8F5A;background:#E9F7EE}
 .xh-pic.wrong{border-color:#C4553F;background:#FBEDEA;opacity:.7}
 

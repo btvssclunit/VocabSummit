@@ -562,7 +562,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260822f"></script>
+<script src="js/podium.js?v=20260822g"></script>
 <script>
 (function () {
   "use strict";
@@ -570,7 +570,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260822f";
+  var ASSET_V = "?v=20260822g";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -2141,7 +2141,7 @@ tbody tr.sp-row{cursor:pointer}
   var ARENA_TIME_POOL = 80;
 
   function arenaCode() { var s = ""; for (var i = 0; i < 6; i++) s += ARENA_ALPHABET[Math.floor(Math.random() * ARENA_ALPHABET.length)]; return s; }
-  /* ⚠️ THE PIER'S FILE IS A DIFFERENT SHAPE ENTIRELY — a flat array of 148 rows with
+  /* ⚠️ THE PIER'S FILE IS A DIFFERENT SHAPE ENTIRELY — a flat array of 156 rows with
      词语/拼音/英文释义/图档/组别/子类, not levels→units→components. It is normalised HERE,
      into the same {units, byKey} the accordion already speaks, so nothing downstream
      (the scope picker, the counts, generateRoom, tryCreate) needs a second code path.

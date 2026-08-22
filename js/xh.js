@@ -9,7 +9,22 @@
    four streams depend on. The TTS stack is COPIED from cs.js rather than
    shared, for the same reason.
 
-   ⚠️ SCOPE IS 149 WORDS in EIGHT 组别 (data/xh_v3.json), 2026-08-16 晚: 整鸡 was
+   ⚠️ SCOPE IS 156 WORDS in EIGHT 组别 (data/xh_v3.json), 2026-08-22: 交通 grew
+   10 -> 18 (HANDOFF_交通扩充_20260822) — 船/渔船/帆船 on the water, 摩托车/罗厘/
+   救护车/消防车/警车 on the road. ⚠️ That handoff said the change was data+assets
+   only; it was NOT. A new 子类 must be added to XH_PY and XH_GROUP_EN below or
+   checkGroupLabels() warns and the section heading ships with no gloss.
+   ⚠️ ALL 18 carry a 子类 now (owner 2026-08-22) — 陆路交通 11 · 水上交通 3 ·
+   交通设施 3 (车站/机场/路) · 空中交通 1 (飞机). The handoff wanted to tag only the
+   new 8 and leave the old 10 flat, on the belief that nothing surfaces 子类;
+   logPages() does, as the chapter sections of 我的词语表, so a half-tagged group
+   would have shown a section called 交通 inside the chapter 交通. 空中交通 holds one
+   word on purpose: startRound's `big` filter simply never themes a 子类 too small
+   to fill a round, so it costs nothing to name it honestly.
+   ⚠️ The count read 149 here and in guide.html's English blurb until 2026-08-22
+   and was always one too many — the file held 148, which guide.html's CHINESE
+   blurb had right all along. Counted from the data, not carried forward.
+   The 2026-08-16 note this replaces: 整鸡 was
    folded into 鸡肉 (owner: one idea, one word, right across the pier) and its art
    retired to archived_art/. Its only sentence, scene_market-4, became a 鸡肉 line.
    The paragraph below is the earlier history and its numbers are that history's.
@@ -430,6 +445,8 @@
     "沙地": "shā dì", "空中": "kōng zhōng",
     "动物": "dòng wù", "食物": "shí wù", "日常用品": "rì cháng yòng pǐn",
     "学校": "xué xiào", "天气与自然": "tiān qì yǔ zì rán", "交通": "jiāo tōng",
+    "水上交通": "shuǐ shàng jiāo tōng", "陆路交通": "lù lù jiāo tōng",
+    "空中交通": "kōng zhōng jiāo tōng", "交通设施": "jiāo tōng shè shī",
     "陆上动物": "lù shàng dòng wù", "水中与空中": "shuǐ zhōng yǔ kōng zhōng",
     "熟食": "shú shí", "肉与蛋": "ròu yǔ dàn",
     "水果与蔬菜": "shuǐ guǒ yǔ shū cài", "饮料": "yǐn liào",
@@ -892,6 +909,8 @@
   var XH_GROUP_EN = {
     "动物": "Animals", "食物": "Food", "日常用品": "Everyday things",
     "学校": "School", "天气与自然": "Weather and nature", "交通": "Getting around",
+    "水上交通": "On the water", "陆路交通": "On the road",
+    "空中交通": "In the air", "交通设施": "Places to catch it",
     "地点": "Places", "数字": "Numbers",
     "陆上动物": "Land animals", "水中与空中": "Water and sky",
     "水果与蔬菜": "Fruit and vegetables", "熟食": "Cooked food",
@@ -1361,7 +1380,7 @@
        screen in the platform to use it, after the mountain's 组字成词, and the layout
        is copied from 组词成句 on purpose — one gesture, learned once.
        ⚠️ ≥2 CHARACTERS ONLY, and that is a real filter here rather than a formality:
-       49 of the pier's 149 words are single characters and the whole of 数字 is, so
+       49 of the pier's 156 words are single characters and the whole of 数字 is, so
        the mode greys itself out for that group instead of opening onto one tile. */
     { id: "build", icon: "🧱", zh: "组字成词", en: "Build the word" }
   ];
@@ -1761,7 +1780,7 @@
         /* ⚠️ NO inline xhPy() on this line. The annotation spans are display:block
            under the gate, so a gloss in the MIDDLE of a sentence splits it across
            three lines («10 个场景 / gè chǎng jǐng / · 读过 0 句»). 我的词语表's
-           「0 / 148 海里」 carries none for the same reason: the name above is glossed,
+           「0 / 156 海里」 carries none for the same reason: the name above is glossed,
            the tally under it is numerals. */
         '<span class="xh-tile-n">' + SCENE_ORDER.length + ' 个场景 · 读过 ' +
         scRead + ' 句</span></span>' +
@@ -4281,7 +4300,7 @@
     /* ⚠️ ONE LAST WHOLE-BOARD SWEEP. The sentence gate above is not sufficient on its
        own: if a single decoy came back without a reading, it would be the one tile with
        no 拼音 on an otherwise annotated board — the leak this whole exercise exists to
-       close, rebuilt from the other end. All 148 word rows carry 拼音 today, so this
+       close, rebuilt from the other end. All 156 word rows carry 拼音 today, so this
        never fires; it fires the day one does not, and it fails to「no 拼音 anywhere」
        rather than to「the odd one out is the decoy」. */
     for (var t = 0; t < tiles.length; t++) {
