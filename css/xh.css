@@ -142,6 +142,34 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   .xh-top h1{font-size:15.5px}
   .xh-tg{padding:0 7px}
   .xh-back{padding:7px 9px}
+  /* ⚠️ 375px（SE／mini）上，EN 标签一回来就把名牌挤到只剩「出发…」。
+     按 §17 的让位顺序，**名字最后让**，所以这里从控件身上抠回那十几个像素：
+     EN 的标签再缩一号、几处间距再紧一点。393px 及以上不需要这一档
+     （实测名字与拼音都完整，只有最长的那行英文注解省略——那正是设计意图）。 */
+  .xh-tools{gap:5px}
+  #xhTgEn{padding:0 6px;gap:2px}
+  #xhTgEn .xh-tg-lab{font-size:10px}
+  .xh-prof{padding:4px 4px}
+  /* 抠完控件还是不够（实测名牌只剩「出发…」），所以按 §17 的顺序再让一步：
+     ⚠️ **名牌上那行英文注解先走，名字最后走**。h1 是 nowrap，三行共用一个宽度，
+     最长的「The Beginner's Pier」会把另外两行一起顶到省略号——让它退场，
+     名字与拼音就都完整了。393px 及以上不进这一档，英文照旧显示。
+     ⚠️ 让的是**名牌上**的英文，不是 EN 按钮：按钮是换语言的唯一入口，
+     名牌上的英文只是同一句话的又一次重复。 */
+  /* ⚠️ 必须压过闸门规则 `body.xh-en-on .xh-en{display:block}`。两者原本同为
+     (0,2,1)，而闸门写在文件后段——同优先级后者赢，**改了等于没改**（§14，
+     这一档上面那段注解早就写过同一句警告，我还是先踩了一次）。
+     ⚠️ 真正的对手是 `body.xh-en-on .xh-top h1 .xh-en{display:block}`——(0,3,2)，
+     和我第一版**一模一样**，写在后面所以它赢。多带一个 .xh-top 才到 (0,4,2)。
+     **算清楚再写，别靠「我的在后面」。** */
+  body.xh-en-on .xh-top .xh-id h1 .xh-en{display:none}
+  /* ⚠️ 还要给名牌一个**下限**。`.xh-id` 是 `min-width:0` 的 flex 项目，
+     控件那一侧只要还想再要一点，它就会被继续压下去——藏掉英文腾出来的宽度
+     会被工具栏原地吃掉，名字照样是「出发…」。给它 96px 的地板，
+     flex 就只能去压可压的那一侧（工具栏的标签本来就会收）。
+     ⚠️ 对手是 `.xh-top>div:not(.xh-tools){min-width:0}`——(0,2,1)，
+     裸 `.xh-id` 只有 (0,1,0)，写十遍也赢不了。重复类名到 (0,3,1) 才压得住。 */
+  .xh-top>.xh-id.xh-id{min-width:96px}
 }
 .xh-tg{display:inline-flex;align-items:center;gap:6px;flex:none;height:42px;padding:0 14px;
   border:1px solid #B9CEDD;border-radius:999px;background:rgba(255,255,255,.8);
@@ -152,6 +180,21 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
   box-shadow:0 2px 10px rgba(227,166,60,.4)}
 .xh-tg.on .xh-tg-lab{opacity:1}
 .xh-tg:active{transform:translateY(1px)}
+/* ⚠️ EN 那颗的标签**永不隐藏**，与山上逐条对应（owner 2026-08-23：「the pier's
+   bilingual button doesn't show "en" like the rest」）。
+   码头原本把三颗控件的标签一起收（`.xh-tg .xh-tg-lab{display:none}`，620px 与
+   560px 两档都收），于是手机上只剩一个「中」字；而 cs.css 那边只把 拼音 的标签收掉，
+   `.tb-en .tb-en-en` **从来只缩小、不隐藏**（缩到 10.5px，见 cs.css 520px 那一档）。
+
+   ⚠️ 这不是对称性洁癖：中／EN 是整个界面上**唯一**告诉「看不懂中文的人」
+   这里可以换语言的东西。单独一个「中」字只会被读成「这是中文」，
+   不构成邀请——而看不懂中文的学生正是这颗按钮唯一的服务对象。
+   拼音 与 查词 的标签照旧可以收，它们的图标（拼／🔎）本身已经说明用途。
+
+   ⚠️ 靠 ID 的特指度 (1,1,0) 压过 media 里的 (0,2,0)，所以不需要 !important，
+   也不必在意它写在文件的哪一段。 */
+#xhTgEn .xh-tg-lab{display:inline;font-size:11px;letter-spacing:.04em}
+@media (max-width:560px){ #xhTgEn{padding:0 9px;gap:3px} }
 .xh-prof{display:inline-flex;align-items:center;gap:8px;flex:none;height:42px;padding:4px 14px 4px 5px;
   border:1px solid #B9CEDD;border-radius:999px;background:rgba(255,255,255,.8);
   cursor:pointer;touch-action:manipulation;max-width:min(42vw,220px)}
