@@ -3,6 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* ⚠️ 白屏保险丝（owner 2026-08-23 报的 G1／HCL 白屏）。整站是客户端渲染的：
+   任何一个脚本在外壳建出来之前抛错，学生看到的就是**一张全白的纸**——
+   没有信息、没有下一步，老师也问不出所以然，而我在自己的机器上复现不了。
+   这段挂在其余 <script> 之前，所以连后面脚本的**解析错误**也接得住。
+   ⚠️ 它不修任何 bug，它让 bug 说得出自己的名字。
+   ⚠️ 只在**页面确实是空的**时候说话：延迟 1.2 秒再看一眼正文长度，
+   页面已经画出来了就闭嘴——不然 Firebase 离线时的一个 rejection
+   就会把一张好端端的页面盖掉，那比白屏还糟。 */
+(function () {
+  var shown = 0;
+  function paint(msg, src, line) {
+    if (shown) return;
+    setTimeout(function () {
+      if (shown) return;
+      var txt = (document.body && document.body.innerText) || "";
+      if (txt.replace(/\s/g, "").length > 20) return;   // 页面画出来了，不插嘴
+      shown = 1;
+      var a = document.getElementById("app") || document.body;
+      if (!a) return;
+      a.innerHTML = '<div style="margin:40px auto;max-width:520px;padding:20px 22px;' +
+        'font:15px/1.75 system-ui,-apple-system,\'Noto Sans SC\',sans-serif;color:#25313D;' +
+        'background:#fff;border:1px solid #E2E8EF;border-radius:14px">' +
+        '<b style="font-size:17px">页面没能载入 Page failed to load</b><br>' +
+        '请关掉这一页再重新打开。还是不行的话，把下面这一行告诉老师。<br>' +
+        '<span style="font-size:13px;color:#5A7080">Close this tab and reopen. ' +
+        'If it still fails, show your teacher the line below.</span>' +
+        '<span style="display:block;margin-top:12px;padding:9px 11px;background:#F5F8FB;' +
+        'border-radius:8px;font:12px/1.5 ui-monospace,Menlo,monospace;color:#40566B;' +
+        'word-break:break-all">' + String(msg) + (src ? (" @ " + String(src) + ":" + line) : "") + '</span></div>';
+    }, 1200);
+  }
+  window.addEventListener("error", function (e) {
+    paint((e && e.message) || "script error", e && e.filename, e && e.lineno);
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason;
+    paint((r && (r.message || r)) || "unhandled rejection");
+  });
+})();
+</script>
 <title>词山学海 · Vocab Summit · 百德中学</title>
 <meta name="description" content="百德中学母语部华文组出品的华文词汇自主学习平台，涵盖 G1、G2、G3、高级华文四大源流与零起点「学海起步」，共 3,741 个词条。Gamified Chinese vocabulary self-directed learning from Bukit View Secondary School, Singapore.">
 <link rel="canonical" href="https://btvssclunit.github.io/VocabSummit/">
@@ -23,7 +64,7 @@
 <meta name="twitter:description" content="百德中学母语部华文组出品的华文词汇自主学习平台，涵盖 G1、G2、G3、高级华文四大源流与零起点「学海起步」，共 3,741 个词条。Gamified Chinese vocabulary self-directed learning from Bukit View Secondary School, Singapore.">
 <meta name="twitter:image" content="https://btvssclunit.github.io/VocabSummit/art/og-card.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/cs.css?v=20260823f">
+<link rel="stylesheet" href="css/cs.css?v=20260823i">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -195,9 +236,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823f"></script>
-<script src="js/profile.js?v=20260823f"></script>
-<script src="js/search.js?v=20260823f"></script>
-<script src="js/nickname.js?v=20260823f"></script>
+<script src="js/firebase-init.js?v=20260823i"></script>
+<script src="js/profile.js?v=20260823i"></script>
+<script src="js/search.js?v=20260823i"></script>
+<script src="js/nickname.js?v=20260823i"></script>
 </body>
 </html>
