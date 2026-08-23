@@ -28,6 +28,13 @@
   --bad:#B44A3C;
   /* the glass tokens the copied 我的档案 panel styles at the bottom of this file
      depend on — same values as cs.css :root */
+  /* ⚠️ --card 是**控件**的白，--glass 是**面板**的白，两者不可互换（owner
+     2026-08-23:「the opacity of liquid glass on the pier can be higher to match the
+     mountains」）。码头的按钮一直用 --glass 60%，而山上同一类东西（.camp · .unit ·
+     .hdoor）用的是 --card 92%——差的 32 个百分点就是两边看起来不像同一个 App 的原因。
+     ⚠️ 面板（.xh-board）一个字都没动，它本来就与 cs.css 的 .card 逐字相同；
+     而 §18a 明写场景底图上的面板**必须**看得见后面的摊位。抬的是控件，不是面板。 */
+  --card:rgba(255,255,255,.92);--card-line:#C9DCE9;
   --glass:rgba(255,255,255,.60);--glass-strong:rgba(255,255,255,.72);
   --glass-soft:rgba(255,255,255,.40);
   --glass-line:rgba(255,255,255,.65);
@@ -102,15 +109,40 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
    the subline into a three-line wrap on a phone and the bar grows to 98px */
 .xh-top>div:not(.xh-tools){min-width:0;flex:0 1 auto}
 .xh-top h1{margin:0;font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em;
-  white-space:nowrap}
-.xh-top .lv{font-size:12px;color:var(--ink-soft);font-weight:700;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ⚠️ `.xh-top .lv` 的规则跟着那一行 markup 一起删掉了（owner 2026-08-23）。
+   留一条没有元素的规则，下一个人会以为副标还在、只是没显示出来。
+   （海图上岛屿名牌那个 `.lv` 是另一个文件里的另一个东西，不受影响。） */
 
 /* ---------- 顶栏右侧：拼音 / 中EN / 我的档案 (owner 2026-08-15) ----------
    Same three controls a stream page carries, so a student who starts here and
    later opens G1 finds them in the same corner. Sized to the platform's own
    42px finger target. */
 .xh-tools{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+/* ⚠️ 手机上名牌会被压成一根竖条（owner 2026-08-23 在山上报的，码头一模一样：
+   49px 宽、110px 高）。与 cs.css 的那一档逐条对应（§17 成对维护）：副标先让位，
+   然后是几个词标签，名字最后让。⚠️ 码头的 h1 保留自己的拼音与英文——§18h 记着
+   「码头的控件带字」是刻意的差异，而那两行短，让位的是长的那一条 .lv。 */
+@media (max-width:620px){
+  .xh-top{gap:8px;padding:10px 12px}
+  .xh-top h1{font-size:16.5px}
+  .xh-id{padding:4px 10px}
+  .xh-tg .xh-tg-lab{display:none}
+  .xh-tg{padding:0 9px;height:38px;gap:0}
+  .xh-tools{gap:6px}
+  .xh-back{padding:7px 10px;font-size:13px}
+  /* ⚠️ 名牌上的注解**不许换行**（试过，是错的）：一旦可以换行，这块名牌的
+     min-content 宽度就掉到一个字，flex 会把它压成 22px 宽 118px 高——正是 owner
+     报的那根竖条，只是这次由我自己造出来。所以它们继承 h1 的 nowrap，装不下就省略。
+     腾地方的办法是让返回键交出它的两行注解，见文件后段那一小块 @media
+     （⚠️ 必须写在闸门规则之后，否则同优先级后者赢，改了等于没改——§14）。 */
+}
+@media (max-width:400px){
+  .xh-top{gap:6px;padding:10px}
+  .xh-top h1{font-size:15.5px}
+  .xh-tg{padding:0 7px}
+  .xh-back{padding:7px 9px}
+}
 .xh-tg{display:inline-flex;align-items:center;gap:6px;flex:none;height:42px;padding:0 14px;
   border:1px solid #B9CEDD;border-radius:999px;background:rgba(255,255,255,.8);
   color:var(--sea2);font-family:var(--sans);cursor:pointer;touch-action:manipulation}
@@ -189,7 +221,6 @@ body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--ink);
      track fits only 3 cards, so the four 闯关 modes wrapped to two rows and pushed
      出发 below the fold again. 132 fits all four on one row from 900px up. */
   .xh-col-r .xh-modes{margin-bottom:10px;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
-  .xh-col-r .xh-tab{padding:12px 12px}
   .xh-col-r .xh-go{padding:12px 18px}
   .xh-col-r .xh-sec{margin-bottom:8px;padding-bottom:6px}
   /* ⚠️ The four destination tiles live at the BOTTOM OF THE RIGHT COLUMN now
@@ -259,7 +290,7 @@ body.xh-py-on .xh-py,.xh-py.xh-always{display:block;font-size:13px;font-weight:6
 body.xh-py-on .xh-uipy{display:block;font-size:11.5px;font-weight:600;color:#6A5A21;
   line-height:1.35;letter-spacing:.01em}
 /* on the gold-selected chips and the dark hero the light-card colour vanishes */
-body.xh-py-on .xh-tab.on .xh-uipy,body.xh-py-on .xh-mode.on .xh-uipy,
+body.xh-py-on .xh-mode.on .xh-uipy,
 body.xh-py-on .xh-gchip.on .xh-uipy,body.xh-py-on .xh-log-chip.on .xh-uipy,
 body.xh-py-on .xh-lb-tab.on .xh-uipy,body.xh-py-on .xh-go .xh-uipy{color:#553F06}
 body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
@@ -271,7 +302,7 @@ body.xh-py-on .xh-hero .xh-uipy,body.xh-py-on .xh-stat .xh-uipy{color:#DCEBF7}
    ⚠️ THE `body.xh-en-on` PREFIX IS LOAD-BEARING. The gate rule is (0,2,1); a bare
    `.xh-block-tag .xh-en` is (0,2,0) and loses, so an override written without the
    prefix silently does nothing. Add the prefix to any new one. */
-body.xh-en-on .xh-tab.on .xh-en,body.xh-en-on .xh-mode.on .xh-en,
+body.xh-en-on .xh-mode.on .xh-en,
 body.xh-en-on .xh-gchip.on .xh-en,body.xh-en-on .xh-log-chip.on .xh-en,
 body.xh-en-on .xh-lb-tab.on .xh-en,body.xh-en-on .xh-go .xh-en,
 body.xh-en-on .xh-btn .xh-en{color:#553F06}
@@ -588,8 +619,7 @@ body.xh-py-on .xh-bd-chip .xh-py{font-size:11px;font-weight:700;color:var(--ink-
 .xh-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .xh-mode{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
   touch-action:manipulation;padding:13px 10px;border-radius:14px;
-  border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
-  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-family:var(--sans);
+  border:1px solid var(--card-line);background:var(--card);color:var(--ink);font-family:var(--sans);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
 .xh-mode b{font-size:15.5px}
 .xh-mi{font-size:24px;line-height:1.1}
@@ -794,22 +824,40 @@ body.xh-en-on .xh-gchip .xh-en{font-size:11px;line-height:1.3}
    ② is the least informative of the three — it says「learn or play」and nothing else.
    Icon and label share a LINE now, glosses under, which is also how the mountain's
    学习/闯关 pair reads. */
-.xh-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.xh-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:420px){.xh-tabs{grid-template-columns:1fr}}
 /* ⚠️ WRAPPING ROW, not a column. The icon and the label are SIBLINGS in xh.js, and a
    flex container blockifies its children — `display:inline` on them does nothing.
    Row + wrap puts those two on one line and the two gloss spans, forced to full
    width, on the lines under it, with no change to the markup. */
-.xh-tab{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;
-  gap:0 6px;cursor:pointer;
-  touch-action:manipulation;padding:10px 12px;border-radius:16px;
-  border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);
-  font-family:var(--sans);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
-.xh-tab b{font-size:17.5px}
-.xh-tab .xh-mi{font-size:19px}
-.xh-tab .xh-uipy,.xh-tab .xh-en{flex:0 0 100%;text-align:center}
-.xh-tab.on{background:linear-gradient(180deg,#EEBC5E,var(--gold));
-  border-color:rgba(183,121,31,.55);color:#3A2A08;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 4px 14px rgba(227,166,60,.38)}
+/* ⚠️ 码头的门坐在一条 clamp(320px,30%,400px) 的鲁里，两列之后每扇只有约 157px，
+   所以内距、间距、图标一律用**固定的小值**，不跟视口放大：照抄山上那组 clamp 的话，
+   文字栏只剩 27px，「学习」会被省略号切成「学…」。**版面结构与山上逐条相同**
+   （图标格子 · 名字与注解 · 箭头），紧的是尺寸，不是构造。 */
+.xh-tab{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+  min-width:0;padding:12px 11px;border-radius:18px;cursor:pointer;
+  touch-action:manipulation;color:var(--ink);font-family:var(--sans);
+  border:1px solid var(--card-line);background:var(--card);
+  box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s ease}
+.xh-tab:hover{transform:translateY(-2px)}
+/* ⚠️ 下面六条是 cs.css `.hdoor`／`.hd-*` 的逐值副本（owner 2026-08-23：两边的门要长得
+   一样）。这是 §17 那种刻意重复：**改一处要改两处**，漏了的症状是「码头的门和山上的
+   不一样」——而那正是这一批要修的东西。
+   ⚠️ `.xh-tab.on` 的整条规则已删除：门没有选中态，而一颗看起来被选中的按钮正是它被
+   读成切换的原因。它此前只剩这一对元素在用，所以删了不影响别处。 */
+.xh-hd-ic{width:42px;height:42px;flex:none;border-radius:14px;
+  display:grid;place-items:center;font-size:23px;
+  background:#FDF3DC;border:1px solid #EFD9A4}
+.xh-hd-t{min-width:0;flex:1 1 auto}
+.xh-hd-t b{display:block;font-family:var(--serif);font-weight:900;
+  font-size:19px;line-height:1.25;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ⚠️ 注解**可以换行，名字不行**。这条鲁窄到 135px 时「chuǎng guān」放不下，
+   而省略号切拼音等于给一个读不出来的注解。名字那一行是 nowrap，它就是这块文字栏的
+   min-content 下限，所以放开注解**不会**把整扇门压成一根竖条（顶栏那根竖条正是
+   少了这个下限）。 */
+.xh-hd-t .xh-uipy,.xh-hd-t .xh-en{text-align:left;white-space:normal;overflow-wrap:break-word}
+.xh-hd-go{flex:none;font-size:19px;font-weight:700;color:var(--gold-ink)}
 .xh-tab:active,.xh-gchip:active{transform:translateY(1px)}
 /* one clear CTA, so choosing a game and starting it are separate actions — tapping
    a card used to start a round immediately, which made the 连线 size picker
@@ -1373,6 +1421,7 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   .sailbadge{background:rgba(255,255,255,.94)}
   .xh-bd-chip{background:rgba(255,255,255,.94)}
   .xh-room{background:rgba(255,255,255,.96)}
+  .xh-path-scope{background:rgba(255,255,255,.95)}
   .pop-card{background:rgba(255,255,255,.97)}
   .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
   .prof-prog div{background:rgba(255,255,255,.92)}
@@ -1569,16 +1618,45 @@ body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{colo
 .xh-mode.sm{padding:9px 8px}
 .xh-mode.sm .xh-mi{font-size:19px}
 .xh-mode.sm b{font-size:14px}
-/* ⚠️ ② navigates no more (owner 2026-08-16 evening), so the chevron is gone with it:
-   the tabs are a toggle again and ③ below them is where the doors are. `.xh-tab.go`
-   and `.xh-tab-go` are removed rather than left dangling — a chevron on a control
-   that stays put is a promise it cannot keep. */
-/* ---------- ③ 的入口卡 (owner 2026-08-16 evening) ----------
-   The activity tiles on the FRONT page, two-up. They reuse .xh-mode.big so a door
-   looks the same whether it is met here or inside 词语挑战 — but they carry no `.on`
-   state: nothing is being selected, each one is a way in. */
-.xh-modes.acts{grid-template-columns:repeat(2,1fr);margin-bottom:0}
-@media (max-width:479px){ .xh-modes.acts{grid-template-columns:1fr} }
+/* ⚠️ ② NAVIGATES AGAIN (owner 2026-08-23), so the chevron is back — and it is not
+   the 2026-08-16 version returning: what got that one reverted was the PAGE behind
+   the door (activity + difficulty on one screen), not the door. Behind it now are
+   the activity tiles alone.
+   ⚠️ 门**没有选中态**，`.xh-tab.on` 那条规则已整条删除：一颗看起来被选中的按钮
+   正是它当初被读成切换的原因。
+   ⚠️ 箭头是 `.xh-hd-go`，一个普通的 flex 兄弟节点，不再是绝对定位的角标——
+   码头的门现在与山上逐条相同（owner 2026-08-23），版面写在上面 `.xh-tab` 那一段。 */
+
+/* ---------- 门后面那一页 (owner 2026-08-23) ----------
+   ⚠️ 单栏、有宽度上限：码头首页是两栏（左动线／右身份），这一页只有一个决定。 */
+.xh-path{max-width:min(900px,94vw);margin-left:auto;margin-right:auto;
+  margin-top:clamp(0px,3vh,34px)}
+.xh-path-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.xh-path-ic{font-size:30px;line-height:1}
+.xh-path-t{min-width:0}
+.xh-path-t b{display:block;font-family:var(--serif);font-weight:900;font-size:25px;
+  line-height:1.2;color:var(--ink)}
+.xh-path-scope{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:8px 14px;border-radius:999px;cursor:pointer;text-align:left;
+  background:var(--glass-strong);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 2px 10px rgba(23,58,90,.12)}
+.xh-ps-sum{font-size:13px;font-weight:700;color:var(--ink)}
+.xh-ps-go{font-size:13px;font-weight:800;color:var(--gold-ink)}
+.xh-path-sec{margin-bottom:10px}
+/* 这一页只有两张卡，而它们是整页唯一的动作，所以它们**跟着屏幕长**
+   （owner 2026-08-23:「the emojis can be much bigger … have the panes respond
+   dynamically to screen size」）。⚠️ 只在 .xh-path 里放大：同一个 .xh-mode 在
+   设定页上是一排七个小题型卡，跟着一起长就会挤成一堵墙。 */
+.xh-path .xh-modes.acts{gap:clamp(10px,1.2vw,18px)}
+.xh-path .xh-modes.acts .xh-mode{padding:clamp(16px,2.4vw,32px) 14px;gap:6px}
+.xh-path .xh-modes.acts .xh-mi{font-size:clamp(30px,4.4vw,64px);line-height:1}
+.xh-path .xh-modes.acts .xh-mode b{font-size:clamp(16px,1.3vw,21px)}
+/* ---------- 活动卡 (owner 2026-08-16 evening) ----------
+   ⚠️ 它们从 2026-08-23 起在**门后面那一页**，不在首页；两列的排法没变。
+   They carry no `.on` state: nothing is being selected, each one is a way in. */
+.xh-modes.acts{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
+@media (max-width:560px){ .xh-modes.acts{grid-template-columns:1fr} }
 .qty{margin:2px 0 6px}
 .qty-val{display:block;font-family:var(--serif);font-weight:800;font-size:17.5px;
   color:#8A5A0F;line-height:1.35;margin:0 0 6px;min-height:22px}
@@ -1684,6 +1762,15 @@ body.xh-py-on .xh-back .xh-uipy,body.xh-py-on .xh-top h1 .xh-uipy{display:block;
   font-size:10.5px;font-weight:600;color:#6A5A21;line-height:1.25}
 body.xh-en-on .xh-back .xh-en,body.xh-en-on .xh-top h1 .xh-en{display:block;
   font-size:10.5px;font-weight:600;color:#46596A;line-height:1.25}
+/* ⚠️ 手机上返回键交出它的两行注解，把宽度让给学段名牌（owner 2026-08-23:
+   「the subject level is way too narrow and tall」）。← 海图 四个字加一个箭头
+   已经说得完，而名牌被压到 22px 宽时是一根竖条，谁都读不出来。
+   ⚠️ 这一块**必须留在上面两条闸门规则之后**：优先级相同，后者赢（§14）。
+   第一次我把它写进文件前段那一档 media query 里，测出来一点变化都没有。
+   ⚠️ 名牌自己的拼音与英文一行都没动 —— 让位的是控件上的注解，不是内容上的。 */
+@media (max-width:620px){
+  body.xh-py-on .xh-back .xh-uipy,body.xh-en-on .xh-back .xh-en{display:none}
+}
 .xh-top h1{line-height:1.15}
 
 /* 数字卡：没有图，改用阿拉伯数字占同一个位置 (HANDOFF §4.4) */

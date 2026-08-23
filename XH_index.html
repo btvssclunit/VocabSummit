@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>学海起步 · 出发码头 · 词山学海</title>
+<meta name="description" content="出发码头 · 学海起步：零起点入门层，156 个常用词语，图文识词、听音识图与拼字游戏，为刚接触华文的学生打底。词山学海 Vocab Summit，百德中学。">
+<link rel="canonical" href="https://btvssclunit.github.io/VocabSummit/XH_index.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="词山学海 Vocab Summit">
+<meta property="og:locale" content="zh_SG">
+<meta property="og:locale:alternate" content="en_SG">
+<meta property="og:title" content="出发码头 · 学海起步 · 词山学海">
+<meta property="og:description" content="出发码头 · 学海起步：零起点入门层，156 个常用词语，图文识词、听音识图与拼字游戏，为刚接触华文的学生打底。词山学海 Vocab Summit，百德中学。">
+<meta property="og:url" content="https://btvssclunit.github.io/VocabSummit/XH_index.html">
+<meta property="og:image" content="https://btvssclunit.github.io/VocabSummit/art/og-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="词山学海 Vocab Summit — 百德中学母语部华文词汇自主学习平台">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="出发码头 · 学海起步 · 词山学海">
+<meta name="twitter:description" content="出发码头 · 学海起步：零起点入门层，156 个常用词语，图文识词、听音识图与拼字游戏，为刚接触华文的学生打底。词山学海 Vocab Summit，百德中学。">
+<meta name="twitter:image" content="https://btvssclunit.github.io/VocabSummit/art/og-card.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 <!-- 学海起步 · 出发码头 — the pre-G1 tier for absolute beginners, reached from
      the dock on the landing sea map.
@@ -19,7 +37,7 @@
      than any duplication. cs.css is still NEVER loaded; the handful of rules
      those two files need are copied into xh.css. Progress stays sealed: nothing
      here reads or writes ws2_*. -->
-<link rel="stylesheet" href="css/xh.css?v=20260822g">
+<link rel="stylesheet" href="css/xh.css?v=20260823e">
 </head>
 <body>
 
@@ -34,13 +52,13 @@
        what keeps 出发码头 / 学海起步 legible over the pier's painted sea. -->
   <div class="xh-id">
     <h1>出发码头<span class="xh-uipy">chū fā mǎ tóu</span><span class="xh-en">The Beginner's Pier</span></h1>
-    <!-- ⚠️ TIER, NOT MODE (owner 2026-08-16 晚). This read 「学海起步 · 看图学词 /
-         Learn words from pictures」, which was wrong twice: 看图学词 was renamed
-         词语闪卡, and it named ONE activity in the place where every mountain page
-         names the stream's LEVEL (cs.js setTopbar: 词山学海 Vocab Summit · G2
-         普通学术华文). The pier is a tier of the same platform, so it says so.
-         ⚠️ The pinyin covers the WHOLE visible Chinese string, not just the tail. -->
-    <div class="lv">词山学海 Vocab Summit · 学海起步<span class="xh-uipy">cí shān xué hǎi · xué hǎi qǐ bù</span><span class="xh-en">The Beginner's Pier</span></div>
+    <!-- ⚠️ 副标 .lv 已整行删除（owner 2026-08-23:「this part is too cluttered, we can
+         remove everything under the first 'the beginner's pier'」）。它是
+         「词山学海 Vocab Summit · 学海起步」加自己的拼音与英文——三行，而第三行
+         印的又是 The Beginner's Pier：同一块名牌上**同一句英文出现两次**。
+         ⚠️ 学段名与它的拼音、英文都留着，那是 owner 2026-08-22 拆掉顶栏面板时的唯一
+         条件（「we just have to ensure that the labels stay visible」）。
+         ⚠️ 山上那条 .tb-sub 没有跟着删：它只有一行、没有注解，也不重复任何东西。 -->
   </div>
   <div class="xh-tools" id="xhTools"></div>
 </div>
@@ -50,9 +68,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260822g"></script>
-<script src="js/profile.js?v=20260822g"></script>
-<script src="js/nickname.js?v=20260822g"></script>
+<script src="js/firebase-init.js?v=20260823e"></script>
+<script src="js/profile.js?v=20260823e"></script>
+<script src="js/nickname.js?v=20260823e"></script>
 <!-- ⚠️ 结伴出海 / 同伴挑战 (owner 2026-08-17). The pier reuses the mountain's room engine
      rather than growing a second one: the lobby, roster, reconnect, host controls and TTL
      are identical for both families, and what differs (the question renderer, the award
@@ -60,10 +78,10 @@
      ⚠️ podium.js comes WITH it — arena calls it to show the top three, and without it the
      end of a room round is a blank panel. It is the one shared module teacher.html also
      loads (§18b): no dependencies, no state, pure presentation. -->
-<script src="js/podium.js?v=20260822g"></script>
-<script src="js/arena.js?v=20260822g"></script>
-<script src="js/search.js?v=20260822g"></script>
-<script src="js/tts.js?v=20260822g"></script>
-<script src="js/xh.js?v=20260822g"></script>
+<script src="js/podium.js?v=20260823e"></script>
+<script src="js/arena.js?v=20260823e"></script>
+<script src="js/search.js?v=20260823e"></script>
+<script src="js/tts.js?v=20260823e"></script>
+<script src="js/xh.js?v=20260823e"></script>
 </body>
 </html>

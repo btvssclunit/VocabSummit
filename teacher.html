@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>教师后台 · 词山学海 Vocab Summit · 百德中学</title>
+<meta name="robots" content="noindex,nofollow">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* teacher.html is a STANDALONE page: it never loads cs.js / profile.js.
@@ -562,7 +563,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260822g"></script>
+<script src="js/podium.js?v=20260823e"></script>
 <script>
 (function () {
   "use strict";
@@ -570,7 +571,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260822g";
+  var ASSET_V = "?v=20260823e";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",

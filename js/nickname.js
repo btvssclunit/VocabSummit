@@ -64,7 +64,12 @@
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
       schoolQ: "",
+      /* 班级, students only. Carried in so 换昵称 from 我的档案 round-trips it
+         instead of handing save() an empty string and wiping the class. */
+      mtlClass: opts.currentClass || "",
       heardFrom: opts.currentHeard || "" };
+    var NP_CLASS = { pfx: "np", inputCls: "code-ta" };
+    if (window.BV_CLASSES) window.BV_CLASSES.syncField(st);
     /* Open ON a rolled name (owner 2026-08-15). The four chip steps are a real
        barrier for a student who just wants to start: 大类 → 描述词 → 名词大类 →
        名词 is four decisions before the app will let them in. The dice was always
@@ -212,6 +217,25 @@
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
+        /* 班级 — asked HERE, and only of 学生 (owner 2026-08-23: 「ask students but
+           dropdown class only applies to bukit view students」). 我的档案 used to be
+           the only screen that asked, and most students never open it, so the
+           teacher page's 班级视图 was mostly blank. Bukit View gets the roster
+           dropdown (年级 chips → that level's classes); every other school gets the
+           text box, because we hold one school's list and guessing at another's
+           would be worse than letting the student type.
+           ⚠️ 选填, deliberately: the profile panel's own privacy note says 班级是选填,
+           and a first-run screen that refuses to let a student in over an optional
+           field costs more than an empty cell in a teacher's table. */
+        if (role === "student") {
+          var bvssPick = sel === _bvss && window.BV_CLASSES;
+          detailHtml += '<div class="pop-label" style="margin-top:12px">你的班级' +
+            np("你的班级", "nǐ de bān jí", "Your class") + ' · 选填' +
+            np("", "", "optional") + '</div>' +
+            (bvssPick
+              ? window.BV_CLASSES.fieldHtml(st, NP_CLASS)
+              : '<input type="text" id="npClass" class="code-ta" style="height:44px" placeholder="例如：2026 3HC3" value="' + esc(st.mtlClass || "") + '">');
+        }
         html = '<div class="pop-title">' + (st.restored ? "🔄 找回你的昵称" : "🎉 你的昵称") +
             (st.restored ? np("找回你的昵称", "zhǎo huí nǐ de nì chēng", "Your nickname is back")
                          : np("你的昵称", "nǐ de nì chēng", "Your nickname")) + '</div>' +
@@ -328,8 +352,14 @@
             st.schoolQ = q;
             if (v === st.schoolSel) return;
             var wasOther = st.schoolSel === "other";
+            var hadRoster = st.schoolSel === _bvss;
             st.schoolSel = v;
-            if (wasOther) renderStep();   // drop the free-text box now a school was found
+            /* Redraw on a roster flip as well as on 「离开其他」: 班级 is a different
+               control on either side of 百德, and leaving the old one on screen means
+               the student edits a box that is about to be replaced. Both cost the
+               search box its focus — a price already paid for wasOther, and a flip
+               only happens once the search has narrowed to a single school. */
+            if (wasOther || (st.schoolSel === _bvss) !== hadRoster) renderStep();
           });
         }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
@@ -337,6 +367,12 @@
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
+        if (st.schoolSel === _bvss && window.BV_CLASSES) {
+          window.BV_CLASSES.wireField(card, st, NP_CLASS, renderStep);
+        } else {
+          var clsEl = document.getElementById("npClass");
+          if (clsEl) clsEl.oninput = function () { st.mtlClass = clsEl.value; };
+        }
         document.getElementById("npManual").onclick = function () { st.step = "descCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
           var role = st.role || "student";
@@ -350,6 +386,12 @@
               : st.schoolSel;
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
             profile = { nickname: nickOf(), category: role, school: school };
+            /* ⚠️ Sent for 学生 ONLY, and always — including "". Both class controls
+               keep st.mtlClass current, and save() normalises + owns classYear /
+               classHistory from here. Omitting it on a re-pick is what would silently
+               keep a stale class; sending "" for a non-student is what save() does
+               anyway (§class rules), so we simply do not set the key. */
+            if (role === "student") profile.mtlClass = st.mtlClass || "";
           }
           saveProfileLocal(profile);   // WSProfile.save merges onto prev (keeps mtlClass/classHistory)
           /* hand the code to the stream page: this file cannot decode the bitmask
@@ -796,7 +838,8 @@
               onChangeNickname: function (done) {
                 var cur = loadProfile() || {};
                 renderNicknamePicker(function (p) { reveal(p); if (done) done(); },
-                  { dismissible: true, currentSchool: cur.school || "", currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
+                  { dismissible: true, currentSchool: cur.school || "", currentRole: cur.category || "student",
+                    currentClass: cur.mtlClass || "", currentHeard: cur.heardFrom || "" });
               },
               onChanged: function () { reveal(loadProfile()); }
             });

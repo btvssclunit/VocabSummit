@@ -1,7 +1,28 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-08-22（**`20260822e`：年级峰 → 关卡**——owner：「年级峰 is a
+Last updated: 2026-08-23（**`20260823c`：班级下拉菜单 + 注册就问 + SEO**——owner：「I want
+to make it a drop down and make it easy for students to select their class. So that it's
+sorted properly in the back end … its a very long list so probably good to help students
+to choose their levels (S1/2/3/4) first?」，随后追加「ask students but dropdown class only
+applies to bukit view students」。百德的 **30 个班级**进了 `profile.js`，
+**先点年级（中一…中四）再从 7–8 个班里选**；别校学生照旧自己填。
+**注册流程现在也问班级**（选填），我的档案不再是唯一入口。见 §18al。
+同批 **SEO**：Search Console 验证档、每页 description／canonical／OG／Twitter、
+`sitemap.xml`、首页 JSON-LD、社交卡 `art/og-card.jpg`，后台与 `tools/` 一律 noindex。见 §18am。
+⚠️ **`20260823`（②两扇门）与 `20260823b` 从未被提交**——2026-08-23 清点时它们还躺在工作区里，
+owner 硬刷新看不到门，原因就是这个。见 §18am 末。
+前一批 **`20260823`：② 从切换改成两扇门**——owner：「the games
+button, they expect to click and be directed to choose game mode, but the game mode is
+the section below and they miss it … they should be presented with 2 doors on a new clean
+page with the current background persisting」。**四座山与出发码头一起改**（owner 当场裁定）。
+同批还有四件都是 owner 看着截图报的：**顶栏名牌在手机上被压成一根竖条**（32px 宽、394px 高，
+**这条是既有缺陷，不是这次改出来的**）· **码头名牌上「The Beginner's Pier」出现两次**，
+整条副标删掉 · **山上的副标不再印「词山学海 Vocab Summit」，只留 CPDD 学段标签**，
+并给四座山的名字配上拼音与英文（**Adventure of the Vocab Star · Arena of the Vocab Champ ·
+Forge of the Vocab King · Court of the Vocab Sage**，owner 定名）· **门与活动卡的图标按视口缩放**。
+见 §18ak。
+前一批 **`20260822e`：年级峰 → 关卡**——owner：「年级峰 is a
 misnomer as there aren't sub mountains on each mountain, it should be more like a game
 stage」。山上只有一个峰，就是 顶峰；那四个标记描述的是**画里没有的地形**。
 `关卡` 是「一关」的大白话，两个字都常用，而且 ② 那一栏本来就叫 闯关——
@@ -124,7 +145,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260822g`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260823`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -227,8 +248,10 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 - 板块集合**按 stream 不同**（G1 三个 / G2·G3 四个 / HCL 五个）：**渲染数据里有什么，不要硬编码**。
 
 ### 出发码头
-- `data/xh_v3.json`：**148 词，八个组别**（食物 37 · 动物 28 · 日常用品 17 · 地点 15 ·
-  学校 14 · 天气与自然 14 · **数字 13** · 交通 10）。
+- `data/xh_v3.json`：**156 词，八个组别**（食物 37 · 动物 28 · **交通 18** · 日常用品 17 ·
+  地点 15 · 学校 14 · 天气与自然 14 · **数字 13**）。
+  ⚠️ 交通 10 → 18 是 2026-08-22 那批（§18aj），**十八个词整组都有 `子类`**：
+  陆路交通 11 · 水上交通 3 · 交通设施 3 · 空中交通 1。
   ⚠️ **整鸡 已并入 鸡肉**（owner 2026-08-16 晚：「一个意思一个词，整个码头统一」）。
   美术退役到 `archived_art/`，它唯一的那句 `scene_market-4` 改写成
   「我想要买一些鸡肉。」。150 → 149 是这么来的，不是漏词。
@@ -633,7 +656,9 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 **教师后台 学生档案卡 · 后台重建进度码 · 码头进度上云**（见 §18z）·
 **我的词山 六处：藏起来的单元 · 营地被 年度试炼 拦住 · 营地不再吞点击 ·
 单元卡按 板块 分组 · 返回／学习／挑战 · 卡上的拼音闸门终于接上**（见 §18af）·
-**我的词山 只剩五个地标 · 单元搬进关卡 · 营地改成「你在这里」地图针**（见 §18ag）
+**我的词山 只剩五个地标 · 单元搬进关卡 · 营地改成「你在这里」地图针**（见 §18ag）·
+**② 从切换改成两扇门（四座山与码头一起）· 门后是一页只有活动卡的干净页 ·
+顶栏名牌在手机上不再是一根竖条 · 四座山的名字有了英文**（见 §18ak）
 
 ### ⚠️ 未完成
 > **完整的一份在 `docs/OUTSTANDING_待办清单_20260822.md`**，每条都实测过，
@@ -3234,6 +3259,265 @@ more like a game stage」。**这座山只有一个峰，就是 顶峰**；那�
 `guide.html` 的 `STATS` 同时改了 查词索引 2,142 → **2,150**（`generate_search_index.py --write`
 重跑，改前先 `--verify` 确认基线一致）。
 
+## 18ak. ② 是两扇门 · 名牌 · 图标按视口缩放（owner 2026-08-23，第十九批）
+
+owner：「the games button, they expect to click and be directed to choose game mode, but
+the game mode is the section below and they miss it … they should be presented with 2 doors
+on a new clean page with the current background persisting, and the two doors are
+flashcards and quiz」。**两边一起改**（owner 当场裁定：码头 ②③ 是同一个形状）。
+
+### 病因：一个看起来会翻页、其实只重画折线以下的控件
+② 是一对标签页：按 闯关，**只把下面那一段换掉**，而那一段在 1024×768 的学校 Chromebook 上
+就在折线以下、在手机上更远。学生按下去、画面看起来没变，于是以为自己点错了。
+⚠️ **这不是「学生不会用」，是控件在说谎**：金色的选中态 + 立刻重画 = 一个 tab；
+而 tab 的合同是「我换的东西就在旁边」。它换的东西不在旁边。
+
+### 现在
+| | 以前 | 现在 |
+|---|---|---|
+| ② | 两个 tab，有选中态 | 两扇门，有 `›`，**没有选中态** |
+| ③ | 首页折线以下的一排卡 | **门后面一整页**，只有那一边的活动卡 |
+| 设置 | 卡片再往里一层 | **一格没动，还在那里** |
+
+- ⚠️ **门后面永远只能是活动卡。** 码头 2026-08-16 把 ② 做成导航只活了一天就被推翻（§18m），
+  原因**不是**「② 不该导航」，而是那个页面同时背「做什么」与「多难」：两下点击之后，
+  零起点学生第一眼看到的是一排滑杆。这一版把那一步留在原处。
+  **不要把 每次题数／难度／题型 搬到门后那一页。**
+- ⚠️ **范围跟着进来**（owner 选的「一行摘要 + 改范围 ›」）：①复习范围 留在首页，
+  但门后那一页顶上写着 `已选 23 个单元 · 共 426 词`（**与首页那一行逐字相同**，
+  两处说法不一致比不说更糟），旁边一颗 改范围 › 回上一页。
+  一扇门灰掉的理由（这组没有图片／没有多字词／没有句子）**全都是范围造成的**，
+  而范围在上一页——这就是它必须跟着进来的原因。
+  ⚠️ 码头那颗 改范围 会先把 `store.scopeOpen` 设为 1 再回首页：手机上范围盒默认收起，
+  否则学生落在首页却找不到刚才要改的东西。
+- ⚠️ **门后那一页不编号**（§7）：它只有一个决定。首页仍然是 ①②。
+- ⚠️ **三级返回，标签说出去处**：海图 ← 首页 ← 门后的活动页 ← 设定页 ← 一局。
+  山上在门里说 `‹ 回到「学习」`／`回到「闯关」`，门外仍是 `回营地`／`回到营地`。
+  ⚠️ 名字加「」不是装饰：学习／闯关 单看是动词，「回到学习」会被读成一句话。
+- ⚠️ **`_path` 记的是「人在哪扇门里」，不是「上次选了哪扇」**（后者是 `store.homeTab`／
+  `store.tab`，仍然照旧存）。`renderHome()`／`renderMenu()` 把它清零，
+  所以**从右栏进去的每一块屏幕**（成就墙 · 风云榜 · 我的词语表 · 营地 · 我的词山 ·
+  走进社区 · 航海徽章 · 我的海滩）不必自己记得清，照旧回首页。
+- ⚠️ 山上 `setTopbar` 现在**也接受一个函数**当返回去处。老调用点一个都没改：
+  传字符串的落到 `backToHub()`，它在门外回首页、在门里回那扇门。
+  **只有 `renderPath` 自己传函数**——它传字符串就会把自己重画一遍，一颗按不动的返回键。
+- ⚠️ 我的词山 单元卡上的 学习／挑战 现在**落在那扇门的活动页上**（§18af 时落在首页）：
+  这两颗按钮的名字就是那两扇门的名字。仍然**不替学生挑玩法**。
+- 实测（离屏 WebKit，§15）：四座山与码头各走一遍
+  首页 → 门 → 设定页 → 返回 → 门 → 返回 → 首页；成就墙／徽章墙进出仍回首页；
+  1440×900 / 1280×900 / 1024×768 / 390×844 四个尺寸截图看过，`body` 不横向滚动。
+
+### 🐛 顶栏名牌在手机上是一根竖条 —— **既有缺陷，不是这次改出来的**
+owner 看着我贴的手机截图报的。**在 `main` 上复现过**：390px 下 `.tb-id` 被压到
+**32px 宽、370px 高**，五个字一个字一行竖着排下来，顶栏 **394px**——比内容还高。
+成因是 §14 那条 flex 老陷阱：顶栏是一行 flex，右边四颗控件 `flex:none`，
+名牌是**唯一可缩的那一个**，而它的内容可以换行，于是它缩到一个字宽。
+- 修法两层：**① 名字与注解一律 `nowrap` + 省略号**（兜底，且防止下一个被加进顶栏的控件
+  再抢一次宽度时又变成竖条）；**② 手机上让位**——副标先让，然后是 查词 的词标签
+  与几处内距。**一颗按钮都没有被藏起来。**
+- ⚠️ **试过「让注解换行」，那是错的**：一旦可以换行，名牌的 min-content 宽度就掉到一个字，
+  flex 立刻把它压成 22px 宽 118px 高——同一根竖条，只是这次由我自己造出来。
+- ⚠️ 码头腾地方的办法是**返回键在手机上交出它的两行注解**（`← 海图` 四个字加箭头已经说得完）。
+  那条覆盖**必须写在闸门规则之后**：优先级相同，后者赢（§14）。
+  我第一次写进文件前段那一档 media query，量出来一点变化都没有。
+- 顶栏高度：山上 394 → **58px**，码头 130 → **73px**。
+
+### 名牌上的字（owner 同批）
+- **码头**：`词山学海 Vocab Summit · 学海起步` 那一整条 `.lv` 删掉（连它的拼音与英文）。
+  owner：「this part is too cluttered, we can remove everything under the first
+  'the beginner's pier'」——那块名牌上 **The Beginner's Pier 出现了两次**。
+  现在是 出发码头 / chū fā mǎ tóu / The Beginner's Pier 三行。
+- **四座山**：副标不再印「词山学海 Vocab Summit ·」，**只留 CPDD 学段标签**
+  （owner：「keep the G1/2/3/HCL label」）。平台名在每一块屏幕的同一个角落重复一次，
+  而那是学生唯一不需要被提醒的事——他已经在里面了。
+- **四座山的名字第一次有了英文**（owner 定名，星 → 将 → 王 → 圣 这条阶梯在英文里也走完）：
+  | 中文 | 拼音 | 英文 |
+  |---|---|---|
+  | 词星大冒险 | cí xīng dà mào xiǎn | **Adventure of the Vocab Star** |
+  | 词将竞技场 | cí jiàng jìng jì chǎng | **Arena of the Vocab Champ** |
+  | 词王淬炼坊 | cí wáng cuì liàn fáng | **Forge of the Vocab King** |
+  | 词圣鸿文苑 | cí shèng hóng wén yuàn | **Court of the Vocab Sage** |
+  ⚠️ 拼音**与 `index.html` 落地卡上那四串逐字相同**（那是已经审过的）：改一处要改两处。
+  ⚠️ **HCL 的名牌上看不到这两行**，因为高级华文刻意不发拼音与英文（§10）。
+  这是正确行为，不是漏了；要给它加，得先推翻 §10。
+  ⚠️ 手机上（≤620px）名牌只剩**中文名 + 学段标签**：学段标签是 owner 明说要留的那一条，
+  而拼音与英文在一块**身份**牌上是装饰——它们该在的地方是按钮与题目，那里一个都没关。
+
+### 图标按视口缩放（owner 同批）
+owner：「the emojis can be much bigger to illustrate its function and also have the panes
+respond dynamically to screen size」。门与活动卡的图标、内距、字号一律改成 `clamp()`：
+写死 46px 的图标在 1440 的笔电上和在 390 的手机上一样大，于是笔电上是一整片空地配一颗小图标。
+- ⚠️ **下限保护手机，上限保护它不会在投影仪上变成一张海报。**
+- ⚠️ **宽高必须同一个 `clamp()`**：只写宽度，`place-items` 会把图标格子拉成椭圆。
+- ⚠️ 门后那一页在**又宽又高**的视口上（≥900×700）**垂直居中**；手机与矮横屏不开，
+  那里 `min-height` 会把内容推到折线以下。
+- ⚠️ 居中之后 `.section-label` 那颗药丸会被拉成一整条横杠（column flex 的默认
+  `align-items:stretch`，`inline-block` 挡不住），要 `align-self:flex-start`——
+  guide.html 的 `.num` 药丸踩过同一条。
+- ⚠️ 码头**只在 `.xh-path` 里放大**：同一个 `.xh-mode` 在设定页上是一排七个小题型卡，
+  跟着一起长就会挤成一堵墙。
+
+### 两边的门长得一样 · 一律两列（owner 2026-08-23）
+owner：「the pier's games/learn doors should look the same as mountains. Now they are
+aesthetically different. Note make them all a grid of 2 columns」。
+- 码头的门原来是**居中、图标与名字同一行、注解在下面**；山上的是**图标格子在左、
+  名字与注解左对齐、箭头在右**。现在两边**逐个节点相同**（`.xh-hd-*` ↔ `.hd-*`），
+  ⚠️ 类名各自一套是因为两张样式表本来就刻意重复（§17）——**改一处要改两处**。
+- ⚠️ **`.xh-tab.on` 整条删除**：门没有选中态。它此前只剩这一对元素在用。
+- ⚠️ **码头的门用固定小尺寸，不跟视口放大**：它坐在一条 `clamp(320px,30%,400px)` 的
+  左栏里，两列之后每扇只有约 157px。照抄山上那组 clamp，文字栏只剩 **27px**，
+  「学习」会被省略号切成「学…」（实测）。**结构一样，尺寸更紧**，这是刻意的。
+- ⚠️ **名字 nowrap，注解可以换行**。两件事缺一不可：名字换行就是 学／习 竖着排；
+  而注解 nowrap 会在 135px 的栏里把 `chuǎng guān` 切掉一半。名字那一行是 nowrap，
+  它就是文字栏的 min-content 下限，所以放开注解**不会**让整扇门塌成一根竖条。
+- **活动卡一律两列**（`repeat(2,minmax(0,1fr))`，≤560px 单列）。
+  ⚠️ auto-fit 会按宽度装：闯关 在 1440 上排成三列一行，而 学习 只有两张卡——
+  同一条动线的同一层，两个版面。⚠️ 三个玩法的学段（G1/G2）因此是 **2 + 1**，
+  最后一张落在左边：这是 owner 选的取舍，不是溢出。
+
+### 码头控件的白从 60% 提到 92%（owner 同批）
+owner：「the opacity of liquid glass on the pier can be higher to match the mountains」。
+**面板本来就一样**（`.xh-board` 与 cs.css 的 `.card` 逐字相同：74→56→60% 的渐变）；
+差的是**控件**：码头的 `.xh-mode`／`.xh-tab` 一直是 `--glass` **60%** 平涂，
+而山上同一类东西（`.camp`／`.unit`／新的 `.hdoor`）是 `--card` **92%**。
+- xh.css 因此第一次有了 `--card` 与 `--card-line`（与 cs.css 同值，§17 的刻意重复）。
+- ⚠️ **面板一个字都没动**：§18a 明写场景底图上的面板**必须**看得见后面的摊位。
+  抬的是控件，不是面板。
+- ⚠️ 山上新的 `.hdoor` 第一版是一层 74% 的玻璃渐变，**已改成与 `.camp` 同一种材质**：
+  同一条动线上两级长得不一样，比两级都朴素更糟。
+
+### 顺带
+- **guide.html 的 ②③ 两张卡改写了**：它印着「这只是切换，不会跳页」——
+  §18q 记过同一族的事（图与字对不上），这次是**字与代码对不上**，而且这一页是给老师看的。
+  段落标题从「①②③ 三步」改成「①② 与门后那一页」。
+- **README 的码头词数 148 → 156**：2026-08-22 那批（交通 10 → 18）漏了 README，
+  正是 §3 立那条规矩要防的事。CLAUDE.md §5 的组别明细同批补上 `子类`。
+
+## 18al. 班级：自由填 → 年级 + 下拉菜单（owner 2026-08-23，第二十批）
+
+owner：「for vocab summit class selection for bukit view students, I want to make it a
+drop down and make it easy for students to select their class. **So that it's sorted
+properly in the back end** … its a very long list so probably good to help students to
+choose their levels (S1/2/3/4) first?」——**两句话里有两个要求，第二句才是难的那个。**
+
+### 病因：一个字段，五种写法
+
+`mtlClass` 一直是 `我的档案` 里的一个 `<input type="text">`，提示语写着「例如：2026 3HC3」。
+`save()` 只做 `normClass`（大写、首尾去空、内部空白压成一个），
+所以 `3hc3` 会被扶正成 `3HC3`，但 **`Sec 3 HC3`、`3HC 3`、`3hc3 2026` 全都原样存下去**——
+它们是**四个不同的字符串**。后台 `teacher.html` 的 `班级视图` 按这个字符串分组，
+于是一个班会摊成四行，任何排序都对不上。**这不是显示问题，是数据问题**，
+所以修的地方在**写入端**，不在后台。
+
+### 现在：一个字段，两种形状
+
+| 学校 | 班级控件 |
+|---|---|
+| 百德中学 | **年级 chips（中一…中四）→ 该年级的 `<select>`**（7–8 个班） |
+| 其他任何学校 | 原来的自由文本框，一个字节没动 |
+
+**只放百德一所学校的名单是刻意的。** 别校的班级命名我们不知道，猜出来的名单比让学生自己填更糟。
+`window.BV_CLASSES` 就放在 `window.SG_SCHOOLS` 旁边（`profile.js`），同一个文件、同一种形状
+（`isKnown` / `optionsHtml`），因为它们解决的是同一个问题：**一个太长的名单要怎么在手机上选。**
+学校那边的答案是搜索框，班级这边的答案是先分年级——**30 个班一次摊开，和 150 所学校一次摊开一样不可用。**
+
+### 年份留在**值**里，不是留在标签上
+
+存进 `mtlClass` 的是 `2026 3HC3`，不是 `3HC3`。理由是这已经是 `save()`／`classHistory`／
+`teacher.html` 三处共同认定的格式，**改成不带年份就要同时改三处写入端和一份历史数据**。
+副作用是好的：`2026 1C1 < 2026 1C2A < … < 2026 4HC3` 按字符串排就是**年 → 级 → 班**的正序。
+
+⚠️ **`BV_YEAR` 与四张名单每年要改一次**（`profile.js` 里那段注释写着）。
+去年的班级**不在**今年名单里，会落到「其他」并**原样保留文字**——
+那正是 §Jan-2 的 `maybePromptClassUpdate` 想要的状态，不是 bug。
+
+### 四条边界情况，逐条量过
+
+- **旧的自由文本（`Sec 3 HC3`）**：`levelOf` 读不出年级 → 没有 chip 亮，**直接给「其他」文本框，文字还在**。
+  这时**不印**「先点上面的年级」——那句话在描述一个学生已经走过的步骤。
+- **换年级**：`2026 1C1` 选好后再点 中三，旧班级**清掉**。留着它等于 chips 说中三、`<select>` 说中一，
+  这个静默错配正是这次要消灭的东西。「其他」不清——框里的字是学生自己写的。
+- **换学校**：`syncClassDraft()` 在学校 `<select>`、学校搜索框、身份 chips、保存、重选昵称五处都调。
+  ⚠️ **搜索框那处是新加的重画条件**：`wireSearch` 原本只在「离开其他」时重画，
+  现在**名单可用性翻转时也重画**——不然学生搜到百德了，底下还是一个正要被换掉的文本框。
+  代价是搜索框失焦，而这个代价**原来就为「离开其他」付过**，且翻转只发生在搜索已经收敛到一所学校的时候。
+- **身份不是学生**：`mtlClass` 照旧清空，两步状态跟着一起清。
+
+### 没有动的
+
+- **`teacher.html` 仍是自由文本**。它是 standalone 页，学校名单在那边已经抄了一份；
+  再抄一份班级名单就是**第二个真相来源**，而老师改班级的量级和学生不在一个数量级上。
+### 注册流程也问班级了（owner 同日追加）
+
+owner：「ask students but dropdown class only applies to bukit view students」。
+**`我的档案` 曾是唯一入口，而大多数学生从不打开它**——所以后台的 班级视图 大半是空的，
+再好的下拉菜单也救不了一个没人走到的页面。现在昵称确认页在「你的学校」下面多一段
+「你的班级 · 选填」：百德是同一套 年级 chips + 下拉，别校是文本框。
+
+⚠️ **刻意保持选填**。档案页自己的隐私说明写着「班级是选填」，
+一个因为选填字段而不让学生进门的首屏，代价比老师表里一个空格大。
+如果 owner 要改成必填，改的是 `npConfirm` 里的一个判断，不是这套控件。
+
+⚠️ **控件只写了一份**。`BV_CLASSES.fieldHtml()` / `wireField()` 在 `profile.js` 里，
+档案页与注册页共用——而**注册页本身已经有两份**（`nickname.js` 走落地页与码头，
+`cs.js` 走山上；这份重复是既有的，§18r）。手写标记就会变成**四份**。
+
+⚠️ **`currentClass` 必须由三个调用点传进去**（`nickname.js`／`cs.js`／`xh.js`）。
+不传，`换昵称` 就会把 `mtlClass: ""` 交给 `save()`，**静默清掉学生的班级**。
+
+- **注册页不问班级的说法已经作废**（上一段）。
+  ⚠️ `guide.html` 那句「第一次进来只需要取一个昵称、选一个头像、选班级」以前**描述的不是代码**；
+  现在它对上了——但对上是这次改的结果，不是它当初写对了。
+- **没有加一行 CSS**：`.prof-chip` / `.np-select` / `.prof-input` 在 `cs.css` 与 `xh.css` 里都已经有了，
+  山上和码头两套皮肤都量过（含 375px 与拼音英文全开的最坏情况：chips 折成 3+1）。
+
+## 18am. SEO：这个站从来没有被搜索引擎看见过（owner 2026-08-23，同日第三件）
+
+owner 在 Search Console 停在「Verify ownership」那一步，让我接手。清点结果：
+**除了 `guide.html` 的一行 description，整个站没有任何 SEO 标记**——
+没有 canonical、没有 Open Graph、没有 sitemap、没有结构化数据。
+分享到 WhatsApp／Telegram 只会出现一条光秃秃的链接。
+
+### 落地的六件
+
+| 件 | 位置 |
+|---|---|
+| Search Console 验证档 | `google131a328dc6f2852c.html`（仓库根，**永远不要删**） |
+| 每页 description / canonical / robots | 六个学生页 + `guide.html` |
+| Open Graph + Twitter card | 同上，图统一指向 `art/og-card.jpg` |
+| 社交卡 1200×630 | `art/og-card.jpg`（落地页底图 + 站名字牌合成，209 KB） |
+| `sitemap.xml` | 仓库根，七条 URL |
+| JSON-LD | 只在首页：`WebSite` + `EducationalOrganization` + `LearningResource` |
+
+**`teacher.html` 与 `tools/` 两页是 `noindex,nofollow`。** 后台不该出现在搜索结果里。
+
+### ⚠️ 没有 `robots.txt`，而且加了也没用
+
+站在 **`btvssclunit.github.io/VocabSummit/`**，是**子目录**不是域名根。
+`robots.txt` 只在 **`btvssclunit.github.io/robots.txt`** 才会被读，
+那要另一个叫 `btvssclunit.github.io` 的仓库。
+放一份 `/VocabSummit/robots.txt` 只会让人以为有人在管，实际上没有爬虫会去读——
+**所以刻意不放**。sitemap 不受这条限制：在 Search Console 里直接提交
+`https://btvssclunit.github.io/VocabSummit/sitemap.xml` 即可。
+
+### ⚠️ 词数三处必须一致
+
+description 与 JSON-LD 里印着 **3,741**（426 / 814 / 1069 / 1432）与码头 **156**，
+是从 `data/*.json` 的 `meta.wordCount` 实测的，不是抄 README 的。
+**改词表就要改这三处**：`data/`、README、这些 meta。§3 那条规矩现在多了一份门面。
+
+### ⚠️ 那批「已经改好了」的东西，一直躺在工作区里没提交
+
+owner：「we discussed this in detail in another session and I did a hard refresh but
+haven't seen it land」。**门确实做好了，`git` 从来没看过。**
+清点当天 `HEAD` 还是 `20260822g`，而 `js/cs.js`、`js/xh.js`、两份 CSS、
+七个 HTML 全在 `git status` 的 modified 里——线上服务的仍然是 `.htabs` 那一版切换。
+硬刷新对**没有部署过的代码**不起作用，缓存从来不是原因。
+
+⚠️ **这不是版本号机制的失败，是它前面一步的失败。** `?v=` 解决的是
+「新代码送不到浏览器」；这次是「新代码没离开这台机器」。
+**改完之后先看 `git status`，再去谈缓存。**
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -3298,6 +3582,29 @@ more like a game stage」。**这座山只有一个峰，就是 顶峰**；那�
 | 后台怎么看学生开没开拼音 | §18ab（学习支援 一栏；HCL 印「—」因为那里刻意没有这两个辅助） |
 | 年级峰 为什么改叫 关卡 | §18ai（山上只有一个峰；关卡 是大白话，而且 ② 已经在教 闯关） |
 | 改完代码还要更新什么 | §3（CLAUDE.md + README + GitHub About 三份门面，owner 2026-08-22 立规） |
+| ② 按下去为什么没反应 | §18ak（以前是切换，换掉的是折线以下那一段；现在是门，会翻页） |
+| 班级为什么不再让学生自己打字 | §18al（`Sec 3 HC3`／`3HC 3`／`3hc3 2026` 是四个字符串，后台一个班摊成四行） |
+| 班级名单为什么只有百德一所学校 | §18al（别校的命名我们不知道，猜出来的名单比让学生自己填更糟） |
+| 为什么先选年级再选班 | §18al（30 个班一次摊开，和 150 所学校一次摊开一样不可用） |
+| 班级里为什么带着年份 | §18al（`save()`／`classHistory`／`teacher.html` 三处共同认定的格式；顺带按字符串排就是正序） |
+| 去年的班级怎么办 | §18al（不在今年名单里 → 落到「其他」，文字原样保留，正好被 Jan-2 的提示接住） |
+| 每年要改哪里 | §18al（`profile.js` 的 `BV_YEAR` 与四张年级名单，一年一次） |
+| 注册的时候为什么也问班级了 | §18al（我的档案曾是唯一入口，而大多数学生从不打开它） |
+| 班级为什么不设成必填 | §18al（档案页自己写着「班级是选填」；要改是 `npConfirm` 里一个判断） |
+| 为什么 `currentClass` 三个调用点都要传 | §18al（不传，换昵称会把 `mtlClass: ""` 交给 save()，静默清掉班级） |
+| 站上为什么没有 `robots.txt` | §18am（站在子目录，只有域名根的那份会被读；放了等于骗自己） |
+| 分享链接的那张图在哪 | §18am（`art/og-card.jpg`，1200×630，落地页底图 + 字牌合成） |
+| Search Console 的验证档能删吗 | §18am（**不能**，删了掉验证；`google131a328dc6f2852c.html` 留在根目录） |
+| 改了词表还要改哪里 | §18am（`data/` + README + 每页 meta 与 JSON-LD 里的 3,741／156） |
+| 明明改好了为什么线上没变 | §18am 末（那批改动从来没提交；先看 `git status`，再谈缓存） |
+| 难度与题数能不能搬到门后那一页 | §18ak（**不能**：码头 2026-08-16 就是这样被推翻的，§18m） |
+| 门后那一页为什么没有编号 | §18ak（只有一个决定；§7 编号只给多步流程） |
+| 学段名牌为什么在手机上是一根竖条 | §18ak（既有缺陷：flex 里它是唯一可缩的；注解**不许换行**） |
+| 四座山的英文名是什么 | §18ak（Adventure of the Vocab Star ／ Arena ／ Forge ／ Court，owner 定名） |
+| 为什么 HCL 名牌上没有拼音和英文 | §18ak／§10（高级华文刻意两个辅助都不发） |
+| 码头的玻璃为什么比山上透 | §18ak（面板一样，差的是**控件**：60% → 92%，面板没动） |
+| 码头的门为什么用固定尺寸不跟着放大 | §18ak（它在一条 157px 的栏里；照抄山上的 clamp，文字栏只剩 27px） |
+| 码头的门为什么用固定尺寸不跟着放大 | §18ak（它在一条 157px 的栏里；照抄山上的 clamp，文字栏只剩 27px） |
 | 顶栏那条玻璃板去哪了 | §18ai（面板拿掉，控件各自浮着；学段名挂到自己的名牌上） |
 | 滚动时那层柔光是什么 | §18ai（sticky 的卡片会从控件底下滑上来；静止时 chrome 是零） |
 | 地标名字为什么出现两次 | §18ai（原生 title 与 .mtn2-name 各画一次；已改 aria-label） |

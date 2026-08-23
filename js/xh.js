@@ -332,6 +332,7 @@
        但都得说得通。旧 key 留着：`store.tab` 存的仍是 "learn"/"play"，与文案无关。 */
     "学习": "xué xí", "闯关": "chuǎng guān", "出发": "chū fā",
     "词语游乐场": "cí yǔ yóu lè chǎng", "今天学什么": "jīn tiān xué shén me",
+    "改范围": "gǎi fàn wéi",
     "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     /* ⚠️ 词语挑战 IS A RETIRED NAME — the door is called 学习挑战 now, matching the
@@ -585,7 +586,8 @@
         var cur = profileOf();
         window.WSNickname.picker(function () { renderTop(); if (done) done(); },
           { dismissible: true, currentSchool: cur.school || "",
-            currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
+            currentRole: cur.category || "student", currentClass: cur.mtlClass || "",
+            currentHeard: cur.heardFrom || "" });
       },
       onChanged: renderTop                // nickname / avatar may have changed
     });
@@ -1665,6 +1667,7 @@
   }
   function renderMenu() {
     state = null;
+    _path = null;                           // ② is two doors; the funnel starts over here
     runTeardown();                          // the beach never outlives its round
     setBack(null);                          // pier front page: back = the sea map
     view().classList.add("two-col");        // the ONLY screen laid out in two columns
@@ -1829,26 +1832,22 @@
        学习/闯关, ③ lays the activities out as tiles right there, and the settings
        live inside whichever activity you walk into.
        store.tab still remembers the side, and it is now what ③ renders from. */
-    var isLearnTab = store.tab !== "play";
+    /* ⚠️ ② IS TWO DOORS AGAIN (owner 2026-08-23) — and this time ③ goes WITH it.
+       The 2026-08-16 version that was thrown out kept ③ on the front page and made
+       ② open a page that had to carry BOTH「which activity」and「how hard」: two taps
+       in, a beginner met a page of sliders. What the owner reported this time is the
+       other half of that same bug, still live: 「the games button — they expect to
+       click and be directed to choose game mode, but the game mode is the section
+       below and they miss it」. A control that looks like navigation and only redraws
+       something off-screen reads as broken.
+       So: the door opens a page that holds ONLY the activity tiles, and every slider
+       stays one level further in, on the config page it has always been on.
+       ⚠️ Do NOT move 每次题数/难度 onto the door page. That is the exact step that got
+       this reverted the first time. */
     h += '<div class="xh-board"><div class="xh-sec">' + stepNo(2) +
       '选择学习方式' + xhPy("选择学习方式") + ' <span class="xh-en">learn or play</span></div>' +
-      '<div class="xh-tabs">' +
-      '<button class="xh-tab' + (isLearnTab ? " on" : "") + '" data-t="learn">' +
-        '<span class="xh-mi">📖</span><b>学习</b>' + xhPy("学习") +
-        '<span class="xh-en">Learn</span></button>' +
-      '<button class="xh-tab' + (isLearnTab ? "" : " on") + '" data-t="play">' +
-        '<span class="xh-mi">🎮</span><b>闯关</b>' + xhPy("闯关") +
-        '<span class="xh-en">Play</span></button>' +
-      "</div></div>";
+      '<div class="xh-tabs">' + xhDoorHtml("learn") + xhDoorHtml("play") + "</div></div>";
 
-    /* ③ — the activities for whichever side ② is on. ⚠️ These are DOORS, not
-       settings: one tap each, and the difficulty/round-length controls are on the
-       other side of the door. A tile that cannot run under the current 学习范围
-       greys out with the reason, exactly as the mode buttons did before. */
-    h += '<div class="xh-board"><div class="xh-sec">' + stepNo(3) +
-      (isLearnTab ? '今天学什么' + xhPy("今天学什么") + ' <span class="xh-en">pick an activity</span>'
-                  : '词语游乐场' + xhPy("词语游乐场") + ' <span class="xh-en">pick a game</span>') +
-      '</div><div class="xh-modes acts">' + entryTilesHtml(isLearnTab) + "</div></div>";
 
     h += '</div><div class="xh-col-r">';   // left rail ends, right column begins
     /* ⚠️ The hero IS the student's own beach, and it sits at the TOP OF THE RIGHT
@@ -1951,13 +1950,64 @@
       setScope(allGroupNames()); renderMenu();
     };
     document.getElementById("xhScopeNone").onclick = function () { setScope([]); renderMenu(); };
-    /* ② only switches which tiles ③ shows — it never leaves the page any more. */
-    Array.prototype.forEach.call(view().querySelectorAll(".xh-tab"), function (el) {
-      el.onclick = function () {
-        store.tab = el.getAttribute("data-t"); save();
-        renderMenu();
-      };
+    /* ② LEAVES THE PAGE now (owner 2026-08-23). It writes store.tab on the way out
+       so the door page and every back label know which side we are on. */
+    Array.prototype.forEach.call(view().querySelectorAll(".xh-tab[data-t]"), function (el) {
+      el.onclick = function () { renderPath(el.getAttribute("data-t")); };
     });
+  }
+
+  /* ---------- 门后面那一页 (owner 2026-08-23) ----------
+     海图 ← 码头 ← 门后的活动页 ← 活动设定页 ← 一局。原来是四级里的第三级不存在，
+     ② 在原地把 ③ 换掉，而 ③ 在手机上远在折线以下。
+     ⚠️ `_path` 只记「人在哪扇门里」。右栏那几块（我的词语表 · 走进社区 · 航海徽章 ·
+     风云榜 · 我的海滩）都是从 renderMenu 进去的，那里把它清零，所以它们照旧回码头。
+     ⚠️ 这一页**只有活动卡**：难度与题数仍然在 renderModeConfig 里，一格都没搬。 */
+  var _path = null;
+  function pathIsPlay() { return _path === "play"; }
+  function xhPathZh(k) { return k === "play" ? "闯关" : "学习"; }
+  /* 门：没有 `.on`（没有东西被选中），有 `›`（按下去会去到别处）。
+     ⚠️ 结构与 cs.js 的 doorHtml() 逐个节点相同（owner 2026-08-23:「the pier's
+     games/learn doors should look the same as mountains」）：图标格子 · 名字与注解 ·
+     箭头，三个兄弟节点。⚠️ 类名各自一套（`.xh-hd-*` / `.hd-*`），因为两张样式表
+     本来就是刻意重复的（§17）——但**改一处要改两处**，不然两边又会漂开。 */
+  function xhDoorHtml(k) {
+    var play = k === "play", zh = xhPathZh(k);
+    return '<button class="xh-tab" data-t="' + k + '">' +
+      '<span class="xh-hd-ic">' + (play ? "🎮" : "📖") + '</span>' +
+      '<span class="xh-hd-t"><b>' + zh + '</b>' + xhPy(zh) +
+        '<span class="xh-en">' + (play ? "Play" : "Learn") + '</span></span>' +
+      '<span class="xh-hd-go">›</span></button>';
+  }
+  function renderPath(kind) {
+    state = null;
+    runTeardown();                          // the beach never outlives its round
+    _path = kind === "play" ? "play" : "learn";
+    if (store.tab !== _path) { store.tab = _path; save(); }
+    view().classList.remove("two-col");
+    setBack(renderMenu);
+    var play = pathIsPlay(), zh = xhPathZh(_path);
+    /* ⚠️ 范围跟着进来（owner 2026-08-23）：①学习范围 留在码头首页，但**这一页要说出
+       现在练的是哪些词**——一扇门灰掉的理由（没有图片、没有多字词、没有句子）全都
+       是范围造成的，而范围在上一页。文案与首页那一行同一套写法。 */
+    var h = '<div class="xh-board xh-path"><div class="xh-path-head">' +
+      '<span class="xh-path-ic">' + (play ? "🎮" : "📖") + '</span>' +
+      '<span class="xh-path-t"><b>' + zh + '</b>' + xhPy(zh) +
+        '<span class="xh-en">' + (play ? "Play" : "Learn") + '</span></span>' +
+      '<button class="xh-path-scope" id="xhPathScope">' +
+        '<span class="xh-ps-sum">' + esc(scopeLabel()) + ' · ' + scopedWords().length + ' 词</span>' +
+        '<span class="xh-ps-go">改范围 ›' + xhPy("改范围") +
+        '<span class="xh-en">change scope</span></span></button></div>' +
+      '<div class="xh-sec xh-path-sec">' +
+      (play ? '词语游乐场' + xhPy("词语游乐场") + ' <span class="xh-en">pick a game</span>'
+            : '今天学什么' + xhPy("今天学什么") + ' <span class="xh-en">pick an activity</span>') +
+      '</div><div class="xh-modes acts">' + entryTilesHtml(!play) + '</div></div>';
+    view().innerHTML = h;
+    /* ⚠️ 手机上范围盒默认是收起的，从这一页按 改范围 回去必须看得见它，
+       否则学生落在首页却找不到刚才要改的东西。 */
+    document.getElementById("xhPathScope").onclick = function () {
+      store.scopeOpen = 1; save(); renderMenu();
+    };
     Array.prototype.forEach.call(view().querySelectorAll(".xh-mode[data-e]"), function (el) {
       el.onclick = function () {
         /* an empty 学习范围 is allowed as a state but obviously not as a round: say so
@@ -3801,7 +3851,14 @@
       return setBack(renderScenes, { zh: "走进社区", en: "the neighbourhood" });
     }
     var door = (state && state.seq) ? entryForMode(state.mode) : null;
-    if (!door) return setBack(renderMenu);
+    /* ⚠️ 不在一局里的时候还有两种人：从右栏进来的（_path 为 null，回码头）与
+       从门里进来的设定页（回那扇门）。少了后面这一种，配置页会把学生一路弹回码头，
+       他就得重新点开同一扇门。 */
+    if (!door) {
+      if (!_path) return setBack(renderMenu);
+      return setBack(function () { renderPath(_path); },
+        { zh: xhPathZh(_path), en: pathIsPlay() ? "Play" : "Learn" });
+    }
     var e = entryByKey(door);
     setBack(function () { renderModeConfig(door); }, { zh: e.zh, en: e.short || e.zh });
   }

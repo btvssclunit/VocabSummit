@@ -21,7 +21,21 @@ The landing page is a sea map. Each island is one destination:
 | 出发码头 | `XH_index.html` | 学海起步 · 零起点入门层 |
 
 `teacher.html` is a separate teacher dashboard (email sign-in, HOD approval), and
-`tools/` holds two device diagnostics.
+`tools/` holds two device diagnostics. Both are `noindex`.
+
+## Search and sharing
+
+Every student-facing page carries a description, a canonical URL, Open Graph and
+Twitter card tags; `art/og-card.jpg` (1200×630) is the shared social preview.
+`sitemap.xml` lists the seven public pages and `index.html` carries JSON-LD
+(`WebSite` + `EducationalOrganization` + `LearningResource`).
+
+There is deliberately **no `robots.txt`**: the site lives at
+`btvssclunit.github.io/VocabSummit/`, a subdirectory, and crawlers only read
+`robots.txt` at the domain root — which this repository does not own. Submit the
+sitemap directly in Search Console instead. `google131a328dc6f2852c.html` at the
+repository root is the Search Console verification file; removing it drops
+verification.
 
 ## Repository layout
 
@@ -50,7 +64,7 @@ css/    cs.css        every stream-page style, incl. the BVSS palette tokens
 
 data/   g1|g2|g3|hcl.json   generated vocabulary, one file per stream
         id_registry.json    stable word IDs — always commit together with the JSON
-        xh_v3.json          出发码头 word list — 148 words in 8 groups (数字 has no sprites)
+        xh_v3.json          出发码头 word list — 156 words in 8 groups (数字 has no sprites)
         search_index.json   词/拼音/英文/所属站 only — the cross-station search index
         xh_phrases.json     生活空间 sentence library (90 lines; distractors drawn at runtime)
 
@@ -102,7 +116,7 @@ CLAUDE.md, 部署缓存版本号.
   词海钓鱼 and 沙滩快跑; 走进社区 walks the sentence library scene by scene. Its own
   currency and boards, sealed off from the mountains' 海拔 / 历练值 / 灵露.
 - Vocabulary loads from external JSON (no hardcoded arrays): 3,741 stream entries
-  plus 148 at the pier.
+  plus 156 at the pier.
 - 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default. At the
   pier both default ON, and the flashcard always shows them: its readers are beginners.
 - 通用搜索: look up any word from any of the five stations — 词, toneless 拼音 or English.

@@ -75,6 +75,10 @@
 
   var DATA = null;
   var WORDS = [];
+  /* ⚠️ declared HERE, not next to rubyText() where it used to live: _formOf()
+     (干扰项分层, ~line 1284) needs it too, and that runs far earlier in the file.
+     `var` hoisting made the old placement work by luck; this makes it true. */
+  var CJK_RE = /[一-鿿]/;
   var UNIT_LIST = [];   // [{key, level, unit, count}]
   var COMP_LIST = [];   // [{key, level, unit, component, ids:[]}]
   var LEVELS = [];      // ordered level names
@@ -1271,16 +1275,56 @@
     // like 除夕×大年三十, 褐色×棕) — both would be defensible answers.
     return _defSim(target, cand) > 0.25;
   }
+  /* ---------- 词形：谚语 / 成语 / 一般词语 ----------
+     ⚠️ owner 2026-08-23：「proverbs/idioms distractors need to be from the same
+     pool, otherwise it's too obvious」。原来的 distractorsFor 只看 词性，
+     于是「只要功夫深，铁棒磨成针」的三个干扰项是 哀求 · 克服 · 诚实——
+     **十一个字的那一个就是答案**，一眼看得出，学生根本不必读句子。
+     这不是干扰项挑得不好，是这道题**没有在考词汇**。
+
+     判形只看字面，不看板块：谚语常常和成语同住一个 文化站，而 板块 也不保证
+     每一条都同形。带逗号的是谚语（两个分句），四字及以上的是成语一类的固定词组，
+     其余是一般词语。 */
+  function _formOf(w) {
+    var t = String((w && w.w) || "");
+    if (/[，,、；;]/.test(t)) return "saying";
+    var n = 0, i;
+    for (i = 0; i < t.length; i++) if (CJK_RE.test(t.charAt(i))) n++;
+    return n >= 4 ? "idiom" : "word";
+  }
+  /* 谚语与成语互为「次选」：一条 11 字的谚语配四字成语并不完美，
+     但比配一个两字词好得多，而谚语总量太少（每个源流 7–16 条），
+     严格同形往往一个都凑不满。 */
+  function _formOk(a, b) { return a === b || (a !== "word" && b !== "word"); }
+
+  /* 干扰项。按「越像越先」分层取，取不满就降一层——任何一层都不许让题目开天窗。
+     ⚠️ 谚语那一层必须能越过 复习范围：没有任何一个单元有 4 条以上谚语，
+     只在范围内找就等于永远找不到，于是又退回两字词。干扰项不计分、不进任何
+     掌握统计，越界只影响这一道题的选项长得像不像。 */
   function distractorsFor(target, pool, n) {
-    var same = pool.filter(function (w) {
-      return w.id !== target.id && w.w !== target.w && w.pos === target.pos && !_tooSimilar(target, w);
-    });
-    var any = pool.filter(function (w) { return w.id !== target.id && w.w !== target.w && !_tooSimilar(target, w); });
-    var picked = shuffle(same).slice(0, n);
-    var i = 0, extra = shuffle(any);
-    while (picked.length < n && i < extra.length) {
-      var cand = extra[i++];
-      if (picked.indexOf(cand) === -1 && cand.id !== target.id) picked.push(cand);
+    var tf = _formOf(target);
+    function usable(w) {
+      return w.id !== target.id && w.w !== target.w && !_tooSimilar(target, w);
+    }
+    var wide = (tf === "word") ? [] : WORDS;   // 只有长词形才需要越过范围去找同形
+    var tiers = [
+      pool.filter(function (w) { return usable(w) && _formOf(w) === tf && w.pos === target.pos; }),
+      pool.filter(function (w) { return usable(w) && _formOf(w) === tf; }),
+      pool.filter(function (w) { return usable(w) && _formOk(_formOf(w), tf); }),
+      wide.filter(function (w) { return usable(w) && _formOf(w) === tf; }),
+      wide.filter(function (w) { return usable(w) && _formOk(_formOf(w), tf); }),
+      pool.filter(function (w) { return usable(w) && w.pos === target.pos; }),
+      pool.filter(usable)
+    ];
+    var picked = [], seen = {};
+    for (var t = 0; t < tiers.length && picked.length < n; t++) {
+      var bag = shuffle(tiers[t]);
+      for (var i = 0; i < bag.length && picked.length < n; i++) {
+        var c = bag[i];
+        if (seen[c.id]) continue;
+        seen[c.id] = 1;
+        picked.push(c);
+      }
     }
     return picked;
   }
@@ -1315,8 +1359,16 @@
          panel any more, so this is the only thing keeping the stream's name legible
          over applyAmbience()'s photo — and the name staying visible was the owner's
          one condition for removing the bar. */
+      /* ⚠️ 「词山学海 Vocab Summit ·」已从副标删掉（owner 2026-08-23:「we can remove
+         词山学海 vocab summit but keep the G1/2/3/HCL label」）。平台名在每一块屏幕
+         的同一个角落重复一次，而它是**学生唯一不需要被提醒的那件事**——他已经在里面了。
+         留下的是 CPDD 的学段标签，那是这块名牌真正在回答的问题：我在哪一座山。
+         ⚠️ 学段名现在有拼音与英文（owner 同批）。它们走 pyl()/enl() 的既有闸门，
+         key 就是屏幕上那五个字（§10）。⚠️ HCL 两个辅助都不发（§10），所以高级华文的
+         名牌只有中文名与 高级华文 两行——那是刻意的，不是漏了。 */
       '<div class="tb-id"><div class="tb-name">' + META.zh + '</div>' +
-      '<div class="tb-sub">词山学海 Vocab Summit · ' + META.sub + '</div></div>' +
+      pyl(META.zh) + enl(META.zh) +
+      '<div class="tb-sub">' + META.sub + '</div></div>' +
       '<div class="tb-right"><span id="tbRightText">' + (right || "") + '</span>' +
         /* 中/EN 英文提示 toggle (G1/G2). Icon-only by design: findable without
            being able to read the interface it fixes. */
@@ -1340,8 +1392,13 @@
       /* hand it OUR speak — search.js ships no TTS stack of its own on purpose */
       if (window.WSSearch) window.WSSearch.open({ speak: speak });
     };
+    /* ⚠️ 三级返回（owner 2026-08-23）：海图 ← 首页 ← 门后的活动页 ← 一局。
+       传字符串的老调用点一个都不用改——它们落到 backToHub()，那个函数在门外
+       仍然回首页，在门里回那扇门。只有 renderPath 自己传函数（见那里的说明）。 */
     document.getElementById("tbBack").onclick = function () {
-      if (backTo === "landing") { location.href = "index.html"; } else { renderHome(); }
+      if (backTo === "landing") { location.href = "index.html"; return; }
+      if (typeof backTo === "function") return backTo();
+      backToHub();
     };
     var pf = document.getElementById("tbProfile");
     if (pf) pf.onclick = openProfilePanel;
@@ -1692,9 +1749,120 @@
     };
   }
 
+  /* ---------- ② 的两扇门，与门后的那一页 (owner 2026-08-23) ----------
+     海图 ← 首页 ← 门后的活动页 ← 玩法设定 ← 一局。码头从 2026-08-16 起就是三级
+     （§18k），山上这一层是新的第三级。
+     ⚠️ `_path` 记的是「现在人在哪扇门里」，不是「上次选了哪扇」——后者是
+     store.homeTab。返回去处由它决定：从活动页走进去的每一块屏幕（设定页、一局、
+     结算页）都回到那扇门；从首页右栏走进去的每一块（成就墙、风云榜、我的词语表、
+     营地、我的词山）_path 是 null，照旧回首页。renderHome() 把它清零，
+     所以「从右栏进来的东西」不必自己记得清。 */
+  var _path = null;
+  function pathZh(k) { return k === "play" ? "闯关" : "学习"; }
+  function backToHub() { if (_path) renderPath(_path); else renderHome(); }
+  /* ⚠️ 返回键永远说出你会落到哪里（§18h）。在门后面时它落在那扇门的活动页上，
+     所以写的是那扇门的名字；不在门里时（房间、词山那几条路）才是 营地。
+     ⚠️ 名字加「」不是装饰：学习 与 闯关 单看是动词，「回到学习」会被读成一句话；
+     加了角括号它就是一个专名，而 §7 规定代码内嵌引号一律用「」。 */
+  function hubLabelHtml(short) {
+    if (!_path) {
+      return short ? "回营地" + pyl("回营地") + enli("回营地")
+                   : "回到营地" + pyl("回到营地") + enli("回到营地");
+    }
+    var k = "回到「" + pathZh(_path) + "」";
+    return k + pyl(k) + enli(k);
+  }
+  /* 门本身。⚠️ 没有 `.on`，有 `›`：这两件事一起说的是「按下去会去到别处」，
+     而那正是旧的 .htab 说不出口的话。 */
+  function doorHtml(k) {
+    var play = k === "play", zh = pathZh(k);
+    return '<button class="hdoor" data-path="' + k + '">' +
+      '<span class="hd-ic">' + (play ? "🎮" : "📖") + '</span>' +
+      '<span class="hd-t"><b>' + zh + '</b>' + pyl(zh) + enl(zh) + '</span>' +
+      '<span class="hd-go">›</span></button>';
+  }
+  /* desc is accepted but no longer rendered (owner 2026-08-14: strip the small
+     print under every title on the home page). Kept in the signature and in the
+     call sites so the one-line summary of each mode is still recorded next to
+     the mode it describes — the config screen each card opens shows its own
+     mode-desc, which is where a student actually needs the explanation. */
+  function camp(mode, icon, name, desc) {
+    return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
+      '<span class="flag">' + icon + '</span>' +
+      '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
+  }
+  function pathTilesHtml(k) {
+    if (k === "play") {
+      return '<div class="camps">' +
+        camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
+        camp("sprint", "⛰️", "攀山快答", "90 秒登山冲刺 · 答对就攀升") +
+        camp("assemble", "🧩", "组字成词", "看释义点字，拼出词语") +
+        ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 十二次机会") : "") + '</div>';
+    }
+    /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
+       「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
+       being spread across the home page. 词语闪卡 keeps its own card — different
+       interaction (看词认义/点读), not a question-answering mode. */
+    /* ⚠️ 词语闪卡 COMES FIRST (owner 2026-08-16 深夜: 「learn then test」). Reading
+       left to right, the card that TEACHES has to precede the one that TESTS —
+       a student who has not met the words yet should not have to skip past a
+       quiz to find the flashcards. Same order the pier already uses in ③. */
+    return '<div class="camps">' +
+      camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
+      camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") + '</div>';
+  }
+  function wirePathTiles() {
+    Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
+      btn.onclick = function () {
+        if (!scopedWords().length) { alert(scopeEmptyMsg(false)); return; }
+        var mode = btn.getAttribute("data-mode");
+        if (mode === "quiz") return renderQuizConfig();       // §2.1: 题型/题数/难度 live in here
+        if (mode === "flash") return renderWordList("all");   // flashcards open the list-menu first
+        if (mode === "rain") return renderRainConfig();
+        if (mode === "sprint") return renderSprintConfig();
+        if (mode === "assemble") return startAssemble();
+        if (mode === "handle") return startHandle();
+        startMode(mode);
+      };
+    });
+  }
+  /* 门后面的那一页。⚠️ 一屏一个决定：选哪个活动。所以这里**没有动线编号**
+     （§7：编号只给真正多步的流程，而每个画面从 ① 重新开始——这一页只有一步）。
+     ⚠️ 底图不换：ambience 画在 <body> 上，所以「背景延续」是免费的，
+     这一页只是把首页的内容换掉。 */
+  function renderPath(kind) {
+    _path = kind === "play" ? "play" : "study";
+    if (store.homeTab !== _path) { store.homeTab = _path; saveStore(); }
+    setFbCtx(null, null);
+    /* ⚠️ 这里必须传一个函数，不能传 "home"：那条路会走 backToHub()，
+       而 _path 刚刚被设上，返回键就会把这一页重画一遍——一颗按不动的返回键。 */
+    setTopbar(renderHome, "");
+    var play = _path === "play", zh = pathZh(_path);
+    var n = scopedWords().length;
+    /* ⚠️ 范围要跟着进来（owner 2026-08-23 选的「一行摘要 + 改范围 ›」）：
+       ①复习范围 留在首页，但**这一页仍然要说出正在练哪些词**——否则某个玩法
+       因为范围太窄而开不了时，原因在上一页，学生看不到。文案与首页那一行
+       逐字相同（updateScopeSum），两处说法不一致比不说更糟。 */
+    var html = '<div class="path-wrap"><div class="path-head">' +
+      '<span class="path-ic">' + (play ? "🎮" : "📖") + '</span>' +
+      '<span class="path-t"><b>' + zh + '</b>' + pyl(zh) + enl(zh) + '</span>' +
+      '<button class="path-scope" id="pathScope">' +
+        '<span class="ps-sum' + (n ? "" : " zero") + '">已选 ' + scope.size + ' 个单元 · 共 ' + n + ' 词</span>' +
+        '<span class="ps-go">改范围 ›' + pyl("改范围") + enli("改范围") + '</span></button>' +
+      '</div>' +
+      '<div class="section-label">' +
+        (play ? '词语游乐场' + pyl("词语游乐场") + enl("词语游乐场")
+              : '今日路线 · 选择你的营地' + pyl("今日路线 · 选择你的营地") + enl("今日路线 · 选择你的营地")) +
+      '</div>' + pathTilesHtml(_path) + '</div>';
+    view().innerHTML = html;
+    document.getElementById("pathScope").onclick = renderHome;
+    wirePathTiles();
+  }
+
   /* ---------- home ---------- */
   /* ---------- home ---------- */
   function renderHome() {
+    _path = null;              // the funnel starts over; ② is two doors, not a toggle
     setFbCtx(null, null);      // a report from home is general, not about a word
     setTopbar("landing", "");
     var t = totals();
@@ -1810,31 +1978,21 @@
     });
     html += '</div>';
 
+    /* ⚠️ ② 是两扇门，不再是切换（owner 2026-08-23）。旧版里它们是一对
+       aria-less 的标签页：点 闯关 会把 **下面那一排** 换成游戏卡，而那一排在
+       笔电上就在折线以下、在手机上更远。学生按下去、画面看起来没变，于是以为
+       自己点错了（owner：「they expect to click and be directed to choose game mode,
+       but the game mode is the section below and they miss it」）。
+       ⚠️ **门后面只有活动卡，永远不能是一页滑杆。** 码头 2026-08-16 把 ② 做成
+       导航只活了一天就被推翻（§18m），原因是那个配置页同时背「做什么」与
+       「多难」：零起点学生两下点击之后第一眼看到的是一排滑杆。这一版没有重蹈
+       那一步：门后面就是原来 ③ 的那几张卡，难度与题数仍然在卡再往里一层。
+       ⚠️ 两扇门**没有选中态**（没有 `.on`）：一颗看起来被选中的按钮正是它被读成
+       切换的原因。store.homeTab 仍然记得上一次进的是哪扇，但那只用来制定返回去处，
+       不画在门上。 */
     html += '<div class="section-label">' + stepNo(2) + '选择学习方式' + pyl("选择学习方式") + enl("选择学习方式") + '</div>' +
-      '<div class="htabs">' +
-      '<button class="htab' + (store.homeTab === "study" ? " on" : "") + '" data-tab="study">📖 学习' + pyl("学习") + enl("学习") + '</button>' +
-      '<button class="htab' + (store.homeTab === "play" ? " on" : "") + '" data-tab="play">🎮 闯关' + pyl("闯关") + enl("闯关") + '</button></div>';
+      '<div class="hdoors">' + doorHtml("study") + doorHtml("play") + '</div>';
 
-    if (store.homeTab === "play") {
-      html += '<div class="section-label">' + stepNo(3) + '词语游乐场' + pyl("词语游乐场") + enl("词语游乐场") + '</div><div class="camps">' +
-        camp("rain", "🌧️", "词雨灵露", "词语化作灵雨落下，趁它落地前打出，收进宝缸得灵露") +
-        camp("sprint", "⛰️", "攀山快答", "90 秒登山冲刺 · 答对就攀升") +
-        camp("assemble", "🧩", "组字成词", "看释义点字，拼出词语") +
-        ((STREAM === "g3" || STREAM === "hcl") ? camp("handle", "🀄", "词语汉兜", "四字词语猜猜看 · 十二次机会") : "") + '</div>';
-    } else {
-      /* §2.1: the three answer-a-question modes (填空/华文/英文) live behind ONE
-         「学习挑战」 entry; their题型/题数/难度 settings open with it instead of
-         being spread across the home page. 词语闪卡 keeps its own card — different
-         interaction (看词认义/点读), not a question-answering mode. */
-      /* ⚠️ 词语闪卡 COMES FIRST (owner 2026-08-16 深夜: 「learn then test」). Reading
-         left to right, the card that TEACHES has to precede the one that TESTS —
-         a student who has not met the words yet should not have to skip past a
-         quiz to find the flashcards. Same order the pier already uses in ③
-         (词语闪卡 · 词语挑战 · 学以致用). */
-      html += '<div class="section-label">' + stepNo(3) + '今日路线 · 选择你的营地' + pyl("今日路线 · 选择你的营地") + enl("今日路线 · 选择你的营地") + '</div><div class="camps">' +
-        camp("flash", "📖", "词语闪卡", "看词认义，点读发音") +
-        camp("quiz", "✍️", "学习挑战", "填空 · 华文解释 · 英文翻译，题型和难度可选") + '</div>';
-    }
 
     /* ⚠️ ④ 结伴 IS GONE FROM THE FUNNEL (owner 2026-08-16 evening:「the room modes
        are very cluttered here … those won't be the regular features that students
@@ -1944,12 +2102,8 @@
       store.compOff = {};
       saveStore(); renderHome();
     };
-    Array.prototype.forEach.call(view().querySelectorAll(".htab[data-tab]"), function (btn) {
-      btn.onclick = function () {
-        var tab = btn.getAttribute("data-tab");
-        if (store.homeTab === tab) return;
-        store.homeTab = tab; saveStore(); renderHome();
-      };
+    Array.prototype.forEach.call(view().querySelectorAll(".hdoor[data-path]"), function (btn) {
+      btn.onclick = function () { renderPath(btn.getAttribute("data-path")); };
     });
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
@@ -1969,34 +2123,11 @@
     if (arenaPill) arenaPill.onclick = openArena;
     var pkPill = document.getElementById("pkPill");
     if (pkPill) pkPill.onclick = renderPkConfig;
-    Array.prototype.forEach.call(view().querySelectorAll(".camp[data-mode]"), function (btn) {
-      btn.onclick = function () {
-        if (!scopedWords().length) { alert(scopeEmptyMsg(false)); return; }
-        var mode = btn.getAttribute("data-mode");
-        if (mode === "quiz") return renderQuizConfig();       // §2.1: 题型/题数/难度 live in here
-        if (mode === "flash") return renderWordList("all");   // flashcards open the list-menu first
-        if (mode === "rain") return renderRainConfig();
-        if (mode === "sprint") return renderSprintConfig();
-        if (mode === "assemble") return startAssemble();
-        if (mode === "handle") return startHandle();
-        startMode(mode);
-      };
-    });
     updateScopeSum();
     /* 淡出邀请: only after a real round has been played this load, never on the
        boot render — a student who just opened the app has not "seen enough". */
     maybeEnFadePrompt();
 
-    /* desc is accepted but no longer rendered (owner 2026-08-14: strip the small
-       print under every title on the home page). Kept in the signature and in the
-       call sites so the one-line summary of each mode is still recorded next to
-       the mode it describes — the config screen each card opens shows its own
-       mode-desc, which is where a student actually needs the explanation. */
-    function camp(mode, icon, name, desc) {
-      return '<button class="camp" data-mode="' + mode + '" title="' + esc(desc) + '">' +
-        '<span class="flag">' + icon + '</span>' +
-        '<div><b>' + name + pyl(name) + enli(name) + '</b></div></button>';
-    }
     /* ⚠️ The folded 筛选 header restates the 板块 count, and the chips toggle by class
        flip rather than a re-render — so without this the header keeps saying 4/4
        after a chip is switched off, and the one fact folding must never hide goes
@@ -2787,9 +2918,9 @@
       '<div class="msg">词语看熟了，就去填空挑战里检验一下吧！</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再看一轮</button>' +
-      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
+      '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
     document.getElementById("again").onclick = function () { startMode("flash"); };
-    document.getElementById("home").onclick = renderHome;
+    document.getElementById("home").onclick = backToHub;
   }
 
   /* ---------- cloze with difficulty ladder ---------- */
@@ -2863,6 +2994,35 @@
   /* option-pinyin gate: the toggle AND the stream must both allow it */
   function optPy() { return store.pyAid && pyAidAvailable(); }
 
+  /* ---------- 内容拼音：常驻 DOM，靠 <body> 上的一个 class 开关 ----------
+     ⚠️ owner 2026-08-23：「we can remove the pinyin that appears after answering
+     when the pinyin toggle is off. the feedback for right/wrong ans should
+     respond to pinyin toggle too」。
+     病因是**输出的时候判断**：选项的拼音在画的那一刻问过 optPy()，
+     答案反馈干脆一次都没问过。学生答到一半把拼音关掉，已经画在屏幕上的东西
+     不会因为一个 store 字段变了就消失。
+     当时的补救是让每一块有拼音的屏幕注册 wirePyAidToggle(重画自己) ——
+     ⚠️ **那才是真正的毛病**：填空挑战 的那次重画会在学生**答完之后**跑，
+     把反馈、正确答案的高亮和 下一题 一起抹掉，一道答过的题看起来像没答过。
+     所以改成与 pyl()/.pylab 同一套契约：**永远输出，CSS 决定看不看得见**，
+     切换只是 <body> 上翻一个 class，谁也不必重画（见 qHtml() 与 wireDiff()）。
+
+     两个闸门，因为两处的「没有拼音」意思不一样：
+     · .py-gate —— 选项拼音，跟 body.py-aid（= 开关 且 该源流提供拼音）。
+     · .py-ans  —— 答案反馈里的拼音，跟 body.py-ans（= 开关 或 该源流根本没有开关）。
+       ⚠️ 后半句是为 HCL 留的：高级华文**没有拼音按钮**（pyAidAvailable() 为假），
+       用 py-aid 去关它等于替 owner 决定「HCL 从此看不到答案拼音」，
+       而 owner 要的是「跟着开关走」，不是「删掉」。HCL 的行为一个字节没变。 */
+  function pyAnsOn() { return !!store.pyAid || !pyAidAvailable(); }
+  /* 选项后面那一小串拼音 */
+  function optPyHtml(py) {
+    return py ? '<span class="py py-gate">' + esc(py) + '</span>' : "";
+  }
+  /* 答案反馈里的「（拼音）」，连括号一起进闸门——不然关掉之后会剩一对空括号 */
+  function ansPyHtml(py) {
+    return py ? '<span class="py-ans">（' + esc(py) + '）</span>' : "";
+  }
+
   /* D2b 句子/释义注音 (2026-08-13). zhPy/clozePy carry ONE syllable per CJK
      character: punctuation, Latin letters and the __ blank produce no token.
      So we walk the text and consume a syllable only on a CJK char.
@@ -2870,8 +3030,8 @@
      (older JSON, hand-edited sentence) — return null and let the caller fall
      back to plain text, because a one-off misalignment would put the wrong
      reading over every remaining character. HCL has no zhPy/clozePy by design,
-     so it falls back automatically. */
-  var CJK_RE = /[一-鿿]/;
+     so it falls back automatically.
+     ⚠️ CJK_RE moved to the top of the file (see there) — _formOf() needs it too. */
   function rubyText(text, py) {
     var t = String(text == null ? "" : text), i, need = 0;
     var syl = String(py || "").split(/\s+/).filter(Boolean);
@@ -2888,11 +3048,23 @@
     return out;
   }
   /* Question text, with 拼音 over the hanzi when 拼音辅助 is on. */
+  /* ⚠️ ruby is emitted whenever the data supports it — the TOGGLE is a CSS gate
+     (`body:not(.py-aid) rt{display:none}`), not a condition here (owner
+     2026-08-23). It used to be `optPy() && …`, and because the annotation only
+     appeared on a redraw, every screen showing a question had to register
+     `wirePyAidToggle(renderCloze)` to react. On 填空挑战 that redraw ran AFTER the
+     student had answered and **wiped the feedback, the revealed answer and 下一题**,
+     leaving an answered question looking unanswered. Gating in CSS removes the
+     redraw, and with it that whole class of bug.
+     ⚠️ rubyText() still returns null when the syllable count disagrees, so a
+     misaligned pinyin field falls back to plain text exactly as before. */
   function qHtml(text, py) {
-    return (optPy() && rubyText(text, py)) || esc(text);
+    return rubyText(text, py) || esc(text);
   }
   /* extra class for the annotated line-height — keyed on whether ruby is
-     actually present, so a fallback to plain text keeps the normal spacing */
+     actually present, so a fallback to plain text keeps the normal spacing.
+     ⚠️ The class is now present whether or not the toggle is on; the taller
+     line-height it asks for is itself gated on body.py-aid (see cs.css). */
   function qCls(html) { return html.indexOf("<ruby") >= 0 ? " has-py" : ""; }
   /* ================================================================
      英文提示 (EN aid) — DESIGN_english-toggle-fading-and-flow-numbering
@@ -2983,6 +3155,17 @@
     "板块": "Sections",
     "再来一局": "Play again",
     "回到营地": "Back to camp",
+    /* ⚠️ key 必须逐字等于屏幕上那串中文（§10）。「」不是汉字，音节数仍然是 4。
+       名字加角括号，是为了让 学习／闯关 读成一个专名而不是一句动作，见 hubLabelHtml()。 */
+    "回到「学习」": "Back to Learn", "回到「闯关」": "Back to Games",
+    /* 四座山自己的名字（owner 2026-08-23 拍板）。星 → 将 → 王 → 圣 这条阶梯在英文里
+       也走完：Star → Champ → King → Sage。⚠️ 这四条只在顶栏名牌上用得到，
+       但 EN_LAB 是全局表，别处要用同一个名字就取这里，不要另译一份。 */
+    "词星大冒险": "Adventure of the Vocab Star",
+    "词将竞技场": "Arena of the Vocab Champ",
+    "词王淬炼坊": "Forge of the Vocab King",
+    "词圣鸿文苑": "Court of the Vocab Sage",
+    "改范围": "Change scope",
     "连胜": "Win streak",
     "同伴挑战": "Duel a friend",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王": "Badge wall",
@@ -3101,6 +3284,11 @@
     "再来一次": "zài lái yī cì", "查看": "chá kàn", "关闭": "guān bì", "返回": "fǎn huí",
     "板块": "bǎn kuài", "连胜": "lián shèng",
     "再来一局": "zài lái yī jú", "回到营地": "huí dào yíng dì",
+    "回到「学习」": "huí dào xué xí", "回到「闯关」": "huí dào chuǎng guān",
+    /* ⚠️ 与 index.html 落地卡上那四串逐字相同（那是已经审过的）：改一处要改两处。 */
+    "词星大冒险": "cí xīng dà mào xiǎn", "词将竞技场": "cí jiàng jìng jì chǎng",
+    "词王淬炼坊": "cí wáng cuì liàn fáng", "词圣鸿文苑": "cí shèng hóng wén yuàn",
+    "改范围": "gǎi fàn wéi",
     "同伴挑战": "tóng bàn tiǎo zhàn",
     "成就墙 · 板块章 → 单元章 → 年级章 → 顶级词王":
       "chéng jiù qiáng · bǎn kuài zhāng → dān yuán zhāng → nián jí zhāng → dǐng jí cí wáng",
@@ -3180,7 +3368,10 @@
     var t = PY_LAB[key];
     return t ? '<span class="pylab">' + esc(t) + '</span>' : "";
   }
-  function applyPyAid() { document.body.classList.toggle("py-aid", !!store.pyAid && pyAidAvailable()); }
+  function applyPyAid() {
+    document.body.classList.toggle("py-aid", !!store.pyAid && pyAidAvailable());
+    document.body.classList.toggle("py-ans", pyAnsOn());   // 见 pyAnsOn() 上面那段
+  }
 
   /* block gloss, sits under the Chinese label */
   function enl(key) {
@@ -3416,7 +3607,10 @@
   function wireDiff(state) {
     // takes effect on the current question — mid-round switching stays allowed
     wireDiffSlider(function () { renderCloze(state); });
-    wirePyAidToggle(function () { renderCloze(state); });
+    /* ⚠️ NO wirePyAidToggle here any more. 拼音 is a CSS gate now (see qHtml),
+       so the toggle needs no redraw — and the redraw this line used to do was
+       destructive: toggling AFTER answering re-rendered the question and threw
+       away the feedback, the .right marking and the 下一题 button. */
   }
   /* E2: anti-mashing — briefly disable 下一题 after an MCQ answer so a mashed
      tap can't skip past the right-answer feedback. Sprint keeps its own 260ms
@@ -3486,7 +3680,7 @@
         opts.map(function (o, idx) {
           return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
             String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-            (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+            optPyHtml(o.py) + '</button>' +
             '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
         }).join("") + '</div>';
     }
@@ -3544,7 +3738,9 @@
         if (okAns) {
           done = true;
           fb.className = "feedback show ok";
-          fb.innerHTML = "✔ 正确！<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + tail;
+          /* ⚠️ 拼音输入模式例外：那一模式考的就是拼音，关掉等于不给答案。 */
+          fb.innerHTML = "✔ 正确！<b>" + esc(w.w) + "</b>" +
+            (pyMode ? "（" + esc(w.py) + "）" : ansPyHtml(w.py)) + tail;
           finish(true, ans.dataset.tried ? 2 : 1);
         } else {
           ans.classList.remove("shake"); void ans.offsetWidth; ans.classList.add("shake");
@@ -3554,7 +3750,8 @@
           setTimeout(function () {
             if (!fb.isConnected) return;
             fb.className = "feedback show bad";
-            fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + tail;
+            fb.innerHTML = "✘ 正确答案：<b>" + esc(w.w) + "</b>" +
+              (pyMode ? "（" + esc(w.py) + "）" : ansPyHtml(w.py)) + tail;
             sayAnswer(w);
             finish(false);
           }, 900);
@@ -3578,11 +3775,11 @@
               var o = state._opts[bi];
               if (o.id === w.id) {
                 b.classList.add("right");
-                if (!b.querySelector(".py")) b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+                if (!b.querySelector(".py")) b.innerHTML += optPyHtml(o.py);
               } else if (o === chosen) b.classList.add("wrong");
             });
             fb.className = "feedback show " + (right ? "ok" : "bad");
-            fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+            fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>" + ansPyHtml(w.py) + esc(w.zh);
             finish(right);
           }
           if (right) { reveal(); }
@@ -3616,7 +3813,7 @@
       opts.map(function (o, idx) {
         return '<div class="opt-row"><button class="opt" data-i="' + idx + '"><span class="letter">' +
           String.fromCharCode(65 + idx) + '</span>' + esc(o.w) +
-          (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          optPyHtml(o.py) + '</button>' +
           '<button class="opt-tts" data-i="' + idx + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("") + '</div>' +
       '<div class="feedback" id="fb"></div>' +
@@ -3663,11 +3860,11 @@
             var o = opts[bi];
             if (o.id === w.id) {
               b.classList.add("right");
-              if (!b.querySelector(".py")) b.innerHTML += '<span class="py">' + esc(o.py) + '</span>';
+              if (!b.querySelector(".py")) b.innerHTML += optPyHtml(o.py);
             } else if (o === chosen) b.classList.add("wrong");
           });
           fb.className = "feedback show " + (right ? "ok" : "bad");
-          fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" + esc(w.zh);
+          fb.innerHTML = (right ? "✔ 正确！" : "✘ 正确答案：") + "<b>" + esc(w.w) + "</b>" + ansPyHtml(w.py) + esc(w.zh);
           showGain(gained);
           document.getElementById("nextRow").style.display = "flex";
           var nx = document.getElementById("next");
@@ -3714,9 +3911,9 @@
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
-      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
+      '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
     document.getElementById("again").onclick = function () { startMode(state.mode); };
-    document.getElementById("home").onclick = renderHome;
+    document.getElementById("home").onclick = backToHub;
   }
 
   /* ---------- 年度试炼 (annual gym trial, meaning→word MCQ) ---------- */
@@ -3893,7 +4090,7 @@
       '<div class="diff-label">' + stepNo(2) + '每次题数' + pyl("每次题数") + enl("每次题数") + '</div>' +
       qtySlider("qlenSel", QUIZ_LENS, store.quizLen, function (n) { return n + " 题"; }) +
       (m === "cloze" ? diffSelector(3) : pyAidToggleHtml()) +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 ' + hubLabelHtml(true) + '</button>' +
       '<button class="nav-btn primary" id="go">开始挑战 ›' + pyl("开始挑战") + enli("开始挑战") + '</button></div></div>';
 
     Array.prototype.forEach.call(view().querySelectorAll("#qmodeSel .dopt"), function (b) {
@@ -3904,7 +4101,7 @@
     /* the difficulty slider only exists for 填空; re-render so the panel reflects the pick */
     wireDiffSlider(renderQuizConfig);
     wirePyAidToggle(renderQuizConfig);
-    document.getElementById("back").onclick = renderHome;
+    document.getElementById("back").onclick = backToHub;
     document.getElementById("go").onclick = function () { startMode(store.quizMode || "cloze"); };
   }
 
@@ -3926,13 +4123,13 @@
       pyl("本机最高分") + enl("本机最高分") + '</span>' +
       '<span class="rb-item">\u2764\ufe0f 生命 ' + RAIN_LIVES +
       pyl("生命") + enl("生命") + '</span></div>' +
-      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 ' + hubLabelHtml(true) + '</button>' +
       '<button class="nav-btn primary" id="go">开始游戏 \u203a' + pyl("开始游戏") + enli("开始游戏") + '</button></div></div>';
     var showPy = true;
     document.getElementById("pySel").onclick = function () {
       showPy = !showPy; this.classList.toggle("on", showPy);
     };
-    document.getElementById("back").onclick = renderHome;
+    document.getElementById("back").onclick = backToHub;
     document.getElementById("go").onclick = function () { startRain(showPy); };
   }
   /* roomCode: 同伴挑战 PK rooms pass it so it stays visible for the WHOLE session
@@ -4188,9 +4385,9 @@
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
-        '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
+        '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
       document.getElementById("again").onclick = function () { startRain(showPy, roomCode); };
-      document.getElementById("home").onclick = renderHome;
+      document.getElementById("home").onclick = backToHub;
     }
     document.getElementById("rFire").onclick = fire;
     input.addEventListener("compositionstart", function () { composing = true; });
@@ -4357,7 +4554,7 @@
       html += '<div class="feedback show ' + (state.won ? "ok" : "bad") + '">' +
         (state.won ? "🎉 猜对了！" : "答案是：") + "<b>" + esc(a.w) + "</b>（" + esc(a.py) + "）" + esc(a.zh) + '</div>' +
         '<div class="nav-row"><button class="nav-btn" id="hAgain">再来一局</button>' +
-        '<button class="nav-btn primary" id="hHome">回到营地</button></div>';
+        '<button class="nav-btn primary" id="hHome">' + hubLabelHtml() + '</button></div>';
     }
     html += '</div></div>';
     view().innerHTML = html;
@@ -4367,7 +4564,7 @@
     if (state.done) {
       speak(state.answer.w, state.answer.py);
       document.getElementById("hAgain").onclick = startHandle;
-      document.getElementById("hHome").onclick = renderHome;
+      document.getElementById("hHome").onclick = backToHub;
       return;
     }
     Array.prototype.forEach.call(view().querySelectorAll(".handle-hintchip.buy"), function (btn) {
@@ -4668,7 +4865,7 @@
             fb.className = "feedback show " + (wrongThis ? "bad" : "ok");
             var fbZh = wrongThis ? "完成！（中途点错过）" : "一次拼对！";
             fb.innerHTML = "✔ " + fbZh + pyl(fbZh) + enl(fbZh) +
-              "<b>" + esc(w.w) + "</b>（" + esc(w.py) + "）" +
+              "<b>" + esc(w.w) + "</b>" + ansPyHtml(w.py) +
               '<button class="tts sm" id="asmSay" style="margin-left:8px">🔊</button>';
             document.getElementById("asmSay").onclick = function () { speak(w.w, w.py); };
             document.getElementById("asmNextRow").style.display = "flex";
@@ -4702,9 +4899,9 @@
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
-      '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
+      '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
     document.getElementById("again").onclick = startAssemble;
-    document.getElementById("home").onclick = renderHome;
+    document.getElementById("home").onclick = backToHub;
   }
 
   /* ==================================================================
@@ -4898,7 +5095,7 @@
       '<div class="diff-label">' + stepNo(2) + '冲刺时长' + pyl("冲刺时长") + enl("冲刺时长") + '</div>' +
       qtySlider("secSel", SPRINT_OPTS, store.sprintSecs, secFmt) +
       pyAidToggleHtml() +
-      '<div class="nav-row"><button class="nav-btn" id="back">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button>' +
+      '<div class="nav-row"><button class="nav-btn" id="back">\u2039 ' + hubLabelHtml(true) + '</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›' + pyl("开始攀登") + enli("开始攀登") + '</button></div></div>';
     Array.prototype.forEach.call(view().querySelectorAll("#modeSel .dopt"), function (b) {
       b.onclick = function () {
@@ -4910,7 +5107,7 @@
     });
     wireQtySlider("secSel", SPRINT_OPTS, secFmt, function (n) { store.sprintSecs = n; saveStore(); });
     wirePyAidToggle(renderSprintConfig);
-    document.getElementById("back").onclick = renderHome;
+    document.getElementById("back").onclick = backToHub;
     document.getElementById("go").onclick = startSprint;
   }
   /* ---------- 屏幕方向提示 (HANDOFF_stream_page_layout §7) ----------
@@ -4982,7 +5179,8 @@
        the one option that survives a fresh draw. paintOpts is assigned inside
        askNext and repaints the CURRENT question's existing options. */
     var paintOpts = null;
-    wirePyAidToggle(function () { if (paintOpts) paintOpts(); });
+    /* 拼音 is a CSS gate now (see qHtml) — nothing to repaint. Registering a
+       redraw here would only risk the same answered-state loss 填空挑战 had. */
 
     wireOrientHint();
     var cv = document.getElementById("spCv");
@@ -5048,7 +5246,7 @@
       box.innerHTML = opts.map(function (o, i) {
         return '<div class="opt-row"><button class="sopt" data-i="' + i + '"><span class="letter">' +
           String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
-          (optPy() ? '<span class="py">' + esc(o.py) + '</span>' : '') + '</button>' +
+          optPyHtml(o.py) + '</button>' +
           '<button class="opt-tts" data-i="' + i + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
       }).join("");
       Array.prototype.forEach.call(box.querySelectorAll(".opt-tts"), function (b) {
@@ -5280,9 +5478,9 @@
         '<div class="msg">' + (isBest ? "🚩 个人新纪录！" : "我的海拔：" + altitudeNow() + " 米") + '</div>' +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
-        '<button class="nav-btn primary" id="home">回到营地' + pyl("回到营地") + enli("回到营地") + '</button></div></div>';
+        '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
       document.getElementById("again").onclick = startSprint;
-      document.getElementById("home").onclick = renderHome;
+      document.getElementById("home").onclick = backToHub;
       flushCelebrations();
     }
 
@@ -5468,7 +5666,11 @@
     store.homeTab = tab;
     store.accLevel = level;        // open that year, or the change is invisible
     saveStore();
-    renderHome();
+    /* ⚠️ 落在那扇门的活动页上，不是首页（owner 2026-08-23 把 ② 改成门之后）。
+       这两颗按钮的名字就是那两扇门的名字，把学生送回首页等于要他自己再点一次同一扇门。
+       ⚠️ 仍然**不替他挑玩法**（§18af）：门后面是活动卡，每一道守卫都还在前面。
+       ⚠️ 改过的范围看得见：活动页顶上那行摘要就是首页那一行的同一句话。 */
+    renderPath(tab);
     toast("复习范围已设为 " + level + " · " + unit);
   }
   /* the 单元 rows that now live inside a 关卡 card. Name, theme, and a mastered
@@ -6561,7 +6763,12 @@
       schoolSel: _cs ? (_csKnown ? _cs : "other") : _bvss,
       schoolOther: (_cs && !_csKnown) ? _cs : "",
       schoolQ: "",
+      /* 班级, students only. Carried in so 换昵称 from 我的档案 round-trips it
+         instead of handing save() an empty string and wiping the class. */
+      mtlClass: opts.currentClass || "",
       heardFrom: opts.currentHeard || "" };
+    var NP_CLASS = { pfx: "np", inputCls: "code-ta" };
+    if (window.BV_CLASSES) window.BV_CLASSES.syncField(st);
     /* Open ON a rolled name (owner 2026-08-15). The four chip steps are a real
        barrier for a student who just wants to start: 大类 → 描述词 → 名词大类 →
        名词 is four decisions before the app will let them in. The dice was always
@@ -6709,6 +6916,25 @@
             '</select>' +
             (sel === "other" ? '<input type="text" id="npSchoolOther" class="code-ta" style="height:44px;margin-top:8px" placeholder="' + otherPh + '" value="' + esc(st.schoolOther || "") + '">' : "");
         }
+        /* 班级 — asked HERE, and only of 学生 (owner 2026-08-23: 「ask students but
+           dropdown class only applies to bukit view students」). 我的档案 used to be
+           the only screen that asked, and most students never open it, so the
+           teacher page's 班级视图 was mostly blank. Bukit View gets the roster
+           dropdown (年级 chips → that level's classes); every other school gets the
+           text box, because we hold one school's list and guessing at another's
+           would be worse than letting the student type.
+           ⚠️ 选填, deliberately: the profile panel's own privacy note says 班级是选填,
+           and a first-run screen that refuses to let a student in over an optional
+           field costs more than an empty cell in a teacher's table. */
+        if (role === "student") {
+          var bvssPick = sel === _bvss && window.BV_CLASSES;
+          detailHtml += '<div class="pop-label" style="margin-top:12px">你的班级' +
+            np("你的班级", "nǐ de bān jí", "Your class") + ' · 选填' +
+            np("", "", "optional") + '</div>' +
+            (bvssPick
+              ? window.BV_CLASSES.fieldHtml(st, NP_CLASS)
+              : '<input type="text" id="npClass" class="code-ta" style="height:44px" placeholder="例如：2026 3HC3" value="' + esc(st.mtlClass || "") + '">');
+        }
         html = '<div class="pop-title">' + (st.restored ? "🔄 找回你的昵称" : "🎉 你的昵称") +
             (st.restored ? np("找回你的昵称", "zhǎo huí nǐ de nì chēng", "Your nickname is back")
                          : np("你的昵称", "nǐ de nì chēng", "Your nickname")) + '</div>' +
@@ -6825,8 +7051,14 @@
             st.schoolQ = q;
             if (v === st.schoolSel) return;
             var wasOther = st.schoolSel === "other";
+            var hadRoster = st.schoolSel === _bvss;
             st.schoolSel = v;
-            if (wasOther) renderStep();   // drop the free-text box now a school was found
+            /* Redraw on a roster flip as well as on 「离开其他」: 班级 is a different
+               control on either side of 百德, and leaving the old one on screen means
+               the student edits a box that is about to be replaced. Both cost the
+               search box its focus — a price already paid for wasOther, and a flip
+               only happens once the search has narrowed to a single school. */
+            if (wasOther || (st.schoolSel === _bvss) !== hadRoster) renderStep();
           });
         }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
@@ -6834,6 +7066,12 @@
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
+        if (st.schoolSel === _bvss && window.BV_CLASSES) {
+          window.BV_CLASSES.wireField(card, st, NP_CLASS, renderStep);
+        } else {
+          var clsEl = document.getElementById("npClass");
+          if (clsEl) clsEl.oninput = function () { st.mtlClass = clsEl.value; };
+        }
         document.getElementById("npManual").onclick = function () { st.step = "descCat"; renderStep(); };
         document.getElementById("npConfirm").onclick = function () {
           var role = st.role || "student";
@@ -6847,6 +7085,12 @@
               : st.schoolSel;
             if (st.schoolSel === "other" && !school) { alert("请输入学校名称 Please enter the school name。"); return; }
             profile = { nickname: nickOf(), category: role, school: school };
+            /* ⚠️ Sent for 学生 ONLY, and always — including "". Both class controls
+               keep st.mtlClass current, and save() normalises + owns classYear /
+               classHistory from here. Omitting it on a re-pick is what would silently
+               keep a stale class; sending "" for a non-student is what save() does
+               anyway (§class rules), so we simply do not set the key. */
+            if (role === "student") profile.mtlClass = st.mtlClass || "";
           }
           saveProfileLocal(profile);   // WSProfile.save merges onto prev (keeps mtlClass/classHistory)
           /* hand the code to the stream page: this file cannot decode the bitmask
@@ -6981,7 +7225,8 @@
       onChangeNickname: function (done) {
         var cur = loadProfile() || {};
         renderNicknamePicker(function () { if (done) done(); },
-          { dismissible: true, currentSchool: cur.school, currentRole: cur.category || "student", currentHeard: cur.heardFrom || "" });
+          { dismissible: true, currentSchool: cur.school, currentRole: cur.category || "student",
+            currentClass: cur.mtlClass || "", currentHeard: cur.heardFrom || "" });
       },
       onChanged: renderHome
     });

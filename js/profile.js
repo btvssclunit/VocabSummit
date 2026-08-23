@@ -264,6 +264,154 @@
     }
   };
 
+  /* ---------- 百德中学班级名单 (shared dropdown source) ----------
+     ⚠️ ONE school's roster, on purpose. 班级 used to be a free-text box, and what
+     came back was 「3hc3」「Sec 3 HC3」「3HC 3」「3hc3 2026」— every one of them a
+     different string, so the teacher page's 班级视图 grouped one class into four
+     rows and no back-end sort could order them. A <select> fixes the spelling; the
+     YEAR prefix stays in the VALUE (not just a label) because that is the format
+     save()/normClass() and teacher.html already store, byte for byte.
+
+     30 classes in one flat list is still too long to scroll on a phone, so the
+     field is TWO steps: 年级 chips (中一…中四) narrow it to 7–8 classes, then the
+     <select>. Same shape as the school field's search-box-plus-select, for the
+     same reason.
+
+     ⚠️ EDIT ONCE A YEAR: bump YEAR and fix the per-level lists to match the new
+     cohort. A stored class from an older year is NOT in this list — it falls to
+     「其他」with its text kept, which is exactly what the Jan-2 nudge wants. */
+  var BV_YEAR = "2026";
+  var BV_LEVELS = [
+    { k: "1", zh: "中一", py: "zhōng yī",  en: "Sec 1", list: ["1C1", "1C2A", "1C2B", "1C3A", "1C3B", "1C3C", "1HC3"] },
+    { k: "2", zh: "中二", py: "zhōng èr",  en: "Sec 2", list: ["2C1", "2C2A", "2C2B", "2C3A", "2C3B", "2C3C", "2C3D", "2HC3"] },
+    { k: "3", zh: "中三", py: "zhōng sān", en: "Sec 3", list: ["3C1A", "3C1B", "3C2A", "3C2B", "3C3A", "3C3B", "3C3C", "3HC3"] },
+    { k: "4", zh: "中四", py: "zhōng sì",  en: "Sec 4", list: ["4C1", "4C2A", "4C2B", "4C3A", "4C3B", "4C3C", "4HC3"] }
+  ];
+  window.BV_CLASSES = {
+    YEAR: BV_YEAR,
+    LEVELS: BV_LEVELS,
+    /* Full stored values for one level, e.g. "3" -> ["2026 3C1A", …]. */
+    classesFor: function (lv) {
+      for (var i = 0; i < BV_LEVELS.length; i++) {
+        if (BV_LEVELS[i].k === String(lv)) {
+          return BV_LEVELS[i].list.map(function (c) { return BV_YEAR + " " + c; });
+        }
+      }
+      return [];
+    },
+    /* Is `v` one of this year's listed classes? Compared against the NORMALISED
+       value (uppercase, single space) so a profile stored before this dropdown
+       existed still matches if the student happened to type it correctly. */
+    isKnown: function (v) {
+      var n = normClass(v);
+      if (!n) return false;
+      for (var i = 0; i < BV_LEVELS.length; i++) {
+        if (this.classesFor(BV_LEVELS[i].k).indexOf(n) !== -1) return true;
+      }
+      return false;
+    },
+    /* Which 年级 chip a stored value belongs under — the digit right after the
+       year, so "2025 3HC3" (an old class we no longer list) still opens on 中三
+       instead of leaving the student staring at four unselected chips. */
+    levelOf: function (v) {
+      var m = normClass(v).match(/^\d{4}\s+(\d)/);
+      return m && m[1] >= "1" && m[1] <= "4" ? m[1] : "";
+    },
+    /* <option>s for one level. `sel` is the stored value, or "other". */
+    optionsHtml: function (lv, sel) {
+      var list = this.classesFor(lv);
+      var known = list.indexOf(normClass(sel)) !== -1;
+      var out = "";
+      if (!known && sel !== "other") out += '<option value="" selected>请选择班级 Select class…</option>';
+      for (var i = 0; i < list.length; i++) {
+        out += '<option value="' + esc(list[i]) + '"' +
+          (normClass(sel) === list[i] ? " selected" : "") + '>' + esc(list[i]) + '</option>';
+      }
+      out += '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>';
+      return out;
+    },
+
+    /* ---- the control itself, drawn ONCE and used in two places ----
+       `我的档案` and the registration picker both need this two-step field, and
+       the picker itself already exists twice (nickname.js on the landing page and
+       at the pier, cs.js on a stream page — the copy predates this and is §18r's
+       problem, not ours). Hand-writing the markup at each site would make FOUR
+       copies of one control; this is one.
+
+       `st` is any object with { classLevel, classPick, mtlClass } — the panel's
+       draft and the picker's state both qualify. syncField() derives the first
+       two from the third, which is the only field that is ever stored.
+       `o` = { pfx, inputCls }: pfx namespaces the three element ids so a panel
+       and a picker could coexist; inputCls is the host's own text-input class,
+       because the registration screen and the profile panel style theirs
+       differently and neither one is wrong. */
+    syncField: function (st) {
+      st.classLevel = this.levelOf(st.mtlClass);
+      st.classPick = this.isKnown(st.mtlClass) ? normClass(st.mtlClass)
+        : (st.mtlClass ? "other" : "");
+    },
+    fieldHtml: function (st, o) {
+      o = o || {};
+      var pfx = o.pfx || "bvc", inputCls = o.inputCls || "prof-input";
+      var gloss = window.WSProfile && window.WSProfile.gloss
+        ? window.WSProfile.gloss : function () { return ""; };
+      var lv = st.classLevel;
+      var chips = BV_LEVELS.map(function (L) {
+        return '<button type="button" class="prof-chip' + (lv === L.k ? " on" : "") +
+          '" data-lv="' + L.k + '">' + L.zh + gloss(L.zh, L.py, L.en) + '</button>';
+      }).join("");
+      return '<div class="prof-chips">' + chips + '</div>' +
+        /* No level yet: the hint, UNLESS 其他 is already in play — a stored class
+           whose level digit we cannot read (an old free-typed 「Sec 3 HC3」) lands
+           here with its text in the box below, and telling that student to pick a
+           level before choosing a class describes a box they are already past. */
+        (lv
+          ? '<select class="np-select" id="' + pfx + 'ClassSel" style="margin-top:8px">' +
+              this.optionsHtml(lv, st.classPick) + '</select>'
+          : (st.classPick === "other" ? ""
+              : '<div class="pop-note" style="margin-top:8px">先点上面的年级，再选班级。' +
+                  gloss("", "", "Choose your level first, then your class.") + '</div>')) +
+        (st.classPick === "other"
+          ? '<input type="text" class="' + inputCls + '" id="' + pfx + 'ClassOther" style="margin-top:8px" placeholder="例如：' +
+              esc(BV_YEAR) + ' 3HC3" value="' + esc(st.mtlClass) + '">'
+          : "");
+    },
+    /* Wire what fieldHtml drew. `redraw` is the host's own re-render — every
+       branch here changes which controls exist, so there is nothing to update
+       in place. */
+    wireField: function (root, st, o, redraw) {
+      o = o || {};
+      var pfx = o.pfx || "bvc", self = this;
+      Array.prototype.forEach.call(root.querySelectorAll(".prof-chip[data-lv]"), function (b) {
+        b.onclick = function () {
+          var k = b.getAttribute("data-lv");
+          if (st.classLevel === k) return;
+          st.classLevel = k;
+          /* A level change abandons the class chosen under the old one. Keeping
+             「2026 1C1」selected while the chips say 中三 is precisely the silent
+             mismatch this two-step exists to remove. 其他 survives — the text in
+             the box is the student's own and no level chip invalidates it. */
+          if (st.classPick !== "other") { st.classPick = ""; st.mtlClass = ""; }
+          redraw();
+        };
+      });
+      var selEl = root.querySelector("#" + pfx + "ClassSel");
+      if (selEl) selEl.onchange = function () {
+        st.classPick = selEl.value;
+        if (st.classPick === "other") {
+          // was a listed class → start the free-text box empty rather than
+          // pre-filled with the class they just said was not theirs
+          if (self.isKnown(st.mtlClass)) st.mtlClass = "";
+        } else {
+          st.mtlClass = selEl.value;                 // "" (please-select) or a listed class
+        }
+        redraw();
+      };
+      var otherEl = root.querySelector("#" + pfx + "ClassOther");
+      if (otherEl) otherEl.oninput = function () { st.mtlClass = otherEl.value; };
+    }
+  };
+
   /* ---------- 头像目录 (DESIGN_头像与档案页.md) ----------
      16 avatars: 4 神兽 + 12 生肖. `avatarId` is a plain profile field (no
      year/history bookkeeping like mtlClass) — save()'s generic merge-onto-prev
@@ -1823,6 +1971,22 @@
     draft.schoolPick = draft.school
       ? ((window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(draft.school)) ? draft.school : "other")
       : "";
+    /* The 班级 roster is Bukit View's only (BV_CLASSES), so the field has two
+       shapes: 年级 chips + <select> for a BVSS student, the old free-text box for
+       everyone else. draft.classLevel / draft.classPick drive the first shape;
+       draft.mtlClass stays the single value that is saved either way. */
+    function rosterOn() {
+      return !!(window.BV_CLASSES && window.SG_SCHOOLS && draft.school === window.SG_SCHOOLS.BVSS);
+    }
+    /* Rebuild the two-step state from draft.mtlClass. Called on open and whenever
+       the school changes — a student who switches away from (or onto) BVSS must
+       not keep a level chip that no longer describes anything. */
+    var CLASS_FIELD = { pfx: "prof", inputCls: "prof-input" };
+    function syncClassDraft() {
+      if (window.BV_CLASSES) window.BV_CLASSES.syncField(draft);
+      else { draft.classLevel = ""; draft.classPick = draft.mtlClass ? "other" : ""; }
+    }
+    syncClassDraft();
 
     function progressHtml() {
       var rows = ["g1", "g2", "g3", "hcl"].map(function (k) {
@@ -1947,6 +2111,30 @@
       });
     }
 
+    /* 班级. Two shapes, one saved value (draft.mtlClass):
+       · BVSS → 年级 chips then a <select> of that level's 7–8 classes, so the
+         string that lands in the profile is always one of the 30 real class
+         names, spelled one way. 「其他」keeps the free-text escape for a class
+         that is not on this year's list (an old year's class arrives here too,
+         with its text intact, which is the nudge the Jan-2 prompt wants).
+       · any other school → the free-text box, unchanged. We hold one school's
+         roster; guessing at another school's class names would be worse than
+         letting the student type. */
+    function classFieldHtml() {
+      if (!rosterOn()) {
+        return '<div class="pop-label" style="font-weight:500">班级' +
+            fbGloss("班级", "bān jí", "Class \u2014 write the year first, e.g. 2026 3HC3") +
+            ' · 请填「年份 + 班级」</div>' +
+          '<input type="text" class="prof-input" id="profClass" placeholder="例如：2026 3HC3" value="' + esc(draft.mtlClass) + '">' +
+          '<div class="pop-note">写上年份，升班后即使忘了更新，老师也能看出是哪一年的班级。</div>';
+      }
+      return '<div class="pop-label" style="font-weight:500">班级' +
+          fbGloss("班级", "bān jí", "Class \u2014 pick your level, then your class") +
+          ' · 先选年级' + (draft.mtlClass ? '，当前：' + esc(draft.mtlClass) : "") + '</div>' +
+        window.BV_CLASSES.fieldHtml(draft, CLASS_FIELD) +
+        '<div class="pop-note">名单是 ' + esc(window.BV_CLASSES.YEAR) + ' 年的班级；不在名单上就选「其他」自己填。</div>';
+    }
+
     function render() {
       var cat = draft.category;
       var catChips = ["student", "teacher", "parent", "public"].map(function (k) {
@@ -2002,11 +2190,7 @@
             ' · 当前：' + esc(catShown) + '</div>' +
           '<div class="prof-chips">' + catChips + '</div>' +
           '<div id="profClassWrap"' + (cat === "student" ? "" : ' style="display:none"') + '>' +
-            '<div class="pop-label" style="font-weight:500">班级' +
-              fbGloss("班级", "bān jí", "Class \u2014 write the year first, e.g. 2026 3HC3") +
-              ' · 请填「年份 + 班级」</div>' +
-            '<input type="text" class="prof-input" id="profClass" placeholder="例如：2026 3HC3" value="' + esc(draft.mtlClass) + '">' +
-            '<div class="pop-note">写上年份，升班后即使忘了更新，老师也能看出是哪一年的班级。</div>' +
+            classFieldHtml() +
           '</div>' +
           '<div class="feedback" id="profSaveFb"></div>' +
           '<div class="nav-row"><button class="nav-btn primary" id="profSave">保存' +
@@ -2066,6 +2250,7 @@
           draft.school = prof.school || draft.school;
           draft.category = prof.category || draft.category;
           draft.mtlClass = (prof.category === "student") ? (prof.mtlClass || draft.mtlClass) : "";
+          syncClassDraft();                 // the picker may have changed the school too
           render();
         });
       };
@@ -2094,9 +2279,17 @@
           draft.schoolQ = q;
           if (v === draft.schoolPick) return;
           var wasOther = draft.schoolPick === "other";
+          var hadRoster = rosterOn();
           draft.schoolPick = v;
           if (v !== "other") draft.school = v;
-          if (wasOther) render();   // the free-text box has to go now a school was found
+          syncClassDraft();
+          /* Re-render on a roster flip as well as on wasOther: the 班级 field is a
+             different control on either side of BVSS, and leaving the old one on
+             screen means the student edits a box that is about to be replaced.
+             Both cases cost the search box its focus — the price was already
+             accepted for wasOther, and a flip only happens once the search has
+             narrowed to a single school, which is the end of typing anyway. */
+          if (wasOther || rosterOn() !== hadRoster) render();
         });
       }
       if (schoolEl) schoolEl.onchange = function () {
@@ -2106,17 +2299,19 @@
         } else if (window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(draft.school)) {
           draft.school = "";                          // was a listed school → start the text box empty
         }
+        syncClassDraft();                             // the 班级 field may have just changed shape
         render();
       };
       var schoolOtherEl = ov.querySelector("#profSchoolOther");
       if (schoolOtherEl) schoolOtherEl.oninput = function () { draft.school = schoolOtherEl.value; };
       var classEl = ov.querySelector("#profClass");
       if (classEl) classEl.oninput = function () { draft.mtlClass = classEl.value; };
+      if (rosterOn()) window.BV_CLASSES.wireField(ov, draft, CLASS_FIELD, render);
 
       Array.prototype.forEach.call(ov.querySelectorAll(".prof-chip[data-cat]"), function (b) {
         b.onclick = function () {
           draft.category = b.getAttribute("data-cat");
-          if (draft.category !== "student") draft.mtlClass = "";   // spec: clear class off-student
+          if (draft.category !== "student") { draft.mtlClass = ""; syncClassDraft(); }   // spec: clear class off-student
           render();
         };
       });
@@ -2124,7 +2319,8 @@
       ov.querySelector("#profSave").onclick = function () {
         var fb = ov.querySelector("#profSaveFb");
         prof = save({ school: (draft.school || "").trim(), category: draft.category, mtlClass: draft.mtlClass });
-        draft.mtlClass = prof.mtlClass || "";
+        draft.mtlClass = prof.mtlClass || "";        // save() normalises (uppercase, one space)
+        syncClassDraft();
         fb.className = "feedback show ok"; fb.textContent = "已保存 ✓";
         if (opts.onChanged) opts.onChanged();
       };

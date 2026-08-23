@@ -100,8 +100,21 @@ img{max-width:100%}
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   box-shadow:var(--glass-edge),0 2px 8px rgba(23,58,90,.14);
   color:#3A5A70;font-size:16px;flex:none}
-.topbar .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em}
-.topbar .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em}
+/* ⚠️ 学段名永远是一行（owner 2026-08-23：「the subject level is way too narrow and
+   tall」）。这块名牌是 flex 行里唯一可缩的东西（右边四颗控件 flex:none），所以在手机上
+   它被压到 32px 宽，五个字**一个字一行**竖着排下来，顶栏高 394px——比内容还高。
+   ⚠️ nowrap + ellipsis 是兜底，不是修法：真正的修法是下面那两档 media query 把
+   副标与几个词标签让出去。兜底留着，是因为下一个被加进顶栏的控件会再抢一次宽度，
+   而那时候的正确行为是**名字被截断**，不是名字变成一根竖条。 */
+.topbar .tb-name{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.06em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .tb-sub{font-size:11.5px;color:var(--ink-soft);letter-spacing:.06em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ⚠️ 名牌上的拼音与英文同样一行到底。它们是 flex column 的子项，一旦可以换行，
+   这块名牌的 min-content 宽度就掉到一个字，右边四颗控件会把它压成一根竖条——
+   码头上试过一次，量出来是 22px 宽、118px 高。 */
+.topbar .tb-id .pylab,.topbar .tb-id .enlab{white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin:0}
 .topbar .tb-right{margin-left:auto;font-size:12.5px;color:var(--ink-soft);
   display:flex;align-items:center;flex:none;min-width:0}
 .wrapper{max-width:1200px;margin:0 auto;padding:18px 22px 70px}
@@ -192,11 +205,91 @@ img{max-width:100%}
 
 .home-search{padding:10px 12px;margin-bottom:16px}
 /* .hs-* (in-stream search card) removed 2026-08-16 — one 查词 pill in the topbar now */
-.htabs{display:flex;gap:10px;margin-bottom:14px}
-.htab{flex:1;border:1px solid #B9CEDD;border-radius:14px;padding:12px 10px;font-size:16px;font-weight:700;
-  color:var(--ink-soft);background:#fff;cursor:pointer;transition:transform .12s}
-.htab:active{transform:scale(.985)}
-.htab.on{background:var(--gold);border-color:var(--gold);color:#3A2A08;box-shadow:0 4px 14px rgba(227,166,60,.35)}
+/* ---------- ② 的两扇门 (owner 2026-08-23) ----------
+   .htabs/.htab（一对切换标签）已删除，不是改样式：它们的「选中态」正是学生把 ②
+   读成切换的原因，留着那套 class 会让下一个画面顺手把它捡回去。
+   ⚠️ 门是玻璃卡不是金色药丸：金色在这套设计里表示「你选中了它」（.unit.on ·
+   .prof-chip.on · 榜单上自己那一行），一扇门不该长成一个已选中的东西。
+   金色只留给 › ——那是「这里通往别处」的记号。 */
+.hdoors{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media (max-width:420px){.hdoors{grid-template-columns:1fr}}
+/* ⚠️ 门与它后面那一页的活动卡是**同一种材质**：`--card` 92% 配 `--card-line`，
+   和 .camp 逐字相同。第一版给门做了一层 74% 的玻璃渐变，结果同一条动线上两级
+   长得不一样，而且压在 ambience 照片上偏灰。92% 是这个平台「卡片」的既定值。 */
+.hdoor{display:flex;align-items:center;gap:clamp(10px,1.1vw,16px);width:100%;text-align:left;
+  min-width:0;padding:clamp(14px,1.7vw,24px) clamp(14px,1.5vw,20px);border-radius:18px;cursor:pointer;
+  background:var(--card);border:1px solid var(--card-line);
+  box-shadow:0 6px 20px rgba(23,58,90,.14);transition:transform .12s ease}
+.hdoor:hover{transform:translateY(-2px)}
+.hdoor:active{transform:scale(.985)}
+/* ⚠️ 图标是**按视口缩放的**（owner 2026-08-23:「the emojis can be much bigger to
+   illustrate its function and also have the panes respond dynamically to screen
+   size」）。写死 46px 的方块在 1440 的笔电上和在 390 的手机上一样大，于是笔电上一整片
+   空地配一颗小图标。⚠️ clamp 的下限保护手机，上限保护它不会在投影仪上变成一张海报。
+   ⚠️ 宽高必须同一个 clamp：只写宽度，图标格子会被 place-items 拉成椭圆。 */
+/* ⚠️ 门坐在**一条窄栏里**，不是整页上：clamp 的上限因此比门后那一页的活动卡小得多。
+   第一版给它 4.4vw（1280 上 56px），码头那条更窄的鲁上就把「学习」挤成 学／习 两行。
+   真正大的图标在门后面那一页（.path-wrap .camp .flag），那里才有整页宽度。 */
+.hd-ic{width:clamp(44px,3.2vw,58px);height:clamp(44px,3.2vw,58px);flex:none;border-radius:16px;
+  display:grid;place-items:center;font-size:clamp(23px,1.9vw,31px);
+  background:#FDF3DC;border:1px solid #EFD9A4}
+/* ⚠️ min-width:0 —— 门是 grid 子项里的 flex 子项，两层默认都不肯缩（§14），
+   开着英文注解的 闯关 会把两栏挤成不等宽。 */
+.hd-t{min-width:0;flex:1 1 auto}
+/* ⚠️ 门的名字**永远一行**：学习／闯关 各两个字，一旦允许换行，窄栏里就是 学／习
+   竖着排——与顶栏名牌那根竖条是同一个病（§14 flex 子项不肯缩）。 */
+.hd-t b{display:block;font-family:var(--serif);font-weight:900;font-size:clamp(19px,1.4vw,24px);
+  line-height:1.25;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hd-go{flex:none;font-size:clamp(20px,1.8vw,26px);font-weight:700;color:var(--gold-ink)}
+
+/* ---------- 门后面那一页 ---------- */
+/* ⚠️ 单栏并且有宽度上限：首页是「我要做什么 ‖ 我走到哪了」两栏，这一页只有一个
+   决定，摊到 1400px 宽会让两张卡长得像两条横杠。 */
+.path-wrap{max-width:min(980px,94vw);margin:0 auto;padding-top:clamp(0px,3vh,36px)}
+/* ⚠️ 大屏上这一页要**居中站着**，不是吊在顶上。它只有一个标题加两到四张卡，
+   而笔电上那是三分之一屏内容配三分之二屏空地——读起来像页面没加载完。
+   ⚠️ 只在又宽又高的视口上开：手机与矮横屏（≤700px 高）要的是内容立刻在手边，
+   min-height 会把它推到折线以下。 */
+@media (min-width:900px) and (min-height:700px){
+  .path-wrap{min-height:calc(100vh - 215px);display:flex;flex-direction:column;
+    justify-content:center;padding-bottom:clamp(0px,4vh,48px)}
+  /* ⚠️ 药丸在 flex column 里会被拉成一整条横杠：column 的默认 align-items 是
+     stretch，而 .section-label 的 inline-block 挡不住它（§14，guide.html 的
+     .num 药丸踩过同一条）。 */
+  .path-wrap>.section-label{align-self:flex-start}
+}
+.path-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.path-ic{font-size:30px;line-height:1}
+.path-t{min-width:0}
+.path-t b{display:block;font-family:var(--serif);font-weight:900;font-size:26px;line-height:1.2;color:var(--ink);
+  text-shadow:0 1px 0 rgba(255,255,255,.75)}
+/* ⚠️ 这一行压在 ambience 照片上，所以它必须是**玻璃上的深墨字**，不是带阴影的裸字
+   （§7）。同一条规矩把 .section-label 做成药丸。 */
+.path-scope{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:8px 14px;border-radius:999px;cursor:pointer;
+  background:rgba(255,255,255,.80);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-edge),0 3px 12px rgba(23,58,90,.14)}
+.ps-sum{font-size:13px;font-weight:700;color:var(--ink)}
+/* 共 0 词 是这一页最该被看见的一句话：每一张卡按下去都会弹一个「范围是空的」。 */
+.ps-sum.zero{color:#A6431F}
+.ps-go{font-size:13px;font-weight:800;color:var(--gold-ink)}
+/* 卡片在这一页要大，而且**跟着屏幕长**：这里只有两到四张，它们是整页唯一的动作，
+   而这一页在笔电上有大半屏是空的（owner 2026-08-23）。图标按视口缩放，卡片内距也是。
+   ⚠️ 仍然是 auto-fit + minmax：学习 两张、闯关 三到四张（G3/HCL 有 词语汉兜），
+   列数写死就会在某一个学段上落单。 */
+/* ⚠️ 两列，写死（owner 2026-08-23:「make them all a grid of 2 columns」）。
+   auto-fit 会按宽度装：闯关 在 1440 上排成三列一行，与 学习 那两张卡不是同一个版面，
+   而它们是同一条动线上的同一层。三个玩法的学段因此是 2 + 1，最后一张落在左边——
+   这是 owner 选的取舍，不是溢出。 */
+.path-wrap .camps{grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:clamp(12px,1.4vw,20px)}
+@media (max-width:560px){.path-wrap .camps{grid-template-columns:1fr}}
+.path-wrap .camp{padding:clamp(16px,2vw,28px) clamp(14px,1.5vw,20px);
+  gap:clamp(11px,1.2vw,18px);min-height:clamp(92px,16vh,168px)}
+.path-wrap .camp .flag{width:clamp(52px,5.2vw,82px);height:clamp(52px,5.2vw,82px);
+  font-size:clamp(26px,2.9vw,44px);border-radius:16px}
+.path-wrap .camp b{font-size:clamp(17px,1.3vw,22px)}
 
 /* Games sit in ONE row (owner 2026-08-14). auto-fit + a min track means 3 or 4
    cards share the row on a PLD and wrap gracefully on a phone, without the count
@@ -294,10 +387,16 @@ body.en-aid .streak .enlab.i,body.en-aid .rail-pts .enlab.i,body.en-aid .comp-la
 .q-text{font-size:24px;line-height:1.85}
 .q-text u{text-decoration:none;border-bottom:3px solid var(--gold);padding:0 26px}
 /* D2b 拼音辅助 · 句子/释义注音。<rt> needs vertical headroom or the reading
-   clips into the line above, so the annotated line-height is raised. Sits on
-   .has-py (added only when the toggle is on) so the un-annotated layout is
-   byte-for-byte what it was. */
-.q-text.has-py,.sq-prompt.has-py{line-height:2.5}
+   clips into the line above, so the annotated line-height is raised.
+   ⚠️ owner 2026-08-23：注音现在**永远画进 DOM**，看不看得见由这里决定。
+   以前是 qHtml() 在输出时判断，于是切换拼音必须**重画整道题**——而 填空挑战
+   那次重画发生在学生答完之后，把反馈、正确答案的高亮和 下一题 一起抹掉了。
+   .has-py 因此也变成常驻，它要的那个行高才是跟着开关走的那一半：
+   关掉时行高必须退回 1.85，不然会留下一条为看不见的注音撑开的空行。 */
+.q-text.has-py,.sq-prompt.has-py{line-height:1.85}
+body.py-aid .q-text.has-py,body.py-aid .sq-prompt.has-py{line-height:2.5}
+/* ⚠️ ruby 只由 rubyText() 产生（qHtml 是唯一调用点），所以这条全局规则不会误伤别处。 */
+body:not(.py-aid) rt{display:none}
 /* a syllable is wider than the hanzi it sits on, so neighbouring readings run
    together without a little side room (…为提供 -> weitígōng). */
 ruby{ruby-align:center;margin:0 .07em}
@@ -312,6 +411,17 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
 .opt:hover{transform:translateY(-1px);border-color:var(--sea1)}
 .opt .letter{width:29px;height:29px;border-radius:50%;background:#EAF2F8;color:#3A5A70;font-size:13.5px;display:grid;place-items:center;flex:none;font-weight:700}
 .opt .py{font-size:13px;color:var(--ink-soft);margin-left:10px}
+/* ---- 内容拼音的两个闸门（owner 2026-08-23，见 cs.js 的 pyAnsOn()）----
+   在这之前，选项拼音是在**输出的时候**用 JS 判断的，答案反馈根本没判断：
+   学生答到一半关掉拼音，屏幕上已经画好的那些照旧带着拼音。
+   现在两处都永远输出，看不看得见由这里决定——切换只是 <body> 上翻一个 class，
+   一道正在作答的题因此**不必重画**（重画就是泄题）。
+   ⚠️ 两个闸门不能合并：.py-ans 在 HCL 上是开的（高级华文没有拼音按钮，
+   合并会静默拿掉 HCL 的答案拼音，那不是 owner 要的）。 */
+.py-gate{display:none}
+body.py-aid .py-gate{display:inline}
+.py-ans{display:none}
+body.py-ans .py-ans{display:inline}
 .opt.right{background:#E8F3EC;border-color:var(--ok);color:#25513A}
 .opt.right .letter{background:var(--ok);color:#fff}
 .opt.wrong{background:#F9ECE9;border-color:var(--bad);color:#7A3228}
@@ -940,7 +1050,7 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
    English gloss only 2.80:1 — under the 4.5:1 minimum for text this small. */
 body.py-aid .pylab{display:block;font-family:var(--sans);font-size:11.5px;line-height:1.35;
   color:#6A5A21;letter-spacing:.01em;font-weight:600;margin-top:1px}
-body.py-aid .unit.on .pylab,body.py-aid .htab.on .pylab,
+body.py-aid .unit.on .pylab,
 body.py-aid .nav-btn.primary .pylab,body.py-aid .dopt.on .pylab,
 body.py-aid .tb-en.on .pylab,body.py-aid .tb-py.on .pylab{color:#553F06}
 body.py-aid .camp .go .pylab{color:var(--gold-deep);text-align:right}
@@ -977,7 +1087,7 @@ body.py-aid .tts-lab .pylab,body.en-aid .tts-lab .enlab{
    ran the English up against the pinyin. */
 body.en-aid .tts-lab .enlab.i{display:block;margin:1px 0 0}
 /* on gold/selected surfaces the soft grey loses contrast */
-.unit.on .enlab,.htab.on .enlab,.nav-btn.primary .enlab,
+.unit.on .enlab,.nav-btn.primary .enlab,
 /* the landing page's gold hero button (owner 2026-08-17) */
 .lp-enter-btn .enlab,
 .tb-en.on .enlab,.tb-py.on .enlab,.dopt.on .enlab,
@@ -1038,6 +1148,28 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
   /* narrow: keep both toggles but drop their word labels, never the buttons */
   .tb-py .tb-py-lab{display:none}
   .tb-py{padding:0 12px}
+}
+/* ⚠️ 手机：四颗控件 + 一块名牌塞不进 390px，所以**副标先让位，名字最后让**
+   （owner 2026-08-22 的条件就是学段名要留得住）。让出来的顺序是量出来的，不是估的：
+   副标（最长的一行，且它说的是「哪一层」而不是「哪一座山」）→ 查词 的词标签
+   （🔎 自己就是那个词）→ 一点点字号与内距。**一颗按钮都没有被藏起来。** */
+@media (max-width:620px){
+  .topbar{gap:8px;padding:10px 12px;min-height:52px}
+  /* ⚠️ 手机上名牌只留**中文名 + 学段标签**：学段标签是 owner 明说要留的那一条
+     （「keep the G1/2/3/HCL label」），而拼音与英文在这块**身份**牌上是装饰——
+     它们该在的地方是按钮与题目，那里一个都没关。
+     ⚠️ (0,4,0) 压得过 body.py-aid .pylab 的 (0,2,0)，与文件顺序无关。 */
+  body.py-aid .topbar .tb-id .pylab,body.en-aid .topbar .tb-id .enlab{display:none}
+  .topbar .tb-name{font-size:16px;letter-spacing:.02em}
+  .topbar .tb-id{padding:5px 11px}
+  #tbFind .tb-en-lab{display:none}
+  #tbFind{padding:0 10px}
+  .tb-en,.tb-py,.tb-profile{height:38px}
+}
+@media (max-width:400px){
+  .topbar{gap:6px;padding:10px}
+  .topbar .tb-name{font-size:15px}
+  .tb-en,.tb-py{padding:0 9px}
 }
 /* ---------- 动线编号 (决定四) ----------
    Permanent, small, and ONLY on genuinely multi-step decision flows. Never on
@@ -2216,7 +2348,8 @@ button.m2pill{cursor:pointer}
 
 /* ---------- 成就墙 tabs (2026-08-14) ----------
    The 对战 block used to sit ~5,700px down a single scrolling wall, which is
-   exactly why the owner could not find it. Two tabs, same pattern as .htab. */
+   exactly why the owner could not find it. Two tabs, one row, same shape as the
+   pier's .xh-tab pair. */
 .ach-tabs{display:flex;gap:8px;margin:0 0 12px}
 .ach-tab{flex:1;border:1px solid var(--glass-line);border-radius:14px;padding:11px 10px;
   font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;touch-action:manipulation;
@@ -2482,6 +2615,7 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
   .pop-card{background:rgba(255,255,255,.97)}
   .tb-profile,.tb-en,.tb-py,.topbar .back,.prof-x{background:rgba(255,255,255,.94)}
   .dopt,.nav-btn,.prof-chip,.ach-tab{background:rgba(255,255,255,.9)}
+  .path-scope{background:rgba(255,255,255,.93)}
   .section-label,.mtn2-tip{background:rgba(255,255,255,.95)}
   .prof-input,.np-select,.code-ta,.prof-uid,.prof-prog div{background:rgba(255,255,255,.88)}
   .dopt.on{background:#E3EEF7}
