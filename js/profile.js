@@ -2059,27 +2059,39 @@
        ⚠️ The textarea starts as a placeholder and is filled by fillCodeOut() when the
        word orders arrive: the code cannot be built synchronously any more because it is
        positional over five published files. A stale-render guard lives in that function. */
+    /* ⚠️ 进度码收进折叠区（owner 2026-08-23）。两段码不是重复，是**两条失败方式不同的路**：
+         恢复码 —— 10 个字符，连灵露贝壳一起回来，**但必须联网**。
+         进度码 —— 约 800 个字符，纯离线解码，**不含货币**。
+       对绝大多数学生，恢复码在每一条轴上都更好；进度码唯一不可替代的场合是
+       **没有网络**。而它以前和恢复码并排摊开，800 个字符的文本框占掉半个面板，
+       把真正该用的那一段挤到了上面看不见的地方。
+
+       ⚠️ **没有删掉它**，只是收起来：删一条恢复路径要 owner 明确点头，
+       而「学生在没有网络的地方换了设备」这件事一旦发生，没有第二条路。
+       ⚠️ summary 的措辞按**目的**写，不是按名字写——一个想找回进度的学生
+       不会去找「进度码」，他会找「没有网络怎么办」。
+       ⚠️ 输出与恢复**一起**收进来：分开放会让「我在哪里粘贴」变成第二个谜题。 */
     function codeSectionHtml() {
       return claimSectionHtml() +
-        '<div class="pop-label" style="margin-top:14px">进度码（不必联网）' +
-          fbGloss("进度码", "jìn dù mǎ", "Progress code — works offline") + '</div>' +
-        '<div class="pop-body">复制这段进度码，用邮件发给自己保存。换设备或换浏览器时，' +
-        '把它粘贴到下方恢复。<br>' +
+        '<details class="prof-more code-more"><summary>没有网络？用进度码（离线备份与恢复）' +
+          fbGloss("", "", "No network? Use the offline progress code") + '</summary>' +
+        '<div class="pop-body" style="margin-top:6px">这段码<b>不必联网</b>，但很长，' +
+        '而且<b>不含</b>灵露与贝壳。能上网的话，请用上面的恢复码。<br>' +
         '<span class="pop-note">一段进度码涵盖<b>五片陆地</b>：四个学段与出发码头。' +
-        '里面有已掌握／已认得的词语、最高连对、各游戏纪录，并绑定你的昵称。' +
-        '⚠️ 这一段<b>不含</b>灵露与贝壳——要连它们一起找回，用上面的恢复码。</span></div>' +
+        '里面有已掌握／已认得的词语、最高连对、各游戏纪录，并绑定你的昵称。</span></div>' +
         '<div class="pop-label">我的进度码' +
           fbGloss("我的进度码", "wǒ de jìn dù mǎ", "My progress code — all five lands") + '</div>' +
-        '<textarea class="code-ta" id="profCodeOut" readonly>正在准备…</textarea>' +
+        '<textarea class="code-ta" id="profCodeOut" readonly>展开后开始生成…</textarea>' +
         '<div class="pop-note" id="profCodeSum"></div>' +
         '<div class="nav-row"><button class="nav-btn" id="profCodeCopy">📋 复制进度码</button></div>' +
-        '<div class="pop-label" style="margin-top:12px">恢复进度' +
-          fbGloss("恢复进度", "huī fù jìn dù", "Restore from a code") + '</div>' +
+        '<div class="pop-label" style="margin-top:12px">用进度码恢复' +
+          fbGloss("用进度码恢复", "yòng jìn dù mǎ huī fù", "Restore from a progress code") + '</div>' +
         '<textarea class="code-ta" id="profCodeIn" placeholder="把进度码粘贴到这里…"></textarea>' +
         '<div class="feedback" id="profCodeFb"></div>' +
         '<div class="nav-row">' +
         (hasUndoAll() ? '<button class="nav-btn" id="profCodeUndo">↩ 撤销恢复</button>' : "") +
-        '<button class="nav-btn primary" id="profCodeRestore">恢复进度</button></div>';
+        '<button class="nav-btn primary" id="profCodeRestore">恢复进度</button></div>' +
+        '</details>';
     }
     /* ⚠️ `ov.isConnected` guard: the panel can be closed, or re-rendered by any chip
        tap, while the five fetches are still in flight. Writing into a detached textarea
@@ -2335,7 +2347,18 @@
        the difference between「one code everywhere」and「one code except on the page a
        student on a new device actually opens first」. */
     function wireCode() {
-      fillCodeOut();
+      /* ⚠️ 进度码**展开时才生成**。encodeAll() 要抓五份已发布的词表 JSON
+         （位置编码，见 §VS3），以前每次打开 我的档案 都白跑这五个请求——
+         而现在这一段默认是收起来的，绝大多数学生根本不会展开。
+         ⚠️ 只跑一次：details 每次开合都会触发 toggle。 */
+      var det = ov.querySelector(".code-more");
+      if (det) {
+        det.addEventListener("toggle", function () {
+          if (det.open && !det.dataset.filled) { det.dataset.filled = "1"; fillCodeOut(); }
+        });
+      } else {
+        fillCodeOut();   // 没有折叠壳（不该发生）就退回旧行为
+      }
       var out = ov.querySelector("#profCodeOut");
       var copyBtn = ov.querySelector("#profCodeCopy");
       if (copyBtn) copyBtn.onclick = function () {
