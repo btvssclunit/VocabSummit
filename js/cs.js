@@ -996,7 +996,34 @@
       logBadge("t4");
       earned.push({ tier: 4 });
     }
-    if (earned.length) { saveStore(); if (!silent) queueCelebrations(earned); }
+    if (earned.length) {
+      saveStore();
+      /* ⚠️ owner 2026-08-23：「after I get the badge I should be redirected to
+         成就墙 … sometimes I prompted to 回到成就墙 and sometimes I'm not」。
+         每一块结算页都忠实地送学生回他进来的地方（成就墙进来的回成就墙，
+         词语表进来的回词语表，门进来的回那扇门）——**那部分是对的，没有动**。
+         漏掉的是另一半：在一局普通的 学习挑战 里点亮徽章，结算页压根不提
+         成就墙，学生刚拿到的东西没有一条路可以去看。
+         所以这里记一笔，renderResult 据此补一颗按钮。
+         ⚠️ 记的是**计数**不是内容：庆祝弹窗已经把是哪一枚说清楚了，
+         结算页只需要回答「要不要给一条去成就墙的路」。 */
+      _celEarned += earned.length;
+      if (!silent) queueCelebrations(earned);
+    }
+  }
+  /* 本局点亮的徽章数。renderStep 开局清零，renderResult 读它。 */
+  var _celEarned = 0;
+  function resetBadgeRunTally() { _celEarned = 0; }
+  /* 结算页那颗「去成就墙」。只有本局真的点亮了徽章才出现——
+     常驻会让它变成又一个学生学会忽略的按钮。 */
+  function achLinkHtml() {
+    return _celEarned
+      ? '<button class="nav-btn" id="goAch">🎖 去成就墙' + pyl("去成就墙") + enli("去成就墙") + '</button>'
+      : "";
+  }
+  function wireAchLink() {
+    var b = document.getElementById("goAch");
+    if (b) b.onclick = renderAchievements;
   }
   function markMastered(w) {
     if (store.mastered[w.id]) { saveStore(); return; }
@@ -2844,6 +2871,8 @@
   }
 
   function renderStep(state) {
+    /* 开局清零：结算页问的是「**本局**点亮了吗」，不是「这辈子点亮过吗」。 */
+    if (!state.i) resetBadgeRunTally();
     setTopbar("home", "");
     if (state.i >= state.seq.length) { return renderResult(state); }
     if (state.mode === "flash") return renderFlash(state);
@@ -3089,6 +3118,7 @@
   /* Shell labels only. Keep this list SHORT and navigational: it is a
      decoding crutch for the interface, not a translation layer for the app. */
   var EN_LAB = {
+    "去成就墙": "Badge wall",
     "结伴": "Team up",
     "来源": "Source", "筛选": "Filters",
     "单元": "Units",
@@ -3257,6 +3287,7 @@
      whenever you add an EN_LAB entry — pyl() falls back to nothing if a key is
      missing, so a gap is silent, not broken. */
   var PY_LAB = {
+    "去成就墙": "qù chéng jiù qiáng",
     "结伴": "jié bàn",
     "来源": "lái yuán", "筛选": "shāi xuǎn",
     "单元": "dān yuán",
@@ -3894,9 +3925,11 @@
         '<div class="sub">' + esc(w0.w) + '　' + esc(w0.py) + '</div>' +
         '<div class="msg">' + esc(w0.zh) + '</div>' +
         '<div class="nav-row"><button class="nav-btn" id="again">再练一次</button>' +
+        achLinkHtml() +
         '<button class="nav-btn primary" id="home">‹ 回词语表</button></div></div>';
       document.getElementById("again").onclick = function () { practiceWord(w0.id); };
       document.getElementById("home").onclick = function () { renderWordList("all"); };
+      wireAchLink();
       return;
     }
     var total = state.seq.length;
@@ -3911,9 +3944,11 @@
       '<div class="msg">' + msg + '</div>' +
       '<div class="nav-row">' +
       '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
+      achLinkHtml() +
       '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
     document.getElementById("again").onclick = function () { startMode(state.mode); };
     document.getElementById("home").onclick = backToHub;
+    wireAchLink();
   }
 
   /* ---------- 年度试炼 (annual gym trial, meaning→word MCQ) ---------- */
@@ -3963,7 +3998,9 @@
                '<br><span style="font-size:12px">新头像「' + esc(pet.name) + '」已解锁，攀山快答里也会换成它</span></div>' : '') +
         '<div class="nav-row">' +
         (canWear ? '<button class="nav-btn" id="wearPet">换上 ' + pet.emoji + ' ' + esc(pet.name) + '</button>' : '') +
+        achLinkHtml() +
         '<button class="nav-btn primary" id="home">回到词山</button></div></div>';
+      wireAchLink();
       if (canWear) document.getElementById("wearPet").onclick = function () {
         window.WSProfile.save({ avatarId: pet.avatarId });
         toast("头像已换成 " + pet.emoji + " " + pet.name);
