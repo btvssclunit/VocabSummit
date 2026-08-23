@@ -347,6 +347,25 @@ body.en-aid .streak .enlab.i,body.en-aid .rail-pts .enlab.i,body.en-aid .comp-la
 .home-foot{text-align:center;font-size:10.5px;color:#DCEAF4;text-shadow:0 1px 6px rgba(23,58,90,.5);margin-top:12px}
 
 /* ---------- study layout: rail + stage ---------- */
+/* ⚠️ owner 2026-08-23：「can we make the panes sit lower on the screen? currently
+   across all levels it seems to be sitting high instead of being visually balanced」。
+   一屏问答的内容通常比视口矮一大截，靠 .wrapper 那 18px 的上内距顶在天花板上，
+   底下留一大片空山——重心全在上面。
+
+   做法：给 .wrapper 一个占满视口的最小高度，再用 **auto 外距**把内容推到垂直居中。
+   ⚠️ 用 `margin:auto` 而不是 `justify-content:center`：内容一旦比视口高，
+   center 会把顶部**切掉且滚不回去**（flex 那个经典毛病），auto 外距不会。
+   ⚠️ 只作用于 .study（一屏一题的那几块）。首页与成就墙本来就比视口长，
+   给它们居中只会在短屏上把顶部推走。
+   ⚠️ 用 dvh 不是 vh：手机浏览器的地址栏会伸缩，vh 在 iOS 上量的是最大高度，
+   收起地址栏时内容会被顶出屏幕。100dvh 跟着可视区域走；不支持 dvh 的旧浏览器
+   走上一行的 vh 兜底。
+   ⚠️ `:has()` 在旧 Safari／旧 Chrome 上不支持——**那正是想要的降级**：
+   整条规则被忽略，版面回到改之前的顶部对齐，不会错位。学校那些老 iPad
+   因此最多是「没居中」，不会是「坏掉」。 */
+.wrapper:has(>.study){min-height:calc(100vh - 92px);min-height:calc(100dvh - 92px);
+  display:flex;flex-direction:column}
+.wrapper>.study{margin-top:auto;margin-bottom:auto;width:100%}
 .study{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
 .rail .mode-name{font-family:var(--serif);font-weight:900;font-size:24px;letter-spacing:.1em;margin-bottom:2px}
 .rail .mode-desc{font-size:13px;color:var(--ink-soft);margin-bottom:12px;line-height:1.6}
