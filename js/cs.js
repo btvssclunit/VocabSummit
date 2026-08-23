@@ -3687,15 +3687,24 @@
     return state._opts;
   }
   function renderCloze(state) {
-    setFbCtx("填空挑战", state.seq[state.i]);
+    /* ⚠️ 试炼是一道**关卡**，不是一次练习（owner 2026-08-23：年度挑战 改成填空）。
+       所以它**不吃 挑战难度 那根滑杆**：同一场试炼对每个学生必须是同一场。
+       跟着滑杆走的话，推到 两个选项 就是一场送分，推到 拼音输入 又变成另一门考试——
+       而这一关的奖品（神兽头像）是全站唯一按「全对」发的东西。
+       固定四选一，与它取代的 华文解释 MCQ 逐格相同，只是题面换成了句子。 */
+    var trial = !!state.gym;
+    setFbCtx(trial ? "年度试炼" : "填空挑战", state.seq[state.i]);
     var w = state.seq[state.i];
     /* the blank is non-CJK, so it survives rubyText untouched and the
        existing __ -> <u></u> swap still lands on it */
     var qtext = qHtml(w.cloze, w.clozePy).replace(/_{2,}/g, "<u></u>");
-    var pyMode = store.diff === "pinyin";
-    var typing = store.diff === "type" || pyMode;
+    var pyMode = !trial && store.diff === "pinyin";
+    var typing = !trial && (store.diff === "type" || pyMode);
     var html = '<div class="study">' +
-      railHtml(state, "填空挑战", mdLine("读句子，填出空格里的词语"), diffSelector()) +
+      railHtml(state, trial ? "年度试炼" : "填空挑战",
+               mdLine(trial ? "读句子，填出空格里的词语 · 全部答对才算通过"
+                            : "读句子，填出空格里的词语"),
+               trial ? "" : diffSelector()) +
       '<div class="stage"><div class="q-card">' +
       qTag(pyMode ? "读句子，打出空格里词语的拼音（不用声调，10% 历练值）" : typing ? "读句子，打出空格里的词语" : "选出最适当的词语填入空格") +
       '<div class="q-text' + qCls(qtext) + '">' + qtext + '</div>' +
@@ -3707,7 +3716,7 @@
         '<button class="check-btn" id="chk">检查' + pyl("检查") + enli("检查") + '</button></div>' +
         '<button class="hint-btn" id="hint">' + (function (h) { return h + pyl(h) + enl(h); })(pyMode ? "提示：显示词语" : "提示：显示拼音") + '</button>';
     } else {
-      var n = parseInt(store.diff, 10);
+      var n = trial ? 4 : parseInt(store.diff, 10);   // 试炼固定四选一，见上
       var opts = clozeOpts(state, w, n);
       html += '<div class="opts n' + n + '" id="opts">' +
         opts.map(function (o, idx) {
@@ -3975,7 +3984,13 @@
   function startGym(level) {
     var g = buildGymSeq(level);
     if (g.seq.length < 4) { alert("本年级词语不足，暂时无法开启年度试炼。"); return; }
-    var state = { mode: "zhmcq", seq: g.seq, i: 0, correct: 0, revealed: false,
+    /* ⚠️ owner 2026-08-23：「年度挑战 need to be fill in the blanks and not
+       chinese definition」。zhmcq（看释义选词）→ cloze（读句子填空）。
+       ⚠️ 前提是**每个词都有填空句**——四个源流 3,741 条实测全有，
+       所以题数（本级 30 + 每个下级 10）一条都不会掉。
+       ⚠️ 板块试炼（bchal）**没有跟着改**：owner 只点名了年度挑战。
+       两者原本刻意同形，现在分叉了；要统一得 owner 再说一句。 */
+    var state = { mode: "cloze", seq: g.seq, i: 0, correct: 0, revealed: false,
       streak: 0, gym: level, pool: g.pool, wrong: {} };
     renderStep(state);
   }
@@ -5786,10 +5801,37 @@
         popStat("单元完成", "<b>" + uDone + "</b> / " + units.length + (markDone(m) ? " · 年级徽章已获得 🏅" : "")) +
         '</div>' + gymSectionHtml(m) + unitRowsHtml(m.level);
     } else {
+      /* ⚠️ owner 2026-08-23：「students will not know what status will unlock 顶峰
+         - must make it clear to them that they need to clear all the level
+         challenges first (S1/2/3/4)」。这张卡以前只报两个数字（海拔、已掌握），
+         **从不说怎样才算登顶**，学生看完仍然不知道自己缺什么。
+
+         ⚠️ 写在这里的条件必须与 markDone() 逐字一致：顶峰 = `badges.t4`，
+         而 checkBadges() 里 t4 的条件是**四个年级章全部到手**
+         （年级章 ← 该年级所有单元章 ← 所有板块章 ← 该板块所有词语掌握）。
+         **不是「四场年度试炼全部通过」**——年度试炼 是另一条线（奖品是神兽头像），
+         与登顶无关。两者都被叫过「关卡」，这一段刻意把话说死，免得再混。 */
+      var lvRows = LEVELS.map(function (lv) {
+        var got = !!store.badges[badgeKeyL(lv)];
+        var lw = WORDS.filter(function (w) { return w.level === lv; });
+        var left = lw.filter(function (w) { return !store.mastered[w.id]; }).length;
+        return '<div class="peak-lv' + (got ? " got" : "") + '">' +
+          '<span>' + (got ? "✅" : "🔒") + ' ' + esc(lv) + '</span>' +
+          '<span>' + (got ? "年级章已到手" : "还差 " + left + " 词") + '</span></div>';
+      }).join("");
+      var lvGot = LEVELS.filter(function (lv) { return store.badges[badgeKeyL(lv)]; }).length;
       html = '<div class="pop-title">🏯 <span class="pop-t-k">顶峰' + pyl("顶峰") + enl("顶峰") + '</span></div>' +
         '<div class="pop-body">' + popStat("海拔", m.alt + " 米 · 全部词语的终点") +
         popStat("已掌握", "<b>" + Object.keys(store.mastered).length + "</b> / " + WORDS.length + " 词" +
-          (markDone(m) ? " · 你已登顶！👑" : "")) + '</div>';
+          (markDone(m) ? " · 你已登顶！👑" : "")) + '</div>' +
+        '<div class="gym-sec ' + (markDone(m) ? "done" : "lock") + '">' +
+        (markDone(m)
+          ? '👑 四个年级全部登顶，顶峰已经是你的了。'
+          : '🔒 <b>怎样才能登顶：把中一到中四四个年级的词语全部掌握</b>，' +
+            '四枚年级章到齐，顶峰自动解锁。' +
+            '<br><span class="pop-hint">目前 ' + lvGot + ' / ' + LEVELS.length +
+            ' 个年级完成。年度试炼是另一条路（赢神兽头像），与登顶无关。</span>') +
+        '<div class="peak-lvs">' + lvRows + '</div></div>';
     }
     ov = popOverlay(html + popActions(hasScope, back ? (back.level + " 关卡") : ""));
     ov.querySelector("#popBack").onclick = function () { ov.remove(); if (back) openMark(back); };

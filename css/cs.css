@@ -1248,6 +1248,14 @@ body.en-aid .pop-note .enlab,body.en-aid .fb-ctx .enlab{display:block;margin:1px
 .gym-sec{margin-top:12px;padding-top:12px;border-top:1px solid #E4EDF4}
 .gym-sec.done{color:#3F704F;font-weight:700;font-size:14px;line-height:1.7}
 .gym-sec.lock{color:var(--ink);font-size:13.5px;line-height:1.7}
+/* 顶峰卡上的四行年级清单（owner 2026-08-23：学生看不出怎样才算登顶）。
+   一行一个年级，左边状态右边还差多少词——「还差什么」要能一眼数出来，
+   而不是从两个总数里自己推。 */
+.peak-lvs{margin-top:10px;display:grid;gap:5px}
+.peak-lv{display:flex;justify-content:space-between;gap:10px;font-size:13px;
+  padding:6px 10px;border-radius:9px;background:rgba(255,255,255,.6);
+  border:1px solid var(--glass-line);color:var(--ink-soft)}
+.peak-lv.got{background:#EAF5EE;border-color:#BFE0CB;color:#3F704F;font-weight:600}
 .gym-todo{color:var(--gold-deep);font-weight:700}
 .gym-go{width:100%}
 /* ---------- 营地商店 shelf (owner 2026-08-17) ----------

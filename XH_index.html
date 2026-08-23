@@ -27,11 +27,19 @@
   function blank() {
     var b = document.body;
     if (!b) return true;
-    /* ⚠️ innerText 对**隐藏**的 body 返回空串，只看它会把「页面画好了但被藏起来」
-       误判成空白——那正是 HCL 那次的形状，而它确实需要报警。所以两个都看：
-       文字为空 **或** 整页高度为零，都算白屏。 */
+    /* ⚠️⚠️ 这个判断错一次的代价比白屏本身还大：判太松，看门狗会在 6 秒后
+       **把一张好端端的页面抹掉**。20260823k 就是这样——我用了
+       `b.offsetHeight === 0`，而这套版面下**健康页面的 body.offsetHeight 本来就是 0**
+       （子元素撑的是 scrollHeight，实测 2457），于是每一页都在 6 秒后自毁。
+       改用 **scrollHeight**：健康页面 2457，body 被 display:none 时是 0
+       （隐藏元素既没有 scrollHeight 也没有 innerText）。两个条件覆盖三种情形：
+         · 健康     —— 文字很长、scrollHeight 很大 → 不吭声
+         · 被藏起来 —— scrollHeight 为 0           → 报警（HCL 那次的形状）
+         · 没开机   —— 正文空                      → 报警
+       ⚠️ 不要用 offsetHeight／clientHeight（这套版面下恒为 0），
+       也不要拿 #view 当依据——落地页与码头根本没有这个元素。 */
     var t = (b.innerText || "").replace(/\s/g, "");
-    return t.length <= 20 || b.offsetHeight === 0;
+    return b.scrollHeight === 0 || t.length <= 20;
   }
   function paint(msg) {
     if (shown || !blank()) return;
@@ -115,7 +123,7 @@
      than any duplication. cs.css is still NEVER loaded; the handful of rules
      those two files need are copied into xh.css. Progress stays sealed: nothing
      here reads or writes ws2_*. -->
-<link rel="stylesheet" href="css/xh.css?v=20260823k">
+<link rel="stylesheet" href="css/xh.css?v=20260823n">
 </head>
 <body>
 
@@ -146,9 +154,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823k"></script>
-<script src="js/profile.js?v=20260823k"></script>
-<script src="js/nickname.js?v=20260823k"></script>
+<script src="js/firebase-init.js?v=20260823n"></script>
+<script src="js/profile.js?v=20260823n"></script>
+<script src="js/nickname.js?v=20260823n"></script>
 <!-- ⚠️ 结伴出海 / 同伴挑战 (owner 2026-08-17). The pier reuses the mountain's room engine
      rather than growing a second one: the lobby, roster, reconnect, host controls and TTL
      are identical for both families, and what differs (the question renderer, the award
@@ -156,10 +164,10 @@
      ⚠️ podium.js comes WITH it — arena calls it to show the top three, and without it the
      end of a room round is a blank panel. It is the one shared module teacher.html also
      loads (§18b): no dependencies, no state, pure presentation. -->
-<script src="js/podium.js?v=20260823k"></script>
-<script src="js/arena.js?v=20260823k"></script>
-<script src="js/search.js?v=20260823k"></script>
-<script src="js/tts.js?v=20260823k"></script>
-<script src="js/xh.js?v=20260823k"></script>
+<script src="js/podium.js?v=20260823n"></script>
+<script src="js/arena.js?v=20260823n"></script>
+<script src="js/search.js?v=20260823n"></script>
+<script src="js/tts.js?v=20260823n"></script>
+<script src="js/xh.js?v=20260823n"></script>
 </body>
 </html>

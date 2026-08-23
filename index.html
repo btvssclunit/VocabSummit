@@ -27,11 +27,19 @@
   function blank() {
     var b = document.body;
     if (!b) return true;
-    /* ⚠️ innerText 对**隐藏**的 body 返回空串，只看它会把「页面画好了但被藏起来」
-       误判成空白——那正是 HCL 那次的形状，而它确实需要报警。所以两个都看：
-       文字为空 **或** 整页高度为零，都算白屏。 */
+    /* ⚠️⚠️ 这个判断错一次的代价比白屏本身还大：判太松，看门狗会在 6 秒后
+       **把一张好端端的页面抹掉**。20260823k 就是这样——我用了
+       `b.offsetHeight === 0`，而这套版面下**健康页面的 body.offsetHeight 本来就是 0**
+       （子元素撑的是 scrollHeight，实测 2457），于是每一页都在 6 秒后自毁。
+       改用 **scrollHeight**：健康页面 2457，body 被 display:none 时是 0
+       （隐藏元素既没有 scrollHeight 也没有 innerText）。两个条件覆盖三种情形：
+         · 健康     —— 文字很长、scrollHeight 很大 → 不吭声
+         · 被藏起来 —— scrollHeight 为 0           → 报警（HCL 那次的形状）
+         · 没开机   —— 正文空                      → 报警
+       ⚠️ 不要用 offsetHeight／clientHeight（这套版面下恒为 0），
+       也不要拿 #view 当依据——落地页与码头根本没有这个元素。 */
     var t = (b.innerText || "").replace(/\s/g, "");
-    return t.length <= 20 || b.offsetHeight === 0;
+    return b.scrollHeight === 0 || t.length <= 20;
   }
   function paint(msg) {
     if (shown || !blank()) return;
@@ -101,7 +109,7 @@
 <meta name="twitter:description" content="百德中学母语部华文组出品的华文词汇自主学习平台，涵盖 G1、G2、G3、高级华文四大源流与零起点「学海起步」，共 3,741 个词条。Gamified Chinese vocabulary self-directed learning from Bukit View Secondary School, Singapore.">
 <meta name="twitter:image" content="https://btvssclunit.github.io/VocabSummit/art/og-card.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/cs.css?v=20260823k">
+<link rel="stylesheet" href="css/cs.css?v=20260823n">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -273,9 +281,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823k"></script>
-<script src="js/profile.js?v=20260823k"></script>
-<script src="js/search.js?v=20260823k"></script>
-<script src="js/nickname.js?v=20260823k"></script>
+<script src="js/firebase-init.js?v=20260823n"></script>
+<script src="js/profile.js?v=20260823n"></script>
+<script src="js/search.js?v=20260823n"></script>
+<script src="js/nickname.js?v=20260823n"></script>
 </body>
 </html>
