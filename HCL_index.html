@@ -5,43 +5,80 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 /* ⚠️ 白屏保险丝（owner 2026-08-23 报的 G1／HCL 白屏）。整站是客户端渲染的：
-   任何一个脚本在外壳建出来之前抛错，学生看到的就是**一张全白的纸**——
-   没有信息、没有下一步，老师也问不出所以然，而我在自己的机器上复现不了。
-   这段挂在其余 <script> 之前，所以连后面脚本的**解析错误**也接得住。
+   任何一个脚本在外壳建出来之前出事，学生看到的就是**一张全白的纸**——
+   没有信息、没有下一步，老师也问不出所以然，而我在自己的机器上复现不了
+   （四个源流在 JavaScriptCore 里拿真实线上数据全都正常开机）。
    ⚠️ 它不修任何 bug，它让 bug 说得出自己的名字。
-   ⚠️ 只在**页面确实是空的**时候说话：延迟 1.2 秒再看一眼正文长度，
-   页面已经画出来了就闭嘴——不然 Firebase 离线时的一个 rejection
-   就会把一张好端端的页面盖掉，那比白屏还糟。 */
+
+   三张网，缺一张就漏掉一整类白屏：
+   1) error / unhandledrejection —— 脚本**跑**出来的错（也接得住后面脚本的解析错误）。
+   2) **capture 阶段**的 error —— 脚本／样式／图片**没下载下来**。
+      ⚠️ 这一类不冒泡，普通监听收不到，而「某个 <script> 404 或超时」
+      恰恰是白屏最常见的成因：没有任何 JS 错误，只是什么都没发生。
+   3) 看门狗 —— 6 秒后外壳还没画出来就自己报到，并点名哪几个脚本没到齐。
+      前两张网都沉默的白屏只有它能说话。
+
+   ⚠️ 只在页面**确实是空的**时候说话（正文长度 ≤20 字），
+   否则 Firebase 离线时的一个 rejection 就会盖掉一张好页面，那比白屏更糟。 */
 (function () {
-  var shown = 0;
-  function paint(msg, src, line) {
-    if (shown) return;
-    setTimeout(function () {
-      if (shown) return;
-      var txt = (document.body && document.body.innerText) || "";
-      if (txt.replace(/\s/g, "").length > 20) return;   // 页面画出来了，不插嘴
-      shown = 1;
-      var a = document.getElementById("app") || document.body;
-      if (!a) return;
-      a.innerHTML = '<div style="margin:40px auto;max-width:520px;padding:20px 22px;' +
-        'font:15px/1.75 system-ui,-apple-system,\'Noto Sans SC\',sans-serif;color:#25313D;' +
-        'background:#fff;border:1px solid #E2E8EF;border-radius:14px">' +
-        '<b style="font-size:17px">页面没能载入 Page failed to load</b><br>' +
-        '请关掉这一页再重新打开。还是不行的话，把下面这一行告诉老师。<br>' +
-        '<span style="font-size:13px;color:#5A7080">Close this tab and reopen. ' +
-        'If it still fails, show your teacher the line below.</span>' +
-        '<span style="display:block;margin-top:12px;padding:9px 11px;background:#F5F8FB;' +
-        'border-radius:8px;font:12px/1.5 ui-monospace,Menlo,monospace;color:#40566B;' +
-        'word-break:break-all">' + String(msg) + (src ? (" @ " + String(src) + ":" + line) : "") + '</span></div>';
-    }, 1200);
+  var shown = 0, notes = [];
+  var NEED = [["WSCloud","firebase-init"],["WSProfile","profile"],["WSPodium","podium"],
+              ["WSArena","arena"],["WSSearch","search"],["WSTts","tts"]];
+  function blank() {
+    var b = document.body;
+    if (!b) return true;
+    /* ⚠️ innerText 对**隐藏**的 body 返回空串，只看它会把「页面画好了但被藏起来」
+       误判成空白——那正是 HCL 那次的形状，而它确实需要报警。所以两个都看：
+       文字为空 **或** 整页高度为零，都算白屏。 */
+    var t = (b.innerText || "").replace(/\s/g, "");
+    return t.length <= 20 || b.offsetHeight === 0;
+  }
+  function paint(msg) {
+    if (shown || !blank()) return;
+    shown = 1;
+    var missing = [];
+    for (var i = 0; i < NEED.length; i++) if (!window[NEED[i][0]]) missing.push(NEED[i][1]);
+    var a = document.getElementById("app") || document.body;
+    if (!a) return;
+    /* ⚠️ 先把 <body> 抢回来再说话。2026-08-23 的 HCL 白屏正是 body 自己被
+       display:none —— 那种情况下这段话会画在一个隐藏的容器里，等于没说。
+       保险丝必须能在「页面被整个藏起来」时依然开口。 */
+    try {
+      document.body.style.setProperty("display", "block", "important");
+      document.body.style.setProperty("visibility", "visible", "important");
+      document.body.style.setProperty("opacity", "1", "important");
+    } catch (e) {}
+    a.innerHTML = '<div style="margin:36px auto;max-width:520px;padding:20px 22px;' +
+      'font:15px/1.75 system-ui,-apple-system,sans-serif;color:#25313D;background:#fff;' +
+      'border:1px solid #E2E8EF;border-radius:14px">' +
+      '<b style="font-size:17px">页面没能载入 Page failed to load</b><br>' +
+      '请关掉这一页再重新打开。还是不行的话，把下面这一段告诉老师。<br>' +
+      '<span style="font-size:13px;color:#5A7080">Close this tab and reopen. ' +
+      'If it still fails, show your teacher the text below.</span>' +
+      '<span style="display:block;margin-top:12px;padding:9px 11px;background:#F5F8FB;' +
+      'border-radius:8px;font:12px/1.55 ui-monospace,Menlo,monospace;color:#40566B;' +
+      'word-break:break-all">' + String(msg) +
+      (missing.length ? '<br>MISSING: ' + missing.join(", ") : '<br>scripts: all loaded') +
+      (notes.length ? '<br>' + notes.slice(0, 6).join('<br>') : '') +
+      '<br>stream: ' + (window.STREAM || "-") + '</span></div>';
   }
   window.addEventListener("error", function (e) {
-    paint((e && e.message) || "script error", e && e.filename, e && e.lineno);
+    paint(((e && e.message) || "script error") +
+          (e && e.filename ? " @ " + e.filename + ":" + e.lineno : ""));
   });
   window.addEventListener("unhandledrejection", function (e) {
     var r = e && e.reason;
-    paint((r && (r.message || r)) || "unhandled rejection");
+    paint("rejected: " + ((r && (r.message || r)) || "?"));
   });
+  /* capture 阶段：资源没下载下来。这一类不冒泡。 */
+  window.addEventListener("error", function (e) {
+    var t = e && e.target;
+    if (!t || t === window || !t.tagName) return;
+    var u = t.src || t.href || "?";
+    notes.push("LOAD FAIL: " + String(u).split("/").slice(-1)[0]);
+  }, true);
+  /* 看门狗：前两张网都沉默的白屏，只有它能说话。 */
+  setTimeout(function () { paint("timeout: nothing rendered after 6s"); }, 6000);
 })();
 </script>
 <title>词圣鸿文苑 · 词山学海 Vocab Summit</title>
@@ -64,7 +101,7 @@
 <meta name="twitter:description" content="词圣鸿文苑 · 高级华文：1,432 个词条，词语闪卡、学习挑战与词汇游戏（含词语汉兜）。词山学海 Vocab Summit，百德中学母语部华文组。">
 <meta name="twitter:image" content="https://btvssclunit.github.io/VocabSummit/art/og-card.jpg">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/cs.css?v=20260823i">
+<link rel="stylesheet" href="css/cs.css?v=20260823k">
 <script>window.STREAM = "hcl";</script>
 </head>
 <body>
@@ -72,12 +109,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="js/firebase-init.js?v=20260823i"></script>
-<script src="js/profile.js?v=20260823i"></script>
-<script src="js/podium.js?v=20260823i"></script>
-<script src="js/arena.js?v=20260823i"></script>
-<script src="js/search.js?v=20260823i"></script>
-<script src="js/tts.js?v=20260823i"></script>
-<script src="js/cs.js?v=20260823i"></script>
+<script src="js/firebase-init.js?v=20260823k"></script>
+<script src="js/profile.js?v=20260823k"></script>
+<script src="js/podium.js?v=20260823k"></script>
+<script src="js/arena.js?v=20260823k"></script>
+<script src="js/search.js?v=20260823k"></script>
+<script src="js/tts.js?v=20260823k"></script>
+<script src="js/cs.js?v=20260823k"></script>
 </body>
 </html>

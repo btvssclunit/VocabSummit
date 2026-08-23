@@ -3038,7 +3038,9 @@
 
      两个闸门，因为两处的「没有拼音」意思不一样：
      · .py-gate —— 选项拼音，跟 body.py-aid（= 开关 且 该源流提供拼音）。
-     · .py-ans  —— 答案反馈里的拼音，跟 body.py-ans（= 开关 或 该源流根本没有开关）。
+     · .py-ans-gate —— 答案反馈里的拼音，跟 body.py-ans（= 开关 或 该源流根本没有开关）。
+       ⚠️ 闸门类名与 body 的状态类名**必须不同**：两者都叫 py-ans 时，裸的
+       `.py-ans{display:none}` 会命中 <body> 自己，整页全白（2026-08-23 的 HCL 事故）。
        ⚠️ 后半句是为 HCL 留的：高级华文**没有拼音按钮**（pyAidAvailable() 为假），
        用 py-aid 去关它等于替 owner 决定「HCL 从此看不到答案拼音」，
        而 owner 要的是「跟着开关走」，不是「删掉」。HCL 的行为一个字节没变。 */
@@ -3049,7 +3051,7 @@
   }
   /* 答案反馈里的「（拼音）」，连括号一起进闸门——不然关掉之后会剩一对空括号 */
   function ansPyHtml(py) {
-    return py ? '<span class="py-ans">（' + esc(py) + '）</span>' : "";
+    return py ? '<span class="py-ans-gate">（' + esc(py) + '）</span>' : "";
   }
 
   /* D2b 句子/释义注音 (2026-08-13). zhPy/clozePy carry ONE syllable per CJK

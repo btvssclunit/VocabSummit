@@ -418,10 +418,18 @@ rt{font-size:.42em;font-weight:400;letter-spacing:0;line-height:1.15;
    一道正在作答的题因此**不必重画**（重画就是泄题）。
    ⚠️ 两个闸门不能合并：.py-ans 在 HCL 上是开的（高级华文没有拼音按钮，
    合并会静默拿掉 HCL 的答案拼音，那不是 owner 要的）。 */
+/* ⚠️⚠️ 元素闸门的类名与 <body> 的状态类名**必须不同**，这不是风格问题。
+   2026-08-23 我把两者都叫 py-ans：<body> 因为 applyPyAid() 拿到 py-ans，
+   而裸的 `.py-ans{display:none}` 同样命中 <body> —— 于是 **body 自己被隐藏了**。
+   高级华文 的 pyAnsOn() 恒为真（那一科没有拼音按钮），所以 HCL 对所有人全白；
+   G1/G2/G3 只要学生**把拼音打开**也会全白。
+   ⚠️ 一行 JS 错误都不会有，控制台干干净净——这也是它躲过所有排查的原因。
+   状态类：body.py-aid · body.py-ans（JS 写）
+   闸门类：.py-gate · .py-ans-gate（标记写）—— 两组名字永不重叠。 */
 .py-gate{display:none}
 body.py-aid .py-gate{display:inline}
-.py-ans{display:none}
-body.py-ans .py-ans{display:inline}
+.py-ans-gate{display:none}
+body.py-ans .py-ans-gate{display:inline}
 .opt.right{background:#E8F3EC;border-color:var(--ok);color:#25513A}
 .opt.right .letter{background:var(--ok);color:#fff}
 .opt.wrong{background:#F9ECE9;border-color:var(--bad);color:#7A3228}
