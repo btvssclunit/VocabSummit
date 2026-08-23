@@ -5505,8 +5505,27 @@
     .then(function (doc) { PHRASES = (doc && doc.phrases) || []; })
     .catch(function () { PHRASES = []; });
 
-  fetch("data/xh_v3.json" + ASSET_V)
-    .then(function (r) { return r.json(); })
+  /* ⚠️ 与 cs.js 的 fetchVocab() 同一个理由与同一套参数（§18ar）：GitHub Pages
+     的边缘节点偶尔吐一个 5xx，取一次就放弃等于「码头今天打不开」。
+     三次，400ms / 1200ms，只重试网络错误与 5xx，每次换 cache-bust。
+     ⚠️ 两边各写一份是刻意的：水线规定 xh.js 不引用 cs.js 的任何东西。
+     十几行的重复换掉一条跨线依赖，划得来。 */
+  function fetchPier(tries) {
+    var bust = tries ? (ASSET_V ? "&r=" : "?r=") + (+new Date()) + "." + tries : "";
+    function again(n) {
+      return new Promise(function (res) { setTimeout(res, n ? 1200 : 400); })
+        .then(function () { return fetchPier(n + 1); });
+    }
+    return fetch("data/xh_v3.json" + ASSET_V + bust).then(function (r) {
+      if (r.ok) return r.json();
+      if (r.status >= 500 && tries < 2) return again(tries);
+      throw new Error("HTTP " + r.status);
+    }, function (e) {
+      if (tries < 2) return again(tries);
+      throw e;
+    });
+  }
+  fetchPier(0)
     .then(function (rows) {
       WORDS = rows;
       if (!store.mode) store.mode = "pic";
@@ -5519,8 +5538,16 @@
       renderMenu();
       hookTopbarScrim();
     })
-    .catch(function () {
-      view().innerHTML = '<div class="xh-board xh-err">词语资料加载失败，请检查网络后重新整理页面。<br>' +
-        '<span class="xh-en">Could not load the word list. Please refresh.</span></div>';
+    .catch(function (err) {
+      /* ⚠️ 给一颗按钮。「请重新整理页面」是把动作推回给学生，而码头的学生
+         恰恰是最不会自己想到刷新的那一群。 */
+      view().innerHTML = '<div class="xh-board xh-err">词语资料加载失败。已经自动重试过，' +
+        '可能是服务器刚才没有回应，或者网络断了一下。<br>' +
+        '<span class="xh-en">Could not load the word list. We already retried automatically.</span><br>' +
+        '<span class="xh-err-tech">' + String((err && err.message) || err) + '</span>' +
+        '<div class="nav-row" style="margin-top:12px">' +
+        '<button class="xh-btn primary" id="xhRetry">重试 <span class="xh-en">Try again</span></button></div></div>';
+      var rb = document.getElementById("xhRetry");
+      if (rb) rb.onclick = function () { location.reload(); };
     });
 })();

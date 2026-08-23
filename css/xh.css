@@ -1367,6 +1367,10 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
 .xh-btn:disabled{opacity:.55;cursor:default}
 
 .xh-err{text-align:center;font-weight:700;line-height:1.8}
+/* 加载失败卡上的技术信息一行（owner 2026-08-23 的 HTTP 503）。
+   刻意小而灰：学生不必读懂它，但报障时要能念给老师听。 */
+.xh-err-tech{display:block;margin-top:8px;font:12px/1.5 ui-monospace,Menlo,monospace;
+  color:var(--ink-soft);word-break:break-all}
 .xh-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:60;
   background:rgba(18,33,63,.94);color:#fff;font-size:14px;font-weight:700;
   padding:12px 18px;border-radius:999px;box-shadow:0 8px 22px rgba(6,26,48,.4);max-width:88vw}

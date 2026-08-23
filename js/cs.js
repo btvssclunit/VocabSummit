@@ -3120,6 +3120,7 @@
   /* Shell labels only. Keep this list SHORT and navigational: it is a
      decoding crutch for the interface, not a translation layer for the app. */
   var EN_LAB = {
+    "重试": "Try again",
     "去成就墙": "Badge wall",
     "结伴": "Team up",
     "来源": "Source", "筛选": "Filters",
@@ -3289,6 +3290,7 @@
      whenever you add an EN_LAB entry — pyl() falls back to nothing if a key is
      missing, so a gap is silent, not broken. */
   var PY_LAB = {
+    "重试": "chóng shì",
     "去成就墙": "qù chéng jiù qiáng",
     "结伴": "jié bàn",
     "来源": "lái yuán", "筛选": "shāi xuǎn",
@@ -7325,13 +7327,38 @@
   }
 
   /* ---------- boot ---------- */
+  /* ⚠️ 词库只取一次是不够的（owner 2026-08-23 在 HCL 上报到 **HTTP 503**）。
+     GitHub Pages 的边缘节点偶尔吐一个 5xx，而那一下**永久地**毁掉这一屏：
+     没有重试、没有重试按钮，学生只能自己想到刷新——绝大多数学生不会，
+     他只会得出「高级华文今天打不开」。
+     ⚠️ 当时实测：同一分钟从**同一个新加坡边缘节点**连取五次全是 200，
+     Pages 的构建也全部成功。**那是一次抖动**，但抖动的代价不该是一整科打不开。
+     三次尝试，间隔 400ms / 1200ms。只对**网络错误与 5xx** 重试——
+     4xx 是我们自己的问题，重试一百次也一样。
+     ⚠️ 每次重试都换一个 cache-bust 参数：失败的响应有可能被中间层缓存住，
+     原样再问一次很可能拿回同一个 503。 */
+  function fetchVocab(tries) {
+    var bust = tries ? (ASSET_V ? "&r=" : "?r=") + (+new Date()) + "." + tries : "";
+    function again(n) {
+      return new Promise(function (res) { setTimeout(res, n ? 1200 : 400); })
+        .then(function () { return fetchVocab(n + 1); });
+    }
+    return fetch("data/" + STREAM + ".json" + ASSET_V + bust).then(function (r) {
+      if (r.ok) return r.json();
+      if (r.status >= 500 && tries < 2) return again(tries);
+      throw new Error("HTTP " + r.status);
+    }, function (e) {
+      if (tries < 2) return again(tries);
+      throw e;
+    });
+  }
+
   function boot() {
     app.innerHTML = '<div class="topbar"></div><div class="wrapper" id="view">' +
       '<div class="loading">正在装载词库…</div></div>';
     setTopbar("landing", "");
 
-    fetch("data/" + STREAM + ".json" + ASSET_V)
-      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    fetchVocab(0)
       .then(function (json) {
         DATA = json;
         json.levels.forEach(function (lv) {
@@ -7506,9 +7533,22 @@
         }
       })
       .catch(function (err) {
+        /* ⚠️ 两种失败**说两句不同的话**。原来只有一句「请通过网页服务器访问…
+           直接双击打开 HTML 文件无法读取词库」——那是 file:// 的情况，
+           而 owner 遇到的是 503：消息把学生指向一个根本不存在的原因，
+           比不解释更糟。 */
+        var m = String((err && err.message) || err);
+        var transient = /HTTP 5\d\d/.test(m) || /fetch|network|load failed/i.test(m);
         view().innerHTML = '<div class="error-box"><b>词库装载失败</b><br>' +
-          '<span style="font-size:12.5px;color:#5A7080">请通过网页服务器访问（GitHub Pages 或本地 server），' +
-          '直接双击打开 HTML 文件无法读取词库。<br>技术信息：' + esc(err.message) + '</span></div>';
+          '<span style="font-size:12.5px;color:#5A7080">' +
+          (transient
+            ? '服务器刚才没有回应，或者网络断了一下。已经自动重试过，还是没成功——请点下面的按钮再试。'
+            : '请通过网页服务器访问（GitHub Pages 或本地 server），直接双击打开 HTML 文件无法读取词库。') +
+          '<br>技术信息：' + esc(m) + '</span>' +
+          '<div class="nav-row" style="margin-top:12px">' +
+          '<button class="nav-btn primary" id="bootRetry">重试' + pyl("重试") + enli("重试") + '</button></div></div>';
+        var rb = document.getElementById("bootRetry");
+        if (rb) rb.onclick = function () { location.reload(); };
       });
   }
 
