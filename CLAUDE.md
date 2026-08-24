@@ -1,7 +1,11 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-08-24（**`20260824b`：落地页那颗按钮改成「开始旅程」，圆角发光**——
+Last updated: 2026-08-24（**`20260824e`：手机版落地页三处**——owner：「the footer notes
+are smacked in the middle of the screen instead of responding dynamically to screen
+proportions」。页脚用 `margin-top:auto` 贴底 · 昵称的省略号**本来就没生效**（flex 容器里的
+匿名文字吃不到 text-overflow）· 名牌在竖屏换行，昵称独占一行。见 §18at。
+前一批 **`20260824b`：落地页那颗按钮改成「开始旅程」，圆角发光**——
 owner：「make it rounded and glowing」。⚠️ 这是**刻意推翻**原来的 16-bit 造型
 （原注释写着 hard edges / no border-radius / stepped shadow），别当成回归改回去。见 §18as。
 前一批 **`20260823x`：词库取一次不够，加重试**——owner 在 HCL 上
@@ -3817,6 +3821,47 @@ instead of soft blur, pixelated arrow glyph」——那是当初的设计意图�
    这颗按钮必须显式写回 `auto`——否则柔和渐层与圆角边缘会被按像素规则处理。
    改完 computed style 仍然是 pixelated，就是这个原因。
 
+## 18at. 手机版落地页：页脚贴底 · 昵称能读了（owner 2026-08-24）
+
+owner：「the footer notes are smacked in the middle of the screen instead of
+responding dynamically to screen proportions」。
+
+### 1. 页脚卡在半屏高的位置
+
+竖屏那一版把 `.lp-hero` 做成 `min-height:100vh` 的 flex 列，内容
+（标志＋校名＋按钮＋名牌）比一屏矮，于是**多出来的空间全堆在页脚下面**——
+页脚被顶在约 60% 高的地方，底下留一大片没人要的背景画。
+
+`margin-top:auto` 一行解决：把那段空间移到页脚**上面**。内容矮时页脚贴屏幕底，
+中间的空当正好露出画里那几个登山的小孩；内容高过一屏时 auto 收成 0，
+页脚照常跟着滚。**不需要 JS，不需要新断点。**
+⚠️ 最小间距只能靠 `padding-top`，`margin-top` 已经被 auto 占用了。
+⚠️ 还要 `align-self:stretch`：flex 列的 `align-items` 是 center，
+不拉伸的话页脚只有文字那么宽，它那条渐层底纹盖不满整行。
+
+### 2. ⚠️ 昵称的省略号**从来没有生效过**
+
+`.lp-nick` 原本是 `display:inline-flex`，而昵称是它的一个**匿名文字节点**。
+**`text-overflow:ellipsis` 对 flex 容器里的匿名文字不起作用**，
+于是 `overflow:hidden` 变成硬切——「出类拔萃·墨客」被切成「出类拔萃」，
+一个省略号都没有，右边的 查词语 还压在上面。
+改回行内块（头像用 `inline-grid` + `vertical-align` 对齐，不再靠 flex 的 gap），
+文字回到正常行内流，省略号才真的出现。
+⚠️ 同时要 `min-width:0`：作为 flex 子项，默认 `min-width:auto` 会让它拒绝收缩，
+宁可把兄弟节点挤出去。
+
+### 3. 竖屏让名牌换行
+
+修好省略号之后昵称变成「出类…」——**正确，但等于没显示**：375px 上留给它的只有约 75px。
+竖屏本来就不缺纵向空间（页脚已经贴底），所以让昵称独占一行、两颗按钮并排在下。
+**用高度换可读性，这里换得起。**
+⚠️ `flex-basis:100%` 才会强制换行；只写 `flex-wrap` 不够。
+
+⚠️ 三处都只在 `@media (orientation:portrait)` 里（第 2 条是全局修，因为那是真 bug）。
+横屏／桌面实测未变：名牌仍是右上角绝对定位、不换行，页脚仍绝对贴底。
+⚠️ 那个 media query 认的是**方向不是宽度**，所以窄而高的桌面窗口也会走竖屏版——
+这是既有设计，不是这次改的。
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -3923,6 +3968,9 @@ instead of soft blur, pixelated arrow glyph」——那是当初的设计意图�
 | 重试要不要带 cache-bust | §18ar（要，失败的响应可能被中间层缓存住） |
 | 落地页按钮为什么和整页画风不一样 | §18as（owner 2026-08-24 刻意改的；不一致就是它的指路作用） |
 | 圆角发光按钮要注意什么 | §18as（光用 box-shadow 不用 ::after；呼吸光不呼吸亮度；`image-rendering` 会继承） |
+| 页脚为什么卡在半屏高 | §18at（flex 列的剩余空间堆在它下面；`margin-top:auto` 一行解决） |
+| 昵称为什么被硬切没有省略号 | §18at（**flex 容器里的匿名文字吃不到 `text-overflow`**，这条很容易再踩） |
+| 竖屏名牌为什么两行 | §18at（一行只剩 75px 给昵称，等于没显示；竖屏不缺纵向空间） |
 | 难度与题数能不能搬到门后那一页 | §18ak（**不能**：码头 2026-08-16 就是这样被推翻的，§18m） |
 | 门后那一页为什么没有编号 | §18ak（只有一个决定；§7 编号只给多步流程） |
 | 学段名牌为什么在手机上是一根竖条 | §18ak（既有缺陷：flex 里它是唯一可缩的；注解**不许换行**） |
