@@ -1571,46 +1571,73 @@ body.lp-sea-on .lp-aid{left:auto;right:14px}
    below the hero art. This reserves that same height so it never happens,
    regardless of which of gate/greeting/cards is the visible one. */
 .lp-hero-spacer{display:none}   /* v0.4: gate/cards float over the full-height hero, no dark band */
-/* single entry point: 进入 must be tapped before nickname/path selection.
-   16-bit styling = hard edges, no border-radius, stepped/chunky box-shadow
-   instead of soft blur, pixelated arrow glyph. */
+/* single entry point: 这颗按钮要先被按过，才轮到昵称与路线。
+   ⚠️ **2026-08-23 owner 推翻了原来的 16-bit 造型**（「don't make it so boxy -
+   make it rounded and glowing」），文案同时从「进入词山学海」改成「开始旅程」。
+   原注释写的是「hard edges, no border-radius, stepped/chunky box-shadow
+   instead of soft blur, pixelated arrow glyph」——那是刻意的，现在被刻意换掉了，
+   **不要当成回归再改回去**。
+   ⚠️ 画面本身仍然是像素画，所以这颗按钮是**整张落地页唯一一件圆润发光的东西**。
+   那不是不一致，那是它的工作：它是这一屏唯一要被按下去的地方，
+   而「唯一一件长得不一样的东西」正是最省事的指路方式。
+   ⚠️ 发光靠 box-shadow 的两层外扩，**不用 ::after 光环**：这颗按钮自己有背景，
+   `z-index:-1` 的伪元素会被它自己的背景盖掉（试过）。 */
 .lp-gate{position:absolute;right:7vw;bottom:15vh;margin:0;text-align:center;z-index:6}
 .lp-enter-btn{
   display:inline-block;border:0;cursor:pointer;touch-action:manipulation;
   font-family:"Noto Serif SC",serif;font-weight:900;
   font-size:clamp(22px,2.6vw,30px);letter-spacing:.10em;
-  padding:20px 60px;color:#4A3305;
-  background:linear-gradient(180deg,#FFE07A 0%,#F5C443 42%,#E0A526 43%,#D08E15 100%);
-  /* chunky stepped bevel — reads as 16-bit rather than a soft modern button */
+  padding:19px 58px;color:#4A3305;
+  border-radius:999px;                       /* 药丸形，不再有直角 */
+  /* ⚠️ `image-rendering` 是**继承属性**，落地页整页是像素画所以上层设了 pixelated；
+     这颗按钮现在要的是柔和渐层与光晕，必须显式改回 auto，
+     否则渐层可能被按像素放大规则处理，圆角边缘也更容易出锯齿。 */
+  image-rendering:auto;
+  /* 顶部亮、底部沉的径向渐层：圆角按钮用线性渐层会显得平，因为边缘没有受光变化 */
+  background:radial-gradient(125% 165% at 50% -10%,
+    #FFF3C4 0%, #FFE07A 24%, #F5C443 56%, #E2A828 80%, #CE8C12 100%);
   box-shadow:
-    0 -4px 0 0 #FFF0B8 inset,
-    0 4px 0 0 #A56F0A inset,
-    -4px 0 0 0 #FFDF8C inset,
-    4px 0 0 0 #B87F10 inset,
-    0 0 0 4px #6B4708,
-    0 0 0 8px #2A1B04,
-    0 10px 0 8px rgba(8,16,34,.45);
-  image-rendering:pixelated;
-  transition:transform .08s steps(2), box-shadow .08s steps(2);
-  animation:lpEnterPulse 1.9s steps(2) infinite}
-.lp-enter-btn:hover{transform:translateY(-4px);
+    0 1px 0 rgba(255,255,255,.8) inset,        /* 上缘一线高光 */
+    0 -12px 20px rgba(150,98,8,.30) inset,     /* 下缘内阴影，给一点厚度 */
+    0 6px 16px rgba(18,11,2,.34),              /* 落影：让它浮在画面之上 */
+    0 0 0 2px rgba(255,238,176,.92),           /* 细金圈，与背景分离 */
+    0 0 20px 3px rgba(255,206,84,.55),         /* 近层光 */
+    0 0 52px 12px rgba(255,190,60,.30);        /* 远层光 */
+  transition:transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .22s ease;
+  animation:lpEnterGlow 2.8s ease-in-out infinite}
+.lp-enter-btn:hover{transform:translateY(-3px) scale(1.02);
   box-shadow:
-    0 -4px 0 0 #FFF6D0 inset,
-    0 4px 0 0 #A56F0A inset,
-    -4px 0 0 0 #FFE9A8 inset,
-    4px 0 0 0 #B87F10 inset,
-    0 0 0 4px #6B4708,
-    0 0 0 8px #2A1B04,
-    0 14px 0 8px rgba(8,16,34,.5);
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -12px 20px rgba(150,98,8,.26) inset,
+    0 10px 22px rgba(18,11,2,.38),
+    0 0 0 2px rgba(255,244,200,.98),
+    0 0 28px 6px rgba(255,212,100,.72),
+    0 0 74px 20px rgba(255,196,66,.42);
   animation:none}
-.lp-enter-btn:active{transform:translateY(2px);
+.lp-enter-btn:active{transform:translateY(1px) scale(.99);
   box-shadow:
-    0 4px 0 0 #A56F0A inset,
-    0 0 0 4px #6B4708,
-    0 0 0 8px #2A1B04,
-    0 4px 0 8px rgba(8,16,34,.45);
+    0 -6px 14px rgba(150,98,8,.34) inset,
+    0 3px 9px rgba(18,11,2,.34),
+    0 0 0 2px rgba(255,238,176,.9),
+    0 0 16px 2px rgba(255,206,84,.5);
   animation:none}
-@keyframes lpEnterPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.14)}}
+/* 呼吸的是**光**，不是亮度：brightness 会把字一起提亮，看着像闪烁；
+   只放大外面那两层光晕，字始终一样清楚。 */
+@keyframes lpEnterGlow{
+  0%,100%{box-shadow:
+    0 1px 0 rgba(255,255,255,.8) inset,
+    0 -12px 20px rgba(150,98,8,.30) inset,
+    0 6px 16px rgba(18,11,2,.34),
+    0 0 0 2px rgba(255,238,176,.92),
+    0 0 20px 3px rgba(255,206,84,.55),
+    0 0 52px 12px rgba(255,190,60,.30)}
+  50%{box-shadow:
+    0 1px 0 rgba(255,255,255,.86) inset,
+    0 -12px 20px rgba(150,98,8,.30) inset,
+    0 6px 16px rgba(18,11,2,.34),
+    0 0 0 2px rgba(255,242,192,.96),
+    0 0 30px 7px rgba(255,214,104,.72),
+    0 0 76px 22px rgba(255,196,66,.44)}}
 @media (prefers-reduced-motion:reduce){.lp-enter-btn{animation:none}}
 
 /* chosen nickname: was a faint 14px line that vanished against the artwork.
