@@ -50,6 +50,153 @@
   function loadProfile() { return window.WSProfile ? window.WSProfile.load() : null; }
   function saveProfileLocal(p) { if (window.WSProfile) window.WSProfile.save(p); }
 
+
+  /* ================= 昵称的英文 (owner 2026-08-26) =========================
+     「any chance for them to see English translation of their nicknames? For
+     character names like wukong babe baoyu etc it's fine to leave it as pinyin,
+     but the descriptor ideally should be translated」
+
+     A nickname is 描述词·名词 and the two halves need OPPOSITE treatment:
+
+     · DESC_EN — every 描述词 is a 成语, and a 成语 is exactly the thing a
+       non-Chinese reader cannot guess. Each gets ONE SHORT EPITHET, not a
+       dictionary definition. 「百折不挠」is "Unbreakable", never "to be
+       indomitable; unyielding despite setbacks" — that gloss is correct for a
+       vocabulary list and useless as half of a name. 46 of these words also live
+       in the word data with a reviewed `en`; those epithets were compressed FROM
+       that gloss so the two can never say different things about the same 成语.
+
+     · NOUN_EN — split by what the noun IS, not by category. A proper name
+       ROMANISES (悟空 → Wukong, 宝玉 → Baoyu): translating it would invent a
+       person who does not exist. A common noun TRANSLATES (熊猫 → Panda), because
+       "Unbreakable · Xióngmāo" helps nobody — the reader still cannot read it.
+       The mythical beasts sit in between and follow established English usage
+       (朱雀 → Vermilion Bird), which is what an encyclopedia would print.
+
+     ⚠️ ⚠️ NOT TEACHER-REVIEWED. These 207 strings were written in one pass on
+     2026-08-26 and no native speaker has swept them. They are student-facing text
+     in a language-teaching product, so they want a teacher's eye before anyone
+     calls them final — the epithet is a judgement call in a way a word count is
+     not. Nothing breaks if one is off; it just reads oddly.
+
+     ⚠️ A MISSING KEY PRINTS NOTHING, deliberately (see nickEn): half a translated
+     name is worse than none. Add words to DESC_CATS/NOUN_CATS and their English
+     IN THE SAME EDIT, exactly as PY_LAB/EN_LAB demand. */
+  var DESC_EN = {
+    /* 坚毅拼搏 */
+    "百折不挠": "Unbreakable", "持之以恒": "Steadfast", "坚持不懈": "Relentless",
+    "坚持到底": "Sees It Through", "全力以赴": "All-Out", "孜孜不倦": "Tireless",
+    "锲而不舍": "Never Lets Go", "勇往直前": "Forward, Always",
+    "脚踏实地": "Feet on the Ground", "迎难而上": "Meets the Hard Thing",
+    "坚忍不拔": "Unshakeable", "自强不息": "Ever Striving",
+    /* 智慧机敏 */
+    "高瞻远瞩": "Far-Sighted", "融会贯通": "Joins the Dots", "入木三分": "Cuts Deep",
+    "言简意赅": "Says It in a Line", "足智多谋": "Full of Plans",
+    "聪明伶俐": "Quick-Witted", "博学多才": "Widely Learned",
+    "触类旁通": "Learns One, Knows Ten", "随机应变": "Thinks on Their Feet",
+    "才思敏捷": "Quick of Mind", "见多识广": "Seen Much, Knows Much",
+    "举一反三": "One Leads to Three", "明察秋毫": "Misses Nothing",
+    "满腹经纶": "Full of Learning", "冰雪聪明": "Bright as Snow",
+    "才华横溢": "Brimming with Talent",
+    /* 仁爱慷慨 */
+    "恻隐之心": "Tender-Hearted", "海纳百川": "Wide as the Sea",
+    "慷慨解囊": "Open-Handed", "推己及人": "Puts Themselves in Your Place",
+    "雪中送炭": "Warmth in the Snow", "乐善好施": "Glad to Give",
+    "与人为善": "Means Well by All", "助人为乐": "Happy to Help",
+    "古道热肠": "Warm-Hearted", "善解人意": "Understands People",
+    "宽宏大量": "Big-Hearted", "体贴入微": "Thoughtful in Everything",
+    /* 专注严谨 */
+    "聚精会神": "All Attention", "专心致志": "Single-Minded",
+    "心无旁骛": "Undistracted", "一丝不苟": "Not One Thread Loose",
+    "有条不紊": "Everything in Order", "精益求精": "Better Still",
+    "深思熟虑": "Thinks It Through", "谨慎周全": "Careful and Complete",
+    "认真负责": "Takes It Seriously", "严谨细致": "Precise and Careful",
+    /* 活力热忱 */
+    "生龙活虎": "Dragon and Tiger", "兴致勃勃": "Full of Interest",
+    "慷慨激昂": "Impassioned", "朝气蓬勃": "Full of Morning",
+    "神采奕奕": "Glowing", "精神抖擞": "Wide Awake", "意气风发": "High-Spirited",
+    "活力四射": "Bursting with Energy", "热情洋溢": "Overflowing with Warmth",
+    "斗志昂扬": "Fighting Spirit", "热血沸腾": "Blood Up", "生气勃勃": "Full of Life",
+    /* 正直担当 */
+    "光明磊落": "Open and Above Board", "刚正不阿": "Bends to No One",
+    "正气凛然": "Upright and Fearless", "大公无私": "Fair to All",
+    "敢作敢当": "Bold and Answerable", "正直无私": "Upright and Selfless",
+    "勇于担当": "Shoulders It", "公正严明": "Just and Clear",
+    /* 诚信真挚 */
+    "言出必行": "Word Is Deed", "一诺千金": "A Promise Worth Gold",
+    "推心置腹": "Heart to Heart", "以礼待人": "Treats All with Courtesy",
+    "诚实守信": "Honest and True", "真心实意": "Wholehearted",
+    "表里如一": "Same Inside and Out", "坦诚相待": "Frank and Open",
+    "待人以诚": "Meets You Sincerely",
+    /* 团结情谊 */
+    "群策群力": "All Minds, All Hands", "同甘共苦": "Through Sweet and Bitter",
+    "求同存异": "Common Ground, Room to Differ", "兼容并蓄": "Room for All",
+    "同心协力": "One Heart, One Effort", "齐心协力": "All Pulling Together",
+    "和衷共济": "Weathers It Together", "众志成城": "Many Wills, One Wall",
+    "团结一心": "United as One", "互帮互助": "Helping Each Other",
+    /* 吉祥美好 */
+    "大吉大利": "Great Good Fortune", "花好月圆": "Flowers Bright, Moon Full",
+    "龙凤呈祥": "Dragon and Phoenix", "一帆风顺": "Fair Winds",
+    "万事大吉": "All Is Well", "诸事大吉": "Good Fortune in All Things",
+    "繁荣昌盛": "Flourishing",
+    /* 卓越非凡 */
+    "别具一格": "A Style of Their Own", "出类拔萃": "Head and Shoulders Above",
+    "大显身手": "Shows What They Can Do", "独树一帜": "Flies Their Own Flag",
+    "独一无二": "One of a Kind", "凤毛麟角": "Rare as Phoenix Down",
+    "举世无双": "Second to None", "脱颖而出": "Comes to the Fore",
+    /* 从容自在 */
+    "从容不迫": "Unhurried", "悠然自得": "At Ease", "泰然自若": "Calm Under Anything",
+    "镇定自若": "Keeps Their Head", "气定神闲": "Steady and Serene",
+    "心平气和": "Even-Tempered", "怡然自得": "Content", "不慌不忙": "In No Rush",
+    "淡定自如": "Unruffled", "安之若素": "Takes It as It Comes",
+    "自得其乐": "Finds Their Own Joy", "随遇而安": "At Home Anywhere",
+    /* 个性独特 */
+    "与众不同": "Unlike Anyone Else", "独具匠心": "An Original Mind",
+    "卓尔不群": "A Cut Apart", "不拘一格": "Bound by No Mould",
+    "别出心裁": "Thinks Differently", "独具一格": "A Style All Their Own"
+  };
+  /* ⚠️ ROMANISED where the noun names a PERSON or a named creature, TRANSLATED
+     where it names a thing. That line is the owner's («character names … fine to
+     leave it as pinyin»), applied to the whole list rather than to the three
+     categories that happen to be novels. */
+  var NOUN_EN = {
+    /* 神话异兽 — established English usage, not invention */
+    "麒麟": "Qilin", "朱雀": "Vermilion Bird", "玄武": "Black Tortoise",
+    "青龙": "Azure Dragon", "白虎": "White Tiger", "九尾狐": "Nine-Tailed Fox",
+    "貔貅": "Pixiu", "鲲": "Kun",
+    /* 星宿天象 */
+    "北斗": "Big Dipper", "启明": "Morning Star", "织女": "Weaver Girl",
+    "牵牛": "Cowherd", "太白": "Venus", "辰星": "Mercury", "紫微": "Ziwei",
+    /* 西游记 · 三国 · 红楼 · 经典故事 — people, so romanised */
+    "悟空": "Wukong", "八戒": "Bajie", "沙僧": "Sha Seng",
+    "孔明": "Kongming", "关羽": "Guan Yu", "赵云": "Zhao Yun",
+    "张飞": "Zhang Fei", "周瑜": "Zhou Yu",
+    "宝玉": "Baoyu", "黛玉": "Daiyu", "宝钗": "Baochai",
+    "探春": "Tanchun", "湘云": "Xiangyun",
+    "花木兰": "Hua Mulan", "愚公": "Yugong", "精卫": "Jingwei", "夸父": "Kuafu",
+    /* 文人游侠 · 身份泛称 — roles, not names, so translated */
+    "墨客": "Poet", "行者": "Wanderer", "学士": "Scholar", "旅人": "Traveller",
+    "状元": "Top Scholar", "书生": "Bookworm", "侠客": "Knight-Errant",
+    "樵夫": "Woodcutter", "渔夫": "Fisherman", "匠人": "Artisan",
+    "商人": "Merchant", "农夫": "Farmer",
+    /* 可爱动物 */
+    "熊猫": "Panda", "狐狸": "Fox", "猫头鹰": "Owl", "水獭": "Otter",
+    "松鼠": "Squirrel", "企鹅": "Penguin", "考拉": "Koala", "刺猬": "Hedgehog",
+    "仓鼠": "Hamster", "柴犬": "Shiba", "兔子": "Rabbit", "锦鲤": "Koi",
+    /* 花草植物 */
+    "梅": "Plum Blossom", "兰": "Orchid", "竹": "Bamboo", "松": "Pine",
+    "荷": "Lotus", "柳": "Willow", "榕": "Banyan", "枫": "Maple",
+    "桂": "Osmanthus", "牡丹": "Peony",
+    /* 自然元素 */
+    "星辰": "Stars", "明月": "Bright Moon", "流云": "Drifting Cloud",
+    "长风": "Long Wind", "雷霆": "Thunder", "云霞": "Rosy Clouds",
+    "山雾": "Mountain Mist", "长虹": "Rainbow", "晨露": "Morning Dew",
+    /* 文化器物 */
+    "玉盘": "Jade Plate", "算盘": "Abacus", "香囊": "Sachet", "罗盘": "Compass",
+    "折扇": "Folding Fan", "灯笼": "Lantern", "竹简": "Bamboo Slips",
+    "印玺": "Seal", "锦囊": "Brocade Pouch", "铜镜": "Bronze Mirror"
+  };
+
   function renderNicknamePicker(onDone, opts) {
     opts = opts || {};
     var dismissible = !!opts.dismissible;
@@ -84,6 +231,16 @@
     function nickOf() {
       return st.restored && st.restored.nick ? st.restored.nick : (st.desc + "·" + st.noun);
     }
+    /* ⚠️ ROLLED NAMES ONLY. A restored nickname is one opaque string — nickOf()
+       above says so — and it does not split into 描述词·名词. Running it through
+       the tables would print nothing, or worse, half of it.
+       ⚠️ Returns "" unless BOTH halves are known: half an English name
+       ("Unbreakable · 宝玉") is worse than leaving it in Chinese. */
+    function nickEn() {
+      if (st.restored) return "";
+      var d = DESC_EN[st.desc], n = NOUN_EN[st.noun];
+      return (d && n) ? (d + " · " + n) : "";
+    }
 
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -99,7 +256,14 @@
       items.forEach(function (it) {
         var label = typeof it === "string" ? it : it.w;
         var title = typeof it === "string" ? "" : (' title="' + esc(it.zh) + '"');
-        html += '<span class="wchip not" data-v="' + esc(label) + '"' + title + '>' + esc(label) + '</span>';
+        /* ⚠️ The English goes INSIDE the chip, not in the title attribute. The
+           screen this was reported from is an iPhone, and a phone has no hover —
+           a title is invisible to exactly the reader it was meant for.
+           ⚠️ np() emits a display:block span, so with the English aid OFF the chip
+           renders identically to before: one line, same pill. */
+        var en = DESC_EN[label] || NOUN_EN[label] || "";
+        html += '<span class="wchip not" data-v="' + esc(label) + '"' + title + '>' +
+          esc(label) + (en ? np("", "", en) : "") + '</span>';
       });
       html += '</div>';
       return html;
@@ -341,6 +505,10 @@
                 np("用新昵称", "yòng xīn nì chēng", "Use a new one") + '</button>'
             : '<button class="np-roll" id="npRoll">🎲 换一个' +
                 np("换一个", "huàn yī gè", "Roll again") + '</button>') + '</div>' +
+          /* the whole point of the request: a student who cannot read 敢作敢当 can
+             still tell what they have been called. Gated like every other gloss,
+             so a CL reader sees the Chinese name alone, exactly as before. */
+          (nickEn() ? '<div class="np-name-en">' + np("", "", nickEn()) + '</div>' : "") +
           (st.restored
             ? '<div class="pop-note np-restored">✅ 进度码有效：' + esc(st.restored.streamLabel) +
               '，已掌握 ' + (st.restored.mastered === null ? "?" : st.restored.mastered) +
@@ -358,7 +526,7 @@
           '<div class="nav-row"><button class="nav-btn primary" id="npConfirm">确认' +
             np("确认", "què rèn", "Confirm") + '</button></div>' +
           '<div class="np-manual"><button id="npManual">我要自己选昵称' +
-            np("我要自己选昵称", "wǒ yào zì jǐ xuǎn nì chēng", "Let me type my own") + '</button>' +
+            np("我要自己选昵称", "wǒ yào zì jǐ xuǎn nì chēng", "Let me choose my own") + '</button>' +
           (st.restored ? "" : '<button id="npRestore">换了设备？在这里找回进度' +
             np("", "", "Changed device? Restore your progress here") + '</button>') +
           '</div>' + closeBtn;

@@ -2158,3 +2158,22 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
 .np-aid-btn.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
 .np-aid-btn.on .np-aid-lab{opacity:1}
 .np-aid-btn:active{transform:translateY(1px)}
+/* ---------- 昵称的英文 (2026-08-26) ----------
+   ⚠️ In BOTH stylesheets, like every other nickname-picker rule: XH_index.html
+   loads xh.css and never cs.css, and it shows the same picker.
+   The span inside is np()'s .enlab, which is already display:block and already
+   gated — this only positions it under the name and stops it inheriting the
+   19px bold of .np-name, which would make the English compete with the name
+   it is explaining. */
+.np-name-en{margin:-8px 0 14px;text-align:center}
+.np-name-en .enlab{font-size:13.5px;font-weight:600;line-height:1.4;color:var(--ink-soft)}
+/* The English inside a picker chip: a second line in the same pill, so with the
+   aid off the chip is byte-for-byte the shape it was before.
+   ⚠️ TYPOGRAPHY ONLY — never `display`. The gate is `.enlab{display:none}` +
+   `body.en-aid .enlab{display:block}` (and `body.xh-en-on .xh-en` on the pier),
+   so a bare `.wchip .enlab{display:block}` at (0,2,0) beats the (0,1,0) OFF rule
+   and pins the English on for everyone, aid or not. Shipped that for one build
+   and caught it only because the chip height barely moved when EN was toggled
+   off. Same specificity trap the pier records at xh.css §159 / §465 / §1881.
+   Leaving `display` alone lets the gate keep owning it. */
+.wchip .enlab,.wchip .xh-en{margin-top:1px;font-size:11px;font-weight:600;line-height:1.3;opacity:.85}
