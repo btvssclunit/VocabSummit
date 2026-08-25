@@ -6149,6 +6149,20 @@
      benefit. Everything this returns is already paid for. */
   function takeItems(kind) {
     var kit = emptyKit();
+    /* ⚠️ A ROOM TAKES NOTHING, AND THE CHECK LIVES HERE — at the ONE choke point every
+       loop has to pass through — rather than in each loop's own opening lines.
+       startRain() carries a roomCode gate; startSprint() has no such parameter at all,
+       so the pair was asymmetric: the day someone wires 攀山快答 into a room the way
+       词雨's roomCode implies was once intended, sprint would silently spend a kit and
+       apply it. One guard here cannot be forgotten by a loop written later.
+       ⚠️ .arena-ov is arena.js's own overlay, appended to document.body by open() and
+       removed by close(), for EVERY room mode in both families — 结伴登峰 / 结伴出海 /
+       同伴挑战, mountain and pier. Its presence is the honest signal for「房间开着」.
+       ⚠️ Belt AND braces on purpose. arena.js has its own renderers, never calls these
+       loops, and contains no item code at all, so today this branch never fires. That
+       is exactly the point: an invariant that holds only because of which file happens
+       to render is one refactor away from being false. */
+    if (document.querySelector(".arena-ov")) return kit;
     equippedItems(kind).forEach(function (k) {
       if (!spendItem(k)) return;                  // stock ran out between screens
       var it = itemByKey(k), via = "";
