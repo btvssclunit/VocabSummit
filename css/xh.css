@@ -2140,3 +2140,21 @@ body.xh-en-on .xh-build .xh-ph-en{margin-bottom:4px}
   .xh-hero-sub{background:rgba(8,26,46,.72)}
   .xh-stat{background:rgba(10,28,48,.78)}
 }
+/* ---------- 昵称弹窗里的 拼音 / EN 开关 (2026-08-25) ----------
+   ⚠️ COPIED INTO BOTH STYLESHEETS ON PURPOSE. XH_index.html loads xh.css and never
+   cs.css, but it shows the same nickname picker, so a pill styled in only one file
+   is an unstyled pill on the pier. Same reason .pop-card itself lives in both.
+   ⚠️ It sits ABOVE the title and reads as a utility, not as a step — a student
+   walking the 大类 → 描述词 chips must never mistake it for a choice to make.
+   ⚠️ NOT position:sticky. .pop-card scrolls its own overflow and a sticky row would
+   sit over the 学校 dropdown's options on a short phone screen. */
+.np-aid{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}
+.np-aid-btn{display:inline-flex;align-items:center;gap:6px;flex:none;
+  height:32px;padding:0 11px;border:1px solid var(--card-line);border-radius:999px;
+  background:rgba(255,255,255,.85);color:var(--ink-soft);
+  font-family:var(--sans);cursor:pointer;-webkit-appearance:none}
+.np-aid-btn .np-aid-ic{font-family:var(--serif);font-weight:800;font-size:15px}
+.np-aid-btn .np-aid-lab{font-size:12px;font-weight:700;opacity:.72}
+.np-aid-btn.on{background:var(--gold);border-color:var(--gold);color:#3A2A08}
+.np-aid-btn.on .np-aid-lab{opacity:1}
+.np-aid-btn:active{transform:translateY(1px)}

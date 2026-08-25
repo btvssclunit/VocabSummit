@@ -1747,6 +1747,52 @@
      (§10). The emoji in FB_TYPES is not part of the key.
      ⚠️ The long consent note gets ENGLISH ONLY. It is prose, not a label; a paragraph
      of pinyin is noise, and it would be a syllable-count trap on every future edit. */
+
+  /* ---------- 进度码 / 恢复码 错误信息的英文 (owner 2026-08-25) ----------
+     ⚠️ ENGLISH ONLY, NO PINYIN — the same rule the consent note above follows: these
+     are sentences, not labels. A paragraph of pinyin is noise, and it is a
+     syllable-count trap on every future edit (§10 applies to LABELS).
+
+     ⚠️ ONE TABLE, KEYED BY THE CHINESE THE STUDENT SEES. These strings are returned
+     as a bare `err` string from a dozen sites inside peekCode() / restoreFromClaim(),
+     and the screen that renders them is the nickname picker in another file. Glossing
+     each `return { err: ... }` would put the English out of that renderer's reach, so
+     the pairing lives here instead. nickname.js's own four restore-flow lines are in
+     here too — this is the shared vocabulary of one flow, not one file's strings.
+
+     ⚠️ THE FALLBACK IS NOT A MISSING GLOSS. Everywhere else in this repo an unknown
+     key returns "" silently, which is right for a LABEL that sits beside its own
+     Chinese. A red line a student cannot read is a dead end, so an unknown error
+     still gets a sentence telling them what to do. Add the real line here in the same
+     edit as any new error above, exactly as PY_LAB/EN_LAB demand. */
+  var CODE_ERR_EN = {
+    "请先粘贴进度码。": "Paste your progress code first.",
+    "进度码格式不正确，请检查是否完整复制。": "That progress code does not look right \u2014 check you copied all of it.",
+    "进度码不完整或已损坏，请重新复制一次。": "That progress code is incomplete or damaged. Copy it again.",
+    "进度码里没有可以恢复的内容。": "There is nothing to restore inside that progress code.",
+    "进度码里的科目无法识别。": "The subject in that progress code is not one we recognise.",
+    "这个科目的词库还没载入，请稍后再试。": "That subject\u2019s word list has not loaded yet. Try again in a moment.",
+    "进度码与当前词库不匹配。": "That progress code does not match the current word list.",
+    "进度码无法解析，请检查是否完整复制。": "That progress code cannot be read \u2014 check you copied all of it.",
+    "这个恢复码的格式无法识别。": "That recovery code is not in a format we recognise.",
+    "恢复码不完整，请检查有没有漏打。": "That recovery code is too short \u2014 check for missing characters.",
+    "现在连不上网络，恢复码需要联网才能用。": "You are offline. A recovery code needs the internet.",
+    "恢复功能还没有开启，请告诉老师。": "Restoring is not switched on yet. Please tell your teacher.",
+    "找不到这个恢复码，请检查有没有打错。": "We cannot find that recovery code \u2014 check for a typo.",
+    "现在读不到你的进度，请稍后再试。": "We cannot read your progress right now. Try again in a moment.",
+    /* ---- nickname.js's own lines in the same flow ---- */
+    "暂时无法恢复，请稍后再试。": "Restoring is unavailable right now. Try again in a moment.",
+    "正在找回\u2026": "Restoring\u2026",
+    "恢复失败，请稍后再试。": "That did not work. Try again in a moment.",
+    "暂时无法核对进度码，请稍后再试。": "We cannot check that progress code right now. Try again in a moment.",
+    "这是旧版进度码，里面没有昵称。请先取个昵称，进入科目后再用它恢复进度。":
+      "This is an older progress code and it carries no nickname. Pick a nickname first, " +
+      "then use the code once you are inside the subject."
+  };
+  function codeErrEn(zh) {
+    return CODE_ERR_EN[zh] ||
+      "Something is wrong with that code. Check it and try again, or ask your teacher.";
+  }
   function fbGloss(zh, py, en) {
     return (py ? '<span class="pylab xh-py xh-uipy">' + esc(py) + "</span>" : "") +
            (en ? '<span class="enlab xh-en">' + esc(en) + "</span>" : "");
@@ -2882,6 +2928,9 @@
     /* the dual-class gloss span both families recognise; used by the nickname
        picker and the profile panel, which are shown on every page. */
     gloss: fbGloss,
+    /* the English for a 进度码/恢复码 error, for whoever ends up RENDERING one —
+       today that is only the nickname picker's 找回 step. See CODE_ERR_EN. */
+    codeErrEn: codeErrEn,
     /* cs.js asks before drawing the 攀山快答 sprite; keep the unlock rules in one place */
     isAvatarUnlocked: isAvatarUnlocked,
     avatarLock: avatarLock,

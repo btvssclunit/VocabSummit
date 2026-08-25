@@ -135,6 +135,92 @@
       return (window.WSProfile && window.WSProfile.gloss)
         ? window.WSProfile.gloss(zh, py, en) : "";
     }
+    /* degrades to no English rather than to a wrong one, same contract as np() */
+    function codeErrEn(zh) {
+      return (window.WSProfile && window.WSProfile.codeErrEn)
+        ? window.WSProfile.codeErrEn(zh) : "";
+    }
+
+    /* ---------- 提示开关，装在弹窗自己身上 (owner 2026-08-25) ----------
+       ⚠️ THE TOPBAR PILLS ARE UNREACHABLE FROM HERE, on every page that shows this
+       picker, and that is the whole bug: on the landing page .pop-overlay covers
+       them (elementFromPoint on the pill returns the overlay), and on 出发码头
+       WSProfile.aidPillsHtml() returns "" because xh.js owns the gate classes, so
+       the picker has no pills at all. A first-run picker is opened
+       `dismissible:false` — no 取消 — so a student who cannot read 昵称／身份／班级
+       has no way to ask for help and no way out. The aids can be switched on
+       BEFORE 开始旅程 and nothing says so; after that the door is shut.
+
+       ⚠️ REACHABILITY, NOT A LOUDER DEFAULT (owner 2026-08-25:「student who already
+       know CL will find it weird if they see pinyin and english forcefully
+       displayed」). Forcing both aids on for this one screen was considered and
+       REJECTED. Whatever the student already had is what they get; this only puts
+       the switch where their thumb is. Do not "fix" this later by defaulting it on.
+
+       ⚠️ THE HOST OWNS THE STATE. opts.aid lets 出发码头 hand in its own
+       store.py/store.en accessors, because the pier and the landing page are two
+       INDEPENDENT switches by design (profile.aidPy/aidEn vs the pier store's
+       py/en) — a profile-backed toggle on the pier would be reverted by the next
+       applyAids(). With no adapter we fall back to the profile-backed pair.
+
+       ⚠️ NO PILLS is the right answer on a page where nothing owns the gates: a
+       stream page drives body.py-aid from its own per-stream setting, so a toggle
+       here would save a preference and change nothing on screen. aidPillsHtml()
+       returns "" under exactly that condition, so it is the probe — cheaper and
+       more honest than exporting profile.js's _ownAid. */
+    function aidBridge() {
+      if (opts.aid && opts.aid.get && opts.aid.set) return opts.aid;
+      var P = window.WSProfile;
+      if (!P || !P.load || !P.save || !P.applyAid) return null;
+      if (!P.aidPillsHtml || !P.aidPillsHtml()) return null;   // nothing owns the gates here
+      return {
+        get: function (k) { return k === "py" ? P.aidPy() : P.aidEn(); },
+        set: function (k, on) {
+          var p = P.load() || {};
+          p[k === "py" ? "aidPy" : "aidEn"] = on;
+          P.save(p);          // merges onto prev, so 确认 later cannot wipe this
+          P.applyAid();
+        }
+      };
+    }
+    var _aid = aidBridge();
+    /* ⚠️ EN FIRST — cs.js, the pier and profile.js were all aligned to that order on
+       2026-08-16 so the two pills never swap under a finger. Do not re-flip it. */
+    function aidRowHtml() {
+      if (!_aid) return "";
+      function pill(k, ic, lab, title) {
+        var on = !!_aid.get(k);
+        return '<button type="button" class="np-aid-btn' + (on ? " on" : "") + '"' +
+          ' data-aid="' + k + '" aria-pressed="' + (on ? "true" : "false") +
+          '" title="' + esc(title) + '"><span class="np-aid-ic">' + ic +
+          '</span><span class="np-aid-lab">' + lab + '</span></button>';
+      }
+      return '<div class="np-aid">' + pill("en", "中", "EN", "中文 / English") +
+        pill("py", "拼", "拼音", "拼音提示 Pinyin") + '</div>';
+    }
+    /* A CLASS FLIP, NEVER A RE-RENDER (§10): the glosses are CSS-gated spans that
+       are already in the markup, and re-rendering mid-flow would throw away a
+       half-typed school name or a chip step the student had walked into. */
+    function wireAidRow(root) {
+      if (!_aid) return;
+      Array.prototype.forEach.call(root.querySelectorAll("[data-aid]"), function (b) {
+        b.onclick = function () {
+          var k = b.getAttribute("data-aid"), on = !_aid.get(k);
+          _aid.set(k, on);
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+          /* keep the page's own pill honest even though it is behind the overlay,
+             or closing the picker reveals a toggle that disagrees with the screen */
+          var twin = document.getElementById(k === "py" ? "wsAidPy" : "wsAidEn") ||
+                     document.getElementById(k === "py" ? "xhTgPy" : "xhTgEn");
+          if (twin) {
+            twin.classList.toggle("on", on);
+            twin.setAttribute("aria-pressed", on ? "true" : "false");
+          }
+        };
+      });
+    }
+
     function renderStep() {
       var html = "";
       var closeBtn = dismissible ? '<div class="nav-row"><button class="nav-btn" id="npCancel">取消' +
@@ -153,19 +239,25 @@
           '<div class="pop-body">选一个具体的词语（点击可看意思）：' +
             np("", "", "Pick a word. Tap one to see what it means.") + '</div>' +
           chipGrid(DESC_CATS[st.descCat]) +
-          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类' +
+            np("返回大类", "fǎn huí dà lèi", "Back to the groups") +
+            '</button></div>' + closeBtn;
       } else if (st.step === "nounCat") {
         html = '<div class="pop-title">' + esc(st.desc) + '·？</div>' +
           '<div class="pop-body">第二步：选一个名词大类' +
             np("", "", "Step 2: pick a noun group.") + '</div>' +
           chipGrid(Object.keys(NOUN_CATS)) +
-          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重选描述词</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 重选描述词' +
+            np("重选描述词", "chóng xuǎn miáo shù cí", "Pick a different first word") +
+            '</button></div>' + closeBtn;
       } else if (st.step === "nounWord") {
         html = '<div class="pop-title">' + esc(st.nounCat) + '</div>' +
           '<div class="pop-body">选一个具体的名词：' +
             np("", "", "Pick a noun.") + '</div>' +
           chipGrid(NOUN_CATS[st.nounCat]) +
-          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类</button></div>' + closeBtn;
+          '<div class="nav-row"><button class="nav-btn" id="npBack">‹ 返回大类' +
+            np("返回大类", "fǎn huí dà lèi", "Back to the groups") +
+            '</button></div>' + closeBtn;
       } else if (st.step === "restore") {
         /* ⚠️ ONE BOX, TWO CODES (owner 2026-08-19). A student arrives holding whichever
            code they wrote down; asking them to first classify it is asking them to know
@@ -181,7 +273,11 @@
             np("", "", "Enter your 10-character recovery code to get everything back (needs internet), " +
                        "or paste the long progress code from your old device (works offline).") + '</div>' +
           '<textarea id="npCode" class="code-ta" placeholder="恢复码（十个字符），或者贴进度码…">' + esc(st.codeVal || "") + '</textarea>' +
-          (st.codeErr ? '<div class="pop-note np-code-err">' + esc(st.codeErr) + '</div>' : "") +
+          /* ⚠️ the error is the one line on this screen a stuck student MUST be able
+              to read — it is the whole reason they are on the 找回 step. English only,
+              from the shared table in profile.js; see CODE_ERR_EN there. */
+          (st.codeErr ? '<div class="pop-note np-code-err">' + esc(st.codeErr) +
+            np("", "", codeErrEn(st.codeErr)) + '</div>' : "") +
           '<div class="nav-row"><button class="nav-btn" id="npCodeBack">‹ 返回' +
             np("返回", "fǎn huí", "Back") + '</button>' +
           '<button class="nav-btn primary" id="npCodeGo">找回' +
@@ -267,7 +363,8 @@
             np("", "", "Changed device? Restore your progress here") + '</button>') +
           '</div>' + closeBtn;
       }
-      card.innerHTML = html;
+      card.innerHTML = aidRowHtml() + html;
+      wireAidRow(card);
 
       if (st.step === "descCat") {
         wireChips(card);

@@ -587,7 +587,16 @@
         window.WSNickname.picker(function () { renderTop(); if (done) done(); },
           { dismissible: true, currentSchool: cur.school || "",
             currentRole: cur.category || "student", currentClass: cur.mtlClass || "",
-            currentHeard: cur.heardFrom || "" });
+            currentHeard: cur.heardFrom || "",
+            /* ⚠️ the picker's own 拼音/EN pills must drive THE PIER's switch, not the
+               profile's. xh.js owns body.xh-py-on off store.py, so a profile-backed
+               toggle would be reverted by the next applyAids() and read as broken.
+               The two switches are independent on purpose (the profile pair is for
+               pages with no engine); this adapter is the seam between them. */
+            aid: {
+              get: function (k) { return !!store[k]; },
+              set: function (k, on) { store[k] = on; save(); applyAids(); }
+            } });
       },
       onChanged: renderTop                // nickname / avatar may have changed
     });
@@ -3050,8 +3059,9 @@
      「a mechanism where students can choose to keep their items away, perhaps an
      inventory? I think we had the idea of their backpack - has it materialised?」
      ⚠️ IT HAD NOT. Nothing named 背包 existed anywhere in the repo. The nearest thing
-     was the mountain's `store.items` (consumable counts) and `store.itemSlots`, whose
-     own picker is still unbuilt (§18). The pier had `store.owned` but NO screen that
+     was the mountain's `store.items` (consumable counts) and `store.itemSlots` —
+     whose own picker was unbuilt too until 2026-08-25 (it now lives on the 词雨灵露
+     and 攀山快答 config screens; see 道具运行时 in cs.js). The pier had `store.owned` but NO screen that
      listed it: 海滩小铺 only ever offered 摆上, so the only way to change the beach was
      to swap one thing for another and an empty shore was unreachable.
      ⚠️ THIS IS NOT A SECOND SHOP. It sells nothing and shows no prices — it lists what

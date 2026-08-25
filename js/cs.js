@@ -3159,6 +3159,7 @@
     "开始挑战": "Start",
     "开始攀登": "Start climbing",
     "开始游戏": "Start game",
+    "道具": "Items",
     "回营地": "Back",
     "下一题": "Next",
     /* HUD + stat labels (owner 2026-08-14: "actually can translate things like
@@ -3396,7 +3397,9 @@
       "yòng nǐ zài「xué xí」yè xuǎn de fù xí fàn wéi，hé zì jǐ fù xí shí yī yàng。" +
       "yào gǎi jiù huí shàng yī yè xuǎn dān yuán",
     /* ---- 汉兜 hint redesign (owner 2026-08-15) ---- */
-    "首字声母": "shǒu zì shēng mǔ", "词性": "cí xìng"
+    "首字声母": "shǒu zì shēng mǔ", "词性": "cí xìng",
+    /* ---- 道具 (2026-08-25) ---- */
+    "道具": "dào jù"
   };
   function pyl(key) {
     if (!pyAidAvailable()) return "";
@@ -4161,9 +4164,19 @@
     document.getElementById("go").onclick = function () { startMode(store.quizMode || "cloze"); };
   }
 
-  function renderRainConfig() {
+  /* showPyIn: the 拼音 toggle is a LOCAL, unsaved choice, and picking a 道具
+     re-renders this screen. Threading it back through means a student who turns
+     拼音 off and then taps 糖葫芦 does not silently get it back on. */
+  function renderRainConfig(showPyIn) {
     setTopbar("home", "");
     var best = store.best.rain || 0;
+    var showPy = showPyIn === undefined ? true : !!showPyIn;
+    /* ⚠️ the 生命 readout MOVES when 糖葫芦 goes into a slot, or the picker reads as
+       decoration. 锦囊 is deliberately not previewed — it rolls at spend time, and
+       promising a heart it might not become is worse than saying nothing. */
+    var livesNow = RAIN_LIVES + equippedItems("rain").filter(function (k) {
+      var it = itemByKey(k); return it && it.eff === "life";
+    }).length;
     view().innerHTML = '<div class="game-config card">' +
       '<div class="mode-name">\ud83c\udf27\ufe0f 词雨灵露' + pyl("词雨灵露") + enli("词雨灵露") + '</div>' +
       '<div class="mode-desc">' + mdLine("词语化作灵雨随风而落，趁它落地前打出，化为灵露收进宝缸！") +
@@ -4171,20 +4184,21 @@
         mdLine("接住的词都会化成灵露，可在「我的词山 · 你的营地」兑换装备。", campLingluIcon() + " ") +
         mdLine("雨势会越下越急 —— 每一局都从最慢开始。") + '</div>' +
       '<div class="diff-label">拼音辅助' + pyl("拼音辅助") + enl("拼音辅助") + '</div><div class="diff">' +
-      '<button class="dopt on" id="pySel"><span>在词语下方显示拼音' +
+      '<button class="dopt' + (showPy ? " on" : "") + '" id="pySel"><span>在词语下方显示拼音' +
       pyl("在词语下方显示拼音") + enl("在词语下方显示拼音") + '</span></button></div>' +
       /* each label keeps its own value ON the same line, with the glosses under the
    whole item — otherwise the block gloss splits 「本机最高分」 from its number */
       '<div class="rain-best"><span class="rb-item">本机最高分：<b>' + best + '</b>' +
       pyl("本机最高分") + enl("本机最高分") + '</span>' +
-      '<span class="rb-item">\u2764\ufe0f 生命 ' + RAIN_LIVES +
+      '<span class="rb-item">\u2764\ufe0f 生命 ' + livesNow +
       pyl("生命") + enl("生命") + '</span></div>' +
+      itemPickerHtml("rain") +
       '<div class="nav-row"><button class="nav-btn" id="back">\u2039 ' + hubLabelHtml(true) + '</button>' +
       '<button class="nav-btn primary" id="go">开始游戏 \u203a' + pyl("开始游戏") + enli("开始游戏") + '</button></div></div>';
-    var showPy = true;
     document.getElementById("pySel").onclick = function () {
       showPy = !showPy; this.classList.toggle("on", showPy);
     };
+    wireItemPicker("rain", function () { renderRainConfig(showPy); });
     document.getElementById("back").onclick = backToHub;
     document.getElementById("go").onclick = function () { startRain(showPy); };
   }
@@ -4197,6 +4211,10 @@
       alert("所选范围内适合词雨灵露的词语不足（需要至少 8 个 1–4 字的词语）。请扩大复习范围。");
       return;
     }
+    /* ⚠️ A ROOM ROUND TAKES NOTHING. Both players have to run the same sky, so
+       同伴挑战 gets an empty kit — see the note above takeItems(). Solo rounds spend
+       here, at the top, before a single word has fallen. */
+    var kit = roomCode ? emptyKit() : takeItems("rain");
     setTopbar("home", "");
     showFab(false);        // timed round: no stray taps, and 词雨 words land here
     view().innerHTML = orientHintHtml("landscape") +
@@ -4215,7 +4233,8 @@
       '<span>得分' + pyl("得分") + enli("得分") + ' <b id="rScore">0</b></span>' +
       '<span>连击' + pyl("连击") + enli("连击") + ' <b id="rCombo">×1</b></span>' +
       '<span>波次' + pyl("波次") + enli("波次") + ' <b id="rWave">1</b></span>' +
-      '<span id="rLives">' + "❤️".repeat(RAIN_LIVES) + '</span></div>' +
+      '<span id="rLives">' + "❤️".repeat(RAIN_LIVES + kit.life) + '</span></div>' +
+      itemBarHtml(kit) +
       '<div class="rain-input-row">' +
       '<input class="answer-input" id="rInput" autocomplete="off" placeholder="打出词语，收集灵露…">' +
       '<button class="check-btn" id="rFire">收集' + pyl("收集") + enli("收集") + '</button></div></div></div>';
@@ -4223,7 +4242,27 @@
     var area = document.getElementById("rArea");
     var input = document.getElementById("rInput");
     var live = [];          // {el, w, x, y, sway, phase}
-    var score = 0, combo = 1, cleared = 0, lives = RAIN_LIVES, wave = 1, dew = 0;
+    var maxLives = RAIN_LIVES + kit.life;                   // 糖葫芦
+    var score = 0, combo = 1, cleared = 0, lives = maxLives, wave = 1, dew = 0;
+    var shield = kit.shield;                                // 油纸伞, one combo-break each
+    var freezeT = 0;                                        // 定风珠, seconds of stopped sky
+    var fallMul = Math.pow(RAIN_SLOW_MUL, kit.slow);        // 羽扇
+    function paintLives() {
+      document.getElementById("rLives").textContent =
+        "❤️".repeat(Math.max(0, lives)) + "🖤".repeat(Math.max(0, maxLives - Math.max(0, lives)));
+    }
+    /* 油纸伞 eats ONE combo reset, from either source (a word lost to the sea or a
+       wrong guess). It never stops the life loss — it is a combo shield and the
+       shelf says so. Both callers go through here so the two can never diverge. */
+    function breakCombo() {
+      if (shield > 0) {
+        shield--;
+        toast("🌂 油纸伞挡下一次连击中断" + (shield ? "（还剩 " + shield + " 次）" : ""));
+        return;
+      }
+      combo = 1;
+      document.getElementById("rCombo").textContent = "×1";
+    }
     /* §3 flags that the pacing was tuned for a full-width area and needs a retune
        after the split. Rather than guess new numbers blind, both knobs are now
        DERIVED from the area's real size, so the feel is layout-independent:
@@ -4363,9 +4402,15 @@
          PLAYED, so pausing to think never makes the next drop faster, and every
          round restarts from RAIN_BASE_FALL. */
       var cfgNow = rainCfgAt(playedS);
+      /* 定风珠: the sky itself stops — words hold position and nothing new spawns.
+         ⚠️ playedS still advances, so a freeze buys breathing room and never also
+         rewinds the difficulty ramp (which would make it farmable). */
+      if (freezeT > 0) freezeT = Math.max(0, freezeT - dt);
+      var frozen = freezeT > 0;
+      area.classList.toggle("is-frozen", frozen);
       var spawnEvery = cfgNow.spawn;
-      if (spawnTimer >= spawnEvery && live.length < maxLiveNow()) { spawnTimer = 0; spawn(); }
-      var fall = cfgNow.fall * fallScale();
+      if (!frozen && spawnTimer >= spawnEvery && live.length < maxLiveNow()) { spawnTimer = 0; spawn(); }
+      var fall = frozen ? 0 : cfgNow.fall * fallScale() * fallMul;
       var seaY = area.clientHeight - 46;
       for (var i = live.length - 1; i >= 0; i--) {
         var o = live[i];
@@ -4375,10 +4420,19 @@
         o.el.style.transform = "translate(" + x + "px," + o.y + "px)";
         if (o.y > seaY) {
           splashAt(o.x + o.el.offsetWidth / 2);
+          /* 玉葫芦: the word is still LOST — a life still goes, the score still does
+             not move — but the 灵露 it was worth still reaches the barrel.
+             ⚠️ lingLuFor(), never awardLingLu(): awardLingLu bumps store.wins, and a
+             word that fell in the sea is not a word the student got right. Paying
+             for a miss must never look like knowing it. */
+          if (kit.salvage) {
+            dew += lingLuFor(o.w, "rain") * kit.salvage;
+            document.getElementById("rDrops").textContent = "✨ " + dew;
+            document.getElementById("rWater").style.height = Math.min(100, dew * 2) + "%";
+          }
           o.el.remove(); live.splice(i, 1);
-          lives--; combo = 1; sfxLife();
-          document.getElementById("rLives").textContent = "❤️".repeat(Math.max(0, lives)) + "🖤".repeat(RAIN_LIVES - Math.max(0, lives));
-          document.getElementById("rCombo").textContent = "×1";
+          lives--; sfxLife(); breakCombo();
+          paintLives();
           if (lives <= 0) return gameOver();
         }
       }
@@ -4400,7 +4454,7 @@
         bump("rain", false);
         sfxBad();                 // a wrong guess sounded like nothing at all
         input.classList.remove("shake"); void input.offsetWidth; input.classList.add("shake");
-        combo = 1; document.getElementById("rCombo").textContent = "×1";
+        breakCombo();
         return;
       }
       bump("rain", true);
@@ -4431,14 +4485,22 @@
       if (isBest) store.best.rain = score;
       /* every run is the same progressive course now (2026-08-14), so every run
          is rankable — the old 固定速度 farming loophole no longer exists. */
-      if (score > (store.best.rainRamp || 0)) store.best.rainRamp = score;
-      store.lingLu += dew;          // bank the run's 灵露 into the wallet
+      /* ⚠️ AN ITEM RUN NEVER SETS rainRamp. That board is the「同一套课程」board:
+         everyone from the same base speed, everyone on RAIN_LIVES hearts. Two extra
+         hearts or a 25% slower sky is a different course, so it stays off the board
+         — while 本机最高分 above, a private number, still records it honestly. */
+      if (!kit.any && score > (store.best.rainRamp || 0)) store.best.rainRamp = score;
+      var bonusDew = kit.bonus ? Math.round(dew * LINGLU_ITEM_BONUS * kit.bonus) : 0;   // 算盘
+      store.lingLu += dew + bonusDew;   // bank the run's 灵露 into the wallet
       saveStore();
       view().innerHTML = '<div class="result">' +
         '<div class="big">' + score + '</div>' +
         '<div class="sub">词雨灵露 · 接住 ' + cleared + ' 词 · 第 ' + wave + ' 波</div>' +
-        '<div class="msg">' + campLingluIcon() + ' 收获灵露 ' + dew + ' · 现有 ' + fmtNum(store.lingLu) + '（在词山营地兑换装备）</div>' +
+        '<div class="msg">' + campLingluIcon() + ' 收获灵露 ' + (dew + bonusDew) +
+          (bonusDew ? '（🧮 算盘 +' + bonusDew + '）' : "") +
+          ' · 现有 ' + fmtNum(store.lingLu) + '（在词山营地兑换装备）</div>' +
         '<div class="msg">' + (isBest ? "🎉 本机新纪录！" : "本机最高分：" + Math.max(best, score)) + '</div>' +
+        kitUsedLine(kit) +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
         '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
@@ -4446,6 +4508,15 @@
       document.getElementById("home").onclick = backToHub;
     }
     document.getElementById("rFire").onclick = fire;
+    /* 定风珠 is the only tappable item in 词雨; every other consumable is already
+       applied by the time the first word falls. */
+    wireItemBar(kit, function (eff) {
+      if (eff !== "freeze" || over || !area.isConnected) return false;
+      freezeT = RAIN_FREEZE_S;
+      toast("🔮 定风珠 · 风停了 " + RAIN_FREEZE_S + " 秒");
+      sfxOk();
+      return true;
+    });
     input.addEventListener("compositionstart", function () { composing = true; });
     input.addEventListener("compositionend", function () { composing = false; });
     input.addEventListener("keydown", function (e) {
@@ -5160,6 +5231,7 @@
       }).join("") + '</div>' +
       '<div class="diff-label">' + stepNo(2) + '冲刺时长' + pyl("冲刺时长") + enl("冲刺时长") + '</div>' +
       qtySlider("secSel", SPRINT_OPTS, store.sprintSecs, secFmt) +
+      itemPickerHtml("sprint", 3) +
       pyAidToggleHtml() +
       '<div class="nav-row"><button class="nav-btn" id="back">\u2039 ' + hubLabelHtml(true) + '</button>' +
       '<button class="nav-btn primary" id="go">开始攀登 ›' + pyl("开始攀登") + enli("开始攀登") + '</button></div></div>';
@@ -5172,6 +5244,9 @@
       };
     });
     wireQtySlider("secSel", SPRINT_OPTS, secFmt, function (n) { store.sprintSecs = n; saveStore(); });
+    /* everything this screen chooses lives in `store`, so a full re-render is the
+       cheapest way to repaint the slots — same thing wirePyAidToggle does below. */
+    wireItemPicker("sprint", renderSprintConfig);
     wirePyAidToggle(renderSprintConfig);
     document.getElementById("back").onclick = backToHub;
     document.getElementById("go").onclick = startSprint;
@@ -5224,6 +5299,8 @@
         : "请先选择足够的复习范围（至少 8 词）。");
       return;
     }
+    /* spent here, at the top, before the first question is drawn — see takeItems() */
+    var kit = takeItems("sprint");
     _deferCel = true;
     setTopbar("home", "");
     showFab(false);        // timed round: no stray taps, and 词雨 words land here
@@ -5235,6 +5312,7 @@
       '<span>答对' + pyl("答对") + enli("答对") + ' <b id="spOk">0</b></span>' +
       '<span>连对' + pyl("连对") + enli("连对") + ' <b id="spCombo">🔥0</b></span>' +
       '<span>海拔' + pyl("海拔") + enli("海拔") + ' <b id="spAlt">' + altitudeNow() + '</b> 米</span></div>' +
+      itemBarHtml(kit) +
       '<div class="sprint-q card"><div class="sq-row">' +
       '<div class="sq-prompt" id="spPrompt"></div>' +
       '<button class="tts sm" id="spSay">🔊</button></div>' +
@@ -5283,8 +5361,13 @@
     }
     var ok = 0, combo = 0, newMastered = 0, over = false, locked = false;
     var sprintSecs = store.sprintSecs || 90;
-    var sprintMs = sprintSecs * 1000;
+    /* 铜壶滴漏 is folded into sprintMs rather than pushed onto endAt alone, so the
+       timer BAR still starts full — a bar that begins at 109% of itself reads as
+       a rendering bug, not as a bonus. */
+    var sprintMs = sprintSecs * 1000 + kit.time * SPRINT_TIME_ITEM_MS;
     var endAt = performance.now() + sprintMs;
+    var kneeLeft = kit.knee;     // 护膝 · wrong answers that cost neither time nor streak
+    var useCompass = null;       // 司南 · re-armed per question by askNext
     var cur = null;
 
     function askNext() {
@@ -5308,10 +5391,30 @@
       pr.className = "sq-prompt" + qCls(pr.innerHTML);
       var opts = shuffle([cur].concat(distractorsFor(cur, all, 3)));
       var box = document.getElementById("spOpts");
+      /* 司南: one wrong option goes grey for THIS question. `struck` is per-question
+         state that paintOpts reads, so a repaint cannot quietly restore the option.
+         ⚠️ HARD CAP OF ONE PER QUESTION. 4→3 is「少一个选项」, which the boundary rule
+         above CONSUMABLES allows; 4→2 walks toward answering for the student, so a
+         second 司南 is REFUSED rather than spent — the chip stays armed for the next
+         question instead of being burnt on a no-op. */
+      var struck = {}, struckN = 0;
+      useCompass = function () {
+        if (locked || over) return false;             // mid-transition to the next question
+        if (struckN) { toast("这一题已经用过司南了"); return false; }
+        var pool = [];
+        for (var ci = 0; ci < opts.length; ci++) if (opts[ci].id !== cur.id) pool.push(ci);
+        if (!pool.length) return false;
+        struck[pool[Math.floor(Math.random() * pool.length)]] = 1;
+        struckN++;
+        paintOpts();
+        sfxOk();
+        return true;
+      };
       /* repaint the SAME opts array — never a fresh draw (see paintOpts above) */
       paintOpts = function () {
       box.innerHTML = opts.map(function (o, i) {
-        return '<div class="opt-row"><button class="sopt" data-i="' + i + '"><span class="letter">' +
+        return '<div class="opt-row"><button class="sopt' + (struck[i] ? " is-out" : "") +
+          '" data-i="' + i + '"' + (struck[i] ? " disabled" : "") + '><span class="letter">' +
           String.fromCharCode(65 + i) + '</span>' + esc(o.w) +
           optPyHtml(o.py) + '</button>' +
           '<button class="opt-tts" data-i="' + i + '" title="朗读" aria-label="朗读选项">🔊</button></div>';
@@ -5345,12 +5448,22 @@
             b.classList.add("right");
             setTimeout(askNext, 260);
           } else {
-            combo = 0; slipT = 0.5;
-            /* anti-mashing (D-1): a wrong answer costs 3 seconds of the run. The
-               board ranks how many questions you got right, so docking time hits
-               random-guessing exactly where it pays. ~3.3% of a 90s run. */
-            endAt -= SPRINT_WRONG_PENALTY_MS;
-            document.getElementById("spCombo").textContent = "🔥0";
+            slipT = 0.5;
+            /* 护膝: the first slip costs neither the 3 秒 nor the streak.
+               ⚠️ bump("sprint", false) has ALREADY run above and stays run: an item
+               may buy margin for error, never a prettier 正确率. The right answer is
+               still revealed below, exactly as without the item. */
+            if (kneeLeft > 0) {
+              kneeLeft--;
+              toast("🦵 护膝护住了这一跤 · 不扣时间" + (kneeLeft ? "（还剩 " + kneeLeft + " 次）" : ""));
+            } else {
+              combo = 0;
+              /* anti-mashing (D-1): a wrong answer costs 3 seconds of the run. The
+                 board ranks how many questions you got right, so docking time hits
+                 random-guessing exactly where it pays. ~3.3% of a 90s run. */
+              endAt -= SPRINT_WRONG_PENALTY_MS;
+              document.getElementById("spCombo").textContent = "🔥0";
+            }
             sfxBad();
             b.classList.add("wrong");
             Array.prototype.forEach.call(box.querySelectorAll(".sopt"), function (bb, bi) {
@@ -5533,8 +5646,11 @@
       window.removeEventListener("resize", resize);
       var isBest = ok > best;
       if (isBest) { store.best.sprint = ok; }
-      /* leaderboard board is 90s-only (D-2): other timers stay a private best */
-      if (sprintSecs === SPRINT_RANKED_SECS && ok > (store.best.sprint90 || 0)) {
+      /* leaderboard board is 90s-only (D-2): other timers stay a private best.
+         ⚠️ AND item-free. +8 秒 or a free slip is a different course from the one
+         everyone else on that board ran, so a kit run is excluded exactly the way a
+         60s run is. 个人纪录 above still records it. */
+      if (sprintSecs === SPRINT_RANKED_SECS && !kit.any && ok > (store.best.sprint90 || 0)) {
         store.best.sprint90 = ok;
       }
       saveStore();
@@ -5543,6 +5659,7 @@
         '<div class="big">' + ok + ' 题</div>' +
         '<div class="sub">攀山快答 · 新掌握 ' + newMastered + ' 词 · 海拔 +' + newMastered + ' 米</div>' +
         '<div class="msg">' + (isBest ? "🚩 个人新纪录！" : "我的海拔：" + altitudeNow() + " 米") + '</div>' +
+        kitUsedLine(kit) +
         '<div class="nav-row">' +
         '<button class="nav-btn" id="again">再来一局' + pyl("再来一局") + enli("再来一局") + '</button>' +
         '<button class="nav-btn primary" id="home">' + hubLabelHtml() + '</button></div></div>';
@@ -5552,6 +5669,12 @@
     }
 
     askNext();
+    /* 司南 is the only tappable item here; 铜壶滴漏 and 护膝 are already in effect.
+       useCompass is re-bound by every askNext(), so the chip always acts on the
+       question actually on screen. */
+    wireItemBar(kit, function (eff) {
+      return eff === "compass" && useCompass ? useCompass() : false;
+    });
     raf = requestAnimationFrame(frame);
   }
 
@@ -5923,9 +6046,16 @@
      words. 攀山快答 is the exception that had to be argued — it DOES confer mastery,
      so its three items are restricted to time and option-count, never to meaning.
 
-     ⚠️ REAL-TIME COMPETITION IS ITEM-FREE, and it needs no switch: 结伴登峰 and
-     同伴挑战 both run through WSArena.open(), and arena.js has its OWN renderers —
-     it never enters these game loops at all. Keep it that way. */
+     ⚠️ REAL-TIME COMPETITION IS ITEM-FREE. 结伴登峰 and 同伴挑战 run through
+     WSArena.open(), and arena.js has its OWN renderers — they never enter these
+     loops. That was once the whole argument, but startRain() also accepts a
+     roomCode, so as of 2026-08-25 the gate is WRITTEN OUT there (`roomCode ?
+     emptyKit() : takeItems("rain")`) rather than left resting on which file
+     happens to render. Keep both halves true.
+
+     ⚠️ Everything downstream of this list — the picker, the spend, the effects —
+     lives in 道具运行时 below setEquippedItems(). Read that note before adding an
+     eleventh item: a new `eff` string here does nothing on its own. */
   var CONSUMABLES = [
     { key: "tanghulu",    zh: "糖葫芦",   en: "+1 life",            img: "consumable_tanghulu",    price: 60,  eff: "life" },
     { key: "yushan",      zh: "羽扇",     en: "Slower fall",        img: "consumable_yushan",      price: 80,  eff: "slow" },
@@ -5973,6 +6103,143 @@
     if (!store.itemSlots) store.itemSlots = {};
     store.itemSlots[kind] = list.slice(0, ITEM_SLOTS);
     saveStore();
+  }
+
+  /* ================= 道具运行时 (2026-08-25) ===================================
+     The shelf, the counts and the slot store all shipped on 2026-08-16; every
+     line BELOW them was missing. spendItem() and equippedItems() had no call
+     sites, no pre-round picker existed, and the shop's own「赛前最多带 3 件」was
+     a promise nothing kept — a student could spend 120 灵露 on 定风珠 and never
+     find a way to use it. This block is that missing half.
+
+     ⚠️ THE BOUNDARY RULE STILL RULES (the long note above CONSUMABLES): every
+     effect here moves time, lives, 灵露 or the OPTION COUNT. Not one of them
+     tells a student what a word means, and 司南 is hard-capped at one removal
+     per question — 4→3 是「少一个选项」，4→1 是替学生作答。
+
+     ⚠️ ITEMS DISQUALIFY THE SHARED BOARDS, and that is not a nicety. rainRamp
+     and sprint90 exist so everyone is ranked on the same course (2026-08-13/14);
+     +8 秒 or two extra hearts is a different course. An item run still earns
+     灵露, 海拔 and 本机最高分 — private numbers — and never touches those two.
+     That is what kit.any is for.
+
+     ⚠️ REAL-TIME ROOMS TAKE NOTHING. 结伴登峰／同伴挑战 render through arena.js's
+     own loops, but startRain() also accepts a roomCode, so the gate is written
+     out explicitly there rather than left to trust. */
+  var ITEM_ACTIVE = { freeze: 1, compass: 1 };   // tap-to-use; everything else is passive
+  var RAIN_SLOW_MUL = 0.75;        // 羽扇 · fall-speed multiplier per copy carried
+  var RAIN_FREEZE_S = 5;           // 定风珠 · "Freeze the clock, 5s"
+  var LINGLU_ITEM_BONUS = 0.10;    // 算盘 · +10% on the round's banked 灵露
+  var SPRINT_TIME_ITEM_MS = 8000;  // 铜壶滴漏 · +8 seconds
+  function emptyKit() {
+    return { taken: [], any: 0, life: 0, slow: 0, shield: 0, bonus: 0,
+             salvage: 0, freeze: 0, time: 0, knee: 0, compass: 0 };
+  }
+  /* 锦囊 rolls HERE, at spend time, not at use time: an effect the student cannot
+     see is an effect they cannot plan around, and the chip in the 局内道具栏 has
+     to be able to say what it actually became. */
+  function rollJinnang(kind) {
+    var pool = (kind === "rain" ? CONSUMABLES : POWERUPS).filter(function (it) {
+      return it.eff !== "random";
+    });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  /* ⚠️ SPENT AT THE START OF THE ROUND — the reason is written above spendItem()
+     and has not changed: a student who closes the tab mid-round has still had the
+     benefit. Everything this returns is already paid for. */
+  function takeItems(kind) {
+    var kit = emptyKit();
+    equippedItems(kind).forEach(function (k) {
+      if (!spendItem(k)) return;                  // stock ran out between screens
+      var it = itemByKey(k), via = "";
+      if (it.eff === "random") { via = it.zh; it = rollJinnang(kind); }
+      kit[it.eff] += 1;
+      kit.any += 1;
+      kit.taken.push({ key: it.key, zh: it.zh, en: it.en, img: it.img,
+                       eff: it.eff, via: via, used: 0 });
+    });
+    if (kit.any) saveStore();                     // banked before the first word is drawn
+    return kit;
+  }
+  function kitUsedLine(kit) {
+    if (!kit.taken.length) return "";
+    return '<div class="msg">本局用掉：' + esc(kit.taken.map(function (t) {
+      return t.via ? t.via + " → " + t.zh : t.zh;
+    }).join("、")) + '</div>';
+  }
+
+  /* ---------- 赛前道具槽 · the picker the shop kept promising ----------
+     Reuses shopTile wholesale, so a 道具 looks identical on the shelf and in the
+     slot: same art well, same held-count badge, one tile to restyle rather than
+     two that drift apart. */
+  function itemPickerHtml(kind, step) {
+    var list = kind === "rain" ? CONSUMABLES : POWERUPS;
+    var owned = list.filter(function (it) { return itemCount(it.key) > 0; });
+    var head = '<div class="diff-label">' + (step ? stepNo(step) : "") + '道具' +
+      pyl("道具") + enl("道具") + ' <span class="shop-slot-note">· 最多 ' + ITEM_SLOTS +
+      ' 件 · 开始时用掉</span></div>';
+    if (!owned.length) {
+      return head + '<div class="lo-empty">还没有道具 —— 在「我的词山 · 营地商店」用灵露兑换。' +
+        '空手上场完全可以，' + (kind === "rain" ? "词雨灵露" : "攀山快答") + '本来就是这么设计的。</div>';
+    }
+    var eq = equippedItems(kind);
+    return head + '<div class="shop-grid lo-grid">' + owned.map(function (it) {
+      var on = eq.indexOf(it.key) !== -1;
+      return shopTile({
+        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.en, n: itemCount(it.key),
+        on: on, act: ' data-lo="' + esc(it.key) + '"',
+        foot: shopState(on ? "已带上 ✓" : "带上", on)
+      });
+    }).join("") + '</div>' +
+      (eq.length ? '<div class="lo-note">⚠️ 带道具的一局不进排行榜（那是「大家跑同一套课程」的榜）。' +
+        '灵露、海拔和本机最高分照常记录。</div>' : "");
+  }
+  function wireItemPicker(kind, rerender) {
+    Array.prototype.forEach.call(view().querySelectorAll("[data-lo]"), function (b) {
+      b.onclick = function () {
+        var k = b.getAttribute("data-lo"), eq = equippedItems(kind), i = eq.indexOf(k);
+        if (i !== -1) eq.splice(i, 1);
+        else if (eq.length < ITEM_SLOTS) eq.push(k);
+        else { toast("道具槽只有 " + ITEM_SLOTS + " 个，先取下一件"); return; }
+        setEquippedItems(kind, eq);
+        sfxOk();
+        rerender();
+      };
+    });
+  }
+
+  /* ---------- 局内道具栏 ----------
+     ⚠️ ONE CHIP PER CHARGE, not per item type: two 定风珠 (or one plus a 锦囊 that
+     rolled into a third) is three chips, each spent by its own tap. Passive items
+     are SPANS, never disabled buttons — a button that does nothing when tapped is
+     exactly what students report as broken. */
+  function itemBarHtml(kit) {
+    if (!kit.taken.length) return "";
+    return '<div class="itembar" id="itemBar">' + kit.taken.map(function (t, i) {
+      var act = ITEM_ACTIVE[t.eff], sub = act ? "点我使用" : "本局生效";
+      return (act ? '<button type="button" class="ib-chip ib-act" data-ib="' + i + '"'
+                  : '<span class="ib-chip"') + ' title="' + esc(t.en) + '">' +
+        '<img src="art/item/' + t.img + '.png" alt="" onerror="this.style.display=\'none\'">' +
+        '<span class="ib-tx"><b>' + esc(t.zh) + '</b>' +
+        '<i class="ib-sub">' + esc(t.via ? t.via + " → " + sub : sub) + '</i></span>' +
+        (act ? '</button>' : '</span>');
+    }).join("") + '</div>';
+  }
+  /* use(eff) returns truthy only when the charge was actually consumed — 司南
+     refuses on a question it has already thinned, and a refused tap must never
+     burn the chip. */
+  function wireItemBar(kit, use) {
+    var bar = document.getElementById("itemBar"); if (!bar) return;
+    Array.prototype.forEach.call(bar.querySelectorAll("[data-ib]"), function (b) {
+      b.onclick = function () {
+        var t = kit.taken[parseInt(b.getAttribute("data-ib"), 10)];
+        if (!t || t.used || !use(t.eff)) return;
+        t.used = 1;
+        b.disabled = true;
+        b.classList.add("is-used");
+        var sub = b.querySelector(".ib-sub"); if (sub) sub.textContent = "已用";
+      };
+    });
   }
 
   var GEAR = [
@@ -6352,10 +6619,10 @@
       });
     }
     var itemHtml =
-      '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉，赛前最多带 ' +
+      '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉 · 在词雨灵露开始前的「道具」里最多带 ' +
         ITEM_SLOTS + ' 件</span></div><div class="shop-grid">' +
       CONSUMABLES.map(function (it) { return itemRow(it, "rain"); }).join("") + '</div>' +
-      '<div class="shop-tier-label">攀山快答道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字</span></div>' +
+      '<div class="shop-tier-label">攀山快答道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字 · 在攀山快答的第 3 步带上</span></div>' +
       '<div class="shop-grid">' +
       POWERUPS.map(function (it) { return itemRow(it, "sprint"); }).join("") + '</div>';
 
