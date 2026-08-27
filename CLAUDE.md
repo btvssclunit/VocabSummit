@@ -252,6 +252,18 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
    下载后核对过官方 SHA-256 才解压；`~/.zshrc` 里加了一行把 `~/.local/bin` 放进 PATH。
    ⚠️ **登录只需一次**（token 存 macOS 钥匙串）：`gh auth login` →
    GitHub.com → HTTPS → Login with a web browser，用 unit 账号。
+   ⚠️⚠️ **这台机器上 `gh` 现在登着两个账号，而默认活跃的是 `kaixinbuilds`，不是
+   `btvssclunit`**（2026-08-28 撞到）。症状很误导：`gh repo view` **照常读得到**
+   （公开仓库谁都读得到），只有写入那一步回 **`HTTP 404: Not Found`**——
+   GitHub 对没有权限的写入回 404 而不是 403，免得泄露仓库存不存在，
+   **所以它看起来像「仓库找不到」，其实是「你不是这个仓库的人」**。
+   跑之前先切、跑完切回去：
+   ```
+   gh auth switch --user btvssclunit && zsh ../local-admin/update_github_about.sh; gh auth switch --user kaixinbuilds
+   ```
+   ⚠️ **脚本是 `#!/bin/zsh`，用 `bash` 跑会在 `${(s:,:)TOPICS}` 那行报
+   `bad substitution`**（那是 zsh 的分隔符展开）。⚠️ **`local-admin/` 不在这个仓库里，
+   它是 `repo-clone` 的同级目录**（§3 正文写的相对路径要从 repo-clone 里当 `../local-admin/` 读）。
    ⚠️ **描述上限 350 字符，中文一个字算一个**；脚本会印出当前长度。
    改描述时顺手核对 README 开头那段说的是同一件事——**那两处最容易只改一边**。
 
