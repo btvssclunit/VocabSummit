@@ -2762,7 +2762,7 @@
   /* 头像选择弹层: a thumbnail tap opens the AvatarInfoCard first (设计文档 §0.5) —
      the student reads the 简介 and only then confirms, so nothing is written on
      a stray tap. */
-  function openAvatarPicker(currentId, onPick) {
+  function openAvatarPicker(currentId, onPick, onClose) {
     var cats = [];
     AVATAR_CATALOG.forEach(function (a) { if (cats.indexOf(a.category) === -1) cats.push(a.category); });
     var activeCat = "all";
@@ -2770,7 +2770,21 @@
     ov.className = "pop-overlay";
     ov.style.zIndex = "65";
     document.body.appendChild(ov);
-    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    /* ONE exit, fired at most once. onClose exists so a caller can continue a flow
+       that this picker is sitting in the middle of (first-run registration), and it
+       must fire on EVERY way out — 取消, the backdrop, or a pick — or that flow
+       stalls with nothing on screen. render() re-wires on every category change and
+       the backdrop listener outlives it, so the one-shot flag is load-bearing, not
+       tidiness. */
+    var closed = false;
+    function finish(id) {
+      if (closed) return;
+      closed = true;
+      ov.remove();
+      if (id) { if (onPick) onPick(id); }
+      else if (onClose) onClose();
+    }
+    ov.addEventListener("click", function (e) { if (e.target === ov) finish(null); });
 
     function render() {
       var chipsHtml = '<button class="prof-chip' + (activeCat === "all" ? " on" : "") + '" data-cat="all">全部</button>' +
@@ -2795,13 +2809,25 @@
       var pickable = shown.filter(function (a) { return !avatarLock(a.id); });
       var purse = walletLingLu();
       ov.innerHTML = '<div class="pop-card">' +
-        '<div class="pop-title">换头像' +
-          (purse == null ? "" : '<span class="av-purse">' + lingLuHtml() + ' ' + purse + '</span>') + '</div>' +
+        /* ⚠️ 换头像 is a lie on a first run — there is nothing to change FROM. This
+           picker is now the screen a brand-new student lands on straight after the
+           nickname (owner 2026-08-28), so both the title and the way out say what
+           the student is actually doing. Same class of wrong label as the
+           「我要自己选昵称 / Let me type my own」 button in §18aw.
+           ⚠️ The gloss goes AFTER the purse chip: it renders display:block when the
+           gate is open, so putting it first would push the purse onto its own line. */
+        '<div class="pop-title">' + (currentId ? "换头像" : "选一个头像") +
+          (purse == null ? "" : '<span class="av-purse">' + lingLuHtml() + ' ' + purse + '</span>') +
+          (currentId ? fbGloss("换头像", "huàn tóu xiàng", "Change avatar")
+                     : fbGloss("选一个头像", "xuǎn yī gè tóu xiàng", "Pick an avatar")) + '</div>' +
         '<div class="prof-chips">' + chipsHtml + '</div>' +
         '<div class="avatar-grid">' + (gridHtml || '<div class="pop-note">这个分类还没有头像。</div>') + '</div>' +
-        '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">取消</button>' +
-        (pickable.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个</button>' : "") + '</div></div>';
-      ov.querySelector("#apClose").onclick = function () { ov.remove(); };
+        '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">' +
+          (currentId ? "取消" + fbGloss("取消", "qǔ xiāo", "Cancel")
+                     : "以后再说" + fbGloss("以后再说", "yǐ hòu zài shuō", "Maybe later")) + '</button>' +
+        (pickable.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个' +
+          fbGloss("随机抽一个", "suí jī chōu yī gè", "Pick one for me") + '</button>' : "") + '</div></div>';
+      ov.querySelector("#apClose").onclick = function () { finish(null); };
       /* Dice roll: shows the rolled avatar's card with 再抽一次 on it, so the
          student keeps rolling from there and only writes anything on 选用. The
          roll stays inside the current category filter, and never rolls the
@@ -2814,7 +2840,7 @@
         var pick = pool[Math.floor(Math.random() * pool.length)];
         openAvatarInfo(pick.id, {
           mode: "pick",
-          onChoose: function (id) { ov.remove(); if (onPick) onPick(id); },
+          onChoose: function (id) { finish(id); },
           onReroll: function () { roll(pick.id); }
         });
       }
@@ -2827,12 +2853,44 @@
         b.onclick = function () {
           openAvatarInfo(b.getAttribute("data-id"), {
             mode: "pick",
-            onChoose: function (id) { ov.remove(); if (onPick) onPick(id); }
+            onChoose: function (id) { finish(id); }
           });
         };
       });
     }
     render();
+  }
+
+  /* ---------- 注册完，接着就选头像 (owner 2026-08-28) ----------
+     「direct new users to immediately choose profile pic after selecting nickname
+     and identity」. 换头像 lived behind 我的档案 → a link → a grid, and most
+     students never opened 我的档案 at all — the same reason 班级 was asked at
+     registration in §18al. So the nickname picker hands over to this the moment
+     the profile is saved, and the student sees the avatars instead of having to
+     go looking for them.
+
+     ⚠️ THIS FUNCTION IS THE CONTRACT, not openAvatarPicker's third argument. The
+     nickname picker exists in TWO files (cs.js + nickname.js) while profile.js is
+     one shared copy, and every file ages separately in the browser cache (§3) — a
+     page can genuinely run new cs.js against ten-minute-old profile.js. The caller
+     therefore probes for THIS NAME and falls straight through to its own next step
+     when it is absent, so a stale profile.js degrades to exactly today's behaviour
+     instead of stranding a student on a half-built page.
+
+     ⚠️ `next` RUNS EXACTLY ONCE, pick or no pick — it is the rest of a registration
+     that has not finished yet (the landing page reveal, or the stream's boot).
+
+     ⚠️ The gate is「no avatarId yet」, not「first run」: it is the honest question,
+     it needs no flag, and it leaves every returning student's 换昵称 untouched.
+
+     ⚠️ NOT FORCED. 以后再说 still gets them in — a first-run screen that refuses to
+     let a student past an optional choice costs more than a 👤 in a nameplate,
+     which is the same call 班级 made (§18al). */
+  function pickAvatarFirstRun(next) {
+    function go() { var f = next; next = null; if (f) f(); }
+    var p = load() || {};
+    if (p.avatarId) { go(); return; }
+    openAvatarPicker(null, function (id) { save({ avatarId: id }); go(); }, go);
   }
 
   /* small yes/cancel dialog stacked above the panel */
@@ -2910,6 +2968,7 @@
     planDelta: planDelta,
     maybePromptClassUpdate: maybePromptClassUpdate,
     openAvatarPicker: openAvatarPicker,
+    pickAvatarFirstRun: pickAvatarFirstRun,
     openAvatarInfo: openAvatarInfo,
     avatarImgHtml: avatarImgHtml,
     avatarFile: avatarFile,

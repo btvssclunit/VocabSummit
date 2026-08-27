@@ -7642,7 +7642,27 @@
             window.WSProfile.setPendingCode(st.codeVal, st.restored.stream);
           }
           ov.remove();
-          onDone(profile);
+          /* ⚠️ onDone gets the SAVED profile, never the literal built above. That
+             literal only ever carried 昵称/身份/学校/班级, so the landing page's
+             reveal() drew a 👤 for a student who has an avatarId — already true of
+             every 换昵称, and it would have swallowed the avatar picked below. */
+          function finishNick() {
+            var P = window.WSProfile;
+            onDone((P && P.load && P.load()) || profile);
+          }
+          /* 头像接着就选 (owner 2026-08-28)。onDone is what finishes the registration
+             — the landing reveal, or the stream boot — so it is handed to the avatar
+             step and runs ONCE, after the student has picked or waved it off. Opening
+             the grid after onDone instead would leave the host drawing a nameplate
+             with a 👤 in it that a pick two seconds later could not correct.
+             ⚠️ PROBE, then fall through: profile.js is one shared file that ages in
+             the cache on its own (§3), so a page can run this against a copy that has
+             no such function. Missing name = today's behaviour, never a dead end. */
+          if (window.WSProfile && window.WSProfile.pickAvatarFirstRun) {
+            window.WSProfile.pickAvatarFirstRun(finishNick);
+          } else {
+            finishNick();
+          }
         };
       }
       if (dismissible && document.getElementById("npCancel")) {
