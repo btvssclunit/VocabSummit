@@ -104,9 +104,11 @@ CLAUDE.md, 部署缓存版本号.
 ## Current status
 
 - No sign-up and no password. The first visit asks for a nickname, an identity, a class
-  (students only, optional) and then an avatar — the avatar picker opens straight after
-  the nickname is confirmed rather than waiting to be found in 我的档案. Everything is
-  changeable later, and the whole identity is shared between the mountains and the pier.
+  (students only, optional) and then an avatar: the picker opens straight after the
+  nickname is confirmed, rather than waiting to be found in 我的档案. It offers the free
+  avatars only; the priced and earned ones stay in 我的档案 alongside their prices and
+  unlock conditions. Everything is changeable later, and the whole identity is shared
+  between the mountains and the pier.
 - Firebase anonymous authentication + Cloud Firestore (asia-southeast1) for progress
   sync; 进度码 available as a manual cross-device fallback.
 - Per stream: 学习 (填空挑战 · 华文解释 · 英文翻译 · 词语闪卡) and 闯关 (词雨灵露 ·

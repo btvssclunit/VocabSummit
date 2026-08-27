@@ -2762,9 +2762,28 @@
   /* 头像选择弹层: a thumbnail tap opens the AvatarInfoCard first (设计文档 §0.5) —
      the student reads the 简介 and only then confirms, so nothing is written on
      a stray tap. */
-  function openAvatarPicker(currentId, onPick, onClose) {
+  function openAvatarPicker(currentId, onPick, onClose, opts) {
+    /* ⚠️ FIRST RUN SHOWS THE FREE ONES AND NOTHING ELSE (owner 2026-08-28:「brand
+       new users should see free avatars only」). In catalogue order the first NINE
+       tiles are locked — 4 神兽 behind 年度试炼, 5 西游记 behind 灵露 — so a student
+       sent straight here from the nickname screen met a wall of padlocks before
+       reaching anything they could actually take.
+       ⚠️ This does NOT overturn §3.4「never hide a locked avatar」: 我的档案 → 换头像
+       is unchanged and still shows the whole catalogue with its prices and unlock
+       conditions, which is where seeing what can be earned belongs. What changed is
+       one screen — the one shown to a student who has no wallet, no 年度试炼 and no
+       idea what 灵露 is yet. A line under the grid says the rest exists.
+       ⚠️ FREE is read off the CATALOGUE (no price, no unlock), not off avatarLock():
+       avatarLock also answers「can this student take it right now」, so it would let
+       a bought or affordable avatar back onto this screen the moment a wallet is in
+       reach — which is the thing being removed. */
+    var firstRun = !!(opts && opts.firstRun);
+    function isFree(a) { return !a.price && !a.unlock; }
+    var CATALOG = firstRun ? AVATAR_CATALOG.filter(isFree) : AVATAR_CATALOG;
+    /* nothing free left would be an empty screen, which is worse than a padlock */
+    if (!CATALOG.length) { CATALOG = AVATAR_CATALOG; firstRun = false; }
     var cats = [];
-    AVATAR_CATALOG.forEach(function (a) { if (cats.indexOf(a.category) === -1) cats.push(a.category); });
+    CATALOG.forEach(function (a) { if (cats.indexOf(a.category) === -1) cats.push(a.category); });
     var activeCat = "all";
     var ov = document.createElement("div");
     ov.className = "pop-overlay";
@@ -2791,7 +2810,7 @@
         cats.map(function (c) {
           return '<button class="prof-chip' + (activeCat === c ? " on" : "") + '" data-cat="' + c + '">' + (AVATAR_CAT_LABEL[c] || c) + '</button>';
         }).join("");
-      var shown = AVATAR_CATALOG.filter(function (a) { return activeCat === "all" || a.category === activeCat; });
+      var shown = CATALOG.filter(function (a) { return activeCat === "all" || a.category === activeCat; });
       /* Locked entries are shown greyed with a 🔒, never hidden (§3.4) — seeing what
          can be earned is the motivation. Tapping one still opens its card, which is
          where the unlock condition is spelled out. */
@@ -2817,14 +2836,30 @@
            ⚠️ The gloss goes AFTER the purse chip: it renders display:block when the
            gate is open, so putting it first would push the purse onto its own line. */
         '<div class="pop-title">' + (currentId ? "换头像" : "选一个头像") +
-          (purse == null ? "" : '<span class="av-purse">' + lingLuHtml() + ' ' + purse + '</span>') +
+          /* ⚠️ no purse on a first run: nothing on that screen has a price any more,
+             so 「灵露 0」 explains nothing and reads as a score the student is already
+             losing. Same reason the chip row goes — a readout about things that are
+             not there. */
+          (purse == null || firstRun ? "" : '<span class="av-purse">' + lingLuHtml() + ' ' + purse + '</span>') +
           (currentId ? fbGloss("换头像", "huàn tóu xiàng", "Change avatar")
                      : fbGloss("选一个头像", "xuǎn yī gè tóu xiàng", "Pick an avatar")) + '</div>' +
-        '<div class="prof-chips">' + chipsHtml + '</div>' +
+        /* ⚠️ The chip row is dropped whenever the filtered catalogue is a single
+           family — on a first run that is 全部 and 生肖 selecting the very same
+           twelve tiles, two controls that do nothing. Written as a count, not as
+           `if (firstRun)`, so it stays true if a second free family is ever added. */
+        (cats.length > 1 ? '<div class="prof-chips">' + chipsHtml + '</div>' : "") +
         '<div class="avatar-grid">' + (gridHtml || '<div class="pop-note">这个分类还没有头像。</div>') + '</div>' +
+        /* the rest of the catalogue is not a secret, it is just not on this screen:
+           without this line a student who later sees a friend wearing 孙悟空 has no
+           idea where it came from */
+        (firstRun ? '<div class="pop-note">以后在「我的档案」里还能换更多头像。' +
+          fbGloss("", "", "More avatars to change into later, in 我的档案.") + '</div>' : "") +
         '<div class="nav-row" style="margin-top:14px"><button class="nav-btn" id="apClose">' +
-          (currentId ? "取消" + fbGloss("取消", "qǔ xiāo", "Cancel")
-                     : "以后再说" + fbGloss("以后再说", "yǐ hòu zài shuō", "Maybe later")) + '</button>' +
+          /* 以后再说 is keyed to the FLOW, not to「has no avatar」: it is the right
+             word only while this picker is a step inside registration. Opened from
+             我的档案 it is a 取消 even for a student who has no avatar yet. */
+          (firstRun ? "以后再说" + fbGloss("以后再说", "yǐ hòu zài shuō", "Maybe later")
+                    : "取消" + fbGloss("取消", "qǔ xiāo", "Cancel")) + '</button>' +
         (pickable.length > 1 ? '<button class="nav-btn" id="apRoll">🎲 随机抽一个' +
           fbGloss("随机抽一个", "suí jī chōu yī gè", "Pick one for me") + '</button>' : "") + '</div></div>';
       ov.querySelector("#apClose").onclick = function () { finish(null); };
@@ -2890,7 +2925,7 @@
     function go() { var f = next; next = null; if (f) f(); }
     var p = load() || {};
     if (p.avatarId) { go(); return; }
-    openAvatarPicker(null, function (id) { save({ avatarId: id }); go(); }, go);
+    openAvatarPicker(null, function (id) { save({ avatarId: id }); go(); }, go, { firstRun: true });
   }
 
   /* small yes/cancel dialog stacked above the panel */
