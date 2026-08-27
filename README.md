@@ -75,7 +75,7 @@ art/    bg/            scene + progression backdrops
         camp/          营地 scene, gear and pets
         mountain/      per-stream 我的词山 art
         seamap/        landing sea map: islands, sea, boats
-        item/          consumable / powerup art (system not built)
+        item/          consumable / powerup art
         xh/            出发码头 sprites, scenes (scene_*.png) and 航海徽 badges
 
 tools/  voices.html    TTS voice diagnostic — run on a student device to check the Chinese voice
@@ -111,6 +111,9 @@ CLAUDE.md, 部署缓存版本号.
 - 我的词山 per stream: a 你在这里 pin, four 关卡 (one per year, each holding that
   year's units and its 年度试炼) and the 顶峰, plus a 待巩固 review queue.
 - 营地 with 灵露, gear and 我的档案 / 头像 (some earned, some bought).
+- Consumables and powerups bought at the 营地 shop: up to three are equipped before a
+  词雨灵露 or 攀山快答 round. They buy easier test conditions, never a lower bar for
+  knowing the word, and a kitted round is kept off the shared 词雨 / 攀山 boards.
 - 出发码头: a beginners' tier, for students with no prior Chinese. 学习 holds 词语闪卡 and 学习挑战
   (英文选词 · 看图识词 · 听音识图 ‖ 看句选词 · 组词成句 ‖ 连线 · 组字成词); 闯关 holds
   词海钓鱼 and 沙滩快跑; 走进社区 walks the sentence library scene by scene. Its own
@@ -157,7 +160,6 @@ shows a friendly error, because browsers block `fetch` of local JSON files.
 ## Roadmap
 
 - Weak-first review queues across every mode.
-- Consumables / powerups (art is in `art/item/`, the system is not built).
 - PWA packaging (manifest + service worker + offline queue).
 - Pre/post assessment instrument for the learning-evidence base.
 - Succession: repository and Firebase ownership anchored to the BVSS MTL CL Unit
