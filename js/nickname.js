@@ -599,29 +599,46 @@
           /* ⚠️ VSID FIRST, BEFORE THE 恢复码 BRANCH. A 学习编号 strips to 10 dotless
              chars and would otherwise match the branch below exactly, so a student who
              pastes their own identifier would be told「找不到这个恢复码」and conclude it
-             is broken. `VS` is reserved at mint time in firebase-init.js, so no 恢复码
-             can collide with this test.
+             is broken. `VS` is reserved at mint time in firebase-init.js, so no NEW
+             恢复码 can collide with this test.
              ⚠️ THE BOX STAYS OPEN — no reload, no navigation. The teacher sends 学习编号
              and 进度码 together and the student pastes both here in sequence; the 进度码
              paste is the very next action. */
-          if (v.indexOf(".") === -1 && window.WSProfile && WSProfile.isValidVsid &&
-              /^VS[0-9A-Z]{8}$/.test(claim)) {
-            if (!WSProfile.isValidVsid(claim)) {
-              st.codeOk = ""; st.codeErr = "学习编号打错了，请再核对一次。"; renderStep(); return;
-            }
+          var vsShaped = v.indexOf(".") === -1 && /^VS[0-9A-Z]{8}$/.test(claim);
+          if (vsShaped && window.WSProfile && WSProfile.isValidVsid &&
+              WSProfile.isValidVsid(claim)) {
             WSProfile.setVsid(claim);
             st.codeVal = "";
             st.codeErr = "";
             st.codeOk = WSProfile.fmtVsid ? WSProfile.fmtVsid(claim) : claim;
             renderStep(); return;
           }
+          /* ⚠️ A VS-SHAPED STRING THAT FAILS THE CHECKSUM MUST FALL THROUGH, NOT STOP HERE.
+             The 恢复码 rules block went live 2026-08-20 (CLAUDE.md §16), so codes were
+             minting for days before `VS` was reserved, and ~0.1% of them start with VS —
+             across ~250 students, about a 1-in-4 chance one exists. Returning an error
+             here would route that student's real 恢复码 to the wrong branch and leave the
+             account unrecoverable, while telling them they mistyped a 学习编号 they have
+             never seen. The claim branch below is the only thing that can tell the two
+             apart, because only it can ask the network whether the document exists.
+             The 学习编号 message is restored on notfound, so a genuine typo still reads
+             correctly — see the r.ok handler. */
           if (v.indexOf(".") === -1 && claim.length >= 8 && claim.length <= 24) {
             if (!(window.WSProfile && window.WSProfile.restoreFromClaim)) {
               st.codeErr = "暂时无法恢复，请稍后再试。"; renderStep(); return;
             }
             st.codeErr = "正在找回…"; renderStep();
             window.WSProfile.restoreFromClaim(claim, function (r) {
-              if (!r.ok) { st.codeErr = r.err || "恢复失败，请稍后再试。"; renderStep(); return; }
+              if (!r.ok) {
+                /* notfound on a VS-shaped string means it was a mistyped 学习编号 after
+                   all — no such claim document exists. Every other failure (offline,
+                   rules denied, read error) is about the network, not the string, and
+                   must keep its own wording. */
+                st.codeErr = (vsShaped && r.err === "找不到这个恢复码，请检查有没有打错。")
+                  ? "学习编号打错了，请再核对一次。"
+                  : (r.err || "恢复失败，请稍后再试。");
+                renderStep(); return;
+              }
               /* ⚠️ RELOAD, do not try to hand the restored stores to a running engine.
                  cs.js/xh.js hold `store` in memory and their next save would overwrite
                  what we just wrote (§18r) — and a claim restore replaces WHOLE stores,
