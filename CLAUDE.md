@@ -1,7 +1,7 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-09-01（**`20260901d`：eSpeak 的中文整个拒收 · 教师后台三件**。
+Last updated: 2026-09-01（**`20260901e`：eSpeak 的中文整个拒收 · 教师后台三件**。
 学生实报「点朗读之后声音很怪，读的不是词，是把拼音和数字念出来」——查下来
 **吐出拼音和数字的是引擎，不是我们的字符串**，而 §8.2 那条「eSpeak 扣 100 分」
 **在她那台机器上从来没有生效过**：Chrome 把它叫「eSpeak Chinese (Mandarin)」，
@@ -222,7 +222,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260901d`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260901e`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -252,7 +252,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 1. **`?v=` 推进八处**（七个页面 ＋ `teacher.html` 的 `ASSET_V`）。
    一条 `sed` 全改，因为 `teacher.html` 那两处用的是同一个串：
    ```
-   sed -i '' 's/?v=20260901d/?v=新值/g' *.html
+   sed -i '' 's/?v=20260901e/?v=新值/g' *.html
    ```
    改完核一遍，应当只剩两行——新值，加 `guide.html` 那个空的 `?v=`
    （guide 不在名单上，见 §18o）：
@@ -4430,6 +4430,17 @@ owner 明确「remove the VSID feature from the web app entirely as we are not r
   （`WSProfile.vsidOn && WSProfile.vsidOn()`）：每个档案各自老化，页面真的可能拿新的
   cs.js 配十分钟前的 profile.js，探名字才能安全退化成原行为（§18ay 同一条）。
   实测两份 picker 的这一段**仍然逐字相同**（§17）。
+
+### ⚠️ 提示的接线：今天什么都不做，但**必须先接好**
+`maybePromptVsid()` 一度只是被定义与导出，**没有任何页面调用它**。今天看不出差别
+（`VSID_ON` 关着），但那意味着**开关翻开的那一天它照样不会有任何反应**——
+一个翻了却没有调用点的开关，正是这份代码库反复中招的那一族（§18an 的 `.py-ans`、
+§18ba 那条从来没生效的 −100、§18aw 只搬了一半）。现在两处都接好了：
+`cs.js` 的 `promptClassIfDue()`（挨着新学年那条 班级 提示）与 `xh.js` 的首屏。
+⚠️ 码头**没有** 班级 那条提示（`maybePromptClassUpdate` 只在 cs.js 接了线）——
+那是既有的缺口，不是这次弄出来的，这里刻意没顺手补。
+⚠️ `maybePromptVsid()` 自己会**让开已经开着的弹窗**（`document.querySelector(".pop-overlay")`）：
+两块 modal 叠起来，学生只看得到上面那一块，关掉它会连下面那一块一起点掉。让开不花代价，明天再问。
 
 ### 翻开开关那天要做的事
 1. `js/profile.js` 的 `var VSID_ON = false;` → `true`。

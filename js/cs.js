@@ -8270,6 +8270,16 @@
           if (window.WSProfile && window.WSProfile.maybePromptClassUpdate) {
             window.WSProfile.maybePromptClassUpdate(openProfilePanel);
           }
+          /* 学习编号 提示 (owner 2026-09-01)。⚠️ 今天它什么都不做：`VSID_ON` 关着，
+             `needsVsidAsk()` 第一行就 return false。接线是为了**开关翻开那天真的会有
+             反应**——一个翻了却没有任何调用点的开关，正是这份代码库反复中招的那一族
+             （§18an 的 `.py-ans`、§18ba 那条 −100、§18aw 只搬了一半）。
+             ⚠️ 探名字调用：页面可能拿新的 cs.js 配十分钟前的 profile.js（§18ay）。
+             ⚠️ 排在 班级 提示**之后**，而 maybePromptVsid 自己会让开已经开着的弹窗，
+             所以两者不会叠在一起——那一天它就明天再问。 */
+          if (window.WSProfile && window.WSProfile.maybePromptVsid) {
+            window.WSProfile.maybePromptVsid();
+          }
         }
         /* ---------- 换设备：认领过的进度码在这里落地 (owner 2026-08-16) ----------
            The nickname picker can only PEEK at a code (the landing page has no word

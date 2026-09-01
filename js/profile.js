@@ -3243,6 +3243,10 @@
     var today = todayStr();
     var p = load() || {};
     if (p.vsidAskDay === today) return;
+    /* ⚠️ 已经有弹窗开着就让开（新学年的 班级 提示、首次头像那一屏…）。两块 modal
+       叠在一起，学生只看得到上面那一块，下面那一块会被他关上面那一块时一起点掉。
+       让开不花任何代价：明天再问。 */
+    if (document.querySelector(".pop-overlay")) return;
     var st = { vsidDraft: "" };
     var ov = document.createElement("div");
     ov.className = "pop-overlay"; ov.style.zIndex = "80";

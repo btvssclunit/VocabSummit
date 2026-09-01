@@ -5711,6 +5711,14 @@
   applyAids();     // before the first paint, so neither aid flashes in or out
   migrateBoat();   // legacy 3-tier store.boat -> the global 4-tier family
   renderTop();     // topbar works even if the word list never arrives
+  /* 学习编号 提示 (owner 2026-09-01)。⚠️ 与山上同一条：今天 `VSID_ON` 关着，
+     这一行什么都不做；接线是为了开关翻开那天码头的学生也会被问到——
+     码头正是零起点那一批，他们同样要进 All Ears 名册。
+     ⚠️ 码头**没有**新学年那条 班级 提示（`maybePromptClassUpdate` 只在 cs.js 接了线），
+     那是既有的缺口，不是这次弄出来的；这里没有顺手补，免得把两件事混在一起。 */
+  try {
+    if (window.WSProfile && window.WSProfile.maybePromptVsid) window.WSProfile.maybePromptVsid();
+  } catch (e) {}
   ensureFab();     // ...and so does 反馈: a student whose word list failed to load
                    // is exactly the student with something to report
 
