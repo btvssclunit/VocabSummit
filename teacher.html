@@ -180,6 +180,24 @@ th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
 .fdd .frange .fr-l{margin:0;font-size:12px;color:var(--ink-soft);letter-spacing:.04em;white-space:nowrap}
 .fdd .frange input{min-width:0}
 .fdd .fact{display:flex;gap:6px;margin-top:10px}
+/* ---------- 学生搜索框 (owner 2026-09-01) ----------
+   Lives in the TOOLBAR ROW, not inside #panel, on purpose: the panel is torn down and
+   rebuilt on every tab switch and every filter change, and a search box that loses what
+   you typed each time you look at something is not a search box. It is therefore also
+   the one control that works from whichever tab you happen to be on.
+   ⚠️ The dropdown is a child of .sbox (position:relative), NOT of <body> like the ▼
+   column filter: it has no .tbl overflow to escape, and staying in flow means it follows
+   the input when the row wraps on a narrow laptop. */
+.sbox{position:relative;flex:1 1 320px;min-width:0;max-width:440px}
+.sbox input{width:100%}
+.sres{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:#fff;
+  border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(23,58,90,.3);
+  padding:5px;max-height:344px;overflow:auto}
+.sres .sr{display:block;width:100%;text-align:left;border:none;background:none;cursor:pointer;
+  font:inherit;color:var(--ink);padding:7px 9px;border-radius:9px;line-height:1.45}
+.sres .sr:hover,.sres .sr.on{background:#EAF3FA}
+.sres .sr .m{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:3px}
+.sres .shint{padding:8px 9px;font-size:12px;color:var(--ink-soft);line-height:1.65}
 /* active-filter summary above the table: every filter is visible and removable
    in one place, so a teacher can never be confused by a hidden filter. */
 .fbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
@@ -193,7 +211,6 @@ th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
 .grid2>.card{margin-bottom:0}
 .bar{background:#E9F1F8;border-radius:999px;height:7px;min-width:56px;overflow:hidden}
 .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--sun))}
-.flag-bad{background:#FBEDE9}
 .arena-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:900;font-size:min(18vw,120px);
   letter-spacing:.1em;text-align:center;color:var(--ink);margin:12px 0;
   background:linear-gradient(180deg,#FFF8E6,#FDF0D2);
@@ -551,7 +568,6 @@ tbody tr.sp-row{cursor:pointer}
       <button class="tab on" data-tab="overview">概览</button>
       <button class="tab" data-tab="classes">班级视图</button>
       <button class="tab" data-tab="hard">词语难点</button>
-      <button class="tab" data-tab="restores">恢复记录</button>
       <button class="tab" data-tab="arena">结伴登峰</button>
       <button class="tab" data-tab="feedback">意见反馈 <span id="fbBadge" class="fb-badge" style="display:none">0</span></button>
       <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
@@ -559,6 +575,11 @@ tbody tr.sp-row{cursor:pointer}
     </div>
     <div class="row" style="margin-bottom:14px">
       <button class="btn primary" id="loadBtn">载入 / 刷新数据</button>
+      <div class="sbox">
+        <input id="sInput" type="text" autocomplete="off" spellcheck="false"
+               placeholder="🔎 找学生：学习编号 VS-… ／ 识别码 ／ 昵称 ／ 班级">
+        <div class="sres" id="sRes" style="display:none"></div>
+      </div>
       <span class="hint" id="loadInfo">数据不会自动刷新，请手动载入。</span>
     </div>
     <div id="panel"></div>
@@ -571,7 +592,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260901b"></script>
+<script src="js/podium.js?v=20260901c"></script>
 <script>
 (function () {
   "use strict";
@@ -579,7 +600,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260901b";
+  var ASSET_V = "?v=20260901c";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -702,7 +723,6 @@ tbody tr.sp-row{cursor:pointer}
 
   var _me = null;          // teacher allowlist doc
   var _users = [];         // loaded student docs
-  var _restores = [];      // loaded restore log
   var _requests = [];      // pending teacher registration requests
   var _wordMap = null;     // id -> {w, zh, level, unit, stream}
   var _wordOrder = null;   // stream -> [id,…] in PUBLISHED order (进度码 bitmask positions)
@@ -822,6 +842,7 @@ tbody tr.sp-row{cursor:pointer}
     el("whoami").textContent = (d.name || user.email) + " · " + (d.role === "hod" ? "HOD" : "教师");
     el("modTab").style.display = (d.role === "hod") ? "" : "none";
     el("apprTab").style.display = (d.role === "hod") ? "" : "none";
+    wireSearch();
   }
   function showStatus(user, kind, req) {
     hideAll();
@@ -873,10 +894,6 @@ tbody tr.sp-row{cursor:pointer}
         _users = [];
         qs.forEach(function (doc) { _users.push({ uid: doc.id, data: doc.data() || {} }); });
       }),
-      db.collection("restoreLog").orderBy("at", "desc").limit(300).get().then(function (qs) {
-        _restores = [];
-        qs.forEach(function (doc) { _restores.push({ id: doc.id, data: doc.data() || {} }); });
-      }).catch(function () { _restores = []; }),
       db.collection("teacherRequests").get().then(function (qs) {
         _requests = [];
         qs.forEach(function (doc) { _requests.push({ uid: doc.id, data: doc.data() || {} }); });
@@ -885,7 +902,7 @@ tbody tr.sp-row{cursor:pointer}
     ];
     Promise.all(tasks).then(function () {
       el("loadBtn").disabled = false;
-      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _restores.length + " 条恢复记录 · " + _requests.length + " 个待审批（不自动刷新）。";
+      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _requests.length + " 个待审批（不自动刷新）。";
       renderPanel();
     }).catch(function (e) {
       el("loadBtn").disabled = false;
@@ -903,7 +920,11 @@ tbody tr.sp-row{cursor:pointer}
           lv.units.forEach(function (u) {
             u.components.forEach(function (c) {
               c.words.forEach(function (w) {
-                _wordMap[w.id] = { w: w.w, zh: w.zh, level: lv.level, unit: u.unit, stream: s };
+                /* ⚠️ 显式字段清单（§5）：新增栏位必须加在这里，否则它永远到不了渲染层。
+                   `py` 与 `comp` 是 2026-09-01 为 词语难点 的 CSV 加的——屏幕上那张表
+                   不印它们，但一份拿去 Excel 排序的档案里，拼音与板块正是最想要的两轴。 */
+                _wordMap[w.id] = { w: w.w, py: w.py, zh: w.zh, comp: c.component,
+                                   level: lv.level, unit: u.unit, stream: s };
                 /* ⚠️ PUBLISHED ORDER, captured in the same walk. 进度码 bitmasks are
                    POSITIONAL over exactly this sequence (§18r), so it must be built by
                    reading the file top to bottom — never from Object.keys(_wordMap),
@@ -1083,6 +1104,13 @@ tbody tr.sp-row{cursor:pointer}
 
   /* ---------- helpers ---------- */
   function profOf(u) { return (u.data.profile) || {}; }
+  /* 码头的「认得词数」。⚠️ 它**不是第五座山**（§4 水线）：另一套词、另一个存储键，
+     所以它在表里没有栏位，只当 CSV 的最后一栏——一份分析用的档案里少了整片陆地，
+     老师会以为那些学生什么都没做。⚠️ 按文本索引，码头从来没有词 id。 */
+  function pierKnown(u) {
+    var st = (u.data.progress || {}).xh;
+    return st ? Object.keys(st.done || {}).length : 0;
+  }
   function masteredCount(u, stream) {
     var p = u.data.progress && u.data.progress[stream];
     return (p && p.mastered) ? Object.keys(p.mastered).length : 0;
@@ -1553,11 +1581,171 @@ tbody tr.sp-row{cursor:pointer}
     } else { fallback(); }
   }
 
+  /* ================= 学生搜索 (owner 2026-09-01) =================
+     owner:「we definitely need a search bar to locate student profile via their VSID」。
+     班级视图 的 ▼ 里本来就有「包含搜索」，两栏（识别码 · 学习编号）都支持——但那是一个
+     **筛选器**：它要求老师先切到那一栏、点开那颗 ▼、打字、按 应用，然后自己从表里找那一行。
+     手上拿着一串 VS-… 的老师想做的是**跳过去**，不是把 450 行缩到 1 行。
+     ⚠️ 四种输入一个框，不问老师他手上是哪一种（§18ae「一个输入框认两种码」同一条）：
+       学习编号  VS-XXXX-XXXX（连字号、空格、小写都吃）→ 完全相同 / 前缀 / 包含
+       识别码    28 位 Firebase UID → 前缀（表里印的就是前 8 位，贴上来正好命中）
+       昵称      包含，不分大小写
+       班级      包含（2026 1C2B → 一次拉出全班）
+     ⚠️ **恢复码搜不到，而且永远不要加**：它是账号钥匙（见档案卡上那段注释），
+     一个能按恢复码反查的框，会把「不印在表格里」这条保护绕过去。 */
+  var _sHits = [], _sSel = -1;
+
+  function normVsidQ(q) { return String(q).toUpperCase().replace(/[^0-9A-Z]/g, ""); }
+
+  /* 评分只决定**顺序**，不决定入选：老师打三个字就想看到所有可能，
+     而把「完全相同」排在「包含」前面，回车才敢直接开第一个。 */
+  function searchStudents(q) {
+    var raw = String(q || "").trim();
+    if (!raw) return [];
+    var vq = normVsidQ(raw), lq = raw.toLowerCase(), out = [];
+    _users.forEach(function (u) {
+      var p = profOf(u), sc = 0;
+      var vs = String(p.vsid || "").toUpperCase(), uid = String(u.uid || "");
+      if (vs && vq.length >= 2) {
+        if (vs === vq) sc = 100;
+        else if (vs.indexOf(vq) === 0) sc = 90;
+        else if (vs.indexOf(vq) !== -1) sc = 72;
+      }
+      /* ⚠️ UID 比对用原串不用 vq：Firebase 的 uid 区分大小写，而 vq 已经全大写了。
+         6 位是学生自己屏幕上「技术编号」的长度，比这更短就会把半张表拉出来。 */
+      if (!sc && raw.length >= 6 && uid.indexOf(raw) === 0) sc = 85;
+      if (!sc && raw.length >= 6 && uid.indexOf(raw) !== -1) sc = 60;
+      if (!sc) {
+        var nick = String(p.nickname || "").toLowerCase();
+        if (nick && nick.indexOf(lq) !== -1) sc = (nick === lq) ? 80 : 50;
+      }
+      if (!sc) {
+        var cls = String(p.mtlClass || "").toLowerCase();
+        if (cls && cls.indexOf(lq) !== -1) sc = 40;
+      }
+      if (sc) out.push({ u: u, s: sc });
+    });
+    out.sort(function (a, b) {
+      if (b.s !== a.s) return b.s - a.s;
+      return String(profOf(a.u).nickname || "").localeCompare(String(profOf(b.u).nickname || ""), "zh-Hans-CN");
+    });
+    return out.map(function (r) { return r.u; });
+  }
+
+  function closeSearch() { var b = el("sRes"); if (b) b.style.display = "none"; }
+
+  function renderSearch() {
+    var box = el("sRes"), inp = el("sInput");
+    if (!box || !inp) return;
+    var q = inp.value.trim();
+    _sHits = []; _sSel = -1;
+    if (!q) { closeSearch(); box.innerHTML = ""; return; }
+    /* ⚠️ 说出为什么空，不要显示「没有找到」：这一页不自动载入（248+ 份档案 = 248 次读），
+       所以「一个都搜不到」最常见的原因是老师还没按那颗按钮。 */
+    if (!_users.length) {
+      box.innerHTML = '<div class="shint">还没有资料。请先按左边的「载入 / 刷新数据」。</div>';
+      box.style.display = "block";
+      return;
+    }
+    var hits = searchStudents(q);
+    _sHits = hits.slice(0, 12);
+    _sSel = _sHits.length ? 0 : -1;
+    if (!hits.length) {
+      box.innerHTML = '<div class="shint">没有找到。学习编号可以只打后几位（例如 <code>4K7M</code>）；' +
+        '识别码要贴前 6 位以上；昵称与班级是「包含」比对。<br>' +
+        '⚠️ 学习编号是空的，表示这名学生还没有——他下次打开任何页面时会自动建立。</div>';
+      box.style.display = "block";
+      return;
+    }
+    box.innerHTML = _sHits.map(function (u, i) {
+      var p = profOf(u), v = String(p.vsid || "");
+      return '<button class="sr' + (i === _sSel ? " on" : "") + '" data-i="' + i + '">' +
+        '<b>' + esc(p.nickname || "（未命名）") + '</b> ' +
+        '<span class="pill">' + CAT_LABEL[p.category || ""] + '</span>' +
+        '<span class="m">' +
+          (v ? '学习编号 <code>' + esc(fmtVsidT(v)) + '</code> · ' : '<span class="hint">未有学习编号</span> · ') +
+          '识别码 <code>' + esc(String(u.uid).slice(0, 8)) + '</code>' +
+          (p.mtlClass ? ' · ' + esc(p.mtlClass) : '') +
+          ' · ' + esc(canonSchool(p.school)) +
+        '</span></button>';
+    }).join("") +
+      (hits.length > _sHits.length
+        ? '<div class="shint">还有 ' + (hits.length - _sHits.length) + ' 个符合，再多打几个字缩小范围。</div>'
+        : "");
+    box.style.display = "block";
+    Array.prototype.forEach.call(box.querySelectorAll(".sr"), function (b) {
+      b.onclick = function () { pickSearch(parseInt(b.getAttribute("data-i"), 10)); };
+    });
+  }
+
+  function pickSearch(i) {
+    var u = _sHits[i];
+    if (!u) return;
+    closeSearch();
+    openStudentCard(u.uid);
+  }
+
+  /* ⚠️ 只接一次线。document 上那个 mousedown 活得比任何一次 render 都久，
+     每次 render 挂一遍就会一次导航攒一个（§18ai 顶栏 scroll 监听同一条）。 */
+  var _searchWired = false;
+  function wireSearch() {
+    if (_searchWired) return;
+    var inp = el("sInput");
+    if (!inp) return;
+    _searchWired = true;
+    inp.oninput = renderSearch;
+    inp.onfocus = function () { if (inp.value.trim()) renderSearch(); };
+    inp.onkeydown = function (e) {
+      if (e.key === "Escape") { closeSearch(); inp.blur(); return; }
+      if (e.key === "Enter") { e.preventDefault(); if (_sHits.length) pickSearch(_sSel < 0 ? 0 : _sSel); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (!_sHits.length) return;
+      e.preventDefault();
+      _sSel = (_sSel + (e.key === "ArrowDown" ? 1 : -1) + _sHits.length) % _sHits.length;
+      var box = el("sRes");
+      Array.prototype.forEach.call(box.querySelectorAll(".sr"), function (b, i) { b.classList.toggle("on", i === _sSel); });
+      var on = box.querySelector(".sr.on");
+      if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest" });
+    };
+    document.addEventListener("mousedown", function (e) {
+      var box = el("sRes");
+      if (!box || box.style.display === "none") return;
+      if (e.target === inp || box.contains(e.target)) return;
+      closeSearch();
+    }, true);
+  }
+
+  /* ================= CSV 导出 (owner 2026-09-01) =================
+     owner:「useful if I can download a csv for relevant tabs for analysis」。
+     ⚠️ **BOM 是承重的**：Excel 没有它会把 UTF-8 的中文读成乱码，而这份档案存在的
+     唯一理由就是老师要拿去 Excel 里分析。（`exportArenaCsv` 从一开始就带着它。）
+     ⚠️ **每个值都加引号、内部引号翻倍**：昵称、开发笔记、反馈正文里真的有逗号、
+     换行与引号，不转义就是那一行的栏位整个错位——而错位的表格看起来仍然像一张表格。
+     ⚠️ **恢复码永远不进任何一份 CSV**。理由与它不做表格列是同一条，而且更强：
+     一份档案会被转寄、会被留在共享磁碟上，比一张会被投影的表活得久得多。 */
+  function csvCell(v) {
+    return '"' + ((v === null || v === undefined) ? "" : String(v)).replace(/"/g, '""') + '"';
+  }
+  function todayStamp() {
+    var d = new Date(), p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    return "" + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate());
+  }
+  function downloadCsv(name, header, rows) {
+    var csv = header.map(csvCell).join(",") + "\n" +
+      rows.map(function (r) { return r.map(csvCell).join(","); }).join("\n");
+    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name + "_" + todayStamp() + ".csv";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
   /* ---------- panels ---------- */
   function renderPanel() {
     var panel = el("panel");
     closeFilterDrop();   // a re-render orphans any open dropdown
-    // the student-data views need a load first; restores/approvals/mod don't
+    // the student-data views need a load first; approvals/mod/arena don't
     var needsData = (_tab === "overview" || _tab === "classes" || _tab === "hard");
     if (needsData && !_users.length) {
       panel.innerHTML = '<div class="card hint">点上方「载入 / 刷新数据」开始。</div>';
@@ -1566,7 +1754,6 @@ tbody tr.sp-row{cursor:pointer}
     if (_tab === "overview") return renderOverview(panel);
     if (_tab === "classes") return renderClasses(panel);
     if (_tab === "hard") return renderHard(panel);
-    if (_tab === "restores") return renderRestores(panel);
     if (_tab === "arena") return renderArena(panel);
     if (_tab === "feedback") return renderFeedback(panel);
     if (_tab === "approvals") return renderApprovals(panel);
@@ -1747,6 +1934,8 @@ tbody tr.sp-row{cursor:pointer}
       '点列名旁的 <b>▼</b> 可按该列<b>升序／降序</b>排序，或按该列筛选，多列筛选可叠加（与 Excel 相同）；直接点列名也能排序。' +
       '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、出发码头，以及可以给学生的进度码）。' +
       (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
+      '<div class="row" style="margin-bottom:10px"><button class="btn" id="clsCsv">导出 CSV</button>' +
+      '<span class="hint">导出的就是<b>现在这张表</b>：同一批筛选、同一个排序、同样的栏位（另加一栏「码头认得」）。恢复码不在里面。</span></div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
       (body || '<tr><td colspan="' + (cols.length + 1) +
@@ -1754,6 +1943,21 @@ tbody tr.sp-row{cursor:pointer}
       '</tbody></table></div></div>';
 
     wireFilterBar(panel);
+    /* ⚠️ 导出的是 `rows`，也就是**已经筛选并排好序**的那一份，不是 `_users`。
+       老师按下按钮时看的是这张表；给她另一份内容不同的档案，比不给更糟。 */
+    el("clsCsv").onclick = function () {
+      downloadCsv("班级视图",
+        cols.map(function (c) { return c.label; }).concat(["码头认得"]),
+        rows.map(function (u) {
+          return cols.map(function (c) {
+            /* ⚠️ 学习编号 导出**显示形式**（`VS-XXXX-XXXX`），与表格里、档案卡上、
+               复制按钮给出的那一串逐字相同。这一栏存在的全部理由就是拿去跟
+               All Ears 名册对，而 Excel 的比对是逐字符的——同一个编号在两处写成
+               两种样子，VLOOKUP 就会一条都对不上。 */
+            return (c.k === "vsid") ? fmtVsidT(c.raw(u)) : c.raw(u);
+          }).concat([pierKnown(u)]);
+        }));
+    };
     Array.prototype.forEach.call(panel.querySelectorAll(".th-lab"), function (s) {
       s.onclick = function () {
         var k = s.getAttribute("data-s");
@@ -2117,6 +2321,9 @@ tbody tr.sp-row{cursor:pointer}
       .filter(function (r) { return r.w; });
     rankable.sort(function (a, b) { return a.n - b.n; });
     var top = rankable.slice(0, 60);
+    /* ⚠️ 屏幕上只印前 60 条（再多就读不完），**CSV 给全部**：档案是拿去 Excel 里
+       排序与筛选的，60 条的上限在那里没有意义，而且会静默地把「其余的都掌握得很好」
+       这个结论建立在一份被截断的资料上。 */
     var rows = top.map(function (r) {
       return '<tr><td><b>' + esc(r.w.w) + '</b></td><td>' + esc(r.w.zh || "") + '</td>' +
         '<td>' + esc(STREAM_LABEL[r.w.stream]) + '·' + esc(r.w.level) + '·' + esc(r.w.unit) + '</td>' +
@@ -2127,33 +2334,22 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="hint" style="margin-bottom:10px">在当前筛选的 ' + set.length + ' 名学生中，被最少人掌握的词语（升序）。' +
       '⚠️ 掌握数低可能是「还没练到」，未必是「难」：目前只有「已掌握」数据，没有逐词错误记录，请结合课堂判断。' +
       (filterCount() ? '' : '在「班级视图」用表头 ▼ 筛选，可把这里缩到某个班级。') + '</div>' +
+      /* ⚠️ 导出按钮在表**上面**，不在下面：这张 `.scroll` 不封高，60 行就是 2,300px，
+         摆在表后面等于要老师滚过整张表才找得到它。班级视图 也在上面，两处一致。 */
+      '<div class="row" style="margin-bottom:10px"><button class="btn" id="hardCsv">导出 CSV</button>' +
+      '<span class="hint">屏幕上只列前 60 个，CSV 给<b>全部 ' + rankable.length + ' 个</b>词语（同一批筛选）。</span></div>' +
       filterBarHtml() +
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>词语</th><th>释义</th><th>范围</th><th>掌握人数</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="4" class="hint">暂无数据（请先载入，且需要词库映射）。</td></tr>') + '</tbody></table></div></div>';
     wireFilterBar(panel);
-  }
-
-  function renderRestores(panel) {
-    var rows = _restores.map(function (r) {
-      var d = r.data;
-      var when = "—";
-      if (d.at && d.at.toDate) { try { when = d.at.toDate().toLocaleString("en-CA"); } catch (e) {} }
-      var bad = (d.matched === false);
-      return '<tr class="' + (bad ? "flag-bad" : "") + '"><td>' + when + '</td>' +
-        '<td>' + esc(d.nickname || "") + '</td>' +
-        '<td>' + esc(d.mtlClass || "—") + '</td>' +
-        '<td>' + esc(STREAM_LABEL[d.stream] || d.stream || "") + '</td>' +
-        '<td>' + esc(d.codeNick || "") + '</td>' +
-        '<td>' + (bad ? '<b>改用他人昵称</b>' : '相符') + '</td>' +
-        '<td>' + (d.added || 0) + '</td>' +
-        '<td><code>' + esc((d.uid || "").slice(0, 10)) + '</code></td></tr>';
-    }).join("");
-    panel.innerHTML =
-      '<div class="card"><h2 style="margin-top:0">恢复记录</h2>' +
-      '<div class="hint">最新在前。红底＝恢复时改用了别人的昵称，值得留意。</div>' +
-      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>时间</th><th>昵称</th><th>班级</th><th>科目</th>' +
-      '<th>进度码昵称</th><th>是否相符</th><th>新增词</th><th>UID</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="8" class="hint">暂无恢复记录（或规则尚未发布）。</td></tr>') + '</tbody></table></div></div>';
+    el("hardCsv").onclick = function () {
+      downloadCsv("词语难点",
+        ["词语", "拼音", "释义", "科目", "年级", "单元", "板块", "词ID", "掌握人数", "学生总数"],
+        rankable.map(function (r) {
+          return [r.w.w, r.w.py || "", r.w.zh || "", STREAM_LABEL[r.w.stream] || r.w.stream,
+                  r.w.level || "", r.w.unit || "", r.w.comp || "", r.id, r.n, set.length];
+        }));
+    };
   }
 
   /* ================= 结伴登峰 (arena) teacher room console ================= */
@@ -2348,7 +2544,9 @@ tbody tr.sp-row{cursor:pointer}
       tychips.map(function (c) {
         return '<button class="fchip-btn' + (_fbType === c[0] ? " on" : "") + '" data-ft="' + c[0] + '">' + c[1] + '</button>';
       }).join("") + '</div>' +
-      '<div class="row" style="margin-top:8px"><button class="btn ghost" id="fbReload">重新读取</button></div></div>';
+      '<div class="row" style="margin-top:8px"><button class="btn ghost" id="fbReload">重新读取</button>' +
+      '<button class="btn" id="fbCsv">导出 CSV</button>' +
+      '<span class="hint">导出<b>当前筛选</b>下的 ' + shown.length + ' 条工单（含开发笔记与设备信息）。</span></div></div>';
 
     if (!shown.length) {
       html += '<div class="card hint">这个筛选下没有工单。</div>';
@@ -2386,6 +2584,19 @@ tbody tr.sp-row{cursor:pointer}
     }
     panel.innerHTML = html;
 
+    el("fbCsv").onclick = function () {
+      downloadCsv("意见反馈",
+        ["时间", "状态", "类型", "内容", "出题位置", "昵称", "班级", "学校", "识别码",
+         "科目", "页面", "版本", "开发笔记", "最近处理", "处理时间", "设备信息"],
+        shown.map(function (r) {
+          return [fbWhen(r.createdAt), FB_ST[r.status] || r.status || "待处理",
+                  FB_TY[r.type] || r.type || "", r.text || "", r.ctx || "",
+                  r.nickname || "", r.mtlClass || "", canonSchool(r.school), r.uid || "",
+                  (r.stream || "").toUpperCase(), r.page || "", r.appV || "",
+                  r.note || "", r.handledBy || "", r.handledAt ? fbWhen(r.handledAt) : "",
+                  r.ua || ""];
+        }));
+    };
     Array.prototype.forEach.call(panel.querySelectorAll("[data-fs]"), function (b) {
       b.onclick = function () { _fbStatus = b.getAttribute("data-fs"); renderFeedback(el("panel")); };
     });
@@ -2815,14 +3026,14 @@ tbody tr.sp-row{cursor:pointer}
     _arena = { code: null, unsub: null, punsub: null, room: null, players: [], tick: null, json: _arena.json };
     renderArena(el("panel"));
   }
+  /* ⚠️ 走 downloadCsv：它自己那份手写的拼接**不转义引号**——昵称里一个 " 就会把
+     那一行的栏位错开。行为唯一的变化是档名多了一个日期。 */
   function exportArenaCsv() {
     var rows = _arena.players.slice().sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
-    var csv = "排名,昵称,班级,答对,已答,得分\n" + rows.map(function (r, i) {
-      return [i + 1, '"' + (r.nickname || "") + '"', '"' + (r.mtlClass || "") + '"', r.correct || 0, r.answered || 0, r.score || 0].join(",");
-    }).join("\n");
-    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "arena_" + _arena.code + ".csv"; a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    downloadCsv("擂台_" + _arena.code, ["排名", "昵称", "班级", "答对", "已答", "得分"],
+      rows.map(function (r, i) {
+        return [i + 1, r.nickname || "", r.mtlClass || "", r.correct || 0, r.answered || 0, r.score || 0];
+      }));
   }
 
   function renderMod(panel) {
@@ -2832,7 +3043,7 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="hint">对确认作弊的学生写入一条 moderation 记录。学生下次在该设备联网打开时生效，' +
       '把该科目进度清零。这是社群约束，不是严格封锁：清空浏览器数据会换新 UID、同时丢失全部进度，' +
       '所以规避的代价与被清零相同。</div>' +
-      '<label>学生 UID</label><input id="mUid" style="width:100%" placeholder="从「恢复记录」或学生的技术编号获取">' +
+      '<label>学生 UID</label><input id="mUid" style="width:100%" placeholder="从「班级视图」复制识别码，或用顶上的搜索框找到该生">' +
       '<div class="row"><div><label>动作</label><select id="mAction"><option value="zero">清零该科目 zero</option></select></div>' +
       '<div><label>科目</label><select id="mStream">' + STREAMS.map(function (s) { return '<option value="' + s + '">' + STREAM_LABEL[s] + '</option>'; }).join("") + '</select></div></div>' +
       '<label>备注</label><input id="mNote" style="width:100%" placeholder="例如：2026-08-12 使用了同学的进度码">' +

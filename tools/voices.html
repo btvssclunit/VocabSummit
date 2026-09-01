@@ -7,34 +7,54 @@
 <meta name="robots" content="noindex,nofollow">
 <style>
   body{font-family:"Noto Sans SC",system-ui,sans-serif;margin:0;padding:18px;color:#243B4A;background:#EAF3FA}
-  h1{font-size:20px}
+  h1{font-size:20px;margin-bottom:6px}
   .hint{font-size:13px;color:#5A7080;line-height:1.7;margin-bottom:14px}
   table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:10px;overflow:hidden}
   th,td{padding:8px 10px;border-bottom:1px solid #E7EFF6;text-align:left;vertical-align:top}
   th{background:#F1F6FB;font-size:12px}
-  code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
   button{border:1px solid #B9CEDD;border-radius:8px;padding:6px 12px;background:#fff;cursor:pointer;font-size:13px}
   button.play{background:#E3A63C;border-color:#E3A63C;color:#3A2A08;font-weight:700}
-  .pick{font-size:12px;color:#25513A}
+  button.big{background:#2E6391;border-color:#2E6391;color:#fff;font-weight:700;padding:9px 16px}
+  .pick{font-size:12px;color:#25513A;font-weight:700}
   .best{background:#E8F3EC}
-  .espeak{background:#FBEDE9}
+  .bad{background:#FBEDE9}
   input{border:1.5px solid #B9CEDD;border-radius:8px;padding:7px 10px;font-size:14px;width:260px}
+  /* 结论要在最上面、要大、要说人话：读这一页的多半是学生本人或代课老师，
+     他们要的不是一张评分表，是「这台机器行不行」。 */
+  .verdict{border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:14px;line-height:1.7;
+    border:2px solid #B9CEDD;background:#fff}
+  .verdict.ok{border-color:#7FB08D;background:#E8F3EC}
+  .verdict.no{border-color:#D98A76;background:#FBEDE9}
+  .verdict b{font-size:15px}
+  .rep{width:100%;height:150px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;
+    border:1.5px solid #B9CEDD;border-radius:8px;padding:9px;margin-top:8px;display:none}
 </style>
 </head>
 <body>
 <h1>🔊 语音诊断 TTS diagnostic</h1>
 <div class="hint">
-  在学生的 Chromebook / iPad 上打开此页，逐一「试听」，找出念起来<b>有声调、正确</b>的那个语音，
-  记下它的 <code>name</code> 与 <code>lang</code>，回报给老师。<br>
-  绿底 = 本 app 目前会选用的语音（评分最高）。红底 = eSpeak（普通话无声调，已被排到最后）。<br>
-  测试词（可改）：
-  <input id="phrase" value="快乐 学习 银行 挑剔">
+  在<b>出问题的那台设备上</b>打开这一页。上面的方框会直接说出这台机器行不行；
+  下面逐个「试听」，找出念起来<b>有声调、正确</b>的那一个。<br>
+  绿底 = 本 app 会用的语音。红底 = <b>不合格的引擎</b>（eSpeak 一类，会把拼音和数字念出来），app 已停用它。<br>
+  测试词（可改）：<input id="phrase" value="快乐 学习 银行 挑剔">
 </div>
-<div style="margin-bottom:10px"><button id="reload">🔄 重新载入语音列表</button></div>
-<table><thead><tr><th>#</th><th>name</th><th>lang</th><th>本地?</th><th>评分</th><th>试听</th></tr></thead>
-<tbody id="rows"><tr><td colspan="6" class="hint">载入中…（部分设备需数秒）</td></tr></tbody></table>
+
+<div class="verdict" id="verdict">检测中…</div>
+
+<div style="margin-bottom:10px">
+  <button id="reload">🔄 重新载入语音列表</button>
+  <button class="big" id="copy">📋 复制诊断报告给老师</button>
+</div>
+<textarea class="rep" id="rep" readonly></textarea>
+
+<table><thead><tr><th>#</th><th>name</th><th>lang</th><th>本地?</th><th>评分</th><th>判定</th><th>试听</th></tr></thead>
+<tbody id="rows"><tr><td colspan="7" class="hint">载入中…（部分设备需数秒）</td></tr></tbody></table>
 
 <script>
+/* ⚠️ 下面两个函数必须与 js/cs.js 与 js/xh.js 里的**逐字一致**（§17 的刻意重复，
+   共三处）。这一页存在的全部意义就是「告诉学生 app 会怎么判」——判得不一样，
+   这一页就是在说谎，比没有更糟。完整的理由写在 js/cs.js 那一段注释里。 */
 function scoreVoice(v){
   var lang=(v.lang||"").toLowerCase(), name=v.name||"";
   var isZh=lang.indexOf("zh")===0||lang.indexOf("cmn")===0;
@@ -48,33 +68,118 @@ function scoreVoice(v){
   if(/espeak/i.test(name)) s-=100;
   return s;
 }
+function isBadZhEngine(v){
+  var probe=(v.name||"")+" "+(v.voiceURI||"");
+  if(/espeak/i.test(probe)) return true;
+  if(/^urn:moz-tts:speechd:/i.test(v.voiceURI||"")) return true;
+  return false;
+}
+
+function pick(vs){
+  var best=null,bs=-1000,sawBad=false;
+  vs.forEach(function(v){
+    var s=scoreVoice(v);
+    if(s<=-1000) return;
+    if(isBadZhEngine(v)){ sawBad=true; return; }
+    if(s>bs){ bs=s; best=v; }
+  });
+  return { best:best, rejected:(!best&&sawBad) };
+}
+
 function speakWith(voice){
   if(!window.speechSynthesis) return;
   var u=new SpeechSynthesisUtterance(document.getElementById("phrase").value||"快乐");
   u.voice=voice; u.lang=voice.lang||"zh-CN"; u.rate=0.9;
   speechSynthesis.cancel(); setTimeout(function(){ speechSynthesis.speak(u); },50);
 }
+
+var _last={vs:[],r:{best:null,rejected:false}};
+
+function setVerdict(vs,r){
+  var el=document.getElementById("verdict");
+  var zh=vs.filter(function(v){ return scoreVoice(v)>-1000; });
+  if(!vs.length){
+    el.className="verdict no";
+    el.innerHTML="<b>这台设备一个语音都没有回报。</b><br>浏览器不提供语音合成，或系统缺少语音服务。"+
+      "Linux/Chromebook 的 Linux 容器需要 <code>speech-dispatcher</code>；朗读功能在这台机器上无法使用。";
+  }else if(r.best){
+    el.className="verdict ok";
+    el.innerHTML="<b>✅ 这台设备没问题。</b><br>app 会用：<code>"+esc(r.best.name)+"</code>（<code>"+
+      esc(r.best.lang||"")+"</code>）。请按它那一行的「试听」确认声调是对的。";
+  }else if(r.rejected){
+    el.className="verdict no";
+    el.innerHTML="<b>⚠️ 找到了中文语音，但它是不合格的引擎（eSpeak 一类）。</b><br>"+
+      "这种引擎会把<b>拼音和声调数字</b>念出来，而且不分多音字——教读音的 App 用它会教错，"+
+      "所以 app <b>已经停用朗读</b>，并不是坏了。<br>"+
+      "解法是给这台机器装一个真正的普通话语音（例如 ChromeOS 后台启用 Google 普通话；"+
+      "Linux 容器可加装 RHVoice 或改用 ChromeOS 原生的浏览器）。<br>"+
+      "请按下上面的「复制诊断报告给老师」，把内容传给老师。";
+  }else{
+    el.className="verdict no";
+    el.innerHTML="<b>⚠️ 这台设备完全没有中文语音。</b>（共 "+vs.length+" 个语音，没有一个是中文。）<br>"+
+      "请在设备的语言设置里安装普通话语音包。请按「复制诊断报告给老师」。";
+  }
+}
+
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function buildReport(vs,r){
+  var zh=vs.filter(function(v){ return scoreVoice(v)>-1000; });
+  var L=[];
+  L.push("VocabSummit 语音诊断");
+  L.push("UA: "+navigator.userAgent);
+  L.push("语音总数: "+vs.length+" · 中文语音: "+zh.length);
+  L.push("app 判定: "+(r.best?("使用 "+r.best.name+" ["+(r.best.lang||"")+"]")
+        :(r.rejected?"停用朗读（只有不合格引擎）":"停用朗读（没有中文语音）")));
+  L.push("--- 中文语音明细 ---");
+  if(!zh.length) L.push("（无）");
+  /* ⚠️ 只列中文语音。一台机器动辄回报 60–200 个语音，全列出来会把报告撑到
+     没人愿意读，也塞不进意见反馈那 1000 字的上限。 */
+  zh.forEach(function(v){
+    L.push((isBadZhEngine(v)?"[不合格] ":"[可用]   ")+v.name+
+           " | lang="+(v.lang||"")+" | local="+(v.localService?"1":"0")+
+           " | 分="+scoreVoice(v)+" | uri="+(v.voiceURI||""));
+  });
+  return L.join("\n");
+}
+
 function render(){
   var vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
-  var best=null,bestScore=-1000;
-  vs.forEach(function(v){ var s=scoreVoice(v); if(s>-1000&&s>bestScore){bestScore=s;best=v;} });
+  var r=pick(vs);
+  _last={vs:vs,r:r};
+  setVerdict(vs,r);
   var tb=document.getElementById("rows");
-  if(!vs.length){ tb.innerHTML='<tr><td colspan="6" class="hint">此设备没有回报任何语音。</td></tr>'; return; }
+  if(!vs.length){ tb.innerHTML='<tr><td colspan="7" class="hint">此设备没有回报任何语音。</td></tr>'; return; }
   tb.innerHTML=vs.map(function(v,i){
-    var s=scoreVoice(v);
-    var cls=(v===best)?"best":(/espeak/i.test(v.name)?"espeak":"");
-    return '<tr class="'+cls+'"><td>'+i+'</td><td>'+(v.name||"")+(v===best?' <span class="pick">← app 会用这个</span>':'')+'</td>'+
-      '<td><code>'+(v.lang||"")+'</code></td><td>'+(v.localService?'是':'否')+'</td>'+
-      '<td>'+(s<=-1000?'—（非中文）':s)+'</td>'+
+    var s=scoreVoice(v), zh=s>-1000, bad=zh&&isBadZhEngine(v);
+    var cls=(v===r.best)?"best":(bad?"bad":"");
+    var verdict=!zh?'<span class="hint">非中文</span>'
+              :bad?'<b style="color:#A3402A">不合格引擎</b>'
+              :(v===r.best?'<span class="pick">← app 会用这个</span>':'可用');
+    return '<tr class="'+cls+'"><td>'+i+'</td><td>'+esc(v.name||"")+'</td>'+
+      '<td><code>'+esc(v.lang||"")+'</code></td><td>'+(v.localService?'是':'否')+'</td>'+
+      '<td>'+(zh?s:'—')+'</td><td>'+verdict+'</td>'+
       '<td><button class="play" data-i="'+i+'">▶ 试听</button></td></tr>';
   }).join("");
   Array.prototype.forEach.call(tb.querySelectorAll("button[data-i]"),function(b){
     b.onclick=function(){ speakWith(vs[parseInt(b.getAttribute("data-i"),10)]); };
   });
 }
+
 document.getElementById("reload").onclick=render;
+document.getElementById("copy").onclick=function(){
+  var txt=buildReport(_last.vs,_last.r), ta=document.getElementById("rep");
+  ta.value=txt; ta.style.display="block";
+  /* ⚠️ 一定要有 textarea 兜底：这一页会在受管设备与非 https 的场合打开，
+     那里 navigator.clipboard 根本不存在。复制不成功也要让学生看得到、选得到。 */
+  var done=function(){ var b=document.getElementById("copy"); b.textContent="✅ 已复制，贴给老师"; };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done,function(){ ta.select(); });
+  }else{ ta.select(); try{ document.execCommand("copy"); done(); }catch(e){} }
+};
+
 if(window.speechSynthesis){ render(); speechSynthesis.onvoiceschanged=render; setTimeout(render,600); }
-else document.getElementById("rows").innerHTML='<tr><td colspan="6" class="hint">此浏览器不支持语音合成。</td></tr>';
+else document.getElementById("rows").innerHTML='<tr><td colspan="7" class="hint">此浏览器不支持语音合成。</td></tr>';
 </script>
 </body>
 </html>

@@ -673,7 +673,7 @@
      managed Chromebooks ship eSpeak-NG, which reports zh but speaks toneless
      Mandarin and is ordered first. cancel() then speak() in the same tick is
      silently dropped on ChromeOS and Samsung, hence the 50ms guard. */
-  var _zhVoice = null, _warnedNoZh = false;
+  var _zhVoice = null, _zhRejected = false, _warnedNoZh = false;
   function scoreVoice(v) {
     var lang = (v.lang || "").toLowerCase(), name = v.name || "";
     var isZhLang = lang.indexOf("zh") === 0 || lang.indexOf("cmn") === 0;
@@ -688,14 +688,30 @@
     if (/espeak/i.test(name)) s -= 100;
     return s;
   }
+  /* ⚠️⚠️ eSpeak 的中文整个拒收，不是扣分（owner 2026-09-01，学生实报）。
+     **完整的理由、证据与那条 −100 为什么在 Firefox/Linux 上从来没生效过，
+     写在 `js/cs.js` 的同一段注释里**——那里是这份逻辑的主本，
+     这里是 §17 那种刻意的重复。**改一处要改两处（还有 tools/voices.html，共三处）。**
+     一句话版：学生的填空句是纯汉字，念出拼音和数字的是引擎；她走
+     Firefox/Linux → speech-dispatcher → espeak-ng，而那条路上 voice name 叫
+     「Chinese (Mandarin)」，`/espeak/i` 命中不了，所以要同时看 voiceURI。 */
+  function isBadZhEngine(v) {
+    var probe = (v.name || "") + " " + (v.voiceURI || "");
+    if (/espeak/i.test(probe)) return true;
+    if (/^urn:moz-tts:speechd:/i.test(v.voiceURI || "")) return true;
+    return false;
+  }
   function loadVoiceCache() {
     if (!window.speechSynthesis) return;
-    var vs = speechSynthesis.getVoices() || [], best = null, bs = -1000;
+    var vs = speechSynthesis.getVoices() || [], best = null, bs = -1000, sawBad = false;
     for (var i = 0; i < vs.length; i++) {
       var sc = scoreVoice(vs[i]);
-      if (sc > -1000 && sc > bs) { bs = sc; best = vs[i]; }
+      if (sc <= -1000) continue;
+      if (isBadZhEngine(vs[i])) { sawBad = true; continue; }
+      if (sc > bs) { bs = sc; best = vs[i]; }
     }
     _zhVoice = best;
+    _zhRejected = !best && sawBad;
   }
   if (window.speechSynthesis) {
     loadVoiceCache();
@@ -738,8 +754,13 @@
       if (!_zhVoice) loadVoiceCache();
       if (!_zhVoice && !_warnedNoZh) {
         _warnedNoZh = true;
-        toast("⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
+        toast(_zhRejected
+          ? "⚠️ 这台设备的中文语音是 eSpeak，读音不准（会把拼音和数字念出来），已暂停朗读。请老师协助安装普通话语音包。"
+          : "⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
       }
+      /* ⚠️ 拒收时必须走 done()，不能直接 return：码头有玩法用 onEnd 决定什么时候翻页
+         （advanceAfterSpeech 那一族），少叫一次回调就是整局停在那里。 */
+      if (_zhRejected) { done(); return; }
       /* ⚠️ 读音以数据里的 拼音 为准，不让引擎自己猜（js/tts.js）。
          码头的句子（生活空间）没有逐字拼音，那里 py 为空，维持引擎默认。 */
       var u = new SpeechSynthesisUtterance(window.WSTts ? WSTts.text(text, py) : String(text));

@@ -260,7 +260,7 @@
      Always pass hanzi. A word that is genuinely mispronounced may ONLY be fixed
      with a homophone hanzi, never a pinyin string. (The old POLY_MAP fed pinyin
      and broke tones on managed Chromebooks — removed 2026-08-12.) */
-  var _zhVoice = null, _warnedNoZh = false;
+  var _zhVoice = null, _zhRejected = false, _warnedNoZh = false;
   /* G-3b: score voices instead of taking the first zh-* one. Managed Chromebooks
      ship eSpeak-NG (reports zh/cmn, but its Mandarin is toneless), often ordered
      before Google 普通话. Score it to the back so it is only ever a last resort. */
@@ -279,16 +279,58 @@
     if (/espeak/i.test(name)) s -= 100;                   // toneless — push to the back
     return s;
   }
+
+  /* ⚠️⚠️ eSpeak 的中文要**整个拒收**，不能只扣分（owner 2026-09-01，学生实报）。
+     学生报：「点朗读之后声音很怪，读的不是词，是把拼音和数字念出来。」
+     她那一题是 HCL-1116 折磨 的填空句「牙痛__了他好几天…」——**纯汉字，没有拼音，
+     没有数字**，`speakCloze` 只把 `__` 换成逗号，HCL 按设计不发逐字拼音所以
+     tts.js 一个字都没改。也就是说：吐出拼音和数字的是**引擎**，不是我们的字符串。
+     她的 UA 是 Firefox 140 / X11 Linux（几乎可以肯定是 Chromebook 里的 Crostini）。
+     那条路上 speechSynthesis 由 **speech-dispatcher** 提供，而它上面的中文实际上
+     只有 espeak-ng。espeak 上游自己写明：zh 语音只内建**一小批**汉字，其余要另外
+     编译 `zh_listx` 字典；查不到的字就退化成念它内部那套**带声调数字的拼音**——
+     学生听到的就是这个。而且即使字典齐全，espeak 也只做「一个汉字 → 一个读音」的
+     死映射，不看上下文、不识词，那正是 js/tts.js 整份多音字校正表在解决的问题：
+     用 espeak 等于把那份表整个抵消掉。
+
+     ⚠️ **这是对 §8.2「eSpeak 评到最后，只当兜底」的刻意推翻。** 当初那条的前提是
+     「espeak 的普通话虽然无声调，但至少认得出来」；现在有学生实报与上游文档两条
+     证据说明它会念出拼音和数字。这是一个**教读音**的 App，孩子没有第二个来源可以
+     核对——**读错比不读更糟**。所以现在是：宁可不发声，也要把原因说清楚。
+
+     ⚠️⚠️ **绝对不能只靠 name 里有没有 `espeak`。** Chrome 把它命名成
+     「eSpeak Chinese (Mandarin)」，所以旧的 −100 在 ChromeOS 上是管用的；
+     但 Firefox 在 Linux 上把 speech-dispatcher 回报的**原始 voice name 原样交出来**
+     （SpeechDispatcherService.cpp：name 就是 `list[i]->name`，URI 是
+     `urn:moz-tts:speechd:<name>?<lang>`，**模块名一个字都不带**），于是同一个引擎
+     在那里叫「Chinese (Mandarin)」、lang 是 `cmn`，`/espeak/i` **一次都命中不了**，
+     那条 −100 **从来没有在她那台机器上生效过**。这是这份代码库反复中招的同一族：
+     闸门键在错的字符串上，静默地什么都不做（§18an 的 `.py-ans`、§18aw 的漏搬）。
+     所以现在**同时看 voiceURI**，那是 Firefox 自己拼的、比 name 可靠。 */
+  function isBadZhEngine(v) {
+    var probe = (v.name || "") + " " + (v.voiceURI || "");
+    if (/espeak/i.test(probe)) return true;
+    /* ⚠️ 这一条**刻意宽**：Firefox/Linux 的每一个语音都来自 speech-dispatcher，
+       而那上面的中文在实务上只有 espeak-ng。误伤的代价是「没有声音 + 一句说得清
+       原因的提示」，可以补救；不误伤的代价是「安静地教错读音」，不可补救。 */
+    if (/^urn:moz-tts:speechd:/i.test(v.voiceURI || "")) return true;
+    return false;
+  }
+
   function loadVoiceCache() {
     if (!window.speechSynthesis) return;
     var vs = speechSynthesis.getVoices() || [];
-    var best = null, bestScore = -1000;
+    var best = null, bestScore = -1000, sawBad = false;
     for (var i = 0; i < vs.length; i++) {
       var sc = scoreVoice(vs[i]);
       if (sc <= -1000) continue;                          // skip non-Chinese
+      if (isBadZhEngine(vs[i])) { sawBad = true; continue; }   // 中文，但引擎不合格
       if (sc > bestScore) { bestScore = sc; best = vs[i]; }
     }
-    _zhVoice = best;                                       // null only if NO Chinese voice at all
+    _zhVoice = best;                                       // null = 没有一个合格的中文语音
+    /* 「有中文语音但全部不合格」与「完全没有中文语音」要说两句不同的话，
+       而且**只有前者需要闭嘴**：后者不指定 voice 交给引擎默认，仍有可能出声。 */
+    _zhRejected = !best && sawBad;
   }
   if (window.speechSynthesis) {
     loadVoiceCache();
@@ -305,8 +347,13 @@
       if (!_zhVoice) loadVoiceCache();
       if (!_zhVoice && !_warnedNoZh) {
         _warnedNoZh = true;
-        toast("⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
+        toast(_zhRejected
+          ? "⚠️ 这台设备的中文语音是 eSpeak，读音不准（会把拼音和数字念出来），已暂停朗读。请老师协助安装普通话语音包。"
+          : "⚠️ 未找到中文语音，请在设备语言设置中安装普通话语音包");
       }
+      /* ⚠️ 只有「找到了中文语音但全部不合格」才闭嘴。完全没有中文语音时照旧发出去：
+         不指定 voice、只给 lang，有些平台会给出一个枚举里没报出来的可用语音。 */
+      if (_zhRejected) return;
       var u = new SpeechSynthesisUtterance(said);          // hanzi only, never pinyin
       u.lang = (_zhVoice && _zhVoice.lang) || "zh-CN";
       if (_zhVoice) u.voice = _zhVoice;
