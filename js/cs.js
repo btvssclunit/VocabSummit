@@ -545,6 +545,22 @@
        rather than the inclusions so a stream that gains a new 板块 shows it by
        default instead of silently hiding it. */
     s.compOff = s.compOff || {};
+    /* 老师的清单 (owner 2026-09-01): a word list the student pasted in — the 期末
+       revision list a teacher hands out — matched against THIS stream's words and
+       then used AS the 复习范围.
+       ⚠️ STORED, UNLIKE `scope` ITSELF. The unit selection is rebuilt as「all units」
+       on every boot (see the loader) and has always been session-only. A revision
+       list that evaporated on reload would be useless for the one job it exists to
+       do, so it lives here in ws2_{stream} and survives.
+       ⚠️ STREAM-LOCAL, deliberately (owner 2026-09-01). It holds ids from this
+       stream's WORDS and nothing else. A G3 student wanting G1 words switches to G1;
+       the alternative needs an answer for which stream's 历练值 a cross-stream drill
+       would pay into, and that is a waterline question nobody has decided.
+       ⚠️ Shape {ids:[…], at:ts}. Repaired to null rather than trusted: an empty list
+       is indistinguishable from a dead 复习范围 — every mode refuses to start and the
+       reason is a source the student cannot see — so it is read as damage, exactly
+       like repairComps() reads「every 板块 off」as damage. */
+    s.paste = (s.paste && s.paste.ids && s.paste.ids.length) ? s.paste : null;
     /* 来源 + 板块 fold into one「筛选」block (owner 2026-08-16 late:「reduce visual
        clutter」). ⚠️ CLOSED by default and remembered: both are set-once controls,
        and once the 板块 chips carry badge art they are the tallest thing in a card
@@ -1398,14 +1414,46 @@
     var cs = streamComps();
     if (cs.length && !cs.some(compIsOn)) { store.compOff = {}; saveStore(); }
   }
+  function pasteOn() { return !!(store.paste && store.paste.ids && store.paste.ids.length); }
+  /* ⚠️ Filters WORDS rather than mapping the stored ids, so the result keeps the
+     level · 单元 · 板块 order every consumer already assumes — 我的词语表 groups on
+     exactly that, and a list in paste order would print its headings out of sequence.
+     An id that no longer exists (the word list was re-cut between terms) simply drops
+     out here; it is not an error and must not be one. */
+  function pasteWords() {
+    var want = {};
+    store.paste.ids.forEach(function (id) { want[id] = 1; });
+    return WORDS.filter(function (w) { return want[w.id]; });
+  }
+  function clearPaste() { if (store.paste) { store.paste = null; saveStore(); } }
+  /* ⚠️ THE PASTED LIST IS THE SCOPE, AND THE 板块 FILTER DOES NOT APPLY TO IT
+     (owner 2026-09-01). A teacher who writes down 30 words has already decided; 板块
+     is a narrowing of the UNIT source, and letting it also cut a hand-written list
+     would silently delete words the teacher put there — with the reason folded away
+     inside the collapsed 筛选 block, which is §18g's trap exactly. The 来源 row and
+     the summary line both say which source is in force, so this is never a guess. */
   function scopedWords() {
+    if (pasteOn()) return pasteWords();
     return WORDS.filter(function (w) { return scope.has(unitKey(w)) && compIsOn(w.component); });
+  }
+  /* ⚠️ ONE SENTENCE, TWO SCREENS. The home card and 学习/闯关's 一行摘要 must be
+     word-for-word identical (see renderPath) — two wordings for one fact is worse
+     than not saying it. It was duplicated as a literal in both; now that the source
+     can be a pasted list it has to be, so it is a function. */
+  function scopeSumText() {
+    var n = scopedWords().length;
+    return pasteOn() ? "老师的清单 · 共 " + n + " 词"
+                     : "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
   }
   /* Why the scope is empty, in the student's terms. Both halves can be cleared now
      (owner 2026-08-16), so a single 「请先选择至少一个单元」 would send someone hunting
      through the unit list when what they actually did was switch every 板块 off. */
   function scopeEmptyMsg(where) {
     var lead = where ? "请先在「学习」页" : "请先";
+    /* a pasted list can only be empty if every word in it has since left the stream's
+       word list; the units and 板块 underneath are irrelevant and naming them would
+       send the student hunting in the wrong place. */
+    if (pasteOn()) return lead + "重新贴一次老师的清单，或者取消清单改回按单元选。";
     if (!scope.size) return lead + "选择至少一个单元。";
     if (!streamComps().some(compIsOn)) return lead + "打开至少一个板块（板块筛选目前全部关闭）。";
     return lead + "选择至少一个有词语的单元。";
@@ -2025,7 +2073,7 @@
       '<span class="path-ic">' + (play ? "🎮" : "📖") + '</span>' +
       '<span class="path-t"><b>' + zh + '</b>' + pyl(zh) + enl(zh) + '</span>' +
       '<button class="path-scope" id="pathScope">' +
-        '<span class="ps-sum' + (n ? "" : " zero") + '">已选 ' + scope.size + ' 个单元 · 共 ' + n + ' 词</span>' +
+        '<span class="ps-sum' + (n ? "" : " zero") + '">' + esc(scopeSumText()) + '</span>' +
         '<span class="ps-go">改范围 ›' + pyl("改范围") + enli("改范围") + '</span></button>' +
       '</div>' +
       '<div class="section-label">' +
@@ -2074,6 +2122,15 @@
          This pair covers BOTH halves of the scope — units AND 板块 — so「全选」really
          does mean everything and「清空」really does mean nothing. The individual 板块
          chips are still toggles, so a 板块-only change is one tap. */
+      /* ⚠️ SAYS WHAT THE UNIT CHIPS BELOW WILL DO BEFORE THEY ARE TAPPED. With a
+         pasted list in force those chips no longer decide anything, and a control that
+         silently stops working is the trap this repo keeps re-learning (§18g). Rather
+         than disable them — a disabled chip shows no tooltip on a touch screen and
+         explains nothing — tapping one switches the source back, and this line says so
+         in advance. */
+      (pasteOn() ? '<div class="scope-paste">' +
+        '<span class="scope-paste-t">正在用<b>老师的清单</b>。点下面任何一个单元，就换回按单元选。</span>' +
+        '<button class="scope-paste-x" id="pasteDropHome">取消清单</button></div>' : "") +
       '<div class="scope-top">' +
       '<div class="scope-sum" id="scopeSum"></div>' +
       '<div class="scope-acts">' +
@@ -2096,16 +2153,36 @@
        so folding hides the controls, never the facts. */
     var comps = streamComps();
     var compsOn = comps.filter(compIsOn).length;
+    /* ⚠️ THE CLOSED STATE STILL STATES WHAT IS IN FORCE, and「what is in force」now
+       has two possible answers. With a pasted list active the 板块 count is dropped
+       from this line rather than shown as a lie: 板块 does not narrow a pasted list
+       (see scopedWords), so printing「板块 3/4」beside it would describe a filter that
+       is not running. */
+    var srcOn = pasteOn() ? "老师的清单" : "单元";
     html += '<button class="scope-filt-t' + (store.filtOpen ? " open" : "") + '" id="filtT">' +
       '<span class="scope-filt-lab">筛选' + pyl("筛选") + enli("筛选") + '</span>' +
-      '<span class="scope-filt-sum">单元' +
-        (comps.length > 1 ? ' · 板块 ' + compsOn + "/" + comps.length : "") + '</span>' +
+      '<span class="scope-filt-sum">' + esc(srcOn) +
+        (!pasteOn() && comps.length > 1 ? ' · 板块 ' + compsOn + "/" + comps.length : "") + '</span>' +
       '<span class="scope-caret">' + (store.filtOpen ? "▾" : "▸") + "</span></button>" +
       '<div class="scope-filt' + (store.filtOpen ? "" : " closed") + '">' +
       '<div class="scope-src"><span class="scope-src-lab">来源' + pyl("来源") + enli("来源") + '</span>' +
-      '<span class="scope-src-on">单元' + pyl("单元") + enli("单元") + '</span>' +
+      '<span class="scope-src-on">' + esc(srcOn) + pyl(srcOn) + enli(srcOn) + '</span>' +
+      '<button class="scope-src-btn" id="pasteEntry">📥 贴入老师的清单' +
+        pyl("贴入老师的清单") + enli("贴入老师的清单") + ' ›</button>' +
       '<button class="scope-src-btn" id="wlEntry">📋 我的词语表' + pyl("我的词语表") + enli("我的词语表") + ' ›</button></div>';
-    if (comps.length > 1) {
+    /* ⚠️ 板块 IS NOT RENDERED UNDER A PASTED LIST, and a line says why (2026-09-01).
+       It does not narrow one — scopedWords() returns the teacher's words whole — so
+       leaving the chips on screen would leave five controls that look live and do
+       nothing, which is the same silent-dead-control trap §18g keeps re-teaching.
+       ⚠️ The FACT is still stated, only the controls are gone: this repo's rule for
+       the 筛选 fold is「folding hides the controls, never the facts」, and it applies
+       just as much when the controls are withdrawn for a different reason. */
+    if (pasteOn() && comps.length > 1) {
+      html += '<div class="scope-src"><span class="scope-src-lab">板块' +
+        pyl("板块") + enli("板块") + '</span>' +
+        '<span class="wl-hint">用老师的清单时，板块不起作用——清单里有什么词就练什么词。</span></div>';
+    }
+    if (!pasteOn() && comps.length > 1) {
       /* ⚠️ FOUR 板块 GO 2x2 (owner 2026-08-16 late). auto-fill packs by width, so at
          three-to-a-row G2/G3's four came out 3 + 1 and the last chip sat alone on
          its own line. The count is per stream and fixed (G1 3 · G2/G3 4 · HCL 5), so
@@ -2231,6 +2308,12 @@
     Array.prototype.forEach.call(view().querySelectorAll(".unit[data-k]"), function (btn) {
       btn.onclick = function () {
         var k = btn.getAttribute("data-k");
+        /* ⚠️ A unit tap RETIRES the pasted list, exactly as the banner above promised.
+           Keeping both would mean the chip the student just pressed changes nothing,
+           and there is no honest way to show a half-applied scope. Needs the full
+           re-render, because the banner and the 来源 row both have to stop saying
+           「老师的清单」. */
+        if (pasteOn()) { clearPaste(); scope.clear(); scope.add(k); renderHome(); return; }
         if (scope.has(k)) scope.delete(k); else scope.add(k);
         btn.classList.toggle("on");
         updateScopeSum();
@@ -2264,6 +2347,7 @@
       };
     });
     document.getElementById("selAll").onclick = function () {
+      clearPaste();                          // 全选 is a statement about UNITS; see the unit handler
       UNIT_LIST.forEach(function (u) { scope.add(u.key); });
       store.compOff = {};                    // 全选 means 板块 too, or it is not 全选
       saveStore(); renderHome();
@@ -2276,6 +2360,7 @@
        and the reason is folded away inside the collapsed 筛选 block (§18g). 板块 is
        a stream-wide narrowing that defaults to ALL ON; only its own chips turn it off. */
     document.getElementById("selNone").onclick = function () {
+      clearPaste();
       scope.clear();
       store.compOff = {};
       saveStore(); renderHome();
@@ -2285,6 +2370,9 @@
     });
     document.getElementById("badgeStrip").onclick = renderAchievements;
     document.getElementById("wlEntry").onclick = function () { renderWordList("all"); };
+    document.getElementById("pasteEntry").onclick = function () { renderPasteList(null); };
+    var pdh = document.getElementById("pasteDropHome");
+    if (pdh) pdh.onclick = function () { clearPaste(); renderHome(); };
     /* ⚠️ re-render rather than a class flip: the closed header carries the 板块 count,
        so a flip would leave「板块 3/4」stale the moment a chip is toggled inside. */
     document.getElementById("filtT").onclick = function () {
@@ -2323,8 +2411,7 @@
          directly below this line and already show which are off, so the count
          restated the same fact in words. 共 N 词 is the number that actually
          changes and cannot be read off the chips. */
-      document.getElementById("scopeSum").textContent =
-        "已选 " + scope.size + " 个单元 · 共 " + n + " 词";
+      document.getElementById("scopeSum").textContent = scopeSumText();
       Object.keys(byLevel).forEach(function (lv) {
         var el = view().querySelector('.cnt[data-cnt="' + lv + '"]');
         if (!el) return;
@@ -2677,6 +2764,120 @@
     }
     document.getElementById("again").onclick = function () { if (c) startBadgeTrial(c); };
     document.getElementById("home").onclick = renderAchievements;
+  }
+
+  /* ---------- 贴入老师的清单 (owner 2026-09-01) ----------
+     A teacher hands out an 期末 revision list; the student pastes it in and it becomes
+     ①复习范围. This is the「scope even further」ask: units are the teacher's syllabus
+     shape, and a revision list is not — it cuts across units by design.
+
+     ⚠️ MATCHES ON 汉字 ONLY, and says so on the screen. A pasted list arrives with
+     pinyin and English glued to it («你好 nǐ hǎo hello»), with numbering («1. 你好»),
+     and with the separators of whatever app it was written in. Trying to also accept
+     pinyin would make「打错了」and「不在这个学段」indistinguishable, and that
+     distinction is the whole value of the report below.
+
+     ⚠️ THE LINE IS TRIED WHOLE BEFORE IT IS SPLIT, and that order is load-bearing:
+     谁言寸草心，报得三春晖 is one word in this stream and it CONTAINS the separator
+     「，」. Splitting first would turn every proverb into two misses.
+
+     ⚠️ NOTHING IS WRITTEN UNTIL THE STUDENT HAS SEEN WHAT WAS NOT FOUND. A silent
+     partial match is the failure mode that matters here: a student revises 24 of the
+     30 words their teacher set and has no way to know six went missing. */
+  var PASTE_SEP = /[、，,;；\/|]+/;
+
+  function pasteIndex() {
+    /* first entry wins for a surface form that appears in two units — the pasted list
+       names a WORD, not a placement, and returning both ids would drill it twice. */
+    var by = {};
+    WORDS.forEach(function (w) { if (!by[w.w]) by[w.w] = w.id; });
+    return by;
+  }
+  /* strip numbering, drop everything that is not 汉字 or CJK punctuation, and trim the
+     punctuation off the ends — 「1. 你好 nǐ hǎo hello」→「你好」*/
+  function pasteClean(t) {
+    return String(t || "")
+      .replace(/^\s*\d+\s*[.、)．）:：]\s*/, "")
+      .replace(/[^一-鿿㐀-䶿、，,;；\/|]/g, "")
+      .replace(/^[、，,;；\/|]+|[、，,;；\/|]+$/g, "");
+  }
+  function parseWordList(raw) {
+    var by = pasteIndex(), ids = [], hit = [], miss = [], seen = {};
+    function take(t) {
+      if (!t) return true;
+      if (!by[t]) return false;
+      if (!seen[t]) { seen[t] = 1; ids.push(by[t]); hit.push(t); }
+      return true;
+    }
+    String(raw || "").split(/[\r\n]+/).forEach(function (line) {
+      var whole = pasteClean(line);
+      if (!whole) return;
+      if (take(whole)) return;                 // the proverb case — try the line intact
+      var any = false;
+      whole.split(PASTE_SEP).forEach(function (piece) {
+        var t = pasteClean(piece);
+        if (!t) return;
+        any = true;
+        if (!take(t)) miss.push(t);
+      });
+      if (!any) miss.push(whole);
+    });
+    return { ids: ids, hit: hit, miss: miss };
+  }
+
+  var _pasteDraft = "";        // survives the 核对 re-render, so nobody retypes
+
+  function renderPasteList(res) {
+    setTopbar(renderHome, "");
+    var html = '<div class="wl-wrap"><div class="wl-head">' +
+      '<div class="wl-title">📥 贴入老师的清单</div></div>' +
+      '<div class="wl-sub">把老师给的复习清单贴进来，就只练这些词。' +
+      '一行一个词，或者用顿号、逗号分开都行；前面的编号不用删。' +
+      '<b>只认汉字</b>——拼音和英文会自动忽略。</div>' +
+      '<textarea class="paste-ta" id="pasteIn" placeholder="例如：\n1. 设施\n2. 走廊\n姓氏、单姓、复姓">' +
+        esc(_pasteDraft) + '</textarea>' +
+      '<div class="wl-actions"><button class="wl-flash" id="pasteCheck">核对这份清单</button>' +
+      (pasteOn() ? '<button class="paste-off" id="pasteDrop">取消清单，改回按单元选</button>' : "") +
+      '</div>';
+
+    if (res) {
+      html += '<div class="paste-res">';
+      html += '<div class="paste-res-h">对上了 <b>' + res.hit.length + '</b> 个词' +
+        (res.miss.length ? '，有 <b>' + res.miss.length + '</b> 个没找到' : "") + '</div>';
+      if (res.miss.length) {
+        /* ⚠️ THE MISSING WORDS ARE PRINTED, not counted. A count tells a student
+           something is wrong; the list tells them WHICH word to ask their teacher
+           about, and lets them see at a glance that it is a typo rather than a word
+           this stream simply does not teach. */
+        html += '<div class="paste-miss"><b>没找到：</b>' +
+          res.miss.map(function (t) { return '<span class="paste-x">' + esc(t) + '</span>'; }).join("") +
+          '<div class="wl-hint">这些词不在' + esc(META.zh) + '的词语表里，' +
+          '可能是打错了，也可能是别的学段教的。可以问问老师。</div></div>';
+      }
+      html += res.hit.length
+        ? '<button class="wl-flash" id="pasteUse">就用这 ' + res.hit.length + ' 个词当复习范围</button>'
+        : '<div class="wl-empty">一个词也没对上，请检查是不是贴错了，或者换个学段。</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    view().innerHTML = html;
+
+    var ta = document.getElementById("pasteIn");
+    ta.oninput = function () { _pasteDraft = ta.value; };
+    document.getElementById("pasteCheck").onclick = function () {
+      _pasteDraft = ta.value;
+      renderPasteList(parseWordList(_pasteDraft));
+    };
+    var drop = document.getElementById("pasteDrop");
+    if (drop) drop.onclick = function () { clearPaste(); _pasteDraft = ""; renderHome(); };
+    var use = document.getElementById("pasteUse");
+    if (use) use.onclick = function () {
+      store.paste = { ids: res.ids, at: Date.now() };
+      saveStore();
+      _pasteDraft = "";
+      renderHome();
+    };
+    setTimeout(function () { try { ta.focus(); } catch (e) {} }, 30);
   }
 
   /* ---------- 个人词语表 (personal word list) ----------
@@ -3291,6 +3492,10 @@
     "词语汉兜": "Word Puzzle",
     "出发": "Start",
     "我的词语表": "My word list",
+    /* 贴入老师的清单 (2026-09-01). ⚠️ Added in the SAME edit as the labels — a missing
+       key returns "" silently, which is how a gloss goes missing unnoticed. */
+    "老师的清单": "Teacher's list",
+    "贴入老师的清单": "Paste your teacher's list",
     "查词": "Search",
     "词山风云榜": "Leaderboard",
     "成就徽章": "Badges",
@@ -3453,7 +3658,8 @@
     "今日路线 · 选择你的营地": "jīn rì lù xiàn · xuǎn zé nǐ de yíng dì",
     "学习挑战": "xué xí tiǎo zhàn", "词语闪卡": "cí yǔ shǎn kǎ",
     "词雨灵露": "cí yǔ líng lù", "攀山快答": "pān shān kuài dá", "组字成词": "zǔ zì chéng cí",
-    "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo",
+    "词语汉兜": "cí yǔ hàn dōu", "出发": "chū fā", "我的词语表": "wǒ de cí yǔ biǎo", "老师的清单": "lǎo shī de qīng dān",
+    "贴入老师的清单": "tiē rù lǎo shī de qīng dān",
     "查词": "chá cí",
     "词山风云榜": "cí shān fēng yún bǎng", "成就徽章": "chéng jiù huī zhāng",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
@@ -6002,6 +6208,10 @@
      because of them, ①'s own 共 0 词 line says so — which is why this lands on the
      home screen instead of inside a mode. */
   function scopeToUnit(level, unit, tab) {
+    /* same rule as a unit chip: naming a unit means the unit source is what the
+       student wants. Silently landing them on a pasted list they set last week,
+       from a button that says the unit's name, would be the worst of both. */
+    clearPaste();
     scope.clear();
     scope.add(level + "·" + unit);
     store.homeTab = tab;
