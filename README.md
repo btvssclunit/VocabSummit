@@ -129,8 +129,13 @@ CLAUDE.md, 部署缓存版本号.
 - 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default. At the
   pier both default ON, and the flashcard always shows them: its readers are beginners.
 - 通用搜索: look up any word from any of the five stations — 词, toneless 拼音 or English.
-  Read-only by design; a result speaks the word and never opens an activity, so the
-  pier's progress and currency stay sealed off from the mountains'.
+  One row per word, with chips showing every stream that teaches it, and the searcher's
+  own stream first. Read-only by design; a result speaks the word and never opens an
+  activity, so the pier's progress and currency stay sealed off from the mountains'.
+- 复习范围 can be a pasted list. A student drops in the revision list their teacher
+  handed out — numbering, pinyin and mixed separators are all tolerated — and the words
+  that match become the scope. Unmatched words are listed, never silently dropped.
+  Stream-local, and it persists across reloads.
 - 船只: four tiers shared by the pier and the landing sea map, bought with either
   贝壳 (pier) or 灵露 (a level's camp shop), owned globally and freely swapped.
 - All example sentences are original departmental authorship. No third-party
