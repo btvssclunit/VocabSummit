@@ -592,7 +592,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260901e"></script>
+<script src="js/podium.js?v=20260902"></script>
 <script>
 (function () {
   "use strict";
@@ -600,7 +600,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260901e";
+  var ASSET_V = "?v=20260902";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -1389,6 +1389,22 @@ tbody tr.sp-row{cursor:pointer}
         raw: function (u) { return profOf(u).mtlClass || "（未填写）"; },
         cell: function (u) { return esc(profOf(u).mtlClass || "—"); } }
     ];
+    /* ⚠️ 码头 SITS BEFORE G1 (owner 2026-09-02), because that is where it sits in the
+       ladder the student climbs: 出发码头 is the pre-G1 tier, so a table that ran
+       G1→HCL and left the pier out entirely read as「those students did nothing」for
+       every beginner in the cohort — the same failure the CSV already fixed by
+       appending 码头认得 (§18az).
+       ⚠️ IT IS NOT A FIFTH MOUNTAIN AND MUST NEVER BE ADDED TO ANY OF THEM (§4.1).
+       The header says 认得, not 掌握: the pier's own word for it is 航程／认得, and
+       giving it the mountains' word would invite someone to total the row.
+       ⚠️ `pierKnown` counts store.done keys, which is keyed on 词语 (the pier has no
+       word ids) — do not reach for `mastered` here, the pier has no such field. */
+    cols.push({ k: "xh", label: "码头认得", type: "num", cls: "col-n",
+      raw: pierKnown,
+      cell: function (u) {
+        var n = pierKnown(u);
+        return n ? '<b>' + n + '</b>' : '<span class="hint">0</span>';
+      } });
     STREAMS.forEach(function (s) {
       cols.push({ k: s, label: STREAM_LABEL[s] + " 掌握", type: "num", cls: "col-n",
         raw: function (u) { return masteredCount(u, s); },
@@ -2009,8 +2025,9 @@ tbody tr.sp-row{cursor:pointer}
       '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、出发码头，以及可以给学生的进度码）。' +
       (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
       '<div class="row" style="margin-bottom:10px"><button class="btn" id="clsCsv">导出 CSV</button>' +
+      '<button class="btn" id="aidCsv">导出支援开关记录 CSV</button>' +
       '<button class="btn" id="vsidGen">🪪 签发学习编号…</button>' +
-      '<span class="hint">导出的就是<b>现在这张表</b>：同一批筛选、同一个排序、同样的栏位（另加一栏「码头认得」）。恢复码不在里面。</span></div>' +
+      '<span class="hint">导出的就是<b>现在这张表</b>：同一批筛选、同一个排序、同样的栏位。恢复码不在里面。</span></div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
       (body || '<tr><td colspan="' + (cols.length + 1) +
@@ -2023,7 +2040,9 @@ tbody tr.sp-row{cursor:pointer}
     el("vsidGen").onclick = openVsidGen;
     el("clsCsv").onclick = function () {
       downloadCsv("班级视图",
-        cols.map(function (c) { return c.label; }).concat(["码头认得", "编号来源"]),
+        /* ⚠️ 码头认得 IS NO LONGER APPENDED HERE — it is a real column now (see
+           classCols), so appending it again would put it in the file twice. */
+        cols.map(function (c) { return c.label; }).concat(["编号来源"]),
         rows.map(function (u) {
           return cols.map(function (c) {
             /* ⚠️ 学习编号 导出**显示形式**（`VS-XXXX-XXXX`），与表格里、档案卡上、
@@ -2031,8 +2050,54 @@ tbody tr.sp-row{cursor:pointer}
                All Ears 名册对，而 Excel 的比对是逐字符的——同一个编号在两处写成
                两种样子，VLOOKUP 就会一条都对不上。 */
             return (c.k === "vsid") ? fmtVsidT(c.raw(u)) : c.raw(u);
-          }).concat([pierKnown(u), vsidSrcLabel(u)]);
+          }).concat([vsidSrcLabel(u)]);
         }));
+    };
+    /* ---- 支援开关记录 CSV (owner 2026-09-02) ----
+       owner:「is it possible to log when the user toggles on/off for data analysis for
+       trends?」— THE LOG ALREADY EXISTS (cs.js aidLogPush, 2026-08-19; xh.js from
+       2026-09-02), but it could only be read one student at a time, off the profile
+       card. Trends need the whole cohort in one sheet, so this is the export and NOT a
+       second store of the same facts.
+       ⚠️ ONE ROW PER RECORDED CHANGE, not one row per student. That is the shape a
+       pivot table wants (count flips by month, by class, by land) and it is also the
+       shape the data actually has; flattening it to「拼音变化：开 → 8月14日 关」would
+       hand Excel a sentence to parse.
+       ⚠️ THE FIRST ROW OF EACH LOG IS A BASELINE, NOT A DECISION — it records what the
+       state WAS when logging began. It carries 变化次序 0 and 是否首次记录 是 so an
+       analysis does not count it as a student changing their mind (§18ab).
+       ⚠️ DATES ONLY EXIST FROM 2026-08-19 (mountains) / 2026-09-02 (pier). A student
+       with no rows is「未记录」, never「从来没有换过」— those are different facts.
+       ⚠️ HCL CONTRIBUTES NOTHING AND THAT IS CORRECT: neither aid exists there (§10),
+       so cs.js never logs. It is skipped rather than exported as empty rows. */
+    el("aidCsv").onclick = function () {
+      var out = [];
+      rows.forEach(function (u) {
+        var prog = u.data.progress || {}, p = profOf(u);
+        STREAMS.concat(["xh"]).forEach(function (land) {
+          if (!prog[land]) return;
+          var a = aidOf(u, land);
+          if (a.na) return;                       // 高级华文：没有可记录的开关
+          [["en", "英文提示", a.en], ["py", "拼音辅助", a.py]].forEach(function (row) {
+            var log = aidLogOf(u, land, row[0]);
+            if (!log.length) return;
+            log.forEach(function (e, i) {
+              out.push([
+                u.uid || "", fmtVsidT(p.vsid || ""), p.nickname || "（未命名）",
+                p.mtlClass || "", CAT_LABEL[p.category || ""], canonSchool(p.school),
+                (CODE_LABEL[land] || land).split(" \u00b7 ")[0], row[1],
+                e.d || "", e.on ? "开" : "关", i, i === 0 ? "是" : "否",
+                row[2] ? "开" : "关"
+              ]);
+            });
+          });
+        });
+      });
+      if (!out.length) { alert("这批档案里还没有任何开关变化记录。\n（记录从 2026-08-19 才开始，之前的变化没有留下日期。）"); return; }
+      downloadCsv("支援开关记录",
+        ["识别码", "学习编号", "昵称", "班级", "身份", "学校", "陆地", "辅助",
+         "日期", "变成", "变化次序", "是否首次记录", "现在状态"],
+        out);
     };
     Array.prototype.forEach.call(panel.querySelectorAll(".th-lab"), function (s) {
       s.onclick = function () {
@@ -2295,6 +2360,101 @@ tbody tr.sp-row{cursor:pointer}
     });
     return out.length ? out.join("") : '<div class="hint">还没有资料。</div>';
   }
+  /* 一次 Esc 只关最上面那一层。⚠️ 不是整洁，是承重：两层 overlay 的 keydown 都挂在
+     document 上，按注册顺序触发（下面那层先），所以不判断的话，在上层按一次 Esc
+     会把下层一起关掉。 */
+  function isTopOverlay(ov) {
+    var all = document.querySelectorAll(".tov");
+    return all.length && all[all.length - 1] === ov;
+  }
+  /* ---------- ✉️ 邮件内容 (owner 2026-09-02) ----------
+     A popup of copy-pastable text. It does not send, does not ask for an address and
+     does not store one — see the note beside the button for why that is the design and
+     not a shortcut.
+     ⚠️ 措辞逐句对着学生真的会看到的那块屏幕写：找回的入口在学生端叫
+     「🔄 换了设备？在这里找回」（cs.js / nickname.js），编号的入口叫
+     「我的档案 › 换了设备？填回编号」（profile.js）。**改那两处文案就要改这里**，
+     一封指向一颗按不到的按钮的邮件，比不发更糟。
+     ⚠️ 缺哪一样就不写哪一段，绝不写占位符：一封写着「学习编号：（无）」的邮件，
+     学生只会照着去找一个不存在的东西。 */
+  function mailTextFor(u) {
+    var p = profOf(u), nick = p.nickname || "同学";
+    var vsid = p.vsid ? fmtVsidT(p.vsid) : "";
+    var claim = p.claimCode ? String(p.claimCode) : "";
+    var L = [];
+    L.push(nick + " 你好：");
+    L.push("");
+    L.push("这是你在「词山学海 Vocab Summit」的资料，换了设备或清了浏览器资料时用它找回进度。");
+    L.push("");
+    if (vsid) {
+      L.push("学习编号：" + vsid);
+      L.push("　这个不会变，是老师认出你的编号。可以给老师看，它不能用来拿走你的进度。");
+      L.push("　填法：我的档案 › 换了设备？填回编号");
+      L.push("");
+    }
+    if (claim) {
+      L.push("恢复码：" + claim);
+      L.push("　十个字符，可以把全部进度找回来（包括灵露和贝壳）。这个要联网。");
+      L.push("　填法：打开网站 › 🔄 换了设备？在这里找回 › 输入这十个字符");
+      L.push("　⚠️ 这等于你账号的钥匙，不要给别人，也不要贴在群组里。");
+      L.push("");
+    }
+    L.push("网址：https://btvssclunit.github.io/VocabSummit/");
+    L.push("");
+    L.push("如果填不进去，回复这封邮件告诉老师。");
+    return { subject: "词山学海 Vocab Summit · 你的" + (vsid ? "学习编号" : "") +
+                      (vsid && claim ? "与" : "") + (claim ? "恢复码" : "资料"),
+             body: L.join("\n"), has: !!(vsid || claim) };
+  }
+  function openMailText(u) {
+    var m = mailTextFor(u);
+    var ov = document.createElement("div");
+    ov.className = "tov";
+    ov.innerHTML = '<div class="card sp-card" style="max-width:640px">' +
+      '<button class="sp-x" title="关闭">\u2715</button>' +
+      '<h2 style="margin-top:0">✉️ 邮件内容</h2>' +
+      '<div class="hint" style="margin-bottom:10px">这一页<b>不会发信</b>，也不会记下学生的电邮地址。' +
+      '复制下面的文字，贴进你自己的邮件里再发。' +
+      (m.has ? '' : '<br><b>⚠️ 这名学生现在既没有学习编号，也没有恢复码，所以下面没有可发的内容。</b>') +
+      '</div>' +
+      '<div class="sp-land code"><div class="sp-land-t">主旨</div>' +
+        '<textarea class="sp-code" id="mtSubj" readonly rows="1"></textarea>' +
+        '<div class="sp-codeact"><button class="btn small" id="mtCopyS">复制主旨</button></div></div>' +
+      '<div class="sp-land code"><div class="sp-land-t">正文</div>' +
+        '<textarea class="sp-code" id="mtBody" readonly rows="14"></textarea>' +
+        '<div class="sp-codeact"><button class="btn small primary" id="mtCopyB">复制正文</button></div></div>' +
+      '<div class="sp-foot"><button class="btn primary" id="mtClose">关闭</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    /* ⚠️ 用 .value 写，不用 innerHTML：正文里有 <、& 与换行，拼进 HTML 会被吃掉或被解析。 */
+    ov.querySelector("#mtSubj").value = m.subject;
+    ov.querySelector("#mtBody").value = m.body;
+    function shut() { ov.remove(); document.removeEventListener("keydown", onKey, true); }
+    function onKey(ev) { if (ev.key === "Escape" && isTopOverlay(ov)) shut(); }
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", function (ev) { if (ev.target === ov) shut(); });
+    ov.querySelector(".sp-x").onclick = shut;
+    ov.querySelector("#mtClose").onclick = shut;
+    function cp(btnId, taId) {
+      var b = ov.querySelector(btnId), ta = ov.querySelector(taId);
+      b.onclick = function () {
+        ta.focus(); ta.select();
+        /* ⚠️ 先试 execCommand 再试 clipboard API 的顺序是刻意的：这一页跑在 SSOE 笔电与
+           Chromebook 上，navigator.clipboard 在非 https／受管设定下可能根本不存在。
+           两条都不成也没关系——文字已经选中了，⌘C 就能拿走。 */
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) {}
+        if (!ok && navigator.clipboard) {
+          try { navigator.clipboard.writeText(ta.value); ok = true; } catch (e) {}
+        }
+        var t = b.textContent;
+        b.textContent = ok ? "已复制" : "请按 Ctrl/⌘ + C";
+        setTimeout(function () { b.textContent = t; }, 1600);
+      };
+    }
+    cp("#mtCopyS", "#mtSubj");
+    cp("#mtCopyB", "#mtBody");
+  }
   function openStudentCard(uid) {
     var u = userByUid(uid);
     if (!u) return;
@@ -2353,7 +2513,11 @@ tbody tr.sp-row{cursor:pointer}
             '<div class="hint">这是学生的固定编号，<b>换设备也不会变</b>。学生换了设备时，' +
             '把这个编号连同下面的进度码一起给他：先在「找回」画面填编号，再贴进度码。' +
             '可以放心给本人看——它不能用来取走进度。</div>'
-          : '<div class="hint">这名学生还没有学习编号。（下次打开任何页面时会自动建立。）</div>') +
+          /* ⚠️ 这句话以前写的是「下次打开任何页面时会自动建立」。**2026-09-01 起不再成立**：
+             自动铸号已停用（profile.js 的 VSID_ON=false），编号改由老师签发、学生自己输入。
+             留着那句话会让老师一直等一个永远不会自己出现的编号。 */
+          : '<div class="hint">这名学生还没有学习编号。用上面「🪪 签发学习编号」发一个给他，' +
+            '让他在<b>我的档案</b>里自己填进去。</div>') +
       '</div>' +
       /* ---- 恢复码 (owner 2026-08-19) ----
          The student's own short code, read straight off users/{uid}.profile.claimCode
@@ -2375,6 +2539,22 @@ tbody tr.sp-row{cursor:pointer}
             '⚠️ 这等于账号的钥匙，只发给本人。</div>'
           : '<div class="hint">这名学生还没有恢复码。' +
             '（学生下次打开任何一个学段或码头、把那一次学习结束之后就会自动建立。）</div>') +
+        /* ---- ✉️ 邮件内容 (owner 2026-09-02) ----
+           owner:「if students lose their account, I check their VSID based on my offline
+           file, then click into their profile to email them their VSID and recovery
+           code」，随后自己裁定：「if I email them through this portal their identity will
+           be compromised right? in that case I would like a pop up with copy pastable
+           text for me to manually copy into a new email」。
+           ⚠️ 所以这一页从不发信、不收地址、也不存地址，只拼一段文字。两个理由：
+           §16「学生 PII 一律不收」——系统里根本没有学生的电邮地址可以寄，
+           而在这一页上打一个进去，就是这个项目第一次拿到学生的联络方式。
+           老师自己的邮箱里本来就有那个地址，那才是它该待的地方。
+           ⚠️ **也没有做成 mailto:**。mailto 同样不会经过这个网站发信，但它要把收件人
+           写进一条 URL，而「个人资料永不进 URL」是一条硬规则。
+           ⚠️ 这段文字里带着**恢复码**，它等于账号的钥匙。那正是这颗按钮存在的理由，
+           也正是它只能长在这张「一次一个学生」的卡上、**永远不能变成批量动作**的理由。 */
+        '<div class="sp-codeact" style="margin-top:10px">' +
+          '<button class="btn small" id="spMail">✉️ 生成邮件内容…</button></div>' +
       '</div>' +
       '<div class="sp-land code"><div class="sp-land-t">进度码</div>' +
         '<div class="hint">学生换了设备、清了浏览器资料时，把这段码给他，在「我的档案 › 恢复进度」贴上即可。' +
@@ -2395,8 +2575,12 @@ tbody tr.sp-row{cursor:pointer}
       document.removeEventListener("keydown", onKey, true);
     }
     /* Esc closes. The dashboard runs on laptops (SSOE / Chromebook), where a modal a
-       keyboard user cannot dismiss is a trap — the same rule xhPop() follows (§18v). */
-    function onKey(ev) { if (ev.key === "Escape") shut(); }
+       keyboard user cannot dismiss is a trap — the same rule xhPop() follows (§18v).
+       ⚠️ ONLY WHEN THIS IS THE TOPMOST OVERLAY. The ✉️ 邮件内容 popup opens ON TOP of
+       this card, and both listeners sit on `document`, so they fire in registration
+       order — this one FIRST. Without the guard, one Esc in the popup closes the card
+       underneath it as well and the teacher lands back on the table. */
+    function onKey(ev) { if (ev.key === "Escape" && isTopOverlay(ov)) shut(); }
     document.addEventListener("keydown", onKey, true);
     ov.addEventListener("click", function (ev) { if (ev.target === ov) shut(); });
     ov.querySelector(".sp-x").onclick = shut;
@@ -2404,6 +2588,7 @@ tbody tr.sp-row{cursor:pointer}
     var im = ov.querySelector(".sp-av img");
     if (im) im.onerror = function () { im.style.display = "none"; };
     ov.querySelector(".sp-cpuid").onclick = function () { copyUid(uid, this); };
+    ov.querySelector("#spMail").onclick = function () { openMailText(u); };
     if (canEdit) ov.querySelector("#spEdit").onclick = function () { shut(); openEditProfile(uid); };
 
     var gen = ov.querySelector("#spGen"), out = ov.querySelector("#spCodeOut");

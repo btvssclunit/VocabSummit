@@ -128,6 +128,8 @@ CLAUDE.md, 部署缓存版本号.
   plus 156 at the pier.
 - 拼音 and 英文 interface aids for G1–G3, student-toggled, off by default. At the
   pier both default ON, and the flashcard always shows them: its readers are beginners.
+  Every flip is dated in the student's own store, so the dashboard can say when a
+  student started weaning off a support, and export the whole cohort's changes as CSV.
 - 通用搜索: look up any word from any of the five stations — 词, toneless 拼音 or English.
   One row per word, with chips showing every stream that teaches it, and the searcher's
   own stream first. Read-only by design; a result speaks the word and never opens an

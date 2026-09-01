@@ -96,6 +96,27 @@
     if (typeof s.py !== "boolean") s.py = true;   // both default ON: the point of
     if (typeof s.en !== "boolean") s.en = true;   // this tier (spec, display toggles)
     if (!s.done || typeof s.done !== "object") s.done = {};
+    /* ---------- 支援开关的变化日志 (owner 2026-09-02) ----------
+       owner:「is it possible to log when the user toggles on/off for data analysis for
+       trends?」— THE MOUNTAINS HAVE LOGGED SINCE 2026-08-19 (cs.js aidLogPush) AND THE
+       PIER LOGGED NOTHING, so 教师后台's 学习支援 could say what a pier student's
+       toggles are RIGHT NOW but never when they changed. That gap mattered more here
+       than on a mountain: the pier is the one tier where both aids default ON (§10), so
+       every pier row read「拼 开 · EN 开」and there was no way to tell「never touched
+       it」apart from「turned it back on last week」.
+       ⚠️ SAME SHAPE AS cs.js ON PURPOSE — [{d:"YYYY-MM-DD", on:1|0}] — because
+       teacher.html's aidLogOf() reads (progress[land]).pyTel/.enTel.log generically for
+       all five lands. A different shape here would need a second reader in the
+       dashboard, and §17's kind of deliberate duplication is cheaper than that.
+       ⚠️ TWO SEPARATE LOGS, never one merged array: 拼音 and 英文 are two independent
+       decisions, and one array holding both turns「which one did they turn off」into a
+       parsing problem (cs.js carries the same note).
+       ⚠️ 日期从 2026-09-02 起才有。之前的开关变化**没有留下任何痕迹**，后台照实写
+       「未记录」——**绝不回填猜的日期**（§18v 同一条）。 */
+    s.pyTel = s.pyTel || {};
+    s.pyTel.log = (s.pyTel.log instanceof Array) ? s.pyTel.log : [];
+    s.enTel = s.enTel || {};
+    s.enTel.log = (s.enTel.log instanceof Array) ? s.enTel.log : [];
     /* spec §7 — instrumentation, built in from the start because it is nearly
        free now and is the single most valuable output of the MVP: which sprites
        get misread, and what they get confused with. Read it off a test device
@@ -497,6 +518,44 @@
     document.body.classList.toggle("xh-py-on", !!store.py);
     document.body.classList.toggle("xh-en-on", !!store.en);
   }
+  /* ---------- 支援开关的变化日志：写入端 ----------
+     ⚠️ 这三样（AID_LOG_CAP · todaySG · aidLogPush）是从 cs.js **逐字搬过来的**，
+     不是新写的一套。水线（§4）规定 xh.js 不引用 cs.js 的任何东西，所以两边各一份——
+     §17 那种刻意的重复。**改一处要改两处**，漏了的症状是两家的日志形状悄悄分叉，
+     而后台用的是同一个读取器。
+     ⚠️ 只在状态**真的翻转**时追加，所以这是一部决定史，不是一部开页史。
+     ⚠️ 第一行永远不裁：满 30 条时删的是**第二行**。「什么时候开始用的」是唯一没有
+     别处可查的事实，近期翻转还能从尾巴读到。
+     ⚠️ 同日来回翻转会抵消：当天关了又开，到那天结束什么都没变；两行同日期相反值
+     在老师屏幕上读起来是自相矛盾。 */
+  var AID_LOG_CAP = 30;
+  function todaySG() {
+    try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" }); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+  function aidLogPush(tel, on) {
+    if (!tel) return;
+    var L = (tel.log instanceof Array) ? tel.log : (tel.log = []);
+    var d = todaySG(), v = on ? 1 : 0, last = L.length ? L[L.length - 1] : null;
+    if (last && last.on === v) return;                 // no change, nothing to record
+    if (last && last.d === d) { L.pop(); }             // same-day flip-back: undo it
+    var prev = L.length ? L[L.length - 1] : null;
+    if (prev && prev.on === v) return;                 // …and it collapsed to no change
+    L.push({ d: d, on: v });
+    while (L.length > AID_LOG_CAP) L.splice(1, 1);     // keep [0], drop the next oldest
+  }
+  /* baseline: the log needs one row saying what the state WAS before any flip, or the
+     first flip would look like the beginning of time.
+     ⚠️ 写在「第一次答题」而不是「开页」上，与 cs.js 的 enNoteSession 同一条：光打开
+     页面不算一次学习，把它记成起点会让每个只是路过的学生都留下一行。
+     ⚠️ 幂等，一次载入只跑一次；aidLogPush 自己也会挡掉重复的状态。 */
+  var _aidBaselined = false;
+  function noteAidSession() {
+    if (_aidBaselined) return;
+    _aidBaselined = true;
+    aidLogPush(store.pyTel, !!store.py);
+    aidLogPush(store.enTel, !!store.en);
+  }
   function profileOf() {
     return (window.WSProfile && window.WSProfile.load()) || {};
   }
@@ -530,6 +589,9 @@
       var b = document.getElementById(id);
       b.onclick = function () {
         store[key] = !store[key];
+        /* ⚠️ BEFORE save(), so the flip and the row that records it land in the same
+           write — save() is what schedules the cloud flush. */
+        aidLogPush(key === "py" ? store.pyTel : store.enTel, store[key]);
         save();
         applyAids();                     // one class flip; nothing re-renders
         b.classList.toggle("on", !!store[key]);
@@ -4151,6 +4213,7 @@
      cannot read, so a wrong tap must be free. */
   function noteWrong(w, chosen) {
     runNote(false);
+    noteAidSession();
     var s = stat(w);
     if (state.firstTry) {
       state.firstTry = false;
@@ -4229,6 +4292,7 @@
      学生听到半个词就被打断。 */
   function noteRight(w, quiet) {
     runNote(true);                          // 沙滩快跑: a skin on this path, never a second one
+    noteAidSession();
     if (state.firstTry) state.correct++;
     awardSail(state.mode, state.firstTry);
     awardShells(state.mode, state.firstTry);
