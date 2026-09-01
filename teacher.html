@@ -571,7 +571,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260828d"></script>
+<script src="js/podium.js?v=20260831a"></script>
 <script>
 (function () {
   "use strict";
@@ -579,7 +579,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260828d";
+  var ASSET_V = "?v=20260831a";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -965,6 +965,15 @@ tbody tr.sp-row{cursor:pointer}
     }
     return h.toString(36);
   }
+  /* ⚠️ DUPLICATED from profile.js's fmtVsid on purpose, same reason as _fnv1a above:
+     this page loads no shared JS and cannot import from profile.js. Display form only —
+     it never parses or validates, so it carries no checksum logic and must not grow any.
+     The stored form is canonical; the hyphens exist so a 学习编号 is never mistaken for a
+     恢复码 in a message to a parent. */
+  function fmtVsidT(v) {
+    var t = String(v || "");
+    return t.length === 10 ? t.slice(0, 2) + "-" + t.slice(2, 6) + "-" + t.slice(6) : t;
+  }
   /* ⚠️ The `order` sequence IS the wire format; never sort it. */
   function bitsToB64(order, has) {
     var bytes = [], i;
@@ -1238,6 +1247,25 @@ tbody tr.sp-row{cursor:pointer}
           var full = String(u.uid || "");
           return '<code class="uid" title="' + esc(full) + '">' + esc(full.slice(0, 8)) + '</code> ' +
             '<button class="btn tiny copy-uid" data-uid="' + esc(full) + '" title="复制完整识别码">复制</button>';
+        } },
+      /* ⚠️ UNLIKE THE 恢复码, THIS ONE IS A TABLE COLUMN (学习编号, owner 2026-08-31).
+         The 恢复码's exclusion from the table is justified on the grounds that it is a
+         secret which restores a whole account. A 学习编号 is not a secret and transfers
+         no progress; bulk lookup against a roster is its entire purpose, so keeping it
+         off the table would remove the only thing it is for.
+         `type: "text"` for the 包含搜索 filter, the same choice 识别码 documents above —
+         160 distinct values make a checklist useless.
+         Reuses the delegated .copy-uid handler, which keys on data-uid generically and
+         not on the column, so it needs no change. It copies the DISPLAY form, matching
+         what the student sees on their own panel. */
+      { k: "vsid", label: "学习编号", type: "text", cls: "col-uid",
+        raw: function (u) { return profOf(u).vsid || ""; },
+        cell: function (u) {
+          var v = String(profOf(u).vsid || "");
+          if (!v) return '<span class="hint">—</span>';
+          var d = fmtVsidT(v);
+          return '<code class="uid">' + esc(d) + '</code> ' +
+            '<button class="btn tiny copy-uid" data-uid="' + esc(d) + '" title="复制学习编号">复制</button>';
         } },
       { k: "nick", label: "昵称", type: "list",
         raw: function (u) { return profOf(u).nickname || "（未命名）"; },
@@ -1966,6 +1994,23 @@ tbody tr.sp-row{cursor:pointer}
           (enRegressed(u) ? ' <span class="pill warn" title="连续关闭 5 次以上之后又重新开启，可能遇到更难的单元">🔁 最近曾关掉后又开回来</span>' : '') +
           '</div>' : '') +
         '</div>' +
+      /* ---- 学习编号 (owner 2026-08-31) ----
+         Sits ABOVE the 恢复码 because it is the one identifier on this card a teacher can
+         safely read out. Read straight off users/{uid}.profile.vsid — the client mirrors
+         the whole profile there on save(), so this needs no new field and no new write.
+         ⚠️ READ-ONLY, and for a sharper reason than the 恢复码's. There is no mint button,
+         no rotate button and no edit field: the client owns the profile document, so a
+         dashboard-minted 学习编号 would simply be overwritten by the student's next
+         save(). Rotating would also orphan the roster entry this identifier exists to
+         protect. */
+      '<div class="sp-land code"><div class="sp-land-t">学习编号</div>' +
+        (profOf(u).vsid
+          ? '<div class="sp-claim">' + esc(fmtVsidT(profOf(u).vsid)) + '</div>' +
+            '<div class="hint">这是学生的固定编号，<b>换设备也不会变</b>。学生换了设备时，' +
+            '把这个编号连同下面的进度码一起给他：先在「找回」画面填编号，再贴进度码。' +
+            '可以放心给本人看——它不能用来取走进度。</div>'
+          : '<div class="hint">这名学生还没有学习编号。（下次打开任何页面时会自动建立。）</div>') +
+      '</div>' +
       /* ---- 恢复码 (owner 2026-08-19) ----
          The student's own short code, read straight off users/{uid}.profile.claimCode
          — the client mirrors it there on session flush precisely so this screen can

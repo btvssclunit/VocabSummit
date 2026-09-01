@@ -433,10 +433,26 @@
           '<div class="pop-note">输入<b>恢复码</b>（十个字符）就能把<b>全部进度</b>找回来，' +
           '包括灵露和贝壳——这个要联网。<br>' +
           '也可以贴旧设备「我的档案」里的<b>进度码</b>：那一段不必联网，' +
-          '但里面没有灵露和贝壳。' +
+          '但里面没有灵露和贝壳。<br>' +
+          '也可以先填老师给的「<b>学习编号</b>」(VS-XXXX-XXXX)，再贴进度码。' +
             np("", "", "Enter your 10-character recovery code to get everything back (needs internet), " +
-                       "or paste the long progress code from your old device (works offline).") + '</div>' +
-          '<textarea id="npCode" class="code-ta" placeholder="恢复码（十个字符），或者贴进度码…">' + esc(st.codeVal || "") + '</textarea>' +
+                       "or paste the long progress code from your old device (works offline). " +
+                       "You can also enter the learning ID (VS-XXXX-XXXX) your teacher gave you first, " +
+                       "then paste the progress code.") + '</div>' +
+          /* ⚠️ STEP 1 OF 2, AND IT SAYS SO. A 学习编号 restores nothing on its own — the
+             progress arrives on the NEXT paste — so this box must read as progress made,
+             not as a finished job, and it must not look like the red error box: success
+             and failure sharing one treatment is how a student stops trusting the screen.
+             The 编号 is echoed back in display form so it can be checked against what the
+             teacher actually sent, before they move on. */
+          (st.codeOk ? '<div class="pop-note np-code-ok">' +
+            '<b>✓ 学习编号收到了：' + esc(st.codeOk) + '</b>' +
+            np("", "", "Learning ID saved \u2014 " + st.codeOk) + '</div>' +
+            '<div class="pop-note" style="margin-top:6px">还差一步：把老师给你的<b>进度码</b>贴进下面的框。' +
+            np("", "", "One step left: paste the progress code below.") + '</div>' : "") +
+          '<textarea id="npCode" class="code-ta" placeholder="' +
+            (st.codeOk ? '把进度码贴在这里…' : '恢复码（十个字符），或者贴进度码…') + '">' +
+            esc(st.codeVal || "") + '</textarea>' +
           /* ⚠️ the error is the one line on this screen a stuck student MUST be able
               to read — it is the whole reason they are on the 找回 step. English only,
               from the shared table in profile.js; see CODE_ERR_EN there. */
@@ -527,9 +543,16 @@
             np("确认", "què rèn", "Confirm") + '</button></div>' +
           '<div class="np-manual"><button id="npManual">我要自己选昵称' +
             np("我要自己选昵称", "wǒ yào zì jǐ xuǎn nì chēng", "Let me choose my own") + '</button>' +
-          (st.restored ? "" : '<button id="npRestore">换了设备？在这里找回进度' +
-            np("", "", "Changed device? Restore your progress here") + '</button>') +
-          '</div>' + closeBtn;
+          '</div>' +
+          /* ⚠️ PROMOTED OUT OF .np-manual (owner 2026-08-31). This was an unstyled
+             underlined text link sitting beneath 我要自己选昵称, and it is the ONLY route
+             to the 找回 screen — a student on a replacement device has to spot it while
+             being pushed through registration. It is now a real button on its own row.
+             Still hidden once st.restored is set: they have already been through it. */
+          (st.restored ? "" : '<div class="nav-row"><button class="nav-btn" id="npRestore">' +
+            '🔄 换了设备？在这里找回进度' +
+            np("", "", "Changed device? Restore your progress here") + '</button></div>') +
+          closeBtn;
       }
       card.innerHTML = aidRowHtml() + html;
       wireAidRow(card);
@@ -559,7 +582,10 @@
         document.getElementById("npBack").onclick = function () { st.step = "nounCat"; renderStep(); };
       } else if (st.step === "restore") {
         document.getElementById("npCodeBack").onclick = function () {
-          st.codeErr = ""; st.step = "confirm"; renderStep();
+          /* codeOk goes with codeErr: leaving the screen ends the two-step sequence the
+             green box is narrating. The 学习编号 itself is already saved to the profile —
+             this clears the narration, not the identifier. */
+          st.codeErr = ""; st.codeOk = ""; st.step = "confirm"; renderStep();
         };
         document.getElementById("npCodeGo").onclick = function () {
           var v = (document.getElementById("npCode") || {}).value || "";
@@ -570,6 +596,25 @@
              is「找不到这个恢复码」rather than「进度码格式不正确」, and the first one is the
              true statement about what they typed. */
           var claim = String(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
+          /* ⚠️ VSID FIRST, BEFORE THE 恢复码 BRANCH. A 学习编号 strips to 10 dotless
+             chars and would otherwise match the branch below exactly, so a student who
+             pastes their own identifier would be told「找不到这个恢复码」and conclude it
+             is broken. `VS` is reserved at mint time in firebase-init.js, so no 恢复码
+             can collide with this test.
+             ⚠️ THE BOX STAYS OPEN — no reload, no navigation. The teacher sends 学习编号
+             and 进度码 together and the student pastes both here in sequence; the 进度码
+             paste is the very next action. */
+          if (v.indexOf(".") === -1 && window.WSProfile && WSProfile.isValidVsid &&
+              /^VS[0-9A-Z]{8}$/.test(claim)) {
+            if (!WSProfile.isValidVsid(claim)) {
+              st.codeOk = ""; st.codeErr = "学习编号打错了，请再核对一次。"; renderStep(); return;
+            }
+            WSProfile.setVsid(claim);
+            st.codeVal = "";
+            st.codeErr = "";
+            st.codeOk = WSProfile.fmtVsid ? WSProfile.fmtVsid(claim) : claim;
+            renderStep(); return;
+          }
           if (v.indexOf(".") === -1 && claim.length >= 8 && claim.length <= 24) {
             if (!(window.WSProfile && window.WSProfile.restoreFromClaim)) {
               st.codeErr = "暂时无法恢复，请稍后再试。"; renderStep(); return;
@@ -607,7 +652,7 @@
         if (rollEl) rollEl.onclick = function () { rollNick(); renderStep(); };
         var dropEl = document.getElementById("npDrop");
         if (dropEl) dropEl.onclick = function () {
-          st.restored = null; st.codeVal = ""; rollNick(); renderStep();
+          st.restored = null; st.codeVal = ""; st.codeOk = ""; rollNick(); renderStep();
         };
         var restEl = document.getElementById("npRestore");
         if (restEl) restEl.onclick = function () { st.step = "restore"; renderStep(); };

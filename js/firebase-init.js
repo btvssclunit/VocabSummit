@@ -234,18 +234,37 @@
        ~8×10^14, which is not the threat model anyway (see the rules file). */
     makeClaimCode: function () {
       var A = "23456789ABCDEFGHJKMNPQRSTUVWXYZ", out = "", i;
-      var buf = null;
-      try {
-        if (window.crypto && window.crypto.getRandomValues) {
-          buf = new Uint32Array(10);
-          window.crypto.getRandomValues(buf);
+      function roll() {
+        var o = "", k, buf = null;
+        try {
+          if (window.crypto && window.crypto.getRandomValues) {
+            buf = new Uint32Array(10);
+            window.crypto.getRandomValues(buf);
+          }
+        } catch (e) { buf = null; }
+        for (k = 0; k < 10; k++) {
+          /* ⚠️ Math.random is the FALLBACK, not the default: it is not a CSPRNG, and this
+             string is the only thing standing between a stranger and a student's account. */
+          var r = buf ? buf[k] : Math.floor(Math.random() * 0xffffffff);
+          o += A.charAt(r % A.length);
         }
-      } catch (e) { buf = null; }
-      for (i = 0; i < 10; i++) {
-        /* ⚠️ Math.random is the FALLBACK, not the default: it is not a CSPRNG, and this
-           string is the only thing standing between a stranger and a student's account. */
-        var r = buf ? buf[i] : Math.floor(Math.random() * 0xffffffff);
-        out += A.charAt(r % A.length);
+        return o;
+      }
+      out = roll();
+      /* ⚠️ `VS` IS A RESERVED PREFIX (学习编号 handoff, 2026-08-31). A 恢复码 and a
+         学习编号 are both dotless runs of this same alphabet, and the 找回 box tells them
+         apart by shape. A 恢复码 that happened to start with VS would be routed to the
+         VSID branch and appear broken to the student. It is (1/31)^2 ≈ 0.1% of
+         candidates — across ~250 students, roughly a 1-in-4 chance that one exists — so
+         the retry is free and the collision is not negligible.
+         MINT-TIME ONLY: no existing 恢复码 is invalidated by this. */
+      for (i = 0; i < 8 && out.slice(0, 2) === "VS"; i++) out = roll();
+      if (out.slice(0, 2) === "VS") {
+        /* bounded, never a `while`: eight rolls landing on VS is a broken RNG, not bad
+           luck, and an unbounded loop would hang the registration screen. Displace the
+           first character deterministically instead — the result is still 10 chars of A
+           and still not VS. */
+        out = A.charAt((A.indexOf(out.charAt(0)) + 1) % A.length) + out.slice(1);
       }
       return out;
     },

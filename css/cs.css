@@ -973,6 +973,14 @@ body.py-ans .py-ans-gate{display:inline}
   border-radius:10px;padding:8px 11px;color:#2E5F42;margin-bottom:4px}
 .np-code-err{background:rgba(180,74,60,.10);border:1px solid rgba(180,74,60,.4);
   border-radius:10px;padding:8px 11px;color:#8E3527;margin-top:8px}
+/* ⚠️ THE 找回 SCREEN NEEDS A NON-RED STATE (学习编号, owner 2026-08-31). A 学习编号
+   restores nothing by itself — the progress arrives on the next paste — so the box has a
+   genuine「step 1 of 2 done」outcome that is neither an error nor an ending. Rendering it
+   in .np-code-err made success and a mistyped ID look identical, and the only thing
+   separating them was Chinese prose. Same geometry as its red sibling on purpose: they
+   occupy the same slot and only the colour changes. */
+.np-code-ok{background:rgba(29,158,117,.10);border:1px solid rgba(29,158,117,.45);
+  border-radius:10px;padding:8px 11px;color:#0F6E56;margin-top:8px}
 .np-manual button{border:0;background:none;padding:6px 10px;cursor:pointer;touch-action:manipulation;
   font-family:var(--sans);font-size:13px;font-weight:600;color:#4E6273;text-decoration:underline}
 .np-manual button:hover{color:var(--ink)}

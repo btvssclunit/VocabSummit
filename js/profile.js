@@ -891,6 +891,73 @@
     }
     return h.toString(36);
   }
+
+  /* ================= 学习编号 VSID (owner 2026-08-31) ====================
+     An identifier that can only be READ OFF a device dies with that device. This one
+     is enterable, which is the whole point: after a teacher-facilitated restore over
+     the 进度码 route the student's new device has a new Firebase UID and nothing
+     carries the old identity across, so the MOE All Ears roster ends up pointing at a
+     frozen users/{uid}. The student types this back in and the roster keeps working.
+
+     ⚠️ NOT A CREDENTIAL. Possessing a VSID transfers no progress. It identifies; it
+     does not restore. Never describe it to a student as anything like the 恢复码.
+
+     ⚠️ _vsidCheck IS DELIBERATELY NOT _fnv1a(). That function returns base36 and its
+     output is FROZEN WIRE FORMAT for every 进度码 ever issued (see the comment above
+     it). This one returns a single character from the VSID alphabet and belongs to the
+     VSID only. The two must never be merged, however similar the loop body looks. */
+  var VSID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+  function _vsidCheck(body) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < body.length; i++) {
+      h ^= body.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return VSID_ALPHABET.charAt(h % VSID_ALPHABET.length);
+  }
+  /* VS + 7 random + 1 check = 10. Alphabet is makeClaimCode's, for makeClaimCode's
+     reason: it gets read off a screen and typed by an 11-year-old, so no 0 O 1 I L.
+     Keyspace 31^7 ≈ 2.75e10 — minting is client-side and CANNOT check uniqueness (a
+     lookup by vsid needs `list` on users, which the rules do not grant and which this
+     work must not request). The space is sized so collisions do not happen, not so
+     they are detected. */
+  function makeVsid() {
+    function body() {
+      var out = "", i, buf = null;
+      try {
+        if (window.crypto && window.crypto.getRandomValues) {
+          buf = new Uint32Array(7);
+          window.crypto.getRandomValues(buf);
+        }
+      } catch (e) { buf = null; }
+      for (i = 0; i < 7; i++) {
+        /* Math.random is the FALLBACK, not the default — same structure as
+           makeClaimCode, though the stakes here are collision, not disclosure. */
+        var r = buf ? buf[i] : Math.floor(Math.random() * 0xffffffff);
+        out += VSID_ALPHABET.charAt(r % VSID_ALPHABET.length);
+      }
+      return out;
+    }
+    var b = body();
+    var code = "VS" + b + _vsidCheck(b);
+    if (!isValidVsid(code)) {
+      /* cannot happen while _vsidCheck and isValidVsid agree; if it ever does, the
+         two have drifted and every ID minted after that point is unverifiable. */
+      console.error("VSID: minted a code that fails its own checksum — re-minting once");
+      b = body();
+      code = "VS" + b + _vsidCheck(b);
+    }
+    return code;
+  }
+  function isValidVsid(s) {
+    var v = String(s || "");
+    return /^VS[0-9A-Z]{8}$/.test(v) && _vsidCheck(v.slice(2, 9)) === v.charAt(9);
+  }
+  function fmtVsid(v) {
+    var s = String(v || "");
+    return s.length === 10 ? s.slice(0, 2) + "-" + s.slice(2, 6) + "-" + s.slice(6) : s;
+  }
+
   function _b64urlToUtf8(b) {
     try {
       var t = String(b).replace(/-/g, "+").replace(/_/g, "/");
@@ -1372,6 +1439,37 @@
     });
   }
 
+  /* ---- 学习编号 VSID accessors (owner 2026-08-31) ----
+     Sits after the whole 恢复码 group rather than inside it, so the asymmetry the two
+     halves describe reads top-to-bottom: rotate exists above, and must never exist
+     below. Primitives (makeVsid / isValidVsid / fmtVsid) are up beside _fnv1a. */
+  function vsid() { return (load() || {}).vsid || ""; }
+
+  /* Mints once and never silently re-mints — same contract as ensureClaimCode, for the
+     same reason: the student may have submitted this on the All Ears form and a teacher
+     may be holding it on a roster. There is NO rotate counterpart, and there must never
+     be one: rotating would orphan the roster entry, which is the single thing this
+     identifier exists to protect.
+     ⚠️ UNLIKE ensureClaimCode THIS DOES NOT REQUIRE THE NETWORK. It is a local
+     identifier; save() mirrors it to users/{uid}.profile whenever the network is there,
+     and a student who mints offline keeps the same string when they connect. */
+  function ensureVsid() {
+    var have = vsid();
+    if (have) return have;
+    var code = makeVsid();
+    save({ vsid: code });
+    return code;
+  }
+
+  /* Adopting an identifier handed over by a teacher. Returns "" and writes nothing if
+     the string does not pass the checksum — the caller owns the message. */
+  function setVsid(raw) {
+    var v = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+    if (!isValidVsid(v)) return "";
+    save({ vsid: v });
+    return v;
+  }
+
   /* ---- applying a claim ----
      cb({ok, virgin, lands:[], err}) */
   function maxInto(dst, src) {          // numeric map: per-key max
@@ -1452,12 +1550,21 @@
     }
     /* ⚠️ THE PROFILE IS RESTORED BUT THE CLAIM CODE IS NOT INHERITED. Two devices
        sharing one claim document would each overwrite the other's payload on flush, and
-       the second one to close would win. The new device mints its own. */
+       the second one to close would win. The new device mints its own.
+
+       ⚠️ vsid IS INHERITED, claimCode IS NOT, AND THAT ASYMMETRY IS THE POINT
+       (学习编号 handoff, 2026-08-31). Two devices sharing one claim document overwrite
+       each other. Two devices sharing one 学习编号 is the CORRECT state — it is what
+       lets a teacher's roster entry keep pointing at whichever device the student is on
+       now. Do not add vsid to the delete list below, however symmetrical it looks. */
     if (payload.prof) {
       var prof = {};
       Object.keys(payload.prof).forEach(function (k) { prof[k] = payload.prof[k]; });
       delete prof.claimCode;
       save(prof);
+      if (payload.prof.vsid && (load() || {}).vsid !== payload.prof.vsid) {
+        console.error("VSID: claim restore dropped the vsid — check for a delete in applyClaim");
+      }
     }
     cb({ ok: true, virgin: virgin, lands: lands });
   }
@@ -1787,7 +1894,13 @@
     "暂时无法核对进度码，请稍后再试。": "We cannot check that progress code right now. Try again in a moment.",
     "这是旧版进度码，里面没有昵称。请先取个昵称，进入科目后再用它恢复进度。":
       "This is an older progress code and it carries no nickname. Pick a nickname first, " +
-      "then use the code once you are inside the subject."
+      "then use the code once you are inside the subject.",
+    /* ---- 学习编号 (owner 2026-08-31) ----
+       Only the FAILURE lives here. The success line is not an error and does not go
+       through this table: it renders in the green .np-code-ok box with its own inline
+       np() gloss, because it interpolates the student's formatted 学习编号 and a keyed
+       table cannot hold a string that changes per student. */
+    "学习编号打错了，请再核对一次。": "That learning ID has a typo \u2014 check it again."
   };
   function codeErrEn(zh) {
     return CODE_ERR_EN[zh] ||
@@ -2117,6 +2230,33 @@
        ⚠️ summary 的措辞按**目的**写，不是按名字写——一个想找回进度的学生
        不会去找「进度码」，他会找「没有网络怎么办」。
        ⚠️ 输出与恢复**一起**收进来：分开放会让「我在哪里粘贴」变成第二个谜题。 */
+    /* ---- 学习编号 (owner 2026-08-31) ----
+       FIRST section of the right-hand column, above the 进度码, because it is the one
+       thing on this panel a student may be asked to read out to a teacher. Self-wrapping
+       in .prof-sec like feedbackSectionHtml(), not wrapped at the call site like the
+       进度码 — the section owns its own label because the label carries a gloss that
+       belongs to it. No new CSS: .claim-code (css/cs.css:932, css/xh.css:1507) is
+       already the right treatment for a monospace code a child has to read aloud. */
+    function vsidSectionHtml() {
+      var v = ensureVsid();
+      return '<div class="prof-sec">' +
+        '<div class="pop-label">学习编号 · 这个不会变' +
+          fbGloss("学习编号", "xué xí biān hào", "Learning ID \u2014 never changes") + '</div>' +
+        '<div class="pop-body">这是你在词山学海的编号。<b>换设备也不会变。</b>' +
+        '老师用它认出你，把进度还给你。<br>' +
+        '<span class="pop-note">可以给老师看。它<b>不能</b>用来拿走你的进度——那是恢复码的事。</span></div>' +
+        '<div class="claim-code" id="profVsid">' + esc(fmtVsid(v)) + '</div>' +
+        '<div class="pop-note" id="profVsidNote"></div>' +
+        '<div class="nav-row">' +
+          '<button class="nav-btn" id="profVsidCopy">📋 复制编号</button>' +
+          '<button class="nav-btn" id="profVsidSet">换了设备？填回编号</button></div>' +
+        '<div id="profVsidEntry" style="display:none">' +
+          '<input type="text" class="prof-input" id="profVsidIn" placeholder="VS-XXXX-XXXX" maxlength="14">' +
+          '<div class="nav-row"><button class="nav-btn" id="profVsidSave">确定</button>' +
+          '<button class="nav-btn" id="profVsidCancel">取消</button></div></div>' +
+        '</div>';
+    }
+
     function codeSectionHtml() {
       return claimSectionHtml() +
         '<details class="prof-more code-more"><summary>没有网络？用进度码（离线备份与恢复）' +
@@ -2263,6 +2403,9 @@
            code+tech). Moving it costs the panel hundreds of px of dead space. */
         '</div><div class="prof-col">' +
 
+        // ---- 学习编号 (first in the column, above 进度码) ----
+        vsidSectionHtml() +
+
         // ---- 进度码 ----
         '<div class="prof-sec"><div class="pop-label">进度码' +
           fbGloss("进度码", "jìn dù mǎ", "Progress code \u2014 back up and restore") +
@@ -2383,8 +2526,71 @@
         if (opts.onChanged) opts.onChanged();
       };
 
+      wireVsid();
       wireCode();
       wireUid();
+    }
+
+    /* ⚠️ NO el.isConnected GUARD AND NO CALLBACK, deliberately. wireClaim() needs both
+       because ensureClaimCode goes to the network and can land after a re-render.
+       ensureVsid() is synchronous — a local mint plus a localStorage write — so copying
+       wireClaim's async structure here would add a stale-render guard for a race that
+       cannot happen. */
+    function wireVsid() {
+      var el = ov.querySelector("#profVsid");
+      if (!el) return;
+      var noteEl = ov.querySelector("#profVsidNote");
+      var entry = ov.querySelector("#profVsidEntry");
+      var input = ov.querySelector("#profVsidIn");
+      function note(msg, ok) {
+        if (!noteEl) return;
+        noteEl.textContent = msg || "";
+        noteEl.style.color = ok === false ? "#B4472F" : "";
+      }
+
+      var cp = ov.querySelector("#profVsidCopy");
+      /* ⚠️ COPIES THE DISPLAY FORM, hyphens and all — the opposite of profClaimCopy,
+         which deliberately copies the bare 恢复码. This string is pasted into the All
+         Ears form and into messages to teachers, and the hyphens are the only thing
+         stopping a reader mistaking it for a 恢复码. */
+      if (cp) cp.onclick = function () {
+        var v = vsid();
+        if (!v) return;
+        if (navigator.clipboard) navigator.clipboard.writeText(fmtVsid(v)).then(function () {
+          note("编号已复制 ✓");
+        });
+      };
+
+      var setBtn = ov.querySelector("#profVsidSet");
+      if (setBtn) setBtn.onclick = function () {
+        if (!entry) return;
+        var open = entry.style.display !== "none";
+        entry.style.display = open ? "none" : "";
+        note("");
+        if (!open && input) { input.value = ""; input.focus(); }
+      };
+      var cancel = ov.querySelector("#profVsidCancel");
+      if (cancel) cancel.onclick = function () {
+        if (entry) entry.style.display = "none";
+        note("");
+      };
+
+      var saveBtn = ov.querySelector("#profVsidSave");
+      if (saveBtn) saveBtn.onclick = function () {
+        /* ⚠️ CONFIRMS, for the same reason profClaimNew confirms. Overwriting the
+           学习编号 by accident is silent and unnoticed for weeks: the student attaches
+           to nothing, or unluckily to a real classmate, and the roster stops working. */
+        if (!window.confirm(
+          "把编号换成老师给你的那一个？\n" +
+          "只有换了设备、老师叫你填的时候才这样做。\n" +
+          "填错了老师就认不出你。")) return;
+        var v = setVsid(input ? input.value : "");
+        if (!v) { note("这个编号不对，请再核对一次。", false); return; }
+        el.textContent = fmtVsid(v);
+        if (entry) entry.style.display = "none";
+        note("编号记住了。");
+        if (opts.onChanged) opts.onChanged();
+      };
     }
 
     /* ⚠️ NO `if (!_provider) return` GUARD ANY MORE. That guard was correct when the code
@@ -2604,7 +2810,11 @@
       if (syncEl) syncEl.textContent = online ? "已连接云端备份" : "离线，进度只存在本机";
       function show(u) {
         if (uidEl) uidEl.textContent = u || "（离线）";
-        if (shortEl) shortEl.textContent = u ? u.slice(0, 6) : "（离线）";
+        /* ⚠️ 8, NOT 6. js/cs.js (leaderboard) and teacher.html (识别码 column) both
+           render slice(0, 8); a 6-char 简短编号 here meant a student reading their
+           own number off this panel could not match it to the one a teacher was
+           looking at. All three must agree. */
+        if (shortEl) shortEl.textContent = u ? u.slice(0, 8) : "（离线）";
       }
       show(_uid);
       if (online && window.WSCloud.getUid) {
@@ -2998,6 +3208,14 @@
     pushClaim: pushClaim,
     rotateClaimCode: rotateClaimCode,
     restoreFromClaim: restoreFromClaim,
+    /* ---- 学习编号 VSID (owner 2026-08-31). NOT a credential: it identifies, it does
+       not restore. Survives a device change only because the student types it back in.
+       No rotate is exported because none exists — see ensureVsid. ---- */
+    vsid: vsid,
+    ensureVsid: ensureVsid,
+    setVsid: setVsid,
+    isValidVsid: isValidVsid,
+    fmtVsid: fmtVsid,
     isVirginAccount: isVirginAccount,
     snapshotAll: snapshotAll,
     planDelta: planDelta,
@@ -3048,4 +3266,16 @@
     art: boatArt,
     migrateDockBoat: migrateDockBoat
   };
+
+  /* ---- 学习编号 back-fill (owner 2026-08-31) ----
+     No migration script: any profile that predates 2026-08-31 has no vsid, and it gets
+     stamped the next time any page loads. ensureVsid() returns early once one exists,
+     so this is one localStorage write per device, ever.
+     ⚠️ GUARDED ON AN EXISTING PROFILE. Minting for a visitor who has never registered
+     would create a ws2_profile out of nothing and a users/{uid} document for someone who
+     never chose a nickname.
+     ⚠️ KNOWN AND ACCEPTED: a student already using two devices back-fills two different
+     VSIDs, one per device. There is no automatic merge and there must not be one — the
+     teacher resolves it by hand via the 备注 field. */
+  try { if (load()) ensureVsid(); } catch (e) {}
 })();
