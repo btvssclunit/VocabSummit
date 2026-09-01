@@ -114,6 +114,17 @@
        or unrecognised list is repaired to "everything" at first use, because a
        scope of nothing would silently produce empty rounds. */
     if (!(s.scope instanceof Array)) s.scope = null;      // null = all groups
+    /* 老师的清单 (owner 2026-09-01): the 期末 revision list a teacher hands out, pasted
+       in and used AS ①学习范围. Same feature as the mountain's, and deliberately the
+       SAME WORDS ON SCREEN so a student who moves up from the pier meets something they
+       already know.
+       ⚠️ SHAPE FOLLOWS THIS FILE, NOT cs.js. The mountain stores {ids:[…]} because its
+       words carry an id; a pier word is identified by 词语 itself (store.done is keyed
+       on it), so this is a plain array of 词语 — the same array-or-null convention
+       store.scope right above already uses. Null = no list, and an EMPTY list is
+       repaired to null rather than kept: empty would mean「study nothing」with no
+       control on screen able to explain it. */
+    if (!(s.paste instanceof Array) || !s.paste.length) s.paste = null;
     /* ⚠️ literals, NOT ROUND_SIZES/OPT_TIERS — same trap the 连线 line above warns
        about: this normaliser runs at module init, before those vars are assigned. */
     if (s.roundN !== 5 && s.roundN !== 10 && s.roundN !== 15 && s.roundN !== 20) s.roundN = 5;
@@ -333,6 +344,14 @@
     "学习": "xué xí", "闯关": "chuǎng guān", "出发": "chū fā",
     "词语游乐场": "cí yǔ yóu lè chǎng", "今天学什么": "jīn tiān xué shén me",
     "改范围": "gǎi fàn wéi",
+    /* 贴入老师的清单 (2026-09-01). ⚠️ Added in the SAME edit as the labels: a missing
+       key returns "" silently, and the syllable self-check below only catches a WRONG
+       count, never an absent line. */
+    "贴入老师的清单": "tiē rù lǎo shī de qīng dān",
+    "老师给的清单": "lǎo shī gěi de qīng dān",
+    "核对这份清单": "hé duì zhè fèn qīng dān",
+    "改回按组别选": "gǎi huí àn zǔ bié xuǎn",
+    "不用清单了": "bù yòng qīng dān le",
     "英文选词": "yīng wén xuǎn cí",
     "题型": "tí xíng", "每次题数": "měi cì tí shù", "挑战难度": "tiǎo zhàn nán dù",
     /* ⚠️ 词语挑战 IS A RETIRED NAME — the door is called 学习挑战 now, matching the
@@ -1061,7 +1080,22 @@
     if (!store.scope) return all.slice();
     return store.scope.filter(function (g) { return all.indexOf(g) >= 0; });
   }
+  function pasteOn() { return !!(store.paste && store.paste.length); }
+  /* filters WORDS rather than mapping the stored strings, so the result keeps the
+     data's own 组别 order — 词语表 and every round already assume it. A word dropped
+     from xh_v3.json between terms simply falls out here; that is not an error. */
+  function pasteWords() {
+    var want = {};
+    store.paste.forEach(function (t) { want[t] = 1; });
+    return WORDS.filter(function (w) { return want[w.词语]; });
+  }
+  function clearPaste() { if (store.paste) { store.paste = null; save(); } }
+  /* ⚠️ THE PASTED LIST IS THE SCOPE. The 组别 chips do not narrow it — a teacher who
+     wrote down twenty words has already decided, and letting 组别 cut the list would
+     silently delete words the teacher put there. The banner and the 范围 pill both name
+     which source is running, so this is never something the student has to infer. */
   function scopedWords() {
+    if (pasteOn()) return pasteWords();
     var sel = {}; scopeNames().forEach(function (g) { sel[g] = 1; });
     return WORDS.filter(function (w) { return sel[w.组别]; });
   }
@@ -1070,6 +1104,10 @@
      「学习范围 · 可多选」 onto three lines on a phone. A count says the same thing
      in two characters — the chips below already show WHICH groups. */
   function scopeLabel() {
+    /* ⚠️ ONE PILL, TWO SCREENS: 码头首页 and the 学词/闯关 door both print
+       scopeLabel() + 词数, so naming the pasted source here is all it takes for both
+       to stop claiming a 组别 selection that is not running. */
+    if (pasteOn()) return "老师的清单";
     var n = scopeNames().length, all = allGroupNames().length;
     if (!n) return "未选";
     if (n === all) return "全部";
@@ -1718,13 +1756,27 @@
          dock did not, so「选全部」meant six taps and「只要食物」meant five (owner
          2026-08-16). 清空 really empties: 出发 then explains, rather than the dock
          silently re-selecting everything behind the student's back. */
+      /* ⚠️ SAYS WHAT THE GROUP CHIPS BELOW WILL DO BEFORE THEY ARE TAPPED. With a
+         pasted list running they no longer choose anything, and a control that quietly
+         stops working is worse for a beginner than one that is gone. So: they are
+         withdrawn, this line says why, and the one that brings them back says what it
+         will do. */
+      if (pasteOn()) {
+        h += '<div class="xh-paste-on"><span class="xh-paste-on-t">正在练<b>老师的清单</b>。' +
+          '<span class="xh-en">Using your teacher\'s list.</span></span>' +
+          '<button class="xh-sbtn" id="xhPasteBack">改回按组别选' + xhPy("改回按组别选") +
+          '<span class="xh-en">Back to groups</span></button></div>';
+      }
       h += '<div class="xh-scope-acts">' +
-        '<button class="xh-sbtn" id="xhScopeAll">全选' + xhPy("全选") +
-          '<span class="xh-en">All</span></button>' +
-        '<button class="xh-sbtn" id="xhScopeNone">清空' + xhPy("清空") +
-          '<span class="xh-en">Clear</span></button></div>';
+        (pasteOn() ? "" :
+          '<button class="xh-sbtn" id="xhScopeAll">全选' + xhPy("全选") +
+            '<span class="xh-en">All</span></button>' +
+          '<button class="xh-sbtn" id="xhScopeNone">清空' + xhPy("清空") +
+            '<span class="xh-en">Clear</span></button>') +
+        '<button class="xh-sbtn" id="xhPasteEntry">📥 老师给的清单' + xhPy("老师给的清单") +
+          '<span class="xh-en">Teacher\'s list</span></button></div>';
       h += '<div class="xh-scope">';
-      groups().forEach(function (b) {
+      if (!pasteOn()) groups().forEach(function (b) {
         var on = sel.indexOf(b.组别) >= 0;
         /* ⚠️ 图标·组名·进度 挤在同一行（owner 2026-08-16：「可以一行放更多组，
            省点竖向空间」）。原来是五行叠着放，八个组就是 ~760px，把 ②选择学习方式
@@ -1958,10 +2010,17 @@
     Array.prototype.forEach.call(view().querySelectorAll(".xh-gchip"), function (el) {
       el.onclick = function () { toggleScope(el.getAttribute("data-g")); renderMenu(); };
     });
-    document.getElementById("xhScopeAll").onclick = function () {
-      setScope(allGroupNames()); renderMenu();
-    };
-    document.getElementById("xhScopeNone").onclick = function () { setScope([]); renderMenu(); };
+    /* ⚠️ 全选/清空 exist only while 组别 is the source — see the markup. Guarded rather
+       than assumed: this file has been bitten before by wiring an id the branch above
+       did not emit. */
+    var sa = document.getElementById("xhScopeAll");
+    if (sa) sa.onclick = function () { setScope(allGroupNames()); renderMenu(); };
+    var sn = document.getElementById("xhScopeNone");
+    if (sn) sn.onclick = function () { setScope([]); renderMenu(); };
+    document.getElementById("xhPasteEntry").onclick = function () { renderPasteXh(null); };
+    var pb = document.getElementById("xhPasteBack");
+    /* the banner's own button: back to 组别, exactly as it said it would */
+    if (pb) pb.onclick = function () { clearPaste(); renderMenu(); };
     /* ② LEAVES THE PAGE now (owner 2026-08-23). It writes store.tab on the way out
        so the door page and every back label know which side we are on. */
     Array.prototype.forEach.call(view().querySelectorAll(".xh-tab[data-t]"), function (el) {
@@ -2720,6 +2779,131 @@
      nothing a student could change to make it appear, so an explanation would be
      an explanation of nothing. In practice all ten have lines; this guards the case
      where a scene is retired from the data but left in SCENE_ORDER. */
+  /* ---------- 贴入老师的清单 (owner 2026-09-01) ----------
+     ⚠️ DUPLICATED FROM cs.js ON PURPOSE, the same deliberate duplication this repo
+     already carries for the palette, for _fnv1a in teacher.html and for 词雨's
+     constants in arena.js: XH_index.html loads no cs.js and never will. Change one,
+     change the other — the symptom of missing it is a list that parses on the mountain
+     and not at the pier, which a student will report as「码头坏了」.
+     ⚠️ The DIFFERENCE that is not accidental: the mountain matches on w.w and stores
+     ids; the pier matches on w.词语 and stores 词语. Pier words have no id.
+
+     ⚠️ MATCHES ON 汉字 ONLY. A pasted list arrives with pinyin and English glued to it
+     («水 shuǐ water»), with numbering, and with whatever separators the teacher's app
+     used. Accepting pinyin too would make「打错了」and「码头不教这个词」
+     indistinguishable, and telling those apart is the entire value of the report.
+     ⚠️ THE LINE IS TRIED WHOLE BEFORE IT IS SPLIT — a multi-word entry can contain a
+     comma, and splitting first would turn it into misses.
+     ⚠️ NOTHING IS WRITTEN UNTIL THE STUDENT HAS SEEN WHAT WAS NOT FOUND. Quietly
+     matching 12 of a teacher's 20 words is the failure that matters here.
+
+     ⚠️ THE PIER SAYS MORE, IN SIMPLER WORDS. Its readers are beginners with the 拼音
+     and 英文 aids ON by default (§ the pier's own gate), so every label here carries
+     both, and the instructions name the thing to do rather than describing a feature. */
+  var XH_PASTE_SEP = /[、，,;；\/|]+/;
+
+  function xhPasteClean(t) {
+    return String(t || "")
+      .replace(/^\s*\d+\s*[.、)．）:：]\s*/, "")
+      .replace(/[^一-鿿㐀-䶿、，,;；\/|]/g, "")
+      .replace(/^[、，,;；\/|]+|[、，,;；\/|]+$/g, "");
+  }
+  function xhParseList(raw) {
+    var have = {};
+    WORDS.forEach(function (w) { have[w.词语] = 1; });
+    var words = [], miss = [], seen = {};
+    function take(t) {
+      if (!t) return true;
+      if (!have[t]) return false;
+      if (!seen[t]) { seen[t] = 1; words.push(t); }
+      return true;
+    }
+    String(raw || "").split(/[\r\n]+/).forEach(function (line) {
+      var whole = xhPasteClean(line);
+      if (!whole) return;
+      if (take(whole)) return;
+      var any = false;
+      whole.split(XH_PASTE_SEP).forEach(function (piece) {
+        var t = xhPasteClean(piece);
+        if (!t) return;
+        any = true;
+        if (!take(t)) miss.push(t);
+      });
+      if (!any) miss.push(whole);
+    });
+    return { words: words, miss: miss };
+  }
+
+  var _xhPasteDraft = "";      // survives the 核对 re-render, so nobody retypes
+
+  function renderPasteXh(res) {
+    view().classList.remove("two-col");
+    state = null;
+    runTeardown();
+    var h = '<div class="xh-board"><div class="xh-berth-title">📥 贴入老师的清单' +
+      xhPy("贴入老师的清单") + '<span class="xh-en">Paste your teacher\'s list</span></div>';
+    h += '<div class="xh-cfg-note">老师给你的复习清单，贴在下面的格子里，' +
+      '你就只练这些词。一行一个词，或者用顿号、逗号分开都行；' +
+      '前面的号码不用删，拼音和英文也不用删。' +
+      '<span class="xh-en">Paste the revision list your teacher gave you and you will ' +
+      'practise only those words. One word per line, or separated by commas — you can ' +
+      'leave the numbering, pinyin and English in.</span></div>';
+    h += '<textarea class="xh-paste-ta" id="xhPasteIn" placeholder="水&#10;朋友&#10;面包、鸡蛋">' +
+      esc(_xhPasteDraft) + '</textarea>';
+    h += '<div class="xh-scope-acts">' +
+      '<button class="xh-sbtn primary" id="xhPasteCheck">核对这份清单' +
+        xhPy("核对这份清单") + '<span class="xh-en">Check the list</span></button>' +
+      (pasteOn() ? '<button class="xh-sbtn" id="xhPasteDrop">不用清单了' +
+        xhPy("不用清单了") + '<span class="xh-en">Stop using it</span></button>' : "") +
+      '</div>';
+
+    if (res) {
+      h += '<div class="xh-paste-res">';
+      h += '<div class="xh-paste-h">对上了 <b>' + res.words.length + '</b> 个词' +
+        (res.miss.length ? '，有 <b>' + res.miss.length + '</b> 个没找到' : "") +
+        '<span class="xh-en">Matched ' + res.words.length + ' word' +
+        (res.words.length === 1 ? "" : "s") +
+        (res.miss.length ? ", " + res.miss.length + " not found" : "") + '</span></div>';
+      if (res.miss.length) {
+        /* ⚠️ THE MISSING WORDS ARE PRINTED, not counted. A count tells a beginner
+           something is wrong; the word tells them which one to show their teacher, and
+           lets them see for themselves whether it is a typo or a word the pier simply
+           does not teach. */
+        h += '<div class="xh-paste-miss"><b>没找到：</b>' +
+          res.miss.map(function (t) { return '<span class="xh-paste-x">' + esc(t) + '</span>'; }).join("") +
+          '<div class="xh-en">Not found at the pier. These may be typed wrongly, or they ' +
+          'may be taught further up the mountain. Show them to your teacher.</div></div>';
+      }
+      h += res.words.length
+        ? '<button class="xh-sbtn primary big" id="xhPasteUse">就练这 ' + res.words.length + ' 个词' +
+          '<span class="xh-en">Practise just these ' + res.words.length + '</span></button>'
+        : '<div class="xh-cfg-note">一个词也没对上。检查一下是不是贴错了。' +
+          '<span class="xh-en">Nothing matched — check what you pasted.</span></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+    view().innerHTML = h;
+    setBack(renderMenu);
+
+    var ta = document.getElementById("xhPasteIn");
+    ta.oninput = function () { _xhPasteDraft = ta.value; };
+    document.getElementById("xhPasteCheck").onclick = function () {
+      _xhPasteDraft = ta.value;
+      renderPasteXh(xhParseList(_xhPasteDraft));
+    };
+    var drop = document.getElementById("xhPasteDrop");
+    if (drop) drop.onclick = function () { clearPaste(); _xhPasteDraft = ""; renderMenu(); };
+    var use = document.getElementById("xhPasteUse");
+    if (use) use.onclick = function () {
+      store.paste = res.words.slice();
+      store.scopeOpen = 1;          // land back on a visible 范围 box, or the change is invisible
+      save();
+      _xhPasteDraft = "";
+      renderMenu();
+    };
+    setTimeout(function () { try { ta.focus(); } catch (e) {} }, 30);
+  }
+
   function renderScenes() {
     view().classList.remove("two-col");
     state = null;

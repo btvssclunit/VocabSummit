@@ -135,7 +135,8 @@ CLAUDE.md, 部署缓存版本号.
 - 复习范围 can be a pasted list. A student drops in the revision list their teacher
   handed out — numbering, pinyin and mixed separators are all tolerated — and the words
   that match become the scope. Unmatched words are listed, never silently dropped.
-  Stream-local, and it persists across reloads.
+  Stream-local, and it persists across reloads. The pier has the same box under
+  ①学习范围, with 拼音 and English on every label.
 - 船只: four tiers shared by the pier and the landing sea map, bought with either
   贝壳 (pier) or 灵露 (a level's camp shop), owned globally and freely swapped.
 - All example sentences are original departmental authorship. No third-party

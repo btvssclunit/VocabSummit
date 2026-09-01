@@ -839,6 +839,37 @@ button.xh-sitem:active:not([disabled]){transform:translateY(1px)}
   color:var(--sea2);background:rgba(255,255,255,.72);border:1px solid var(--glass-line);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}
 .xh-sbtn:active{transform:translateY(1px)}
+/* ---------- 贴入老师的清单 (owner 2026-09-01) ----------
+   ⚠️ .xh-scope-acts is `display:flex` with no wrap, and this row now carries a third
+   button whose label is longer than 全选/清空. It wraps rather than squeezing the
+   pier's 42px touch targets — those are sized for beginners on shared iPads and must
+   not shrink to fit a label. */
+.xh-scope-acts{flex-wrap:wrap}
+.xh-sbtn.primary{color:#3A2A08;background:linear-gradient(180deg,#EEBC5E,var(--gold));
+  border-color:rgba(183,121,31,.55)}
+.xh-sbtn.big{width:100%;justify-content:center;margin-top:10px;min-height:50px;font-size:15.5px}
+/* the pier's readers are beginners: the box is tall enough to SHOW a pasted list,
+   because a one-line field would hide it at the moment it most needs checking */
+.xh-paste-ta{width:100%;box-sizing:border-box;min-height:170px;margin-top:10px;
+  border:1px solid var(--glass-line);border-radius:14px;padding:10px 12px;
+  font-size:16px;line-height:2;font-family:inherit;color:var(--ink);resize:vertical;
+  background:rgba(255,255,255,.62);box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
+.xh-paste-res{margin-top:14px;border:1px solid var(--glass-line-2);border-radius:14px;
+  padding:12px 14px;background:rgba(255,255,255,.55)}
+.xh-paste-h{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.xh-paste-h b{color:var(--gold-deep)}
+/* ⚠️ misses are LISTED, not counted — a beginner cannot act on a number */
+.xh-paste-miss{background:rgba(180,74,60,.08);border:1px solid rgba(180,74,60,.3);
+  border-radius:12px;padding:9px 11px;font-size:14px;color:#8E3527}
+.xh-paste-x{display:inline-block;background:rgba(255,255,255,.85);
+  border:1px solid rgba(180,74,60,.35);border-radius:999px;padding:2px 10px;
+  margin:4px 5px 0 0;font-weight:700}
+.xh-paste-miss .xh-en{color:#8E3527;opacity:.85;margin-top:6px}
+/* the banner that replaces the 组别 chips while a list is running */
+.xh-paste-on{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px;
+  background:#FDF6E4;border:1px solid var(--gold);border-radius:13px;padding:9px 12px}
+.xh-paste-on-t{flex:1 1 150px;min-width:0;font-size:14px;color:#6B4A05}
+.xh-paste-on-t b{color:var(--gold-deep)}
 /* ⚠️ minmax(112px,…) not 150px (owner 2026-08-16「一行可以放更多组」). At 150 the
    320–400px rail fits exactly ONE column, so eight 组别 stacked to ~760px and
    pushed ②选择学习方式 off the first screen on an iPad. 112 fits two in the rail
