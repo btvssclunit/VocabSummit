@@ -1457,16 +1457,23 @@
     var have = vsid();
     if (have) return have;
     var code = makeVsid();
-    save({ vsid: code });
+    /* ⚠️ `vsidSrc` 区分「设备自己铸的」与「老师签发、学生打进来的」，而这个区分是
+       整套名册的关键：自动铸的号**认的是一份档案不是一个人**（换设备就是第二个号，
+       清一次资料就换一个新的），所以它对不上 All Ears。老师要看得出谁还没换过来，
+       提示也要只找这批人。⚠️ 2026-09-01 之前的档案没有这个字段，一律当 auto——
+       它们本来就全是设备铸的，缺字段不是「不知道」。 */
+    save({ vsid: code, vsidSrc: "auto" });
     return code;
   }
 
   /* Adopting an identifier handed over by a teacher. Returns "" and writes nothing if
      the string does not pass the checksum — the caller owns the message. */
-  function setVsid(raw) {
+  function setVsid(raw, src) {
     var v = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
     if (!isValidVsid(v)) return "";
-    save({ vsid: v });
+    /* 打进来的一律算「老师签发」，因为学生没有别的地方拿得到一串合法的编号——
+       它只会来自老师手上那份名单（teacher.html 的 签发学习编号）。 */
+    save({ vsid: v, vsidSrc: src || "teacher" });
     return v;
   }
 
@@ -2238,7 +2245,12 @@
        belongs to it. No new CSS: .claim-code (css/cs.css:932, css/xh.css:1507) is
        already the right treatment for a monospace code a child has to read aloud. */
     function vsidSectionHtml() {
-      var v = ensureVsid();
+      /* ⚠️ 关着的时候这一段**整个不出现**，而且**永远不要在这里铸号**：
+         原来写的是 `ensureVsid()`，等于「打开我的档案」这个动作本身会生出一个编号。
+         现在只读，读不到就不画。 */
+      if (!VSID_ON) return "";
+      var v = vsid();
+      if (!v) return "";
       return '<div class="prof-sec">' +
         '<div class="pop-label">学习编号 · 这个不会变' +
           fbGloss("学习编号", "xué xí biān hào", "Learning ID \u2014 never changes") + '</div>' +
@@ -3138,6 +3150,138 @@
     openAvatarPicker(null, function (id) { save({ avatarId: id }); go(); }, go, { firstRun: true });
   }
 
+  /* ================= 学习编号：老师签发 · 学生输入 (owner 2026-09-01) =========
+     owner:「can we make it an enduring thing for students? maybe let them create their
+     profile then they enter a VSID I provide centrally?」——对，而且这是唯一真的能做到
+     「不变」的做法。自动铸的号认的是**一份档案**：两台设备两个号，清一次浏览器资料就
+     换一个新的，而且没办法在学生出现之前先排好名册。由老师签发、学生自己打进去，
+     三件事一次解决——两台设备可以给同一个号 · 清了资料照名单再打一次就回来 ·
+     名册可以先存在。
+     ⚠️ 它还顺带绕开了「后台写了会被覆盖」那个死结：localStorage 才是权威，
+     **学生自己打进去的那一刻权威就站在正确的值上**，没有东西会盖它。
+
+     ⚠️ 只问百德的学生（owner 明确）。别校学生不在 All Ears 名册上，问他们一个我们
+     发不出来的号码只是一堵墙——和 §18al 只给百德班级下拉是同一条。
+
+     ⚠️⚠️ **`VSID_ON` 默认关着 —— 整个功能对学生是不存在的**（owner 2026-09-01：
+     「remove the VSID feature from the web app entirely as we are not ready」）。
+     关着的时候：不铸号 · 我的档案 不显示这一段 · 不提示 · 恢复码框不再采纳编号 ·
+     **而且会把设备上那个自动铸的旧号清掉**（见档案末尾的 cleanup）。
+     翻成 `true` 再推一次版本，整套就回来了——**只有这一个字面量**。
+     提示词是「输入老师给你的编号」，
+     在她把号码发下去**之前**弹出来，对学生就是一道无解的门（§4.4 那一类）。
+     owner 说「once the VSID is ready i.e. they need to receive it from me」——
+     所以这是一个**部署时才翻的开关**：发完号码那天把它改成 true 再推一次版本。
+     ⚠️ 没有做成 Firestore 的设定档：那要新开一块规则让 owner 去 console 发布，
+     还要在每一页开机时多一次读取，而这个开关一学期只会翻一次。 */
+  var VSID_ON = false;
+
+  function schoolIsBvss(p) { return !!p && p.school === SCHOOL_BVSS; }
+
+  /* 「这个人还需要被问吗」。⚠️ 判据是 `vsidSrc !== "teacher"`，不是「有没有 vsid」：
+     已经自动铸过号的学生**正是最需要换过来的那批**，用「有没有」判会把他们永远漏掉。 */
+  function needsVsidAsk() {
+    if (!VSID_ON) return false;
+    var p = load();
+    return !!p && p.category === "student" && schoolIsBvss(p) && p.vsidSrc !== "teacher";
+  }
+
+  /* ---- 一个控件，画一次，三个地方用 ----
+     与 BV_CLASSES.fieldHtml 同一个理由与同一个形状：注册页那份 picker 本身就有两份
+     （nickname.js 与 cs.js，§17），手写标记会变成四份。
+     `st` 只要有一个 `vsidDraft` 就行；`o = {pfx, inputCls}` 让宿主套自己的输入框样式。 */
+  window.WS_VSID = {
+    isValid: isValidVsid,
+    fmt: fmtVsid,
+    fieldHtml: function (st, o) {
+      o = o || {};
+      var pfx = o.pfx || "vsf", inputCls = o.inputCls || "prof-input";
+      return '<input type="text" id="' + pfx + 'In" class="' + inputCls + '" autocomplete="off" ' +
+        'spellcheck="false" placeholder="例如 VS-4K7M-2QXP" value="' + esc(st.vsidDraft || "") + '">' +
+        '<div class="hint" id="' + pfx + 'Msg" style="margin-top:5px"></div>';
+    },
+    /* 即时校验。⚠️ 校验位挡得住绝大多数打错一个字符的情况，而**当场说**比让学生
+       按下确认之后才发现好得多——这串东西是从白板或纸条上抄来的。 */
+    wireField: function (root, st, o) {
+      o = o || {};
+      var pfx = o.pfx || "vsf";
+      var inp = root.querySelector("#" + pfx + "In"), msg = root.querySelector("#" + pfx + "Msg");
+      if (!inp) return;
+      var sync = function () {
+        st.vsidDraft = inp.value;
+        var raw = String(inp.value || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+        if (!raw) { msg.textContent = ""; msg.style.color = ""; return; }
+        if (isValidVsid(raw)) {
+          msg.textContent = "✅ 编号正确：" + fmtVsid(raw);
+          msg.style.color = "#2F5A3C";
+        } else {
+          msg.textContent = "⚠️ 这个编号不对，再核对一次（大小写、连字号都不影响）。";
+          msg.style.color = "#A3402A";
+        }
+      };
+      inp.oninput = sync;
+      sync();
+    },
+    /* 宿主提交时用这一个函数，不要各自去解析：写进去的只有通过校验位的值，
+       打了一半或打错的一律当没填（这个字段是选填的）。 */
+    commit: function (st) {
+      var raw = String(st && st.vsidDraft || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+      if (!raw || !isValidVsid(raw)) return "";
+      return setVsid(raw);
+    }
+  };
+
+  /* ---- 对既有档案的提示 ----
+     owner:「for the existing BVSS student profiles, it should trigger as a pop up for
+     them to enter this once the VSID is ready」。
+     ⚠️ **一天最多问一次**（`vsidAskDay`），不是每次开页都问：这块提示会挡在学生和
+     他要玩的东西中间，问到烦就会被随手关掉，然后连真的想填的那次也一起关掉了。
+     形状照抄 `maybePromptClassUpdate`（新学年那一条），连「以后再说」都一样。
+     ⚠️ **一定要留「以后再说」**：号码是老师发的，学生完全可能今天还没拿到。 */
+  function maybePromptVsid() {
+    if (!needsVsidAsk()) return;
+    var today = todayStr();
+    var p = load() || {};
+    if (p.vsidAskDay === today) return;
+    var st = { vsidDraft: "" };
+    var ov = document.createElement("div");
+    ov.className = "pop-overlay"; ov.style.zIndex = "80";
+    ov.innerHTML = '<div class="pop-card">' +
+      '<div class="pop-title">🪪 输入老师给你的学习编号</div>' +
+      '<div class="pop-body">老师会发给你一串像 <b>VS-4K7M-2QXP</b> 的编号。' +
+      '填了它，<b>就算换了电脑、清掉资料，老师也认得出这是你</b>。<br>' +
+      '还没拿到？先按「以后再说」，下次再问你。</div>' +
+      window.WS_VSID.fieldHtml(st, { pfx: "vsp", inputCls: "code-ta" }) +
+      '<div class="nav-row"><button class="nav-btn" id="vspLater">以后再说</button>' +
+      '<button class="nav-btn primary" id="vspOk">确认</button></div></div>';
+    document.body.appendChild(ov);
+    window.WS_VSID.wireField(ov, st, { pfx: "vsp" });
+    var snooze = function () { save({ vsidAskDay: today }); };
+    var close = function () { snooze(); ov.remove(); };
+    ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
+    ov.querySelector("#vspLater").onclick = close;
+    ov.querySelector("#vspOk").onclick = function () {
+      var got = window.WS_VSID.commit(st);
+      if (!got) {
+        var m = ov.querySelector("#vspMsg");
+        if (m) {
+          m.textContent = "⚠️ 请填一个正确的编号，或按「以后再说」。";
+          m.style.color = "#A3402A";
+        }
+        return;
+      }
+      /* ⚠️ 存下 vsidAskDay 也没关系：`needsVsidAsk()` 之后会因为 vsidSrc==="teacher"
+         直接为 false，这一条不会再被问到。 */
+      close();
+    };
+  }
+
+  /* 本地日期字串（Asia/Singapore 就是这台机器的时区），只拿来做「今天问过了没」。 */
+  function todayStr() {
+    var d = new Date(), p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  }
+
   /* small yes/cancel dialog stacked above the panel */
   function confirmDialog(bodyHtml, okLabel, onOk) {
     var ov = document.createElement("div");
@@ -3220,6 +3364,14 @@
     snapshotAll: snapshotAll,
     planDelta: planDelta,
     maybePromptClassUpdate: maybePromptClassUpdate,
+    /* ---- 学习编号：老师签发那条路 (owner 2026-09-01) ----
+       ⚠️ 宿主一律用**探名字**的方式调用（`WSProfile.maybePromptVsid && …`），
+          理由与 §18ay 的 `pickAvatarFirstRun` 完全相同：每个档案各自老化，
+          页面真的可能拿新的 cs.js 配十分钟前的 profile.js。探名字才能安全退化。 */
+    vsidOn: function () { return VSID_ON; },
+    needsVsidAsk: needsVsidAsk,
+    maybePromptVsid: maybePromptVsid,
+    schoolIsBvss: schoolIsBvss,
     openAvatarPicker: openAvatarPicker,
     pickAvatarFirstRun: pickAvatarFirstRun,
     openAvatarInfo: openAvatarInfo,
@@ -3267,15 +3419,25 @@
     migrateDockBoat: migrateDockBoat
   };
 
-  /* ---- 学习编号 back-fill (owner 2026-08-31) ----
-     No migration script: any profile that predates 2026-08-31 has no vsid, and it gets
-     stamped the next time any page loads. ensureVsid() returns early once one exists,
-     so this is one localStorage write per device, ever.
-     ⚠️ GUARDED ON AN EXISTING PROFILE. Minting for a visitor who has never registered
-     would create a ws2_profile out of nothing and a users/{uid} document for someone who
-     never chose a nickname.
-     ⚠️ KNOWN AND ACCEPTED: a student already using two devices back-fills two different
-     VSIDs, one per device. There is no automatic merge and there must not be one — the
-     teacher resolves it by hand via the 备注 field. */
-  try { if (load()) ensureVsid(); } catch (e) {}
+  /* ---- 学习编号：自动铸号已停用，并且会把铸过的清掉 (owner 2026-09-01) ----
+     ⚠️ **这里原来是 back-fill：每一台设备开机就铸一个号。那正是要停掉的东西。**
+     自动铸的号认的是**一份档案**不是一个人——两台设备两个号，清一次浏览器资料就换一个
+     新的——所以它对不上 All Ears 名册，而名册正是这个字段存在的唯一理由。
+     改成由老师签发（teacher.html 的 签发学习编号）、学生自己打进去。
+     owner 2026-09-01：「remove the VSID feature from the web app entirely as we are not
+     ready … so that no users have VSID until I have the ready codes and sent them out」。
+
+     ⚠️ 所以这一行现在**反过来做**：`VSID_ON` 关着而设备上有一个**不是老师签发**的号，
+     就把它清掉。清掉会走 save()，顺带把云端那一份也抹平，所以后台看到的就是干净的。
+     ⚠️ **只清 `vsidSrc !== "teacher"` 的**：哪天开关翻开、学生已经输入过老师给的号，
+     这段代码仍然在跑，绝不能把它辛苦打进去的那个也一起抹掉。
+     ⚠️ 仍然 GUARDED ON AN EXISTING PROFILE：对一个从没注册过的访客调 save()
+     会凭空生出一份 ws2_profile 与一份 users/{uid}。 */
+  try {
+    var _p0 = load();
+    if (_p0) {
+      if (VSID_ON) { /* 开着也不自动铸号：编号只能来自老师那份名单 */ }
+      else if (_p0.vsid && _p0.vsidSrc !== "teacher") save({ vsid: "", vsidSrc: "" });
+    }
+  } catch (e) {}
 })();

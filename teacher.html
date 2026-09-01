@@ -592,7 +592,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260901c"></script>
+<script src="js/podium.js?v=20260901d"></script>
 <script>
 (function () {
   "use strict";
@@ -600,7 +600,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260901c";
+  var ASSET_V = "?v=20260901d";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -986,6 +986,68 @@ tbody tr.sp-row{cursor:pointer}
     }
     return h.toString(36);
   }
+  /* ================= 学习编号 批量签发 (owner 2026-09-01) =================
+     owner:「maybe let them create their profile then they enter a VSID I provide
+     centrally?」——对的，而且这是唯一能真正做到「不变」的做法。今天的 VSID 是**设备**
+     铸的：换一台设备就是第二个编号，清一次浏览器资料就换一个新的，而且没办法预先派发。
+     它认的是「一份档案」，不是「一个学生」——这正是它对不上 All Ears 名册的原因。
+     由老师签发、学生自己打进去，三件事一次解决：两台设备可以给**同一个**编号 ·
+     清了资料照着老师的名单再打一次就回来 · 名单可以在学生出现之前就存在。
+     ⚠️ 而且它顺带绕开了「后台铸码会被覆盖」那个死结（见档案卡上那段注释）：
+     localStorage 才是权威，**学生自己打进去**的那一刻权威就站在正确的值上，没有东西会盖它。
+
+     ⚠️⚠️ 这是这套字母表与校验位的**第四个写入者**（profile.js 是主本，另有 cs.js /
+     nickname.js 的采纳路径）。§18ad 记着上一次同一个形状的教训：`bitsToB64` 有两个
+     写入者，我只改了一个，**码照样能解，唯一的症状是老师发出去的码悄悄比学生自己生成的
+     长一倍**。所以下面三个函数与 profile.js 逐字节相同，改一处要改两处。
+     ⚠️ 字母表没有 0 O 1 I L：这串东西要被写在白板上、由十一岁的孩子打进去。 */
+  var VSID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+  function _vsidCheck(body) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < body.length; i++) {
+      h ^= body.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return VSID_ALPHABET.charAt(h % VSID_ALPHABET.length);
+  }
+  function isValidVsidT(str) {
+    var v = String(str || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+    return /^VS[0-9A-Z]{8}$/.test(v) && _vsidCheck(v.slice(2, 9)) === v.charAt(9);
+  }
+  /* ⚠️ crypto.getRandomValues，Math.random 只是兜底：一次签发几十上百个，
+     而这份名单接下来就是全班的身份来源，撞号的代价是两个学生共用一行。 */
+  function makeVsidT() {
+    var out = "", i, buf = null;
+    try {
+      if (window.crypto && window.crypto.getRandomValues) {
+        buf = new Uint32Array(7);
+        window.crypto.getRandomValues(buf);
+      }
+    } catch (e) { buf = null; }
+    for (i = 0; i < 7; i++) {
+      var r = buf ? buf[i] : Math.floor(Math.random() * 0xffffffff);
+      out += VSID_ALPHABET.charAt(r % VSID_ALPHABET.length);
+    }
+    return "VS" + out + _vsidCheck(out);
+  }
+  /* ⚠️ 与**已经在用的**编号比对，不只是与本批比对。客户端铸码查不了唯一性
+     （profile.js 那段注释写着：查 vsid 要 users 的 list 权限，那是不给的），
+     而后台手上正好有全部档案——这是全站唯一一个能真的保证不撞号的地方。 */
+  function mintVsids(n) {
+    var used = {}, out = [], guard = 0;
+    _users.forEach(function (u) {
+      var v = String(profOf(u).vsid || "").toUpperCase();
+      if (v) used[v] = 1;
+    });
+    while (out.length < n && guard++ < n * 50) {
+      var c = makeVsidT();
+      if (used[c]) continue;
+      used[c] = 1;
+      out.push(c);
+    }
+    return out;
+  }
+
   /* ⚠️ DUPLICATED from profile.js's fmtVsid on purpose, same reason as _fnv1a above:
      this page loads no shared JS and cannot import from profile.js. Display form only —
      it never parses or validates, so it carries no checksum logic and must not grow any.
@@ -1107,6 +1169,11 @@ tbody tr.sp-row{cursor:pointer}
   /* 码头的「认得词数」。⚠️ 它**不是第五座山**（§4 水线）：另一套词、另一个存储键，
      所以它在表里没有栏位，只当 CSV 的最后一栏——一份分析用的档案里少了整片陆地，
      老师会以为那些学生什么都没做。⚠️ 按文本索引，码头从来没有词 id。 */
+  function vsidSrcLabel(u) {
+    var p = profOf(u);
+    if (!p.vsid) return "";
+    return p.vsidSrc === "teacher" ? "老师签发" : "设备自动";
+  }
   function pierKnown(u) {
     var st = (u.data.progress || {}).xh;
     return st ? Object.keys(st.done || {}).length : 0;
@@ -1289,10 +1356,17 @@ tbody tr.sp-row{cursor:pointer}
       { k: "vsid", label: "学习编号", type: "text", cls: "col-uid",
         raw: function (u) { return profOf(u).vsid || ""; },
         cell: function (u) {
-          var v = String(profOf(u).vsid || "");
+          var p = profOf(u), v = String(p.vsid || "");
           if (!v) return '<span class="hint">—</span>';
           var d = fmtVsidT(v);
+          /* ⚠️ 「老师签发」与「设备自动」要分得出来，否则看不出谁还没换成名册上的号。
+             `vsidSrc` 是 2026-09-01 才有的字段，**在那之前的每一个都是设备自己铸的**，
+             所以缺这个字段就当 auto，不当「不知道」。 */
+          var teach = p.vsidSrc === "teacher";
           return '<code class="uid">' + esc(d) + '</code> ' +
+            '<span class="pill ' + (teach ? "ok" : "warn") + '" title="' +
+              (teach ? "学生输入了老师签发的编号" : "设备自动生成的，还没换成名册上的号") + '">' +
+              (teach ? "签发" : "自动") + '</span> ' +
             '<button class="btn tiny copy-uid" data-uid="' + esc(d) + '" title="复制学习编号">复制</button>';
         } },
       { k: "nick", label: "昵称", type: "list",
@@ -1935,6 +2009,7 @@ tbody tr.sp-row{cursor:pointer}
       '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、出发码头，以及可以给学生的进度码）。' +
       (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
       '<div class="row" style="margin-bottom:10px"><button class="btn" id="clsCsv">导出 CSV</button>' +
+      '<button class="btn" id="vsidGen">🪪 签发学习编号…</button>' +
       '<span class="hint">导出的就是<b>现在这张表</b>：同一批筛选、同一个排序、同样的栏位（另加一栏「码头认得」）。恢复码不在里面。</span></div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
@@ -1945,9 +2020,10 @@ tbody tr.sp-row{cursor:pointer}
     wireFilterBar(panel);
     /* ⚠️ 导出的是 `rows`，也就是**已经筛选并排好序**的那一份，不是 `_users`。
        老师按下按钮时看的是这张表；给她另一份内容不同的档案，比不给更糟。 */
+    el("vsidGen").onclick = openVsidGen;
     el("clsCsv").onclick = function () {
       downloadCsv("班级视图",
-        cols.map(function (c) { return c.label; }).concat(["码头认得"]),
+        cols.map(function (c) { return c.label; }).concat(["码头认得", "编号来源"]),
         rows.map(function (u) {
           return cols.map(function (c) {
             /* ⚠️ 学习编号 导出**显示形式**（`VS-XXXX-XXXX`），与表格里、档案卡上、
@@ -1955,7 +2031,7 @@ tbody tr.sp-row{cursor:pointer}
                All Ears 名册对，而 Excel 的比对是逐字符的——同一个编号在两处写成
                两种样子，VLOOKUP 就会一条都对不上。 */
             return (c.k === "vsid") ? fmtVsidT(c.raw(u)) : c.raw(u);
-          }).concat([pierKnown(u)]);
+          }).concat([pierKnown(u), vsidSrcLabel(u)]);
         }));
     };
     Array.prototype.forEach.call(panel.querySelectorAll(".th-lab"), function (s) {
@@ -1988,6 +2064,70 @@ tbody tr.sp-row{cursor:pointer}
         b.onclick = function (e) { e.stopPropagation(); openEditProfile(b.getAttribute("data-uid")); };
       });
     }
+  }
+
+  /* 签发对话框。⚠️ 它**只发号，不写任何东西到 Firestore**：这份名单在老师手上才有用
+     （她要把号码配到人身上），而后台直接写 users/{uid}.profile.vsid 会被学生设备下一次
+     save() 覆盖掉——那正是这套「让学生自己打进去」的设计要绕开的死结。 */
+  function openVsidGen() {
+    var ov = document.createElement("div");
+    ov.className = "tov";
+    ov.innerHTML = '<div class="card">' +
+      '<h2 style="margin-top:0">🪪 签发学习编号</h2>' +
+      '<div class="hint" style="margin-bottom:10px">' +
+        '生成一批全新的学习编号，下载成 CSV，在「姓名」栏填上学生，再把号码发给他们。' +
+        '学生在注册时（或收到提示时）自己输入，那个编号从此<b>跟着人走</b>，换设备、清资料都能用同一个号找回来。<br>' +
+        '⚠️ 已与目前载入的 <b>' + _users.length + '</b> 份档案比对过，不会撞号。' +
+        '⚠️ <b>这一步不写任何资料</b>，只是发号——号码要发到学生手上才会生效。</div>' +
+      '<label>要发几个？</label>' +
+      '<input type="number" id="vgN" style="width:100%" value="40" min="1" max="500">' +
+      '<div style="margin-top:14px;display:flex;gap:10px">' +
+        '<button class="btn primary" id="vgGo">生成并下载 CSV</button>' +
+        '<button class="btn" id="vgClose">关闭</button></div>' +
+      '<div class="msg" id="vgMsg"></div>' +
+      '<div id="vgOut" style="margin-top:10px"></div></div>';
+    document.body.appendChild(ov);
+    var close = function () {
+      ov.remove();
+      document.removeEventListener("keydown", onKey, true);
+    };
+    /* Esc 可关：后台跑在 SSOE 笔电与 Chromebook 上，键盘用户关不掉的模态就是陷阱
+       （§18v／§18z 同一条）。 */
+    function onKey(e) { if (e.key === "Escape") close(); }
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
+    el("vgClose").onclick = close;
+    el("vgGo").onclick = function () {
+      var n = Math.max(1, Math.min(500, parseInt(el("vgN").value, 10) || 0));
+      var msg = el("vgMsg");
+      if (!_users.length) {
+        msg.className = "msg bad";
+        msg.textContent = "请先「载入 / 刷新数据」——没有档案就没办法保证不撞号。";
+        return;
+      }
+      var codes = mintVsids(n);
+      if (codes.length < n) {
+        msg.className = "msg bad";
+        msg.textContent = "只生成得出 " + codes.length + " 个（重试次数用尽），请再按一次。";
+        return;
+      }
+      /* ⚠️ 每一个都过一次 isValidVsidT：签发出去的号如果自己的校验位不对，
+         学生打进去会被他自己的设备判成「格式不正确」，而那时她已经把号写在名单上了。 */
+      var bad = codes.filter(function (c) { return !isValidVsidT(c); });
+      if (bad.length) {
+        msg.className = "msg bad";
+        msg.textContent = "内部错误：有 " + bad.length + " 个号码通不过自己的校验位，已取消。";
+        return;
+      }
+      downloadCsv("学习编号_待发", ["序号", "学习编号", "姓名（自己填）", "班级（自己填）", "已发给学生（自己填）"],
+        codes.map(function (c, i) { return [i + 1, fmtVsidT(c), "", "", ""]; }));
+      msg.className = "msg ok";
+      msg.textContent = "已生成 " + codes.length + " 个并下载 CSV。";
+      el("vgOut").innerHTML =
+        '<div class="hint" style="margin-bottom:6px">这一批（也在 CSV 里）：</div>' +
+        '<div class="scroll" style="max-height:190px"><code style="line-height:2">' +
+        codes.map(function (c) { return esc(fmtVsidT(c)); }).join("　") + '</code></div>';
+    };
   }
 
   /* HOD-only fix for wrongly-entered student profiles (school/class/nickname/身份).

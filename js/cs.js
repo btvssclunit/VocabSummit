@@ -7854,7 +7854,13 @@
              ⚠️ THE BOX STAYS OPEN — no reload, no navigation. The teacher sends 学习编号
              and 进度码 together and the student pastes both here in sequence; the 进度码
              paste is the very next action. */
-          var vsShaped = v.indexOf(".") === -1 && /^VS[0-9A-Z]{8}$/.test(claim);
+          /* ⚠️ 整个功能关着的时候这一支也要关（owner 2026-09-01「remove the VSID
+             feature from the web app entirely」）：留着它，一串合法的编号仍然会
+             在学生身上生出一个 vsid，而现在的前提是**在老师发号之前谁都不该有**。
+             探名字调用（`WSProfile.vsidOn && ...`）——旧的 profile.js 没有这个函数，
+             那时候整套本来就是开的，退化成原行为是对的（§18ay 同一条）。 */
+          var vsidOn = !(window.WSProfile && WSProfile.vsidOn) || WSProfile.vsidOn();
+          var vsShaped = vsidOn && v.indexOf(".") === -1 && /^VS[0-9A-Z]{8}$/.test(claim);
           if (vsShaped && window.WSProfile && WSProfile.isValidVsid &&
               WSProfile.isValidVsid(claim)) {
             WSProfile.setVsid(claim);
