@@ -1175,6 +1175,9 @@
            onerror in this repo. */
         var findBtn = document.getElementById("lpFindBtn");
         if (findBtn) findBtn.onclick = function () {
+          /* ⚠️ NO station, deliberately: a student on the landing page has not
+             entered a stream yet, so there is no「my words」to lift. search.js falls
+             back to the dock-first order this page always had. */
           if (window.WSSearch) window.WSSearch.open();
         };
         var profBtn = document.getElementById("lpProfileBtn");

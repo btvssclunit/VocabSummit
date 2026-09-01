@@ -526,7 +526,10 @@
        waterline is untouched. */
     var find = document.getElementById("xhTgFind");
     if (find) find.onclick = function () {
-      if (window.WSSearch) window.WSSearch.open({ speak: speak });
+      /* ⚠️ station: "xh" restores what the old dock-first grouping did for a
+         beginner — their own 156 words above 3,741 secondary ones — now that results
+         are one flat deduped list (see search.js). */
+      if (window.WSSearch) window.WSSearch.open({ speak: speak, station: "xh" });
     };
     document.getElementById("xhProf").onclick = openProfile;
   }

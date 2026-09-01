@@ -58,12 +58,18 @@
     hcl: "词圣鸿文苑 · 高华"
   };
 
-  var PER_STATION = 25;        // cap per group; the overflow is always reported
+  /* ⚠️ SHORT labels, for the chips that now ride on the row itself. The long
+     STATION_LABEL above still names a station in prose; these have to fit five of
+     them on one line next to a word. */
+  var STATION_TAG = { xh: "码头", g1: "G1", g2: "G2", g3: "G3", hcl: "高华" };
+
+  var MAX_ROWS = 40;           // cap on the ONE list; the overflow is always reported
 
   var _index = null;           // null until the first keystroke
   var _loading = null;         // in-flight promise, so two keystrokes fetch once
   var _failed = false;
   var _speak = null;           // host-supplied; absent = render no speakers
+  var _station = "";           // host-supplied; "" on the landing page, which has none
   var _el = null;              // the overlay, while open
 
   function esc(s) {
@@ -125,40 +131,81 @@
     }
     hits.sort(function (a, b) { return a.s - b.s || a.r.w.length - b.r.w.length; });
 
-    /* Group by station. One record can appear under several stations, which is
-       correct: 水 really is taught at the dock AND on three mountains, and a
-       student wants to see that. */
-    var by = {};
-    STATIONS.forEach(function (k) { by[k] = []; });
-    hits.forEach(function (h) {
-      (h.r.src || []).forEach(function (k) { if (by[k]) by[k].push(h.r); });
+    /* ⚠️ ONE ROW PER WORD (owner 2026-09-01). This used to group by station and push
+       the SAME record into every bucket its `src` listed, on the argument that a
+       student wants to see 水 is taught at the dock and on three mountains. Measured,
+       that argument cost more than it bought: 2,150 distinct words render as 3,897
+       rows, so 47% of what a student scrolls past is a word they have already read.
+       1,020 words are in two or more streams and 146 are in four — 设施 · 走廊 · 姓氏
+       · 结婚 each appeared four times in one result list.
+       ⚠️ THE FACT ITSELF IS NOT DELETED, it is moved: the row carries a chip per
+       stream (see srcChips), so「this word runs across four streams」is still on
+       screen — in one line instead of four.
+       ⚠️ ORDER: the student's OWN stream first, then relevance. The old grouping put
+       the dock first for everyone, and the reason given was that a dock beginner
+       searching 水 must reach their own 156 words before 3,741 secondary ones. That
+       reason generalises rather than disappears — every student wants their own
+       stream first — so it is now keyed on who is actually searching. With no station
+       (the landing page has none) every word ties at 0 and the old dock-first order
+       survives as the tiebreak below. */
+    hits.sort(function (a, b) {
+      return mineRank(a.r) - mineRank(b.r) ||
+             a.s - b.s ||
+             stationRank(a.r) - stationRank(b.r) ||
+             a.r.w.length - b.r.w.length;
     });
-    return { by: by, total: hits.length };
+    return { list: hits.map(function (h) { return h.r; }), total: hits.length };
   }
 
-  function rowHtml(rec, station) {
-    /* A dock word carries its sprite, so the row is the 词语表 row with its
-       picture. A mountain word has none and degrades to a plain text row —
-       specified in §3.3, and the same graceful-degrade habit as everywhere else
-       in this repo: onerror hides the image rather than showing a broken icon. */
-    var pic = (station === "xh" && rec.im)
+  /* 0 = this word is taught in the stream the student is standing in. */
+  function mineRank(rec) {
+    return (_station && (rec.src || []).indexOf(_station) !== -1) ? 0 : 1;
+  }
+  /* the earliest station in STATIONS order that teaches this word — i.e. the old
+     dock-first grouping, collapsed into a sort key. */
+  function stationRank(rec) {
+    var best = STATIONS.length;
+    (rec.src || []).forEach(function (k) {
+      var i = STATIONS.indexOf(k);
+      if (i >= 0 && i < best) best = i;
+    });
+    return best;
+  }
+  function srcChips(rec) {
+    return (rec.src || []).map(function (k) {
+      if (!STATION_TAG[k]) return "";
+      return '<span class="wss-src' + (k === _station ? " mine" : "") + '">' +
+        esc(STATION_TAG[k]) + "</span>";
+    }).join("");
+  }
+
+  function rowHtml(rec) {
+    /* A dock word carries its sprite, so the row is the 词语表 row with its picture.
+       A mountain word has none and degrades to a plain text row — specified in §3.3,
+       and the same graceful-degrade habit as everywhere else in this repo: onerror
+       hides the image rather than showing a broken icon.
+       ⚠️ KEYED ON THE WORD, NOT ON A GROUP (2026-09-01). This used to read
+       `station === "xh" && rec.im`, which was only ever true inside the dock bucket.
+       With one row per word there is no bucket to ask, and `rec.im` is already the
+       right question: only dock words carry a sprite. A word taught at BOTH the dock
+       and on a mountain now keeps its picture, which it lost in every mountain group
+       before. */
+    var pic = rec.im
       ? '<img class="wss-pic" src="art/xh/' + esc(rec.im) + ASSET_V + '" alt="" ' +
         'onerror="this.style.display=&quot;none&quot;">'
       : "";
-    /* ⚠️ Mountain rows show 词语 + 拼音 + 英文 ONLY. No 释义, no 例句, no unit.
-       That keeps every row the same height and keeps secondary-school content
-       from pouring into a beginners' interface. */
-    var chips = "";
-    if (station === "xh" && rec.g) {
-      chips = '<span class="wss-chip">' + esc(rec.g) + "</span>";
-    }
+    /* ⚠️ Rows show 词语 + 拼音 + 英文 + where it is taught. No 释义, no 例句, no unit.
+       That keeps every row the same height and keeps secondary-school content from
+       pouring into a beginners' interface. */
+    var chips = rec.g ? '<span class="wss-chip">' + esc(rec.g) + "</span>" : "";
     var spk = _speak
       ? '<button class="wss-spk" data-w="' + esc(rec.w) + '" aria-label="朗读">🔊</button>'
       : "";
     return '<div class="wss-row">' + pic +
       '<div class="wss-txt"><div class="wss-w"><b>' + esc(rec.w) + "</b>" +
       '<span class="wss-py">' + esc(rec.p) + "</span>" + chips + "</div>" +
-      '<div class="wss-en">' + esc(rec.en) + "</div></div>" + spk + "</div>";
+      '<div class="wss-en">' + esc(rec.en) + "</div>" +
+      '<div class="wss-srcs">' + srcChips(rec) + "</div></div>" + spk + "</div>";
   }
 
   function paint(q) {
@@ -182,22 +229,22 @@
         '换个写法试试，例如只打一个字。</div>';
       return;
     }
-    var h = "";
-    STATIONS.forEach(function (k) {
-      var list = res.by[k];
-      if (!list.length) return;
-      var show = list.slice(0, PER_STATION);
-      h += '<div class="wss-grp"><div class="wss-grp-h">' + esc(STATION_LABEL[k]) +
-        '<span class="wss-grp-n">' + list.length + " 个</span></div>";
-      h += show.map(function (r) { return rowHtml(r, k); }).join("");
-      /* No silent truncation: if the cap bit, say so rather than letting the
-         list look complete. */
-      if (list.length > show.length) {
-        h += '<div class="wss-more">还有 ' + (list.length - show.length) +
-          " 个，请把搜索词打得更完整一些。</div>";
-      }
-      h += "</div>";
-    });
+    var show = res.list.slice(0, MAX_ROWS);
+    /* ⚠️ THE COUNT IS OF WORDS, and now it is the truth. The old per-group counts
+       added up to more than the number of words found, because a word in four
+       streams was counted four times. */
+    var h = '<div class="wss-count">找到 <b>' + res.total + '</b> 个词语' +
+      (_station && STATION_LABEL[_station]
+        ? '<span class="wss-count-n">' + esc(STATION_LABEL[_station].split(" · ")[0]) +
+          '的词排在前面</span>'
+        : "") + "</div>";
+    h += show.map(function (r) { return rowHtml(r); }).join("");
+    /* No silent truncation: if the cap bit, say so rather than letting the list
+       look complete. */
+    if (res.total > show.length) {
+      h += '<div class="wss-more">还有 ' + (res.total - show.length) +
+        " 个，请把搜索词打得更完整一些。</div>";
+    }
     box.innerHTML = h;
 
     if (_speak) {
@@ -225,6 +272,10 @@
   function open(opts) {
     opts = opts || {};
     _speak = typeof opts.speak === "function" ? opts.speak : null;
+    /* ⚠️ The host tells us where the student is standing; we never guess. The landing
+       page passes nothing, because a student there is not in a stream yet — "" is a
+       real answer, not a missing one, and mineRank treats it as「nobody's stream」. */
+    _station = STATION_TAG[opts.station] ? opts.station : "";
     close();
 
     _el = document.createElement("div");

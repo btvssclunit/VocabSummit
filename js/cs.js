@@ -1563,8 +1563,12 @@
         '</button></div>';
     var fb = document.getElementById("tbFind");
     if (fb) fb.onclick = function () {
-      /* hand it OUR speak — search.js ships no TTS stack of its own on purpose */
-      if (window.WSSearch) window.WSSearch.open({ speak: speak });
+      /* hand it OUR speak — search.js ships no TTS stack of its own on purpose.
+         ⚠️ `station` is what puts THIS stream's words at the top of the result list
+         (2026-09-01). It is a display-order hint and nothing else: search stays
+         read-only and still reaches all five stations, so passing it cannot widen
+         what a student can reach. */
+      if (window.WSSearch) window.WSSearch.open({ speak: speak, station: STREAM });
     };
     /* ⚠️ 三级返回（owner 2026-08-23）：海图 ← 首页 ← 门后的活动页 ← 一局。
        传字符串的老调用点一个都不用改——它们落到 backToHub()，那个函数在门外

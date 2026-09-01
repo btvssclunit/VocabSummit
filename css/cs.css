@@ -2615,11 +2615,6 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
 .wss-hint{padding:18px 6px;font-size:13.5px;font-weight:600;color:var(--ink-soft);
   text-align:center;line-height:1.7}
 .wss-hint-en{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:3px}
-.wss-grp{margin-bottom:12px}
-.wss-grp-h{display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1;
-  padding:6px 8px;margin-bottom:4px;border-radius:10px;font-size:12.5px;font-weight:700;
-  color:var(--sea2);background:rgba(238,246,251,.96)}
-.wss-grp-n{margin-left:auto;font-weight:600;color:var(--ink-soft)}
 .wss-row{display:flex;align-items:center;gap:11px;padding:8px 9px;border-radius:12px}
 .wss-row + .wss-row{border-top:1px solid rgba(150,185,212,.28)}
 .wss-pic{flex:0 0 auto;width:42px;height:42px;object-fit:contain;
@@ -2632,6 +2627,19 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
   border:1px solid var(--glass-line-2);border-radius:999px;padding:1px 8px}
 .wss-en{font-size:12.5px;color:var(--ink-soft);margin-top:2px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ⚠️ WHERE THE WORD IS TAUGHT, now that a word gets exactly ONE row (2026-09-01).
+   This carries the fact the old per-station grouping carried by repeating the row up
+   to four times. Quiet on purpose: it is provenance, not the answer the student came
+   for, so it must never outweigh 词语 · 拼音 · 英文 above it. `.mine` lifts the
+   student's own stream only — one chip at most, so it stays a highlight. */
+.wss-srcs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.wss-src{font-size:10.5px;font-weight:700;letter-spacing:.02em;color:var(--ink-soft);
+  background:rgba(255,255,255,.62);border:1px solid var(--glass-line-2);
+  border-radius:999px;padding:1px 7px}
+.wss-src.mine{color:var(--gold-ink);background:#FDF6E4;border-color:var(--gold)}
+.wss-count{padding:2px 2px 8px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.wss-count b{color:var(--ink)}
+.wss-count-n{margin-left:8px;font-weight:600;color:var(--gold-ink)}
 /* ⚠️ Sibling button, never nested inside a tappable row — the 可及性 pass removed
    exactly this near-miss trap from every MCQ surface. ::after widens the target
    to ~46px without changing the visual size. */
