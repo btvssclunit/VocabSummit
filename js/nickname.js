@@ -487,7 +487,9 @@
           detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
             (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("npSchoolQ", st.schoolQ) : "") +
             '<select id="npSchool" class="np-select">' +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ)
+            /* 机构 (HQ / SCCL) only for the 教师 identity — see SG_SCHOOLS.ORG_LIST.
+               A 学生 or 家长 picking 教育部总部 as their school is never right. */
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ, { orgs: role === "teacher" })
               : ('<option value="' + esc(_bvss) + '"' + (sel === _bvss ? " selected" : "") + '>' + esc(_bvss) + '</option>' +
                  '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>')) +
             '</select>' +
@@ -504,11 +506,17 @@
            and a first-run screen that refuses to let a student in over an optional
            field costs more than an empty cell in a teacher's table. */
         if (role === "student") {
-          var bvssPick = sel === _bvss && window.BV_CLASSES;
+          /* 名单现在是**每所学校自己的**（rosters/{学校}，该校 HOD 在 teacher.html
+             维护），不再只有百德一所。有名单 → 两步下拉；没有 → 自由文本框。
+             ⚠️ `use()` 要在判断之前调：这个控件是所有学校共用的一份。
+             ⚠️ `ensure()` 只在**答案改变了画面**时才回调 renderStep，所以它不会
+             把注册页拖进重画循环；受管网络下它 6 秒后回 null，字段停在文本框上。 */
+          var rosterPick = !!(window.BV_CLASSES && window.BV_CLASSES.use(sel).has(sel));
+          if (window.BV_CLASSES) window.BV_CLASSES.ensure(sel, renderStep);
           detailHtml += '<div class="pop-label" style="margin-top:12px">你的班级' +
             np("你的班级", "nǐ de bān jí", "Your class") + ' · 选填' +
             np("", "", "optional") + '</div>' +
-            (bvssPick
+            (rosterPick
               ? window.BV_CLASSES.fieldHtml(st, NP_CLASS)
               : '<input type="text" id="npClass" class="code-ta" style="height:44px" placeholder="例如：2026 3HC3" value="' + esc(st.mtlClass || "") + '">');
         }
@@ -685,22 +693,22 @@
             st.schoolQ = q;
             if (v === st.schoolSel) return;
             var wasOther = st.schoolSel === "other";
-            var hadRoster = st.schoolSel === _bvss;
+            var hadRoster = !!(window.BV_CLASSES && window.BV_CLASSES.has(st.schoolSel));
             st.schoolSel = v;
             /* Redraw on a roster flip as well as on 「离开其他」: 班级 is a different
                control on either side of 百德, and leaving the old one on screen means
                the student edits a box that is about to be replaced. Both cost the
                search box its focus — a price already paid for wasOther, and a flip
                only happens once the search has narrowed to a single school. */
-            if (wasOther || (st.schoolSel === _bvss) !== hadRoster) renderStep();
-          });
+            if (wasOther || !!(window.BV_CLASSES && window.BV_CLASSES.has(st.schoolSel)) !== hadRoster) renderStep();
+          }, { orgs: st.role === "teacher" });
         }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
         var otherEl = document.getElementById("npSchoolOther");
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
-        if (st.schoolSel === _bvss && window.BV_CLASSES) {
+        if (window.BV_CLASSES && window.BV_CLASSES.use(st.schoolSel).has(st.schoolSel)) {
           window.BV_CLASSES.wireField(card, st, NP_CLASS, renderStep);
         } else {
           var clsEl = document.getElementById("npClass");

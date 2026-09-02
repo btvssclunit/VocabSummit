@@ -206,17 +206,39 @@
     "正华中学 Zhenghua Secondary School",
     "中华中学 Zhonghua Secondary School"
   ];
+  /* ---------- 机构 ORG_LIST (non-school organisations) ----------
+     HQ / SCCL colleagues are NOT schools, and the difference is not cosmetic:
+     一所学校 scopes what its staff may read (own school only), 一个机构 does not
+     (HQ sees every school, read-only). teachers/{uid}.orgType is what firestore.rules
+     branches on, and THIS list is what decides which value the approver picks.
+     ⚠️ HQ is deliberately ONE entry, not ETD + CPDD + …: the divisions change names
+     more often than the access rule does, and the rule only ever cares "总部 or not".
+     Which division a colleague sits in goes in their 姓名/备注, never in the org.
+     ⚠️ Students never see this group. optionsHtml only emits it when the caller asks
+     (opts.orgs), which is teacher.html's registration form and the 教师 identity in
+     the nickname picker — a 学生 or 家长 picker must keep offering schools only. */
+  var ORG_LIST = [
+    "教育部总部 MOE HQ",
+    "新加坡华文教研中心 Singapore Centre for Chinese Language (SCCL)"
+  ];
   window.SG_SCHOOLS = {
     BVSS: SCHOOL_BVSS,
     LIST: SCHOOL_LIST,
-    isKnown: function (v) { return v === SCHOOL_BVSS || SCHOOL_LIST.indexOf(v) !== -1; },
+    ORGS: ORG_LIST,
+    /* ⚠️ isKnown covers 机构 TOO, unconditionally, even though optionsHtml hides them
+       by default. isKnown's only job is "is this a listed value, or free text?" — it is
+       what decides whether the 其他 box opens. An HQ colleague whose stored org came
+       back false here would be shown 其他 with their own org sitting in the text box. */
+    isKnown: function (v) { return v === SCHOOL_BVSS || SCHOOL_LIST.indexOf(v) !== -1 || ORG_LIST.indexOf(v) !== -1; },
+    isOrg: function (v) { return ORG_LIST.indexOf(v) !== -1; },
     normQ: function (q) { return String(q == null ? "" : q).trim().toLowerCase(); },
     /* Schools whose name CONTAINS the query, matched against the whole
        "中文 English" string, so 「培华」 and 「pei hwa」 both find the same row.
        Empty query = everything, BVSS pinned first. */
-    matches: function (q) {
+    matches: function (q, withOrgs) {
       var n = this.normQ(q);
       var all = [SCHOOL_BVSS].concat(SCHOOL_LIST);
+      if (withOrgs) all = all.concat(ORG_LIST);
       if (!n) return all;
       return all.filter(function (s) { return s.toLowerCase().indexOf(n) !== -1; });
     },
@@ -225,16 +247,32 @@
        shows a free-text box). `q` (optional) narrows the list to matches — the
        stored school is always kept in its own dropdown even when it no longer
        matches, so a search can never silently drop what is already chosen. */
-    optionsHtml: function (sel, q) {
+    optionsHtml: function (sel, q, opts) {
+      var withOrgs = !!(opts && opts.orgs);
       var known = this.isKnown(sel);
-      var list = this.matches(q);
+      var list = this.matches(q, withOrgs);
       var hits = list.length;              // BEFORE the current school is pinned back in
+      /* ⚠️ The stored value is pinned back in even when it is an 机构 and the caller
+         did NOT ask for 机构. A teacher whose org is HQ opening a picker built for
+         schools must still see HQ selected — dropping it would silently rewrite their
+         org to blank on the next save. */
       if (known && list.indexOf(sel) === -1) list = [sel].concat(list);
+      var self = this;
+      var opt = function (v) {
+        return '<option value="' + esc(v) + '"' + (sel === v ? " selected" : "") + '>' + esc(v) + '</option>';
+      };
       var out = "";
       if (!sel) out += '<option value="" selected>请选择学校 Select school…</option>';
       if (this.normQ(q) && !hits) out += '<option value="" disabled>没有找到，请选「其他 Others」</option>';
-      for (var i = 0; i < list.length; i++) {
-        out += '<option value="' + esc(list[i]) + '"' + (sel === list[i] ? " selected" : "") + '>' + esc(list[i]) + '</option>';
+      /* 学校 first, 机构 in their own <optgroup> — the group label is the only thing
+         telling an approver that 教育部总部 is not a school, and orgType (hence who
+         may read what) follows from exactly that distinction. */
+      for (var i = 0; i < list.length; i++) if (!self.isOrg(list[i])) out += opt(list[i]);
+      var orgHits = list.filter(function (v) { return self.isOrg(v); });
+      if (orgHits.length) {
+        out += '<optgroup label="机构 Organisations">';
+        for (var j = 0; j < orgHits.length; j++) out += opt(orgHits[j]);
+        out += "</optgroup>";
       }
       out += '<option value="other"' + (((sel && !known) || sel === "other") ? " selected" : "") + '>其他 Others</option>';
       return out;
@@ -250,14 +288,14 @@
        keystroke, so the caller can persist the query and react to a changed
        school. Rebuilds the <option>s in place (never a full re-render) — the
        search box must keep focus while the student is still typing. */
-    wireSearch: function (input, select, onPick) {
+    wireSearch: function (input, select, onPick, opts) {
       if (!input || !select) return;
       var self = this;
       input.oninput = function () {
         var q = input.value;
         var cur = select.value;
-        select.innerHTML = self.optionsHtml(cur, q);
-        var list = self.matches(q);
+        select.innerHTML = self.optionsHtml(cur, q, opts);
+        var list = self.matches(q, !!(opts && opts.orgs));
         if (self.normQ(q) && list.length === 1) select.value = list[0];  // only one left: choose it
         if (onPick) onPick(select.value, q);
       };
@@ -287,14 +325,68 @@
     { k: "3", zh: "中三", py: "zhōng sān", en: "Sec 3", list: ["3C1A", "3C1B", "3C2A", "3C2B", "3C3A", "3C3B", "3C3C", "3HC3"] },
     { k: "4", zh: "中四", py: "zhōng sì",  en: "Sec 4", list: ["4C1", "4C2A", "4C2B", "4C3A", "4C3B", "4C3C", "4HC3"] }
   ];
+  /* ---------- 名单不再只有百德一所（owner 2026-09-02）----------
+     ⚠️ **上面那份 `BV_YEAR` / `BV_LEVELS` 从写死的名单降级成了「百德的兜底」。**
+     真正的名单现在住在 Firestore 的 `rosters/{学校}`，由各校 HOD 自己在
+     teacher.html 里维护——所以每年八月不必再改这个文件、推一次版本（§18al 那条
+     「EDIT ONCE A YEAR」因此不再是唯一的路，但**这份兜底必须留着**：受管校园网下
+     云端读取可能一个字都不回，那时百德的学生仍然要看得到今年的班级）。
+     ⚠️ `ROSTERS[school]` 三种状态各有意义：**没有这个键** = 还没问过 ·
+     `null` = 问过了，这所学校没有发布名单 · 物件 = 名单。把「没问过」与「没有」
+     合成一种，就会每次 render 都重新发一次请求。
+     ⚠️ 云端那一份**赢过**兜底（连百德也是）：否则 HOD 在后台改了名单，
+     百德的学生却永远看到代码里那份去年的。 */
+  var ROSTERS = {};
+  var BUILTIN_BVSS = { YEAR: BV_YEAR, LEVELS: BV_LEVELS };
+  function rosterFor(school) {
+    var r = ROSTERS[school];
+    if (r) return r;
+    if (school === SCHOOL_BVSS) return BUILTIN_BVSS;
+    return null;
+  }
+  /* Firestore 的文件形状（teacher.html 写的）→ 这里用的形状。
+     ⚠️ 只收**真的有班级**的名单：一份四个年级全空的文件与「没有名单」是同一件事，
+     而把它当成有名单，学生会看到一个一个选项都没有的下拉。 */
+  function rosterFromDoc(d) {
+    if (!d || !d.year || !d.levels || !d.levels.length) return null;
+    var lv = [];
+    for (var i = 0; i < d.levels.length; i++) {
+      var L = d.levels[i];
+      if (L && L.k && L.list && L.list.length) {
+        lv.push({ k: String(L.k), zh: L.zh || "", py: L.py || "", en: L.en || "", list: L.list });
+      }
+    }
+    return lv.length ? { YEAR: String(d.year), LEVELS: lv } : null;
+  }
+  var _curSchool = SCHOOL_BVSS;
+  function curLevels() { var r = rosterFor(_curSchool); return r ? r.LEVELS : []; }
+  function curYear()   { var r = rosterFor(_curSchool); return r ? r.YEAR : ""; }
+
   window.BV_CLASSES = {
-    YEAR: BV_YEAR,
-    LEVELS: BV_LEVELS,
+    /* 把这个控件切到某一所学校。⚠️ 每个渲染点在画之前都要调它——两份 picker 与
+       档案面板可能在同一次会话里问不同的学校。 */
+    use: function (school) { _curSchool = school || ""; return this; },
+    /* 这所学校有没有名单（＝该不该显示下拉而不是自由文本框）。 */
+    has: function (school) { return !!rosterFor(school); },
+    /* 问一次云端。cb 只在**答案改变了画面**时才调用，所以调用方可以直接把
+       renderStep 传进来而不会陷进重画循环。 */
+    ensure: function (school, cb) {
+      if (!school || ROSTERS.hasOwnProperty(school)) return;
+      if (!window.WSCloud || !window.WSCloud.getRoster) { ROSTERS[school] = null; return; }
+      var had = this.has(school);
+      window.WSCloud.getRoster(school, function (d) {
+        ROSTERS[school] = rosterFromDoc(d);
+        if (cb && (!!ROSTERS[school]) !== had) cb();
+      });
+    },
+    get YEAR() { return curYear(); },
+    get LEVELS() { return curLevels(); },
     /* Full stored values for one level, e.g. "3" -> ["2026 3C1A", …]. */
     classesFor: function (lv) {
-      for (var i = 0; i < BV_LEVELS.length; i++) {
-        if (BV_LEVELS[i].k === String(lv)) {
-          return BV_LEVELS[i].list.map(function (c) { return BV_YEAR + " " + c; });
+      var LS = curLevels(), Y = curYear();
+      for (var i = 0; i < LS.length; i++) {
+        if (LS[i].k === String(lv)) {
+          return LS[i].list.map(function (c) { return Y + " " + c; });
         }
       }
       return [];
@@ -305,8 +397,9 @@
     isKnown: function (v) {
       var n = normClass(v);
       if (!n) return false;
-      for (var i = 0; i < BV_LEVELS.length; i++) {
-        if (this.classesFor(BV_LEVELS[i].k).indexOf(n) !== -1) return true;
+      var LS = curLevels();
+      for (var i = 0; i < LS.length; i++) {
+        if (this.classesFor(LS[i].k).indexOf(n) !== -1) return true;
       }
       return false;
     },
@@ -356,7 +449,7 @@
       var gloss = window.WSProfile && window.WSProfile.gloss
         ? window.WSProfile.gloss : function () { return ""; };
       var lv = st.classLevel;
-      var chips = BV_LEVELS.map(function (L) {
+      var chips = curLevels().map(function (L) {
         return '<button type="button" class="prof-chip' + (lv === L.k ? " on" : "") +
           '" data-lv="' + L.k + '">' + L.zh + gloss(L.zh, L.py, L.en) + '</button>';
       }).join("");
@@ -373,7 +466,7 @@
                   gloss("", "", "Choose your level first, then your class.") + '</div>')) +
         (st.classPick === "other"
           ? '<input type="text" class="' + inputCls + '" id="' + pfx + 'ClassOther" style="margin-top:8px" placeholder="例如：' +
-              esc(BV_YEAR) + ' 3HC3" value="' + esc(st.mtlClass) + '">'
+              esc(curYear() || BV_YEAR) + ' 3HC3" value="' + esc(st.mtlClass) + '">'
           : "");
     },
     /* Wire what fieldHtml drew. `redraw` is the host's own re-render — every
@@ -2137,12 +2230,19 @@
     draft.schoolPick = draft.school
       ? ((window.SG_SCHOOLS && window.SG_SCHOOLS.isKnown(draft.school)) ? draft.school : "other")
       : "";
-    /* The 班级 roster is Bukit View's only (BV_CLASSES), so the field has two
-       shapes: 年级 chips + <select> for a BVSS student, the old free-text box for
-       everyone else. draft.classLevel / draft.classPick drive the first shape;
-       draft.mtlClass stays the single value that is saved either way. */
+    /* 班级 名单现在是**每所学校自己的**（rosters/{学校}，由该校 HOD 在 teacher.html
+       维护），所以这个字段仍然有两种形状：有名单 → 年级 chips + <select>；
+       没有名单 → 原来那个自由文本框。draft.classLevel / draft.classPick 驱动第一种，
+       draft.mtlClass 始终是唯一存下去的值。
+       ⚠️ `use()` 必须在每一次判断与每一次绘制之前调用：这个控件是所有学校共用的
+       一份，不先说清楚问的是哪一所，它会拿着上一所学校的名单去回答。 */
     function rosterOn() {
-      return !!(window.BV_CLASSES && window.SG_SCHOOLS && draft.school === window.SG_SCHOOLS.BVSS);
+      if (!window.BV_CLASSES || !window.SG_SCHOOLS) return false;
+      window.BV_CLASSES.use(draft.school);
+      /* 顺手问一次云端。答案改变了画面才重画（ensure 自己判断），所以这里不会
+         陷进重画循环；受管网络下它 6 秒后回 null，字段就停在自由文本框上。 */
+      window.BV_CLASSES.ensure(draft.school, render);
+      return window.BV_CLASSES.has(draft.school);
     }
     /* Rebuild the two-step state from draft.mtlClass. Called on open and whenever
        the school changes — a student who switches away from (or onto) BVSS must
@@ -2391,7 +2491,8 @@
             fbGloss("学校", "xué xiào", "School") + '</div>' +
           (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("profSchoolQ", draft.schoolQ) : "") +
           '<select class="np-select" id="profSchool">' +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick, draft.schoolQ)
+            /* 机构 only for the 教师 identity, same rule as the nickname picker. */
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(draft.schoolPick, draft.schoolQ, { orgs: draft.category === "teacher" })
               : ('<option value="' + esc(draft.school) + '" selected>' + esc(draft.school || "百德中学 Bukit View Secondary School") + '</option>')) +
           '</select>' +
           (draft.schoolPick === "other" ? '<input type="text" class="prof-input" id="profSchoolOther" style="margin-top:8px" placeholder="请输入学校名称 School name" value="' + esc(draft.school) + '">' : "") +
@@ -2503,7 +2604,7 @@
              accepted for wasOther, and a flip only happens once the search has
              narrowed to a single school, which is the end of typing anyway. */
           if (wasOther || rosterOn() !== hadRoster) render();
-        });
+        }, { orgs: draft.category === "teacher" });
       }
       if (schoolEl) schoolEl.onchange = function () {
         draft.schoolPick = schoolEl.value;

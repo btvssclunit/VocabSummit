@@ -74,6 +74,28 @@
   window.WSCloud = {
     isAvailable: function () { return !_failed; },
 
+    /* ---------- 班级名单 rosters/{school} (owner 2026-09-02) ----------
+       各校 HOD 在 teacher.html 里维护自己的班级，学生端从这里读。
+       cb(doc|null) —— **永远会被调用一次**，这是它与其他读取函数最重要的差别：
+       调用方（profile.js 的班级下拉）在等它决定「这所学校有没有名单」，
+       而一个永远不回答的读取会把学生留在一个空的下拉前面。
+       ⚠️ 受管校园网下 `signInAnonymously()` 可能既不 resolve 也不 reject
+       （CLAUDE.md §14），whenReady 那时一个字都不会回——所以这里自己带一个 6 秒
+       的兜底，超时就当作「这所学校没有名单」，让调用方退回自由文本框。
+       ⚠️ 兜底与真正的回调之间用 `answered` 互斥：晚到的答案不许再改一次画面，
+       那时学生可能已经在文本框里打了半个班级代号。 */
+    getRoster: function (school, cb) {
+      var answered = false;
+      var done = function (v) { if (answered) return; answered = true; try { cb(v); } catch (e) {} };
+      if (_failed || !school) { done(null); return; }
+      setTimeout(function () { done(null); }, 6000);
+      whenReady(function () {
+        db.collection("rosters").doc(school).get()
+          .then(function (snap) { done(snap.exists ? (snap.data() || null) : null); })
+          .catch(function (e) { console.warn("getRoster failed:", e && e.code); done(null); });
+      });
+    },
+
     /* profile: { nickname: "坚持不懈·麒麟", school: "..." } */
     saveProfile: function (profile) {
       whenReady(function () {

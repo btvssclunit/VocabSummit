@@ -3006,10 +3006,23 @@
      Two boards, never summed (LEADERBOARD_DESIGN §7):
        掌握词数 (海拔, breadth) — ordered by alt.
        历练值 (depth) — 本学期 or 累计, ordered by pts.
-     校内 filters to 百德中学; 跨校 shows all schools. Tiers 1-10 金 / 11-20 银 /
-     21-30 铜. Top 20 plus the student's own standing with an actionable gap;
-     a full ranked cohort is never shown. Every row carries the full UID. */
-  var LB_BVSS = "百德中学 Bukit View Secondary School";
+     校内 filters to THE VIEWER'S OWN school; 跨校 shows all schools. Tiers 1-10 金 /
+     11-20 银 / 21-30 铜. Top 20 plus the student's own standing with an actionable gap;
+     a full ranked cohort is never shown. Every row carries the full UID.
+     ⚠️ 校内 USED TO BE HARD-CODED TO 百德 (`LB_BVSS`), which was correct while 百德 was
+     the only school on the system and silently wrong the moment a second one joined:
+     a 南侨 student tapping 校内 got a board of 百德 students with themselves nowhere on
+     it. It now reads the viewer's own profile — the same thing xh.js has always done
+     for the dock board. A profile with no school set filters nothing (there is no
+     cohort to narrow to), rather than showing an empty board. */
+  function lbMySchool() { var p = loadProfile() || {}; return p.school || ""; }
+  /* 校内 tab label: the Chinese half of the stored "中文 English" value, because the
+     full string does not fit a tab on a phone. Free-text (其他) schools have no
+     English half and pass through unchanged. */
+  function lbSchoolShort(v) {
+    var s = String(v || "").replace(/\s+[A-Za-z(].*$/, "").trim();
+    return s || String(v || "").trim();
+  }
   function lbMedal(rank) { return rank <= 10 ? "🥇" : rank <= 20 ? "🥈" : rank <= 30 ? "🥉" : ""; }
   function lbTier(rank) { return rank <= 10 ? "gold" : rank <= 20 ? "silver" : rank <= 30 ? "bronze" : ""; }
   /* Four boards, sorted independently and NEVER summed (LEADERBOARD_DESIGN §7):
@@ -3076,7 +3089,8 @@
     }
     html += '<div class="wl-sub">' + esc(headline) + '</div>' +
       '<div class="lb-toggle">' +
-      '<button class="lb-tab' + (scope === "school" ? " on" : "") + '" data-s="school">校内 · 百德中学</button>' +
+      '<button class="lb-tab' + (scope === "school" ? " on" : "") + '" data-s="school">校内 · ' +
+        esc(lbSchoolShort(lbMySchool()) || "我的学校") + '</button>' +
       '<button class="lb-tab' + (scope === "all" ? " on" : "") + '" data-s="all">跨校 · 不限校</button></div>' +
       '<div id="lbBody"><div class="wl-empty">加载中…</div></div>' +
       '<div class="lb-note">换设备或清除浏览器数据后，你会以新的身份重新开始。</div></div>';
@@ -3101,6 +3115,7 @@
     var getUid = window.WSCloud.getUid || function (cb) { cb(null); };
     var fieldPath = lbFieldPath(), unit = lbUnit(), myVal = lbMyValue();
     var me = loadProfile() || {}, iAmStudent = me.category === "student";
+    var mySchool = me.school || "";
     getUid(function (myUid) {
       /* fetch a wider window so the 校内 filter still yields a full top-20 */
       window.WSCloud.getScoreBoard(fieldPath, 60, function (raw) {
@@ -3109,7 +3124,7 @@
         var rows = raw.filter(function (r) {
           var d = r.data || {};
           if (!d.nickname) return false;                    // 无名登山客 excluded until named
-          if (scope === "school" && d.school !== LB_BVSS) return false;
+          if (scope === "school" && mySchool && d.school !== mySchool) return false;
           return true;
         }).map(function (r) {
           /* keep `data` on the row: openPlayerBadges reads the published battle
@@ -7738,7 +7753,9 @@
           detailHtml = '<div class="pop-label">' + schoolLabel + '</div>' +
             (window.SG_SCHOOLS ? window.SG_SCHOOLS.searchHtml("npSchoolQ", st.schoolQ) : "") +
             '<select id="npSchool" class="np-select">' +
-            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ)
+            /* 机构 (HQ / SCCL) only for the 教师 identity — see SG_SCHOOLS.ORG_LIST.
+               A 学生 or 家长 picking 教育部总部 as their school is never right. */
+            (window.SG_SCHOOLS ? window.SG_SCHOOLS.optionsHtml(sel, st.schoolQ, { orgs: role === "teacher" })
               : ('<option value="' + esc(_bvss) + '"' + (sel === _bvss ? " selected" : "") + '>' + esc(_bvss) + '</option>' +
                  '<option value="other"' + (sel === "other" ? " selected" : "") + '>其他 Others</option>')) +
             '</select>' +
@@ -7755,11 +7772,17 @@
            and a first-run screen that refuses to let a student in over an optional
            field costs more than an empty cell in a teacher's table. */
         if (role === "student") {
-          var bvssPick = sel === _bvss && window.BV_CLASSES;
+          /* 名单现在是**每所学校自己的**（rosters/{学校}，该校 HOD 在 teacher.html
+             维护），不再只有百德一所。有名单 → 两步下拉；没有 → 自由文本框。
+             ⚠️ `use()` 要在判断之前调：这个控件是所有学校共用的一份。
+             ⚠️ `ensure()` 只在**答案改变了画面**时才回调 renderStep，所以它不会
+             把注册页拖进重画循环；受管网络下它 6 秒后回 null，字段停在文本框上。 */
+          var rosterPick = !!(window.BV_CLASSES && window.BV_CLASSES.use(sel).has(sel));
+          if (window.BV_CLASSES) window.BV_CLASSES.ensure(sel, renderStep);
           detailHtml += '<div class="pop-label" style="margin-top:12px">你的班级' +
             np("你的班级", "nǐ de bān jí", "Your class") + ' · 选填' +
             np("", "", "optional") + '</div>' +
-            (bvssPick
+            (rosterPick
               ? window.BV_CLASSES.fieldHtml(st, NP_CLASS)
               : '<input type="text" id="npClass" class="code-ta" style="height:44px" placeholder="例如：2026 3HC3" value="' + esc(st.mtlClass || "") + '">');
         }
@@ -7935,22 +7958,22 @@
             st.schoolQ = q;
             if (v === st.schoolSel) return;
             var wasOther = st.schoolSel === "other";
-            var hadRoster = st.schoolSel === _bvss;
+            var hadRoster = !!(window.BV_CLASSES && window.BV_CLASSES.has(st.schoolSel));
             st.schoolSel = v;
             /* Redraw on a roster flip as well as on 「离开其他」: 班级 is a different
                control on either side of 百德, and leaving the old one on screen means
                the student edits a box that is about to be replaced. Both cost the
                search box its focus — a price already paid for wasOther, and a flip
                only happens once the search has narrowed to a single school. */
-            if (wasOther || (st.schoolSel === _bvss) !== hadRoster) renderStep();
-          });
+            if (wasOther || !!(window.BV_CLASSES && window.BV_CLASSES.has(st.schoolSel)) !== hadRoster) renderStep();
+          }, { orgs: st.role === "teacher" });
         }
         if (selEl) selEl.onchange = function () { st.schoolSel = selEl.value; renderStep(); };
         var otherEl = document.getElementById("npSchoolOther");
         if (otherEl) otherEl.oninput = function () { st.schoolOther = otherEl.value; };
         var heardEl = document.getElementById("npHeard");
         if (heardEl) heardEl.oninput = function () { st.heardFrom = heardEl.value; };
-        if (st.schoolSel === _bvss && window.BV_CLASSES) {
+        if (window.BV_CLASSES && window.BV_CLASSES.use(st.schoolSel).has(st.schoolSel)) {
           window.BV_CLASSES.wireField(card, st, NP_CLASS, renderStep);
         } else {
           var clsEl = document.getElementById("npClass");

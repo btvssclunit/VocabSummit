@@ -534,11 +534,13 @@ tbody tr.sp-row{cursor:pointer}
     </div>
 
     <div id="registerPane" style="display:none">
-      <div class="hint">百德中学华文教师注册。提交后需 HOD 审批，通过后即可登录使用。</div>
+      <div class="hint">华文教师 / HQ · SCCL 同事注册。提交后需审批，通过后即可登录使用。
+        学校教师由该校 HOD 审批；HOD 与机构同事由系统管理员审批。</div>
       <label>姓名 Name</label>
       <input type="text" id="rName" style="width:100%">
-      <label>学校 School</label>
-      <input type="text" id="rSchool" style="width:100%" value="百德中学 Bukit View Secondary School">
+      <label>学校 / 机构 School / organisation</label>
+      <div id="rSchoolQWrap"></div>
+      <select id="rSchool" style="width:100%;margin-top:6px"></select>
       <label>电邮 Email</label>
       <input type="email" id="rEmail" style="width:100%" autocomplete="username">
       <label>设置密码 Password（至少 6 位）</label>
@@ -555,7 +557,9 @@ tbody tr.sp-row{cursor:pointer}
     <div class="hint" id="statusBody" style="margin-bottom:8px"></div>
     <div id="registerHere" style="display:none">
       <label>姓名 Name</label><input type="text" id="rName2" style="width:100%">
-      <label>学校 School</label><input type="text" id="rSchool2" style="width:100%" value="百德中学 Bukit View Secondary School">
+      <label>学校 / 机构 School / organisation</label>
+      <div id="rSchool2QWrap"></div>
+      <select id="rSchool2" style="width:100%;margin-top:6px"></select>
       <div style="margin-top:12px"><button class="btn primary" id="submitReqBtn">提交注册申请</button></div>
     </div>
     <div style="margin-top:14px"><button class="btn" id="statusSignOut">退出登录</button></div>
@@ -571,6 +575,8 @@ tbody tr.sp-row{cursor:pointer}
       <button class="tab" data-tab="arena">结伴登峰</button>
       <button class="tab" data-tab="feedback">意见反馈 <span id="fbBadge" class="fb-badge" style="display:none">0</span></button>
       <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
+      <button class="tab" data-tab="staff" id="staffTab" style="display:none">教师管理</button>
+      <button class="tab" data-tab="roster" id="rosterTab" style="display:none">班级名单</button>
       <button class="tab" data-tab="mod" id="modTab" style="display:none">处理</button>
     </div>
     <div class="row" style="margin-bottom:14px">
@@ -592,7 +598,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260902"></script>
+<script src="js/podium.js?v=20260902b"></script>
 <script>
 (function () {
   "use strict";
@@ -600,7 +606,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260902";
+  var ASSET_V = "?v=20260902b";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -692,11 +698,71 @@ tbody tr.sp-row{cursor:pointer}
     "尤索夫依萨中学 Yusof Ishak Secondary School","育英中学 Yuying Secondary School","正华中学 Zhenghua Secondary School",
     "中华中学 Zhonghua Secondary School"
   ];
+  /* ---------- 机构 ORG_LIST ----------
+     ⚠️ **这是 js/profile.js 那份 ORG_LIST 的第二份**（teacher.html 独立、不加载任何
+     共享 JS，与它本来就抄了调色板与学校名单是同一种刻意重复，CLAUDE.md §17）。
+     **改一处要改两处**，漏了的症状很安静：审批人在这里选得到 HQ，学生端却把同一个
+     字符串判成「其他」，于是 org 与 profile.school 对不上，而 org 现在是一道权限边界。
+     ⚠️ 机构不是学校：orgType 写 "agency" 的人看得见全部学校、一个字节都改不动。 */
+  var ORG_LIST = [
+    "教育部总部 MOE HQ",
+    "新加坡华文教研中心 Singapore Centre for Chinese Language (SCCL)"
+  ];
+  function isOrgName(v) { return ORG_LIST.indexOf(v) !== -1; }
+
+  /* ---------- 学校 / 机构 下拉（注册页与审批页共用）----------
+     ⚠️ **申请人挑的那个只是他自己声称的，不是权限。** 真正算数的是审批人写进
+     teachers/{uid}.org 的那一个（规则只认那一份）。这里之所以仍然改成下拉，是因为
+     org 现在必须与学生的 profile.school **逐字相同**才比对得上——一个自由文本框
+     打出来的「百德中学」（少了英文那半截）会静默地一行学生都读不到。
+     ⚠️ 与 js/profile.js 的 SG_SCHOOLS 同形但是**独立的第二份实现**（§17）。 */
+  function orgSearchHtml(id, q) {
+    return '<input type="search" id="' + id + '" autocomplete="off" style="width:100%" ' +
+      'placeholder="🔍 输入校名或机构名任意部分" value="' + esc(q || "") + '">';
+  }
+  function orgMatches(q, withOrgs) {
+    var n = String(q == null ? "" : q).trim().toLowerCase();
+    var all = [SCHOOL_BVSS].concat(SCHOOL_LIST);
+    if (withOrgs) all = all.concat(ORG_LIST);
+    if (!n) return all;
+    return all.filter(function (v) { return v.toLowerCase().indexOf(n) !== -1; });
+  }
+  function orgOptionsHtml(sel, q, withOrgs) {
+    var list = orgMatches(q, withOrgs), hits = list.length;
+    var known = sel && (sel === SCHOOL_BVSS || SCHOOL_LIST.indexOf(sel) !== -1 || isOrgName(sel));
+    if (known && list.indexOf(sel) === -1) list = [sel].concat(list);
+    var opt = function (v) {
+      return '<option value="' + esc(v) + '"' + (sel === v ? ' selected' : '') + '>' + esc(v) + '</option>';
+    };
+    var out = "";
+    if (!sel) out += '<option value="" selected>请选择学校 / 机构…</option>';
+    if (String(q || "").trim() && !hits) out += '<option value="" disabled>没有找到</option>';
+    for (var i = 0; i < list.length; i++) if (!isOrgName(list[i])) out += opt(list[i]);
+    var og = list.filter(isOrgName);
+    if (og.length) {
+      out += '<optgroup label="机构 Organisations">';
+      for (var j = 0; j < og.length; j++) out += opt(og[j]);
+      out += '</optgroup>';
+    }
+    return out;
+  }
+  function wireOrgSearch(input, select, withOrgs) {
+    if (!input || !select) return;
+    input.oninput = function () {
+      var cur = select.value;
+      select.innerHTML = orgOptionsHtml(cur, input.value, withOrgs);
+      var list = orgMatches(input.value, withOrgs);
+      if (String(input.value || "").trim() && list.length === 1) select.value = list[0];
+    };
+  }
+
   function schoolKey(s) {
     return String(s == null ? "" : s).toLowerCase().replace(/[\s'’.,()（）·・]/g, "");
   }
   var CANON_BY_KEY = {};
-  [SCHOOL_BVSS].concat(SCHOOL_LIST).forEach(function (name) {
+  /* ⚠️ 机构也要进正规化表：HQ 同事若在学生端建过档案，`概览` 的学校分组要把他归到
+     「教育部总部 MOE HQ」这一行，而不是当成一个没见过的自由文本。 */
+  [SCHOOL_BVSS].concat(SCHOOL_LIST).concat(ORG_LIST).forEach(function (name) {
     CANON_BY_KEY[schoolKey(name)] = name;
     var m = name.match(/^([^A-Za-z]+)\s+(.+)$/);   // "中文 English" → also index each half
     if (m) { CANON_BY_KEY[schoolKey(m[1])] = name; CANON_BY_KEY[schoolKey(m[2])] = name; }
@@ -721,8 +787,39 @@ tbody tr.sp-row{cursor:pointer}
   };
   var el = function (id) { return document.getElementById(id); };
 
+  /* ---------- 我是谁（权限分层，见 firestore.rules 顶部那张表）----------
+     ⚠️ **这里的每一个默认值必须与规则里的默认值逐字相同**：role → "teacher"、
+     orgType → "school"、org → 旧的 school 栏。两边对不上，界面就会显示一套权限、
+     服务器执行另一套——而学到这一课的方式是老师按下按钮之后拿到 permission-denied。
+     ⚠️ **界面这一层只负责别让人白按一颗注定失败的按钮。真正的闸门在规则里。**
+     不要把任何一条安全性建立在「按钮藏起来了」上面。 */
   var _me = null;          // teacher allowlist doc
+  function meRole()    { return (_me && _me.role) || "teacher"; }
+  function meOrgType() { return (_me && _me.orgType) || "school"; }
+  function meOrg()     { return (_me && (_me.org || _me.school)) || ""; }
+  function meIsSuper() { return meRole() === "superadmin"; }
+  function meIsAgency(){ return meOrgType() === "agency"; }
+  /* 全局视野 = 开发者 或 机构（HQ / SCCL）。⚠️ 只读，绝不代表可写。 */
+  function meSeesAll() { return meIsSuper() || meIsAgency(); }
+  function meIsHod()   { return meOrgType() === "school" && meRole() === "hod"; }
+  /* 唯一的写入闸门，与规则的 canEdit() 一一对应。 */
+  function meCanEdit() { return meIsSuper() || meIsHod(); }
+  var ROLE_LABEL = { superadmin: "开发者", hod: "HOD", teacher: "教师", viewer: "查阅（只读）" };
+  /* ⚠️ **导出与「看得见」是两件事，这里刻意分开。**
+     机构（HQ / SCCL）的视野是全部学校，而一份 CSV 会被转寄、会留在共享磁碟上，
+     活得比这一页久得多——「翻得到全国的资料」与「一次带走全国的资料」不是同一个
+     授权。owner 2026-09-02 裁定机构可以看到学生层级的行，**看**这一条已经兑现了。
+     ⚠️ 真要放开，改这一个函数就够（`return true;`），不必碰任何一颗按钮。
+     ⚠️ 这是**礼节不是闸门**：机构照样读得到那些文件（规则给的就是读权限），
+     所以不要把任何安全性建立在它上面。它挡的是随手一按，不是有心人。 */
+  function canExport() { return !meIsAgency(); }
+  function exportNote() {
+    return '<span class="hint">机构账号不提供 CSV 导出（可在屏幕上查阅全部资料）。</span>';
+  }
+
+  function meRoleLabel() { return ROLE_LABEL[meRole()] || "教师"; }
   var _users = [];         // loaded student docs
+  var _staff = [];         // teachers/{uid} rows this account may read
   var _requests = [];      // pending teacher registration requests
   var _wordMap = null;     // id -> {w, zh, level, unit, stream}
   var _wordOrder = null;   // stream -> [id,…] in PUBLISHED order (进度码 bitmask positions)
@@ -764,6 +861,21 @@ tbody tr.sp-row{cursor:pointer}
     el("signinMsg").textContent = "";
   };
 
+  /* 两份注册表单的 学校/机构 下拉：开机就填好并接线。⚠️ 一次性接线，不要放进任何
+     会重跑的 render——`registerPane` 与 `statusCard` 都只是 display 切换，节点从头到尾
+     是同一个，重复接线只会攒 handler。 */
+  (function initOrgPickers() {
+    [["rSchool", "rSchoolQWrap", "rSchoolQ"], ["rSchool2", "rSchool2QWrap", "rSchool2Q"]].forEach(function (t) {
+      var sel = el(t[0]), wrap = el(t[1]);
+      if (!sel || !wrap) return;
+      wrap.innerHTML = orgSearchHtml(t[2], "");
+      /* 预选百德：今天绝大多数申请人来自这里，而下拉一开始就落在正确答案上，
+         省掉最常见的那一次搜索。别校与机构照样搜得到。 */
+      sel.innerHTML = orgOptionsHtml(SCHOOL_BVSS, "", true);
+      wireOrgSearch(el(t[2]), sel, true);
+    });
+  })();
+
   /* self-registration: create the auth account, then file a teacherRequests doc.
      No access is granted until an HOD approves (writes teachers/{uid}). */
   el("registerBtn").onclick = function () {
@@ -771,6 +883,7 @@ tbody tr.sp-row{cursor:pointer}
     var name = el("rName").value.trim(), school = el("rSchool").value.trim();
     var email = el("rEmail").value.trim(), pw = el("rPassword").value;
     if (!name || !email || pw.length < 6) { m.className = "msg bad"; m.textContent = "请填写姓名、电邮，密码至少 6 位。"; return; }
+    if (!school) { m.className = "msg bad"; m.textContent = "请选择你的学校 / 机构。"; return; }
     m.textContent = "注册中…";
     auth.createUserWithEmailAndPassword(email, pw).then(function (cred) {
       return fileRequest(cred.user.uid, name, school, email);
@@ -779,8 +892,15 @@ tbody tr.sp-row{cursor:pointer}
   };
 
   function fileRequest(uid, name, school, email) {
+    /* ⚠️ `school` 与 `org` 写的是同一个字符串，两个栏都留着：`org` 是今天的名字，
+       `school` 是 2026-09-02 之前那些申请与那份规则回退读的名字。删掉旧栏等于让
+       队列里已经躺着的申请突然没有机构。
+       ⚠️ `orgType` 在这里只是**申请人声称的**，规则不认它——审批人在
+       teachers/{uid} 上写下的那一份才算数。 */
     return db.collection("teacherRequests").doc(uid).set({
-      name: name, school: school, email: email,
+      name: name, school: school, org: school,
+      orgType: isOrgName(school) ? "agency" : "school",
+      email: email,
       status: "pending", requestedAt: new Date().toISOString()
     });
   }
@@ -839,9 +959,16 @@ tbody tr.sp-row{cursor:pointer}
     document.body.classList.remove("gate");   // dashboard = study_bg ambience, not the hero
     el("dash").style.display = "";
     el("signOutBtn").style.display = "";
-    el("whoami").textContent = (d.name || user.email) + " · " + (d.role === "hod" ? "HOD" : "教师");
-    el("modTab").style.display = (d.role === "hod") ? "" : "none";
-    el("apprTab").style.display = (d.role === "hod") ? "" : "none";
+    /* 名字后面同时印**层级**与**机构**：这一页从今天起会同时坐着四种人，而
+       「我看得到的是全部还是本校」是她们读每一个数字之前都必须先知道的事。 */
+    el("whoami").textContent = (d.name || user.email) + " · " + meRoleLabel() +
+      (meOrg() ? " · " + meOrg() : "") + (meSeesAll() ? " · 全校可见" : "");
+    /* ⚠️ 闸门用 meCanEdit()，不是 role === "hod"。HQ / SCCL 的 role 也可能被写成
+       别的值，而他们一个字节都不该改——判「能不能改」要问那个函数，不要问 role。 */
+    el("modTab").style.display = meCanEdit() ? "" : "none";
+    el("apprTab").style.display = meCanEdit() ? "" : "none";
+    el("staffTab").style.display = meCanEdit() ? "" : "none";
+    el("rosterTab").style.display = meCanEdit() ? "" : "none";
     wireSearch();
   }
   function showStatus(user, kind, req) {
@@ -869,6 +996,7 @@ tbody tr.sp-row{cursor:pointer}
     var name = el("rName2").value.trim(), school = el("rSchool2").value.trim();
     var m = el("statusMsg"); m.className = "msg";
     if (!name) { m.className = "msg bad"; m.textContent = "请填写姓名。"; return; }
+    if (!school) { m.className = "msg bad"; m.textContent = "请选择你的学校 / 机构。"; return; }
     m.textContent = "提交中…";
     fileRequest(user.uid, name, school, user.email).then(function () {
       showStatus(user, "pending", { name: name });
@@ -889,12 +1017,34 @@ tbody tr.sp-row{cursor:pointer}
   el("loadBtn").onclick = function () {
     el("loadBtn").disabled = true;
     el("loadInfo").textContent = "载入中…";
+    /* ⚠️ **那个 where 不是筛选，是通行证。** firestore.rules 逐份文件求值，
+       只要有一份回来的档案不属于本校，**整个查询**就被拒（不是悄悄少几行）。
+       所以一位校内老师少写这个 where，看到的不是全校数据，是一句 permission-denied。
+       全局视野的人（开发者 / HQ / SCCL）走不带 where 的那一支。
+       ⚠️ 学校是学生自己在下拉里选的：选了「其他」或还没填的档案**不属于任何一所
+       学校**，因此只在全局视野下出现。那不是漏掉，是它本来就不在任何名册上。 */
+    var uq = db.collection("users");
+    var rq = db.collection("teacherRequests");
+    if (!meSeesAll()) {
+      uq = uq.where("profile.school", "==", meOrg());
+      /* ⚠️ 只按 `org` 查，不按旧的 `school` 查。规则那边 `rowOrg()` 会回退读 school，
+         所以 2026-09-02 之前留下的申请（只有 school、没有 org）**读得到但查不出来**。
+         这是刻意的取舍：再补一个 where("school") 的查询，只要有一份文件的 org 与
+         school 不一致，那个查询就会整个被拒。那几份旧申请由开发者（不带 where）处理。 */
+      rq = rq.where("org", "==", meOrg());
+    }
+    var sq = db.collection("teachers");
+    if (!meSeesAll()) sq = sq.where("org", "==", meOrg());
     var tasks = [
-      db.collection("users").get().then(function (qs) {
+      sq.get().then(function (qs) {
+        _staff = [];
+        qs.forEach(function (doc) { _staff.push({ uid: doc.id, data: doc.data() || {} }); });
+      }).catch(function () { _staff = []; }),
+      uq.get().then(function (qs) {
         _users = [];
         qs.forEach(function (doc) { _users.push({ uid: doc.id, data: doc.data() || {} }); });
       }),
-      db.collection("teacherRequests").get().then(function (qs) {
+      rq.get().then(function (qs) {
         _requests = [];
         qs.forEach(function (doc) { _requests.push({ uid: doc.id, data: doc.data() || {} }); });
       }).catch(function () { _requests = []; }),
@@ -902,7 +1052,11 @@ tbody tr.sp-row{cursor:pointer}
     ];
     Promise.all(tasks).then(function () {
       el("loadBtn").disabled = false;
-      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " + _requests.length + " 个待审批（不自动刷新）。";
+      /* 说出**这一份数据的范围**，不只是行数：一位校内老师看到「450 份档案」而不知道
+         那是全校还是全国，就会把本校的数字当成全国的数字去解读。 */
+      el("loadInfo").textContent = "已载入 " + _users.length + " 份档案 · " +
+        _requests.length + " 个待审批 · 范围：" +
+        (meSeesAll() ? "全部学校" : (meOrg() || "（未设定机构）")) + "（不自动刷新）。";
       renderPanel();
     }).catch(function (e) {
       el("loadBtn").disabled = false;
@@ -1847,25 +2001,86 @@ tbody tr.sp-row{cursor:pointer}
     if (_tab === "arena") return renderArena(panel);
     if (_tab === "feedback") return renderFeedback(panel);
     if (_tab === "approvals") return renderApprovals(panel);
+    if (_tab === "staff") return renderStaff(panel);
+    if (_tab === "roster") return renderRoster(panel);
     if (_tab === "mod") return renderMod(panel);
   }
 
+  /* ================= 审批 · 教师管理 · 班级名单 (owner 2026-09-02) =========
+     ⚠️ 三块屏幕共用一条纪律：**机构（org）由审批人写定，申请人只是声称。**
+     org 现在是一道权限边界，谁都可以在注册页把自己选成百德。 */
+
+  /* 这位审批人**发得出**哪些层级。⚠️ superadmin 也发不出 superadmin：那一层只能在
+     Firebase console 里铸（规则里的白名单没有它）。理由与 2026-08-14 那条「hod 只能
+     在 console 里铸」是同一条，只是升了一层——一把能在网页上复制自己的钥匙，
+     丢一次就永远丢了。 */
+  function grantableRoles() {
+    if (meIsSuper()) return ["hod", "teacher", "viewer"];
+    if (meIsHod())   return ["teacher"];
+    return [];
+  }
+  function roleSelectHtml(id, sel) {
+    var rs = grantableRoles();
+    return '<select id="' + id + '">' + rs.map(function (r) {
+      return '<option value="' + r + '"' + (sel === r ? ' selected' : '') + '>' + esc(ROLE_LABEL[r]) + '</option>';
+    }).join("") + '</select>';
+  }
+
   function renderApprovals(panel) {
-    if (!_me || _me.role !== "hod") { panel.innerHTML = '<div class="card hint">仅 HOD 可审批。</div>'; return; }
+    if (!meCanEdit()) { panel.innerHTML = '<div class="card hint">你的账号是只读权限，不能审批。</div>'; return; }
     var pend = _requests.filter(function (r) { return (r.data.status || "pending") === "pending"; });
+    var done = _requests.filter(function (r) { return (r.data.status || "pending") !== "pending"; });
+
     var rows = pend.map(function (r) {
-      var d = r.data;
-      return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td><td>' + esc(d.school || "") + '</td>' +
+      var d = r.data, want = d.org || d.school || "";
+      /* ⚠️ 学校 HOD 的机构一栏是**写死的自己那一所**，不是下拉：规则只让他写自己
+         学校的 teacher，给他一个选得动别校的控件，只会让他按下去拿到拒绝。 */
+      var orgCell = meIsSuper()
+        ? ('<div style="min-width:260px">' + orgSearchHtml("aq_" + r.uid, "") +
+           '<select id="ao_' + r.uid + '" style="width:100%;margin-top:4px">' +
+             orgOptionsHtml(want, "", true) + '</select></div>')
+        : ('<span title="学校 HOD 只能批准本校教师">' + esc(meOrg()) + '</span>');
+      return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
+        '<td class="wrapcell"><div class="hint" style="margin-bottom:4px">申请时填：' + esc(want || "（未填）") + '</div>' + orgCell + '</td>' +
+        '<td>' + roleSelectHtml("ar_" + r.uid, meIsSuper() ? "teacher" : "teacher") + '</td>' +
         '<td>' + esc((d.requestedAt || "").slice(0, 10)) + '</td>' +
         '<td><button class="btn primary appr-ok" data-uid="' + esc(r.uid) + '">批准</button> ' +
-        '<button class="btn appr-no" data-uid="' + esc(r.uid) + '">拒绝</button></td></tr>';
+        '<button class="btn appr-no" data-uid="' + esc(r.uid) + '">驳回</button></td></tr>';
     }).join("");
+
+    /* ⚠️ **驳回是一个状态，不是一次删除。** 删掉那一行，被驳回的人重新提交一次，
+       下一个审批的人看到的就是一份干干净净的初次申请——没有理由、没有次数、没有历史。
+       所以已裁定的申请留在这里，可以读得到是谁、什么时候、为什么。 */
+    var doneRows = done.map(function (r) {
+      var d = r.data;
+      return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
+        '<td>' + esc(d.org || d.school || "") + '</td>' +
+        '<td><span class="pill">' + (d.status === "approved" ? "已批准" : "已驳回") + '</span></td>' +
+        '<td class="wrapcell">' + esc(d.reason || "") + '</td>' +
+        '<td>' + esc((d.decidedAt || "").slice(0, 10)) + '<div class="hint">' + esc(d.decidedBy || "") + '</div></td></tr>';
+    }).join("");
+
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">审批教师</h2>' +
-      '<div class="hint">批准后，该教师即可用其电邮登录并查看仪表板。仅授予「教师」权限；HOD 只能在控制台设立，无法在此授予。</div>' +
-      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校</th><th>申请日期</th><th>操作</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="5" class="hint">目前没有待审批的申请（记得先「载入 / 刷新数据」）。</td></tr>') + '</tbody></table></div>' +
-      '<div class="msg" id="apprMsg"></div></div>';
+      '<div class="hint">' +
+        (meIsSuper()
+          ? "你可以审批任何学校的 HOD、教师，以及 HQ / SCCL 的只读账号。<b>机构由你在这里写定</b>，申请人填的那一个只是参考。"
+          : "你可以审批<b>本校</b>的教师（" + esc(meOrg()) + "）。HOD 与机构账号由系统管理员审批。") +
+        '<br>⚠️ 「查阅（只读）」用于 HQ / SCCL 同事：看得见全部学校，但一个字节都改不动。</div>' +
+      '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>授予层级</th><th>申请日期</th><th>操作</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="6" class="hint">目前没有待审批的申请（记得先「载入 / 刷新数据」）。</td></tr>') + '</tbody></table></div>' +
+      '<div class="msg" id="apprMsg"></div></div>' +
+      (doneRows
+        ? '<div class="card"><h2 style="margin-top:0">已裁定</h2>' +
+          '<div class="hint">保留记录，所以同一个人再次申请时看得到上一次的结果与理由。</div>' +
+          '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>结果</th><th>理由</th><th>裁定</th></tr></thead><tbody>' +
+          doneRows + '</tbody></table></div></div>'
+        : "");
+
+    pend.forEach(function (r) {
+      if (!meIsSuper()) return;
+      wireOrgSearch(el("aq_" + r.uid), el("ao_" + r.uid), true);
+    });
     Array.prototype.forEach.call(panel.querySelectorAll(".appr-ok"), function (b) {
       b.onclick = function () { approve(b.getAttribute("data-uid")); };
     });
@@ -1874,25 +2089,270 @@ tbody tr.sp-row{cursor:pointer}
     });
   }
   function reqByUid(uid) { for (var i = 0; i < _requests.length; i++) if (_requests[i].uid === uid) return _requests[i].data; return {}; }
+  function meLabel() { return (_me && (_me.name || _me.email)) || (auth.currentUser && auth.currentUser.email) || ""; }
+
   function approve(uid) {
     var d = reqByUid(uid), m = el("apprMsg");
+    var orgEl = el("ao_" + uid), roleEl = el("ar_" + uid);
+    var org  = meIsSuper() ? (orgEl ? orgEl.value : "") : meOrg();
+    var role = roleEl ? roleEl.value : "teacher";
+    if (!org) { if (m) { m.className = "msg bad"; m.textContent = "请先选定这位老师的学校 / 机构。"; } return; }
+    /* ⚠️ orgType **由机构名单推导，不是让人挑**：两个字段各填各的，迟早会出现一位
+       orgType 写着 school 的 HQ 同事——那一份文件会安静地只看得到一所根本不存在的学校。 */
+    var orgType = isOrgName(org) ? "agency" : "school";
+    if (orgType === "agency" && role !== "viewer") {
+      if (m) { m.className = "msg bad"; m.textContent = "机构账号只能授予「查阅（只读）」。"; }
+      return;
+    }
     if (m) { m.className = "msg"; m.textContent = "处理中…"; }
     db.collection("teachers").doc(uid).set({
-      name: d.name || "", email: d.email || "", school: d.school || "", role: "teacher", active: true
+      name: d.name || "", email: d.email || "",
+      org: org, orgType: orgType, role: role,
+      /* 旧栏留着：2026-09-02 之前的规则与工具读的是它，而删掉它换不来任何东西。 */
+      school: org,
+      active: true,
+      approvedBy: meLabel(), approvedAt: new Date().toISOString()
     }).then(function () {
-      return db.collection("teacherRequests").doc(uid).delete();
+      return db.collection("teacherRequests").doc(uid).update({
+        status: "approved", org: org, orgType: orgType, role: role,
+        decidedBy: meLabel(), decidedAt: new Date().toISOString(), reason: ""
+      });
     }).then(function () {
-      _requests = _requests.filter(function (r) { return r.uid !== uid; });
+      var r = reqByUid(uid);
+      r.status = "approved"; r.org = org; r.orgType = orgType; r.role = role;
+      r.decidedBy = meLabel(); r.decidedAt = new Date().toISOString();
       renderApprovals(el("panel"));
     }).catch(function (e) { if (m) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); } });
   }
+
   function reject(uid) {
     var m = el("apprMsg");
+    var why = window.prompt("驳回理由（会保留在记录里，申请人看不到）：", "");
+    if (why === null) return;
     if (m) { m.className = "msg"; m.textContent = "处理中…"; }
-    db.collection("teacherRequests").doc(uid).delete().then(function () {
-      _requests = _requests.filter(function (r) { return r.uid !== uid; });
+    db.collection("teacherRequests").doc(uid).update({
+      status: "rejected", reason: String(why || "").slice(0, 300),
+      decidedBy: meLabel(), decidedAt: new Date().toISOString()
+    }).then(function () {
+      var r = reqByUid(uid);
+      r.status = "rejected"; r.reason = String(why || "").slice(0, 300);
+      r.decidedBy = meLabel(); r.decidedAt = new Date().toISOString();
       renderApprovals(el("panel"));
     }).catch(function (e) { if (m) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); } });
+  }
+
+  /* ---------- 教师管理（改写既有权限）----------
+     ⚠️ 规则那一侧钉死三件事，界面这里只是别让人白按：hod 只写得出 role=teacher ·
+     只写得到自己学校 · 而且**旧值也必须是本校的一位 teacher**（否则他就能把别校
+     老师连人带权限搬进自己学校，或者顺手降级掉同校的另一位 HOD）。 */
+  function renderStaff(panel) {
+    if (!meCanEdit()) { panel.innerHTML = '<div class="card hint">你的账号是只读权限。</div>'; return; }
+    var rows = _staff.slice().sort(function (a, b) {
+      return String(a.data.org || a.data.school || "").localeCompare(String(b.data.org || b.data.school || ""), "zh-Hans-CN")
+        || String(a.data.name || "").localeCompare(String(b.data.name || ""), "zh-Hans-CN");
+    });
+    var body = rows.map(function (t) {
+      var d = t.data, org = d.org || d.school || "", role = d.role || "teacher";
+      var mine = auth.currentUser && auth.currentUser.uid === t.uid;
+      /* 我能不能改这一行：开发者全部可改；HOD 只改本校的普通教师。
+         ⚠️ **自己那一行永远不给改**：把自己降级或停用，这所学校就没有审批人了，
+         而只有开发者救得回来（规则不给别人写）。 */
+      var editable = !mine && (meIsSuper() || (role === "teacher" && org === meOrg()));
+      return '<tr><td>' + esc(d.name || "") + (mine ? ' <span class="pill">你自己</span>' : '') + '</td>' +
+        '<td>' + esc(d.email || "") + '</td>' +
+        '<td class="wrapcell">' + esc(org) + '</td>' +
+        '<td><span class="pill">' + esc(ROLE_LABEL[role] || role) + '</span></td>' +
+        '<td>' + (d.active === false ? '<span class="pill">已停用</span>' : '启用中') + '</td>' +
+        '<td>' + (editable
+          ? '<button class="btn st-edit" data-uid="' + esc(t.uid) + '">修改</button> ' +
+            '<button class="btn st-tog" data-uid="' + esc(t.uid) + '">' + (d.active === false ? "恢复" : "停用") + '</button>'
+          : '<span class="hint">' + (mine ? "不能改自己" : "无权修改") + '</span>') + '</td></tr>';
+    }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">教师管理</h2>' +
+      '<div class="hint">' +
+        (meIsSuper() ? "你可以改动任何账号的层级与机构。" : "你可以改动<b>本校普通教师</b>（" + esc(meOrg()) + "）。HOD 与机构账号由系统管理员处理。") +
+        '<br>⚠️ 停用保留记录、随时可恢复；真正删除只有系统管理员在控制台做得到。</div>' +
+        '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>层级</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+        (body || '<tr><td colspan="6" class="hint">还没有载入教师名单（记得先「载入 / 刷新数据」）。</td></tr>') +
+        '</tbody></table></div><div class="msg" id="staffMsg"></div></div>';
+    Array.prototype.forEach.call(panel.querySelectorAll(".st-edit"), function (b) {
+      b.onclick = function () { openStaffEdit(b.getAttribute("data-uid")); };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll(".st-tog"), function (b) {
+      b.onclick = function () { toggleStaff(b.getAttribute("data-uid")); };
+    });
+  }
+  function staffByUid(uid) { for (var i = 0; i < _staff.length; i++) if (_staff[i].uid === uid) return _staff[i]; return null; }
+
+  function openStaffEdit(uid) {
+    var t = staffByUid(uid); if (!t) return;
+    var d = t.data, org = d.org || d.school || "";
+    var ov = document.createElement("div");
+    ov.className = "tov";
+    ov.innerHTML = '<div class="card" style="max-width:560px"><h2 style="margin-top:0">修改权限 · ' + esc(d.name || d.email || "") + '</h2>' +
+      '<label>层级</label>' + roleSelectHtml("seRole", d.role || "teacher") +
+      '<label style="display:block;margin-top:10px">学校 / 机构</label>' +
+      (meIsSuper()
+        ? orgSearchHtml("seQ", "") + '<select id="seOrg" style="width:100%;margin-top:4px">' + orgOptionsHtml(org, "", true) + '</select>'
+        : '<div class="hint">' + esc(meOrg()) + '（学校 HOD 不能把老师调到别校）</div>') +
+      '<div class="msg" id="seMsg"></div>' +
+      '<div style="margin-top:14px;display:flex;gap:10px">' +
+      '<button class="btn primary" id="seSave">保存</button><button class="btn" id="seCancel">取消</button></div></div>';
+    document.body.appendChild(ov);
+    if (meIsSuper()) wireOrgSearch(ov.querySelector("#seQ"), ov.querySelector("#seOrg"), true);
+    var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
+    ov.querySelector("#seCancel").onclick = close;
+    ov.onclick = function (e) { if (e.target === ov) close(); };
+    ov.querySelector("#seSave").onclick = function () {
+      var m = ov.querySelector("#seMsg");
+      var newOrg = meIsSuper() ? ov.querySelector("#seOrg").value : meOrg();
+      var newRole = ov.querySelector("#seRole").value;
+      var newType = isOrgName(newOrg) ? "agency" : "school";
+      if (!newOrg) { m.className = "msg bad"; m.textContent = "请选定学校 / 机构。"; return; }
+      if (newType === "agency" && newRole !== "viewer") {
+        m.className = "msg bad"; m.textContent = "机构账号只能是「查阅（只读）」。"; return;
+      }
+      m.className = "msg"; m.textContent = "保存中…";
+      db.collection("teachers").doc(uid).set({
+        name: d.name || "", email: d.email || "",
+        org: newOrg, orgType: newType, role: newRole, school: newOrg,
+        active: d.active !== false,
+        updatedBy: meLabel(), updatedAt: new Date().toISOString()
+      }).then(function () {
+        d.org = newOrg; d.school = newOrg; d.orgType = newType; d.role = newRole;
+        close(); renderStaff(el("panel"));
+      }).catch(function (e) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); });
+    };
+  }
+
+  function toggleStaff(uid) {
+    var t = staffByUid(uid); if (!t) return;
+    var d = t.data, next = !(d.active !== false), m = el("staffMsg");
+    if (!window.confirm((next ? "恢复" : "停用") + "「" + (d.name || d.email) + "」的后台权限？")) return;
+    if (m) { m.className = "msg"; m.textContent = "处理中…"; }
+    /* ⚠️ 走 set + merge 而不是 update：规则检查的是 `request.resource.data.role`，
+       而 update 送出去的那份 resource 只带被改的栏——role 不在里面就会读成缺省值，
+       hod 那一支的白名单判断因此对不上。整份写回去，检查看到的就是真实的最终状态。 */
+    db.collection("teachers").doc(uid).set({
+      name: d.name || "", email: d.email || "",
+      org: d.org || d.school || "", orgType: d.orgType || "school", role: d.role || "teacher",
+      school: d.school || d.org || "", active: next,
+      updatedBy: meLabel(), updatedAt: new Date().toISOString()
+    }).then(function () {
+      d.active = next; renderStaff(el("panel"));
+    }).catch(function (e) { if (m) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); } });
+  }
+
+  /* ---------- 班级名单 rosters/{org} ----------
+     ⚠️ 这块屏幕存在的理由是**每年八月**：以前 百德 的 30 个班写死在 js/profile.js 的
+     `BV_CLASSES` 里，一年一次要 owner 改代码、推版本（§18al）。现在各校 HOD 自己改，
+     学生注册页从 Firestore 读，谁都不必等谁。
+     ⚠️ **只有班级代号是可编辑的。** 年级的中文、拼音与英文写死在这里，因为
+     CLAUDE.md §8 明令拼音是手写的、绝不在运行时生成——让人在文本框里打拼音，
+     等于把那条纪律交给一个每年换一次的人。
+     ⚠️ 名单里**没有任何学生资料**，只有班级代号，所以规则允许任何登录用户读
+     （注册页要在学生选完学校之后立刻列出班级，而那时他只有匿名身份）。 */
+  var ROSTER_LEVELS = [
+    { k: "1", zh: "中一", py: "zhōng yī",  en: "Sec 1" },
+    { k: "2", zh: "中二", py: "zhōng èr",  en: "Sec 2" },
+    { k: "3", zh: "中三", py: "zhōng sān", en: "Sec 3" },
+    { k: "4", zh: "中四", py: "zhōng sì",  en: "Sec 4" }
+  ];
+  var _roster = null, _rosterOrg = "";
+
+  function renderRoster(panel) {
+    if (!meCanEdit()) { panel.innerHTML = '<div class="card hint">你的账号是只读权限。</div>'; return; }
+    var org = _rosterOrg || (meIsSuper() ? meOrg() : meOrg());
+    if (!org) { panel.innerHTML = '<div class="card hint">你的账号还没有设定学校，无法维护班级名单。</div>'; return; }
+    /* ⚠️ 机构（HQ / SCCL）没有班级。走到这里说明有人给了机构账号可写权限——
+       那是配置错误，说清楚比画一张空表好。 */
+    if (isOrgName(org)) { panel.innerHTML = '<div class="card hint">机构账号没有班级名单。</div>'; return; }
+
+    var picker = meIsSuper()
+      ? '<label>学校</label>' + orgSearchHtml("roQ", "") +
+        '<select id="roOrg" style="width:100%;max-width:460px;margin-top:4px">' + orgOptionsHtml(org, "", false) + '</select>' +
+        '<div class="hint" style="margin-top:4px">切换学校会读取该校的名单。</div>'
+      : '<div class="hint">学校：<b>' + esc(org) + '</b></div>';
+
+    var loaded = _roster && _roster.__org === org;
+    var year = loaded ? (_roster.year || "") : "";
+    var byK = {};
+    if (loaded) (_roster.levels || []).forEach(function (L) { byK[L.k] = (L.list || []).join("\n"); });
+
+    var boxes = ROSTER_LEVELS.map(function (L) {
+      return '<div><label>' + L.zh + ' ' + L.en + '</label>' +
+        '<textarea id="ro_' + L.k + '" rows="9" style="width:100%;font-family:ui-monospace,Menlo,monospace" ' +
+        'placeholder="一行一个班级代号，例如&#10;' + L.k + 'C1&#10;' + L.k + 'HC3">' +
+        esc(byK[L.k] || "") + '</textarea></div>';
+    }).join("");
+
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">班级名单</h2>' +
+      '<div class="hint">这份名单驱动学生注册页与「我的档案」里的班级下拉。' +
+      '每年新学年更新一次：改年份、改四个年级的班级代号、保存。<br>' +
+      '⚠️ 学生存下来的班级是「<b>年份 空格 代号</b>」（例如 <code>2026 3HC3</code>），' +
+      '所以<b>只填代号</b>，年份由上面那一栏统一加。<br>' +
+      '⚠️ 去年的班级不在今年名单里是<b>正常的</b>：老档案会落到「其他」并原样保留文字。</div>' +
+      '<div style="margin-top:12px">' + picker + '</div>' +
+      '<div style="margin-top:12px"><label>学年</label>' +
+      '<input type="text" id="roYear" style="width:140px" placeholder="2026" value="' + esc(year) + '"></div>' +
+      '<div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">' + boxes + '</div>' +
+      '<div style="margin-top:14px;display:flex;gap:10px;align-items:center">' +
+      '<button class="btn primary" id="roSave">保存名单</button>' +
+      '<button class="btn" id="roReload">重新读取</button>' +
+      (loaded && _roster.updatedBy ? '<span class="hint">上次更新：' + esc((_roster.updatedAt || "").slice(0, 10)) + ' · ' + esc(_roster.updatedBy) + '</span>' : '') +
+      '</div><div class="msg" id="roMsg"></div></div>';
+
+    if (meIsSuper()) {
+      wireOrgSearch(el("roQ"), el("roOrg"), false);
+      el("roOrg").onchange = function () { _rosterOrg = el("roOrg").value; _roster = null; loadRoster(); };
+    }
+    el("roReload").onclick = function () { _roster = null; loadRoster(); };
+    el("roSave").onclick = function () { saveRoster(org); };
+    if (!loaded) loadRoster();
+
+    function loadRoster() {
+      var target = _rosterOrg || org;
+      var m = el("roMsg"); if (m) { m.className = "msg"; m.textContent = "读取中…"; }
+      db.collection("rosters").doc(target).get().then(function (snap) {
+        _roster = snap.exists ? snap.data() : { year: "", levels: [] };
+        _roster.__org = target;
+        renderRoster(el("panel"));
+      }).catch(function (e) {
+        if (m) { m.className = "msg bad"; m.textContent = "读取失败：" + (e.code || e.message); }
+      });
+    }
+  }
+
+  function saveRoster(org) {
+    var target = _rosterOrg || org;
+    var m = el("roMsg");
+    var year = el("roYear").value.trim();
+    if (!/^\d{4}$/.test(year)) { m.className = "msg bad"; m.textContent = "学年请填四位数字，例如 2026。"; return; }
+    /* ⚠️ 归一化与 profile.js 的 `normClass` 逐字同规则：大写、去首尾、内部空白压成一个。
+       两边不一致，学生存下来的字符串就与名单对不上，而后台的班级视图正是按那个
+       字符串分组的——一个班会摊成两行，谁都不会想到是这里少了一次 toUpperCase。 */
+    var levels = ROSTER_LEVELS.map(function (L) {
+      var raw = (el("ro_" + L.k).value || "").split(/[\n,，]+/);
+      var seen = {}, list = [];
+      raw.forEach(function (v) {
+        var c = String(v).trim().toUpperCase().replace(/\s+/g, " ");
+        if (!c || seen[c]) return;          // 重复的代号会在下拉里出现两次
+        seen[c] = 1; list.push(c);
+      });
+      return { k: L.k, zh: L.zh, py: L.py, en: L.en, list: list };
+    });
+    var total = levels.reduce(function (n, L) { return n + L.list.length; }, 0);
+    if (!total) { m.className = "msg bad"; m.textContent = "四个年级都是空的，没有东西可以保存。"; return; }
+    m.className = "msg"; m.textContent = "保存中…";
+    db.collection("rosters").doc(target).set({
+      org: target, year: year, levels: levels,
+      updatedBy: meLabel(), updatedAt: new Date().toISOString()
+    }).then(function () {
+      _roster = { org: target, year: year, levels: levels, updatedBy: meLabel(), updatedAt: new Date().toISOString(), __org: target };
+      m.className = "msg"; m.textContent = "已保存 " + total + " 个班级。学生下次打开注册页或「我的档案」就会看到。";
+    }).catch(function (e) { m.className = "msg bad"; m.textContent = "保存失败：" + (e.code || e.message); });
   }
 
   function renderOverview(panel) {
@@ -1997,7 +2457,7 @@ tbody tr.sp-row{cursor:pointer}
         return String(va).localeCompare(String(vb), "zh-Hans-CN") * _sort.dir;
       });
     }
-    var canEdit = _me && _me.role === "hod";
+    var canEdit = meCanEdit();
     var head = '<tr>' + cols.map(function (c) {
       var arrow = (_sort.key === c.k) ? (_sort.dir > 0 ? " ▲" : " ▼") : "";
       return '<th class="' + (c.cls || "") + '"><div class="th-in">' +
@@ -2024,9 +2484,12 @@ tbody tr.sp-row{cursor:pointer}
       '点列名旁的 <b>▼</b> 可按该列<b>升序／降序</b>排序，或按该列筛选，多列筛选可叠加（与 Excel 相同）；直接点列名也能排序。' +
       '筛选同时套用到「词语难点」。<b>点任一行可打开该学生的档案</b>（历练值、灵露、段位、徽章、纪录、出发码头，以及可以给学生的进度码）。' +
       (canEdit ? '「编辑」可修正学生填错的资料。' : '') + '</div>' +
-      '<div class="row" style="margin-bottom:10px"><button class="btn" id="clsCsv">导出 CSV</button>' +
-      '<button class="btn" id="aidCsv">导出支援开关记录 CSV</button>' +
-      '<button class="btn" id="vsidGen">🪪 签发学习编号…</button>' +
+      '<div class="row" style="margin-bottom:10px">' +
+      (canExport() ? '<button class="btn" id="clsCsv">导出 CSV</button>' +
+        '<button class="btn" id="aidCsv">导出支援开关记录 CSV</button>' : exportNote()) +
+      /* ⚠️ 签发学习编号是**本校名册**的动作（号码要与 All Ears 名册对得上），
+         所以只给改得动本校资料的人：机构没有学生，普通教师手上也没有那份名册。 */
+      (meCanEdit() ? '<button class="btn" id="vsidGen">🪪 签发学习编号…</button>' : "") +
       '<span class="hint">导出的就是<b>现在这张表</b>：同一批筛选、同一个排序、同样的栏位。恢复码不在里面。</span></div>' +
       filterBarHtml() +
       '<div class="tbl"><table><thead>' + head + '</thead><tbody>' +
@@ -2037,8 +2500,8 @@ tbody tr.sp-row{cursor:pointer}
     wireFilterBar(panel);
     /* ⚠️ 导出的是 `rows`，也就是**已经筛选并排好序**的那一份，不是 `_users`。
        老师按下按钮时看的是这张表；给她另一份内容不同的档案，比不给更糟。 */
-    el("vsidGen").onclick = openVsidGen;
-    el("clsCsv").onclick = function () {
+    if (el("vsidGen")) el("vsidGen").onclick = openVsidGen;
+    if (el("clsCsv")) el("clsCsv").onclick = function () {
       downloadCsv("班级视图",
         /* ⚠️ 码头认得 IS NO LONGER APPENDED HERE — it is a real column now (see
            classCols), so appending it again would put it in the file twice. */
@@ -2070,7 +2533,7 @@ tbody tr.sp-row{cursor:pointer}
        with no rows is「未记录」, never「从来没有换过」— those are different facts.
        ⚠️ HCL CONTRIBUTES NOTHING AND THAT IS CORRECT: neither aid exists there (§10),
        so cs.js never logs. It is skipped rather than exported as empty rows. */
-    el("aidCsv").onclick = function () {
+    if (el("aidCsv")) el("aidCsv").onclick = function () {
       var out = [];
       rows.forEach(function (u) {
         var prog = u.data.progress || {}, p = profOf(u);
@@ -2459,7 +2922,7 @@ tbody tr.sp-row{cursor:pointer}
     var u = userByUid(uid);
     if (!u) return;
     var p = profOf(u), prog = u.data.progress || {};
-    var canEdit = _me && _me.role === "hod";
+    var canEdit = meCanEdit();
     var av = avatarSrcById(p.avatarId);
     var touched = STREAMS.filter(function (k) { return !!prog[k]; });
     var lands = touched.map(function (k) { return mountainCardHtml(k, prog[k]); }).join("") +
@@ -2661,13 +3124,13 @@ tbody tr.sp-row{cursor:pointer}
       (filterCount() ? '' : '在「班级视图」用表头 ▼ 筛选，可把这里缩到某个班级。') + '</div>' +
       /* ⚠️ 导出按钮在表**上面**，不在下面：这张 `.scroll` 不封高，60 行就是 2,300px，
          摆在表后面等于要老师滚过整张表才找得到它。班级视图 也在上面，两处一致。 */
-      '<div class="row" style="margin-bottom:10px"><button class="btn" id="hardCsv">导出 CSV</button>' +
+      '<div class="row" style="margin-bottom:10px">' + (canExport() ? '<button class="btn" id="hardCsv">导出 CSV</button>' : exportNote()) +
       '<span class="hint">屏幕上只列前 60 个，CSV 给<b>全部 ' + rankable.length + ' 个</b>词语（同一批筛选）。</span></div>' +
       filterBarHtml() +
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>词语</th><th>释义</th><th>范围</th><th>掌握人数</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="4" class="hint">暂无数据（请先载入，且需要词库映射）。</td></tr>') + '</tbody></table></div></div>';
     wireFilterBar(panel);
-    el("hardCsv").onclick = function () {
+    if (el("hardCsv")) el("hardCsv").onclick = function () {
       downloadCsv("词语难点",
         ["词语", "拼音", "释义", "科目", "年级", "单元", "板块", "词ID", "掌握人数", "学生总数"],
         rankable.map(function (r) {
@@ -2853,7 +3316,7 @@ tbody tr.sp-row{cursor:pointer}
       if (_fbType && r.type !== _fbType) return false;
       return true;
     });
-    var canBan = _me && _me.role === "hod";
+    var canBan = meCanEdit();
 
     var chips = [["todo", "未处理 " + (counts["new"] + counts.open)], ["new", "待处理 " + counts["new"]],
                  ["open", "处理中 " + counts.open], ["resolved", "已解决 " + counts.resolved],
@@ -2870,7 +3333,7 @@ tbody tr.sp-row{cursor:pointer}
         return '<button class="fchip-btn' + (_fbType === c[0] ? " on" : "") + '" data-ft="' + c[0] + '">' + c[1] + '</button>';
       }).join("") + '</div>' +
       '<div class="row" style="margin-top:8px"><button class="btn ghost" id="fbReload">重新读取</button>' +
-      '<button class="btn" id="fbCsv">导出 CSV</button>' +
+      (canExport() ? '<button class="btn" id="fbCsv">导出 CSV</button>' : exportNote()) +
       '<span class="hint">导出<b>当前筛选</b>下的 ' + shown.length + ' 条工单（含开发笔记与设备信息）。</span></div></div>';
 
     if (!shown.length) {
@@ -2909,7 +3372,7 @@ tbody tr.sp-row{cursor:pointer}
     }
     panel.innerHTML = html;
 
-    el("fbCsv").onclick = function () {
+    if (el("fbCsv")) el("fbCsv").onclick = function () {
       downloadCsv("意见反馈",
         ["时间", "状态", "类型", "内容", "出题位置", "昵称", "班级", "学校", "识别码",
          "科目", "页面", "版本", "开发笔记", "最近处理", "处理时间", "设备信息"],
@@ -3246,7 +3709,7 @@ tbody tr.sp-row{cursor:pointer}
     doc.get().then(function (snap) {
       if (snap.exists) return tryCreate(wordIds, q, attempt + 1, m, panel);
       var roomDoc = {
-        hostUid: auth.currentUser.uid, hostName: (_me && _me.name) || "老师", school: (_me && _me.school) || "",
+        hostUid: auth.currentUser.uid, hostName: (_me && _me.name) || "老师", school: meOrg(),
         stream: _setup.stream, mode: _setup.mode, tier: _setup.tier, scope: Object.keys(_setup.scope),
         wordIds: wordIds, qCount: q, limitBy: _setup.limitBy, status: "lobby",
         createdAt: firebase.firestore.FieldValue.serverTimestamp(), startedAt: null,
@@ -3314,12 +3777,12 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="row" style="margin-top:14px">' +
       (status === "lobby" ? '<button class="btn primary" id="arStart">开始</button>' : '') +
       (status !== "ended" ? '<button class="btn" id="arEnd">结束</button>' : '') +
-      '<button class="btn" id="arCsv">导出CSV</button><button class="btn" id="arFs">全屏</button>' +
+      (canExport() ? '<button class="btn" id="arCsv">导出CSV</button>' : "") + '<button class="btn" id="arFs">全屏</button>' +
       '<button class="btn" id="arClose">关闭这场</button></div><div class="msg" id="arLiveMsg"></div></div>';
     var b;
     if ((b = el("arStart"))) b.onclick = startArena;
     if ((b = el("arEnd"))) b.onclick = endArena;
-    el("arCsv").onclick = exportArenaCsv;
+    if (el("arCsv")) el("arCsv").onclick = exportArenaCsv;
     el("arFs").onclick = function () { var c = el("arenaCard"); if (c && c.requestFullscreen) c.requestFullscreen().catch(function () {}); };
     el("arClose").onclick = closeArena;
     /* 颁奖台：一结束就出现在投影上，和学生自己屏幕上的那一幕是同一个（owner）。
@@ -3362,7 +3825,7 @@ tbody tr.sp-row{cursor:pointer}
   }
 
   function renderMod(panel) {
-    if (!_me || _me.role !== "hod") { panel.innerHTML = '<div class="card hint">仅 HOD 可处理。</div>'; return; }
+    if (!meCanEdit()) { panel.innerHTML = '<div class="card hint">你的账号是只读权限，不能处理。</div>'; return; }
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">处理（仅 HOD）</h2>' +
       '<div class="hint">对确认作弊的学生写入一条 moderation 记录。学生下次在该设备联网打开时生效，' +

@@ -20,8 +20,15 @@ The landing page is a sea map. Each island is one destination:
 | 词圣鸿文苑 | `HCL_index.html` | 高级华文 |
 | 出发码头 | `XH_index.html` | 学海起步 · 零起点入门层 |
 
-`teacher.html` is a separate teacher dashboard (email sign-in, HOD approval), and
+`teacher.html` is a separate teacher dashboard (email sign-in, approval required), and
 `tools/` holds two device diagnostics. Both are `noindex`.
+
+Dashboard access is tiered, and the tiers are enforced in Firestore security rules
+rather than by hiding buttons: a school's teachers see only their own school, a school
+HOD additionally edits their own school and approves their own school's teachers,
+officers from MOE HQ or SCCL see every school read-only, and the developer account
+sees and edits everything. Each school's HOD maintains their own class roster from the
+dashboard, which is what the student registration page reads.
 
 ## Search and sharing
 
