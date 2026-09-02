@@ -11,10 +11,20 @@ service cloud.firestore {
 
        | 谁 | role | orgType | 看得见 | 改得动 |
        |---|---|---|---|---|
-       | 开发者（owner） | superadmin | school | 全部 | 全部 |
-       | 各校 HOD        | hod        | school | 本校 | 本校 |
-       | 各校教师        | teacher    | school | 本校 | 无   |
-       | HQ / SCCL 同事  | viewer     | agency | 全部 | 无   |
+       | 开发者（owner） | superadmin  | school | 全部 | 全部 |
+       | 各校 HOD        | hod         | school | 本校 | 本校 |
+       | 各校 SH（学科主任） | sh      | school | 本校 | 本校 |
+       | 各校教师        | teacher     | school | 本校 | 无   |
+       | HQ / SCCL 同事  | viewer      | agency | 全部 | 无   |
+
+       ⚠️ **`hod` 与 `sh` 权限完全相同**（owner 2026-09-03：「HOD and SH has the same
+       level of rights」）。两个值而不是一个，是因为**职衔不是权限**：学科主任在名册上
+       就是学科主任，把她记成 HOD 是在系统里写一句关于这个人的假话，而这一栏会印在
+       「教师管理」页上给同事看。
+       ⚠️ **但权限判断永远只问 `isSchoolManager()`，绝不写 `myRole() == "hod"`。**
+       两个值一旦被逐条比较，就一定会有某一条规则只写了其中一个——而那种漏写没有任何
+       症状，只是某位 SH 安静地按不动一颗按钮。整份规则里 `"hod"` 这个字面量只该出现
+       在下面那一个函数里，和 superadmin 发得出的那张白名单上。
 
        ⚠️ **role 与 orgType 刻意分开**。把「HQ 看得见全部」编成一个叫 hq 的 role，
        下一个机构（SCCL 已经在名单上）就要再加一个 role，而每加一个 role 就要回来
@@ -52,11 +62,13 @@ service cloud.firestore {
     function isAgency() { return isStaff() && myOrgType() == "agency"; }
     /* 绑在一所学校上的人（superadmin 也在内：她是百德的 HOD）。 */
     function isSchoolStaff() { return isStaff() && myOrgType() == "school"; }
-    function isHod()    { return isSchoolStaff() && myRole() == "hod"; }
+    /* 校内管理层 = HOD 或 SH，两者权限完全相同。⚠️ 这是整份规则里唯一一处把这两个
+       值列在一起的地方：新增第三种管理职衔时改这一行，别处一个字都不用动。 */
+    function isSchoolManager() { return isSchoolStaff() && myRole() in ["hod", "sh"]; }
     /* 全局视野 = 开发者 或 机构。**只给读，不给写。** */
     function seesAll()  { return isSuper() || isAgency(); }
     /* 唯一的写入闸门。⚠️ agency 永远不在这里面，无论 role 写成什么。 */
-    function canEdit()  { return isSuper() || isHod(); }
+    function canEdit()  { return isSuper() || isSchoolManager(); }
 
     /* 一份档案属于哪所学校。⚠️ 必须走 get(key, default)：没有 profile、或
        profile 里没有 school 的文件（新注册、只到过码头的学生）直接取值会让整条
@@ -131,7 +143,7 @@ service cloud.firestore {
        班级，而那时他只有匿名身份。名单里没有任何学生资料，只有班级代号。 */
     match /rosters/{org} {
       allow read:  if request.auth != null;
-      allow write: if isSuper() || (isHod() && org == myOrg());
+      allow write: if isSuper() || (isSchoolManager() && org == myOrg());
     }
 
     // ===== 恢复码 claims/{code} (owner 2026-08-19) =====================
@@ -240,7 +252,7 @@ service cloud.firestore {
        ⚠️ **superadmin 只能在 console 里铸**（`request.resource.data.role` 的白名单里
        没有它）。这与 2026-08-14 那条「hod 只能在 console 里铸」是同一条纪律，只是
        升了一层：一把能在网页上复制自己的钥匙，丢一次就永远丢了。
-       ⚠️ **hod 三面都要钉死**：新值的 role 必须是 teacher · 新值的 org 必须是自己的
+       ⚠️ **管理层（hod / sh）三面都要钉死**：新值的 role 必须是 teacher · 新值的 org 必须是自己的
        学校 · **旧值也必须是自己学校的一位 teacher**。少了最后那一条，一位 hod 就能
        覆盖别校老师的那一行，把人连同权限一起搬进自己学校；而漏掉「旧值是 teacher」
        则让他改得动同校另一位 hod（顺手降级掉自己的同僚）。 */
@@ -256,8 +268,8 @@ service cloud.firestore {
                   || (isSchoolStaff() && rowOrg() == myOrg());
 
       allow create, update:
-        if (isSuper() && request.resource.data.role in ["hod", "teacher", "viewer"])
-        || (isHod()
+        if (isSuper() && request.resource.data.role in ["hod", "sh", "teacher", "viewer"])
+        || (isSchoolManager()
             && request.resource.data.role == "teacher"
             && request.resource.data.get("orgType", "school") == "school"
             && newRowOrg() == myOrg()

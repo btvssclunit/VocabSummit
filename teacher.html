@@ -541,6 +541,9 @@ tbody tr.sp-row{cursor:pointer}
       <label>学校 / 机构 School / organisation</label>
       <div id="rSchoolQWrap"></div>
       <select id="rSchool" style="width:100%;margin-top:6px"></select>
+      <label>你的职务 Your role</label>
+      <div id="rRoleWrap"></div>
+      <div class="hint" id="rRoleNote" style="margin-top:4px">HOD 与 SH 通过后可管理本校资料；教师为查看本校。最终权限由审批人核定。</div>
       <label>电邮 Email</label>
       <input type="email" id="rEmail" style="width:100%" autocomplete="username">
       <label>设置密码 Password（至少 6 位）</label>
@@ -560,6 +563,9 @@ tbody tr.sp-row{cursor:pointer}
       <label>学校 / 机构 School / organisation</label>
       <div id="rSchool2QWrap"></div>
       <select id="rSchool2" style="width:100%;margin-top:6px"></select>
+      <label>你的职务 Your role</label>
+      <div id="rRole2Wrap"></div>
+      <div class="hint" id="rRole2Note" style="margin-top:4px">HOD 与 SH 通过后可管理本校资料；教师为查看本校。最终权限由审批人核定。</div>
       <div style="margin-top:12px"><button class="btn primary" id="submitReqBtn">提交注册申请</button></div>
     </div>
     <div style="margin-top:14px"><button class="btn" id="statusSignOut">退出登录</button></div>
@@ -598,7 +604,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260902b"></script>
+<script src="js/podium.js?v=20260903"></script>
 <script>
 (function () {
   "use strict";
@@ -606,7 +612,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260902b";
+  var ASSET_V = "?v=20260903";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -710,6 +716,21 @@ tbody tr.sp-row{cursor:pointer}
   ];
   function isOrgName(v) { return ORG_LIST.indexOf(v) !== -1; }
 
+  /* 申请人自己声明的职务。⚠️ **这是一个声明，不是一次授权**：真正算数的是审批人
+     写进 teachers/{uid}.role 的那一个（规则只认那一份）。它的作用是让审批人知道
+     该发什么——在这之前，一位学科主任提交的申请与一位新老师的申请长得一模一样，
+     审批人只能靠认识这个人来判断。
+     ⚠️ 机构（HQ / SCCL）的申请人选什么都不影响结果：机构账号只可能是「查阅（只读）」，
+     审批时会强制。所以这一栏在选到机构时会自己说明这件事，而不是消失——
+     一个会凭空消失的字段读起来像坏掉了。 */
+  var WANT_ROLE_LABEL = { teacher: "教师 Teacher", sh: "SH 学科主任 Subject Head", hod: "HOD 部门主任" };
+  function wantRoleSelectHtml(id, sel) {
+    return '<select id="' + id + '" style="width:100%">' +
+      ["teacher", "sh", "hod"].map(function (r) {
+        return '<option value="' + r + '"' + (sel === r ? ' selected' : '') + '>' + esc(WANT_ROLE_LABEL[r]) + '</option>';
+      }).join("") + '</select>';
+  }
+
   /* ---------- 学校 / 机构 下拉（注册页与审批页共用）----------
      ⚠️ **申请人挑的那个只是他自己声称的，不是权限。** 真正算数的是审批人写进
      teachers/{uid}.org 的那一个（规则只认那一份）。这里之所以仍然改成下拉，是因为
@@ -801,10 +822,15 @@ tbody tr.sp-row{cursor:pointer}
   function meIsAgency(){ return meOrgType() === "agency"; }
   /* 全局视野 = 开发者 或 机构（HQ / SCCL）。⚠️ 只读，绝不代表可写。 */
   function meSeesAll() { return meIsSuper() || meIsAgency(); }
-  function meIsHod()   { return meOrgType() === "school" && meRole() === "hod"; }
+  /* 校内管理层 = HOD 或 SH，权限完全相同（owner 2026-09-03）。
+     ⚠️ 与 firestore.rules 的 isSchoolManager() 一一对应，**两边必须同时改**。
+     ⚠️ 这是这个档案里唯一一处把两个值列在一起的地方：别处一律问这个函数，
+     绝不写 `meRole() === "hod"`——漏写一个没有任何症状，只是某位 SH 按不动按钮。 */
+  function meIsManager() { return meOrgType() === "school" && (meRole() === "hod" || meRole() === "sh"); }
   /* 唯一的写入闸门，与规则的 canEdit() 一一对应。 */
-  function meCanEdit() { return meIsSuper() || meIsHod(); }
-  var ROLE_LABEL = { superadmin: "开发者", hod: "HOD", teacher: "教师", viewer: "查阅（只读）" };
+  function meCanEdit() { return meIsSuper() || meIsManager(); }
+  var ROLE_LABEL = { superadmin: "开发者", hod: "HOD（部门主任）", sh: "SH（学科主任）",
+                     teacher: "教师", viewer: "查阅（只读）" };
   /* ⚠️ **导出与「看得见」是两件事，这里刻意分开。**
      机构（HQ / SCCL）的视野是全部学校，而一份 CSV 会被转寄、会留在共享磁碟上，
      活得比这一页久得多——「翻得到全国的资料」与「一次带走全国的资料」不是同一个
@@ -874,6 +900,22 @@ tbody tr.sp-row{cursor:pointer}
       sel.innerHTML = orgOptionsHtml(SCHOOL_BVSS, "", true);
       wireOrgSearch(el(t[2]), sel, true);
     });
+    [["rRoleWrap", "rRole", "rRoleNote", "rSchool"], ["rRole2Wrap", "rRole2", "rRole2Note", "rSchool2"]].forEach(function (t) {
+      var wrap = el(t[0]); if (!wrap) return;
+      wrap.innerHTML = wantRoleSelectHtml(t[1], "teacher");
+      var sel = el(t[3]), role = el(t[1]), note = el(t[2]);
+      /* 选到机构时说清楚这一栏不会改变结果，而不是把它藏起来。 */
+      var sync = function () {
+        if (!sel || !note) return;
+        var agency = isOrgName(sel.value);
+        if (role) role.disabled = agency;
+        note.textContent = agency
+          ? "机构（HQ / SCCL）账号一律是「查阅（只读）」：看得见全部学校，不能修改任何资料。"
+          : "HOD 与 SH 通过后可管理本校资料；教师为查看本校。最终权限由审批人核定。";
+      };
+      if (sel) sel.addEventListener("change", sync);
+      sync();
+    });
   })();
 
   /* self-registration: create the auth account, then file a teacherRequests doc.
@@ -884,14 +926,15 @@ tbody tr.sp-row{cursor:pointer}
     var email = el("rEmail").value.trim(), pw = el("rPassword").value;
     if (!name || !email || pw.length < 6) { m.className = "msg bad"; m.textContent = "请填写姓名、电邮，密码至少 6 位。"; return; }
     if (!school) { m.className = "msg bad"; m.textContent = "请选择你的学校 / 机构。"; return; }
+    var want = el("rRole") ? el("rRole").value : "teacher";
     m.textContent = "注册中…";
     auth.createUserWithEmailAndPassword(email, pw).then(function (cred) {
-      return fileRequest(cred.user.uid, name, school, email);
+      return fileRequest(cred.user.uid, name, school, email, want);
     }).catch(function (e) { m.className = "msg bad"; m.textContent = "注册失败：" + (e.code || e.message); });
     // onAuthStateChanged then shows the pending screen
   };
 
-  function fileRequest(uid, name, school, email) {
+  function fileRequest(uid, name, school, email, wantRole) {
     /* ⚠️ `school` 与 `org` 写的是同一个字符串，两个栏都留着：`org` 是今天的名字，
        `school` 是 2026-09-02 之前那些申请与那份规则回退读的名字。删掉旧栏等于让
        队列里已经躺着的申请突然没有机构。
@@ -900,6 +943,9 @@ tbody tr.sp-row{cursor:pointer}
     return db.collection("teacherRequests").doc(uid).set({
       name: name, school: school, org: school,
       orgType: isOrgName(school) ? "agency" : "school",
+      /* ⚠️ 存 `wantRole` 而不是 `role`。`role` 那一栏是**审批之后**才写的裁定，
+         让申请人先填进去，队列里就会出现一份看起来已经裁定过的申请。 */
+      wantRole: ["teacher", "sh", "hod"].indexOf(wantRole) !== -1 ? wantRole : "teacher",
       email: email,
       status: "pending", requestedAt: new Date().toISOString()
     });
@@ -998,7 +1044,7 @@ tbody tr.sp-row{cursor:pointer}
     if (!name) { m.className = "msg bad"; m.textContent = "请填写姓名。"; return; }
     if (!school) { m.className = "msg bad"; m.textContent = "请选择你的学校 / 机构。"; return; }
     m.textContent = "提交中…";
-    fileRequest(user.uid, name, school, user.email).then(function () {
+    fileRequest(user.uid, name, school, user.email, el("rRole2") ? el("rRole2").value : "teacher").then(function () {
       showStatus(user, "pending", { name: name });
     }).catch(function (e) { m.className = "msg bad"; m.textContent = "提交失败：" + (e.code || e.message); });
   };
@@ -2015,8 +2061,12 @@ tbody tr.sp-row{cursor:pointer}
      在 console 里铸」是同一条，只是升了一层——一把能在网页上复制自己的钥匙，
      丢一次就永远丢了。 */
   function grantableRoles() {
-    if (meIsSuper()) return ["hod", "teacher", "viewer"];
-    if (meIsHod())   return ["teacher"];
+    if (meIsSuper())   return ["hod", "sh", "teacher", "viewer"];
+    /* ⚠️ 管理层只发得出「教师」。SH 与 HOD 的任命走开发者，与 2026-08-14 那条
+       「hod 只能在控制台设立」同一条纪律：一个管理职衔能自己复制自己，
+       这所学校的管理层就会长大而没有人裁定过。要放开就把这里改成
+       ["teacher", "sh"]，规则那一侧的白名单也要跟着改。 */
+    if (meIsManager()) return ["teacher"];
     return [];
   }
   function roleSelectHtml(id, sel) {
@@ -2040,9 +2090,18 @@ tbody tr.sp-row{cursor:pointer}
            '<select id="ao_' + r.uid + '" style="width:100%;margin-top:4px">' +
              orgOptionsHtml(want, "", true) + '</select></div>')
         : ('<span title="学校 HOD 只能批准本校教师">' + esc(meOrg()) + '</span>');
+      /* 授予层级**预选申请人自己声明的那一个**，但只在这位审批人真的发得出它时。
+         ⚠️ 预选不是同意：审批人仍然要按下 批准，而那一下写的是屏幕上当时的值。
+         这一栏之所以要显示「申请时填」，是因为预选之后两者会长得一样——
+         看不到对方声称了什么，就没办法察觉自己改动过它。 */
+      var wantRole = d.wantRole || "teacher";
+      if (isOrgName(want)) wantRole = "viewer";                 // 机构只可能是只读
+      if (grantableRoles().indexOf(wantRole) === -1) wantRole = "teacher";
       return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
         '<td class="wrapcell"><div class="hint" style="margin-bottom:4px">申请时填：' + esc(want || "（未填）") + '</div>' + orgCell + '</td>' +
-        '<td>' + roleSelectHtml("ar_" + r.uid, meIsSuper() ? "teacher" : "teacher") + '</td>' +
+        '<td><div class="hint" style="margin-bottom:4px">自称：' +
+          esc((WANT_ROLE_LABEL[d.wantRole || "teacher"] || "教师").split(" ")[0]) + '</div>' +
+          roleSelectHtml("ar_" + r.uid, wantRole) + '</td>' +
         '<td>' + esc((d.requestedAt || "").slice(0, 10)) + '</td>' +
         '<td><button class="btn primary appr-ok" data-uid="' + esc(r.uid) + '">批准</button> ' +
         '<button class="btn appr-no" data-uid="' + esc(r.uid) + '">驳回</button></td></tr>';
@@ -2055,7 +2114,8 @@ tbody tr.sp-row{cursor:pointer}
       var d = r.data;
       return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
         '<td>' + esc(d.org || d.school || "") + '</td>' +
-        '<td><span class="pill">' + (d.status === "approved" ? "已批准" : "已驳回") + '</span></td>' +
+        '<td><span class="pill">' + (d.status === "approved" ? "已批准" : "已驳回") + '</span>' +
+          (d.status === "approved" && d.role ? ' <span class="pill">' + esc(ROLE_LABEL[d.role] || d.role) + '</span>' : '') + '</td>' +
         '<td class="wrapcell">' + esc(d.reason || "") + '</td>' +
         '<td>' + esc((d.decidedAt || "").slice(0, 10)) + '<div class="hint">' + esc(d.decidedBy || "") + '</div></td></tr>';
     }).join("");
