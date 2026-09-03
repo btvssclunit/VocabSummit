@@ -536,8 +536,9 @@ tbody tr.sp-row{cursor:pointer}
     <div id="registerPane" style="display:none">
       <div class="hint">华文教师 / HQ · SCCL 同事注册。提交后需审批，通过后即可登录使用。
         学校教师由该校 HOD 审批；HOD 与机构同事由系统管理员审批。</div>
-      <label>姓名 Name</label>
-      <input type="text" id="rName" style="width:100%">
+      <label>姓名 Name（英文全大写 in CAPS）</label>
+      <input type="text" id="rName" style="width:100%;text-transform:uppercase"
+             placeholder="CHIANG YAW YII" autocapitalize="characters" spellcheck="false">
       <label>学校 / 机构 School / organisation</label>
       <div id="rSchoolQWrap"></div>
       <select id="rSchool" style="width:100%;margin-top:6px"></select>
@@ -559,7 +560,9 @@ tbody tr.sp-row{cursor:pointer}
     <h2 style="margin-top:0" id="statusTitle"></h2>
     <div class="hint" id="statusBody" style="margin-bottom:8px"></div>
     <div id="registerHere" style="display:none">
-      <label>姓名 Name</label><input type="text" id="rName2" style="width:100%">
+      <label>姓名 Name（英文全大写 in CAPS）</label>
+      <input type="text" id="rName2" style="width:100%;text-transform:uppercase"
+             placeholder="CHIANG YAW YII" autocapitalize="characters" spellcheck="false">
       <label>学校 / 机构 School / organisation</label>
       <div id="rSchool2QWrap"></div>
       <select id="rSchool2" style="width:100%;margin-top:6px"></select>
@@ -604,7 +607,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260904"></script>
+<script src="js/podium.js?v=20260904b"></script>
 <script>
 (function () {
   "use strict";
@@ -612,7 +615,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260904";
+  var ASSET_V = "?v=20260904b";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -934,6 +937,16 @@ tbody tr.sp-row{cursor:pointer}
     // onAuthStateChanged then shows the pending screen
   };
 
+  /* ⚠️ 姓名一律归一成**全大写**（owner 2026-09-04）：教师管理那一页上
+     「白巧玲 / Chiang Yaw Yii / CHUN KAI XIN」三种写法并排，读起来像三个不同的系统，
+     而这一栏正是老师之间互相认人的那一栏。
+     ⚠️ **归一化放在写入点上，不放在表单的 onclick 里**：两份注册表单（登录卡与
+     statusCard）都汇进 fileRequest，审批与教师管理各有自己的写入点——放在必经的
+     那几个点上，下一个被加进来的入口忘不掉（§18av 把闸门挪进 takeItems 同一条）。
+     ⚠️ `toUpperCase()` 对中文是 no-op，所以既有的中文姓名不会被弄坏，只是照旧留着，
+     等人在教师管理里改成英文。 */
+  function normName(v) { return String(v || "").trim().replace(/\s+/g, " ").toUpperCase(); }
+
   function fileRequest(uid, name, school, email, wantRole) {
     /* ⚠️ `school` 与 `org` 写的是同一个字符串，两个栏都留着：`org` 是今天的名字，
        `school` 是 2026-09-02 之前那些申请与那份规则回退读的名字。删掉旧栏等于让
@@ -941,7 +954,7 @@ tbody tr.sp-row{cursor:pointer}
        ⚠️ `orgType` 在这里只是**申请人声称的**，规则不认它——审批人在
        teachers/{uid} 上写下的那一份才算数。 */
     return db.collection("teacherRequests").doc(uid).set({
-      name: name, school: school, org: school,
+      name: normName(name), school: school, org: school,
       orgType: isOrgName(school) ? "agency" : "school",
       /* ⚠️ 存 `wantRole` 而不是 `role`。`role` 那一栏是**审批之后**才写的裁定，
          让申请人先填进去，队列里就会出现一份看起来已经裁定过的申请。 */
@@ -2166,7 +2179,7 @@ tbody tr.sp-row{cursor:pointer}
     }
     if (m) { m.className = "msg"; m.textContent = "处理中…"; }
     db.collection("teachers").doc(uid).set({
-      name: d.name || "", email: d.email || "",
+      name: normName(d.name), email: d.email || "",
       org: org, orgType: orgType, role: role,
       /* 旧栏留着：2026-09-02 之前的规则与工具读的是它，而删掉它换不来任何东西。 */
       school: org,
@@ -2250,8 +2263,12 @@ tbody tr.sp-row{cursor:pointer}
     var d = t.data, org = d.org || d.school || "";
     var ov = document.createElement("div");
     ov.className = "tov";
-    ov.innerHTML = '<div class="card" style="max-width:560px"><h2 style="margin-top:0">修改权限 · ' + esc(d.name || d.email || "") + '</h2>' +
-      '<label>层级</label>' + roleSelectHtml("seRole", d.role || "teacher") +
+    ov.innerHTML = '<div class="card" style="max-width:560px"><h2 style="margin-top:0">修改账号 · ' + esc(d.name || d.email || "") + '</h2>' +
+      '<label>姓名 Name</label>' +
+      '<input type="text" id="seName" style="width:100%;text-transform:uppercase" value="' + esc(d.name || "") + '">' +
+      '<div class="hint" style="margin-top:4px">英文姓名，保存时自动转成全大写（例如 CHIANG YAW YII）。' +
+      '中文姓名请改写成英文——这一栏是老师之间互相认人的那一栏。</div>' +
+      '<label style="display:block;margin-top:10px">层级</label>' + roleSelectHtml("seRole", d.role || "teacher") +
       '<label style="display:block;margin-top:10px">学校 / 机构</label>' +
       (meIsSuper()
         ? orgSearchHtml("seQ", "") + '<select id="seOrg" style="width:100%;margin-top:4px">' + orgOptionsHtml(org, "", true) + '</select>'
@@ -2268,18 +2285,23 @@ tbody tr.sp-row{cursor:pointer}
       var m = ov.querySelector("#seMsg");
       var newOrg = meIsSuper() ? ov.querySelector("#seOrg").value : meOrg();
       var newRole = ov.querySelector("#seRole").value;
+      var newName = normName(ov.querySelector("#seName").value);
       var newType = isOrgName(newOrg) ? "agency" : "school";
+      /* ⚠️ 不许存空姓名：这一页上「谁是谁」只有姓名与电邮两栏，清空一栏等于
+         把那一行变成一串 moe.edu.sg。 */
+      if (!newName) { m.className = "msg bad"; m.textContent = "请填写姓名。"; return; }
       if (!newOrg) { m.className = "msg bad"; m.textContent = "请选定学校 / 机构。"; return; }
       if (newType === "agency" && newRole !== "viewer") {
         m.className = "msg bad"; m.textContent = "机构账号只能是「查阅（只读）」。"; return;
       }
       m.className = "msg"; m.textContent = "保存中…";
       db.collection("teachers").doc(uid).set({
-        name: d.name || "", email: d.email || "",
+        name: newName, email: d.email || "",
         org: newOrg, orgType: newType, role: newRole, school: newOrg,
         active: d.active !== false,
         updatedBy: meLabel(), updatedAt: new Date().toISOString()
       }).then(function () {
+        d.name = newName;
         d.org = newOrg; d.school = newOrg; d.orgType = newType; d.role = newRole;
         close(); renderStaff(el("panel"));
       }).catch(function (e) { m.className = "msg bad"; m.textContent = "失败：" + (e.code || e.message); });
@@ -2295,7 +2317,7 @@ tbody tr.sp-row{cursor:pointer}
        而 update 送出去的那份 resource 只带被改的栏——role 不在里面就会读成缺省值，
        hod 那一支的白名单判断因此对不上。整份写回去，检查看到的就是真实的最终状态。 */
     db.collection("teachers").doc(uid).set({
-      name: d.name || "", email: d.email || "",
+      name: normName(d.name), email: d.email || "",
       org: d.org || d.school || "", orgType: d.orgType || "school", role: d.role || "teacher",
       school: d.school || d.org || "", active: next,
       updatedBy: meLabel(), updatedAt: new Date().toISOString()
