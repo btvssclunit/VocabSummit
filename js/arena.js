@@ -927,7 +927,14 @@
       attempt = attempt || 0;
       if (attempt >= 3) { renderJoin("生成房间号失败，请再试一次。"); return; }
       if (!myUid) {
-        if (ctx.getUid) ctx.getUid(function (u) { myUid = u; hostRoom(cfg, attempt); });
+        if (ctx.getUid) ctx.getUid(function (u) {
+          myUid = u;
+          /* ⚠️ getUid answers null synchronously when the cloud layer has failed
+             (firebase-init, review 2026-09-04). Re-entering hostRoom on null would
+             recurse without end; say so instead. */
+          if (!u) { renderJoin("需要联网才能开房，请检查网络后再试。"); return; }
+          hostRoom(cfg, attempt);
+        });
         return;
       }
       var c = pkCode(), doc = db().collection("rooms").doc(c);

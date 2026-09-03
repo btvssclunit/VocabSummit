@@ -604,7 +604,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260903"></script>
+<script src="js/podium.js?v=20260904"></script>
 <script>
 (function () {
   "use strict";
@@ -612,7 +612,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260903";
+  var ASSET_V = "?v=20260904";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -2754,6 +2754,15 @@ tbody tr.sp-row{cursor:pointer}
         mtlClass: document.getElementById("epClass").value.trim()
       };
       if (next.category !== "student") next.mtlClass = "";   // matches WSProfile.save()'s own rule
+      /* ⚠️ profile.teacherFix is what the student's device adopts from (profile.js, at
+         boot). A SEPARATE sub-map on purpose: the student's own save() pushes its whole
+         local profile with merge:true, which overwrites nickname/school/class at the top
+         level but never mentions teacherFix — so the correction survives even a student
+         save that lands while this dialog is open, and is adopted on the next page load.
+         The top-level fields are still written for this view, the boards and the
+         org == profile.school boundary (§18bd). (review 2026-09-04) */
+      next.teacherFix = { nickname: next.nickname, category: next.category, school: next.school,
+                          mtlClass: next.mtlClass, at: new Date().toISOString() };
       msg.className = "msg"; msg.textContent = "保存中…";
       db.collection("users").doc(uid).set({
         profile: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2817,8 +2826,17 @@ tbody tr.sp-row{cursor:pointer}
   function mountainCardHtml(stream, st) {
     if (!st) return "";
     var pts = st.pts || {}, best = st.best || {}, bc = badgeCounts(st);
-    var termIds = Object.keys(pts.terms || {}).sort();
-    var thisTerm = termIds.length ? n0(pts.terms[termIds[termIds.length - 1]]) : 0;
+    /* 本季 = a calendar quarter since 2026-09-04 (cs.js currentTermId, "2026Q3"). The
+       mirror may still carry a legacy MOE key ("2026T3") beside "2026Q3" — merge:true never
+       removes it — so fold T→Q (max, the Q copy already contains the T points) before
+       sorting, or the sort picks the stale key ('T' > 'Q'). */
+    var qb = {};
+    Object.keys(pts.terms || {}).forEach(function (k) {
+      var m = /^(\d{4})T([1-4])$/.exec(k), q = m ? m[1] + "Q" + m[2] : k;
+      qb[q] = Math.max(n0(qb[q]), n0(pts.terms[k]));
+    });
+    var termIds = Object.keys(qb).sort();
+    var thisTerm = termIds.length ? qb[termIds[termIds.length - 1]] : 0;
     var recs = [["词雨灵露", best.rain], ["词语汉兜", best.handle],
                 ["组字成词", best.assemble], ["攀山快答", best.sprint]]
       .filter(function (r) { return n0(r[1]) > 0; })
@@ -2829,7 +2847,7 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="sp-stats">' +
         statHtml("海拔", Object.keys(st.mastered || {}).length, "掌握词数") +
         statHtml("历练值", n0(pts.total), "累计") +
-        statHtml("本学期历练值", thisTerm) +
+        statHtml("本季历练值", thisTerm) +
         statHtml("灵露", n0(st.lingLu)) +
         statHtml("最高连对", n0(st.bestStreak)) +
         statHtml("成就徽章", bc.ach, "A层") +

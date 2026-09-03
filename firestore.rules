@@ -118,9 +118,22 @@ service cloud.firestore {
        文件里只有昵称（化名）、学校与三个数字，没有任何 PII。
        ⚠️ 校内 那一档在**客户端**按学生自己的 profile.school 过滤——它是一个显示
        选项，不是一道权限闸门，不要把它读成后者。 */
+    /* ⚠️ sanity ceilings only (review 2026-09-04): the biggest stream has 1,432 words,
+       so alt > 2000 is a devtools edit, not a student. Not anti-cheat; bounds.
+       ⚠️ pts.{quarter} keys are dynamic (2026Q4 …) and rules cannot iterate a map, so the
+       本季 board stays unbounded; week and total are the two fixed keys. */
+    function scoreSane(s) {
+      return s.get("alt", 0) <= 2000 && s.get("totalPts", 0) <= 500000
+          && s.get("bestStreak", 0) <= 1000
+          && s.get("pts", {}).get("week", 0) <= 100000;
+    }
     match /scores/{uid} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+                   && scoreSane(request.resource.data.get("g1", {}))
+                   && scoreSane(request.resource.data.get("g2", {}))
+                   && scoreSane(request.resource.data.get("g3", {}))
+                   && scoreSane(request.resource.data.get("hcl", {}));
     }
 
     // 启航码头 (dock) boards. A SEPARATE collection from scores/{uid} on purpose:
@@ -130,7 +143,9 @@ service cloud.firestore {
     // your own row.
     match /dockScores/{uid} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+                   && request.resource.data.get("sailed", 0) <= 1000
+                   && request.resource.data.get("pts", 0) <= 200000;
     }
 
     /* ================= 班级名单 rosters/{org} (owner 2026-09-02) ===========

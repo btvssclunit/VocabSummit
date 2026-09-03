@@ -687,13 +687,18 @@
     s.lastActive = s.lastActive || ""; // last active local date "YYYY-MM-DD"
     s.lbScope = s.lbScope || "school"; // 排行榜 scope: school (校内) | all (跨校)
     s.lbBoard = s.lbBoard || "alt";    // 排行榜 board: alt (掌握词数) | pts (历练值)
-    s.lbTerm = s.lbTerm || "term";     // 历练值 sub-board: term (本学期) | total (累计)
+    s.lbTerm = s.lbTerm || "term";     // 历练值 sub-board: term (本季, a calendar quarter) | total (累计)
     /* 历练值 (effort/depth points) — leaderboard depth metric. Three separate
        numbers, never summed (see LEADERBOARD_DESIGN): 海拔 breadth, 历练值 depth,
        灵露 currency. localStorage is the source of truth; Firestore mirrors it. */
     s.pts = s.pts || {};
     s.pts.total = s.pts.total || 0;                         // cumulative, all years
     s.pts.terms = s.pts.terms || {};                        // termId -> banked pts
+    /* fold legacy MOE-term keys into calendar quarters (owner 2026-09-04, see normTermId) */
+    Object.keys(s.pts.terms).forEach(function (k) {
+      var q = normTermId(k);
+      if (q !== k) { s.pts.terms[q] = (s.pts.terms[q] || 0) + (s.pts.terms[k] || 0); delete s.pts.terms[k]; }
+    });
     s.pts.masteryAwarded = s.pts.masteryAwarded || {};      // wordId -> 1, guards +10
     s.pts.repeats = s.pts.repeats || { day: "", counts: {} }; // wordId -> repeats today
     /* 本周历练值: a single lazy-reset bucket, NOT an accumulating map like terms —
@@ -732,8 +737,10 @@
     if (!window.WSCloud || !window.WSCloud.saveScore) return;
     var p = loadProfile();
     if (!p || p.category !== "student") return;
-    /* the published pts map = the per-term banks PLUS a "week" key. Term ids look
-       like "2026T3", so "week" can never collide with one. */
+    /* the published pts map = the per-quarter banks PLUS a "week" key. Quarter ids look
+       like "2026Q3", so "week" can never collide with one. (A cloud doc written before
+       2026-09-04 may still carry a "2026T3" key beside it; merge:true never removes it,
+       and nothing reads it any more — teacher.html folds it when it reads.) */
     var ptsMap = {};
     Object.keys(store.pts.terms || {}).forEach(function (k) { ptsMap[k] = store.pts.terms[k]; });
     ptsMap.week = weekPts();
@@ -837,8 +844,9 @@
        value on conflict, union the per-term banks and the mastery-bonus guard. */
     if (cloud.pts) {
       if ((cloud.pts.total || 0) > (store.pts.total || 0)) { store.pts.total = cloud.pts.total; changed = true; }
-      Object.keys(cloud.pts.terms || {}).forEach(function (tid) {
-        var v = Math.max(store.pts.terms[tid] || 0, cloud.pts.terms[tid] || 0);
+      Object.keys(cloud.pts.terms || {}).forEach(function (raw) {
+        var tid = normTermId(raw);      // a device on the old build may still push "2026T3"
+        var v = Math.max(store.pts.terms[tid] || 0, cloud.pts.terms[raw] || 0);
         if (v !== (store.pts.terms[tid] || 0)) { store.pts.terms[tid] = v; changed = true; }
       });
       Object.keys(cloud.pts.masteryAwarded || {}).forEach(function (id) {
@@ -905,25 +913,26 @@
      at 3 scoring repeats per word per Singapore day.
      ================================================================ */
 
-  /* Edit once a year. Dates inclusive, Asia/Singapore. Add next year's four
-     terms before Term 1; the app falls back to the most recent term when today
-     is outside every range (holidays keep banking into the term that ended). */
-  var TERMS = [
-    { id: "2026T3", from: "2026-06-29", to: "2026-09-04" },
-    { id: "2026T4", from: "2026-09-14", to: "2026-11-13" }
-  ];
+  /* ⚠️ The「term」bank is a CALENDAR QUARTER, not an MOE term (owner 2026-09-04:
+     「independent of MOE term time, just make it quarterly refresh … recurring
+     indefinitely without maintenance for new years」). Until then this was a hand-edited
+     TERMS table that ended at 2026T4, after which「本学期」would have silently become a
+     cumulative board. Quarter ids look like "2026Q3"; Q1 = Jan–Mar … Q4 = Oct–Dec,
+     Asia/Singapore. Nothing here ever needs a new year added.
+     ⚠️ Legacy MOE keys ("2026T3") are folded into the quarter of the same number by
+     normTermId(): every MOE term n lies inside calendar quarter n, so the fold loses
+     nothing. Applied on load and when merging another device's cloud copy. */
+  function normTermId(tid) {
+    var m = /^(\d{4})T([1-4])$/.exec(String(tid || ""));
+    return m ? m[1] + "Q" + m[2] : tid;
+  }
   function todaySG() {
     try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" }); }
     catch (e) { return todayStr(); }   // en-CA => YYYY-MM-DD
   }
   function currentTermId() {
-    var d = todaySG(), latest = TERMS[0], i, t;
-    for (i = 0; i < TERMS.length; i++) {
-      t = TERMS[i];
-      if (d >= t.from && d <= t.to) return t.id;        // inside a term
-      if (t.to <= d && t.to >= latest.to) latest = t;   // most recent past term
-    }
-    return latest.id;                                   // never null
+    var p = todaySG().split("-");                       // YYYY-MM-DD, Asia/Singapore
+    return p[0] + "Q" + (Math.floor((+p[1] - 1) / 3) + 1);   // never null
   }
   /* Week id = the DATE OF THAT WEEK'S SUNDAY in Asia/Singapore, e.g. "2026-08-16".
      The boundary is Sunday–Saturday (owner 2026-08-13). Deliberately NOT an ISO
@@ -3005,7 +3014,7 @@
   /* ---------- 词山风云榜 (leaderboard) — per stream, students only ----------
      Two boards, never summed (LEADERBOARD_DESIGN §7):
        掌握词数 (海拔, breadth) — ordered by alt.
-       历练值 (depth) — 本学期 or 累计, ordered by pts.
+       历练值 (depth) — 本季 (calendar quarter) or 累计, ordered by pts.
      校内 filters to THE VIEWER'S OWN school; 跨校 shows all schools. Tiers 1-10 金 /
      11-20 银 / 21-30 铜. Top 20 plus the student's own standing with an actionable gap;
      a full ranked cohort is never shown. Every row carries the full UID.
@@ -3073,7 +3082,7 @@
       : board === "rainRamp" ? "词雨灵露 · 每局都从最慢开始、随时间加速，所有人跑的是同一套节奏。"
       : board === "pts" ? (store.lbTerm === "week" ? "本周历练值 · 每周日重新开始。"
           : store.lbTerm === "total" ? "累计历练值 · 永不清零。"
-          : "本学期历练值 · 每学期重新开始，累计历练值永不清零。")
+          : "本季历练值 · 每季（1 月、4 月、7 月、10 月）重新开始，累计历练值永不清零。")
       : "掌握词数就是你的海拔，1 词 = 1 米，只增不减。";
     var html = '<div class="lb-wrap"><div class="wl-title">🏆 词山风云榜 · ' + esc(META.zh) + '</div>' +
       '<div class="lb-tabs2">' +
@@ -3084,7 +3093,7 @@
     if (board === "pts") {
       html += '<div class="lb-subtoggle">' +
         '<button class="lb-sub' + (store.lbTerm === "week" ? " on" : "") + '" data-t="week">本周</button>' +
-        '<button class="lb-sub' + (store.lbTerm !== "total" && store.lbTerm !== "week" ? " on" : "") + '" data-t="term">本学期</button>' +
+        '<button class="lb-sub' + (store.lbTerm !== "total" && store.lbTerm !== "week" ? " on" : "") + '" data-t="term">本季</button>' +
         '<button class="lb-sub' + (store.lbTerm === "total" ? " on" : "") + '" data-t="total">累计</button></div>';
     }
     html += '<div class="wl-sub">' + esc(headline) + '</div>' +
@@ -3937,7 +3946,7 @@
      ⚠️ 以下四个数字为上线默认值，按设计文档需累积一学期真实数据后再校准。 */
   var EN_FADE_SESSIONS = 5;      // 连续 ON 满 5 个有效 session 后邀请一次
   var EN_PROMPT_COOLDOWN = 10;   // 拒绝后至少再等 10 个 session
-  var EN_PROMPT_TERM_CAP = 2;    // 每学期最多提示 2 次
+  var EN_PROMPT_TERM_CAP = 2;    // 每季（日历季度，见 currentTermId）最多提示 2 次
   var EN_REGRESSION_RUN = 5;     // 连续关闭 5+ session 后重开 = 回退
   /* ---------- 支援开关的变化日志 ----------
      Appends ONLY when the state actually changes, so the array is a history of
@@ -8354,7 +8363,7 @@
               if (window.WSCloud && window.WSCloud.logRestore) {
                 window.WSCloud.logRestore({
                   stream: (plan.sections || []).map(function (x) { return x.sec; }).join("+"),
-                  n: d.addTotal, codeNick: plan.codeNick || "", matched: true, via: "newDevice" });
+                  added: d.addTotal, codeNick: plan.codeNick || "", matched: true, via: "newDevice" });
               }
               /* ⚠️ commitAll routes THIS stream through commitProgress (the registered
                  provider) and writes the other lands straight to localStorage. That split

@@ -1,7 +1,17 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-09-03（**`20260903`：注册时自报职务 · SH 与 HOD 同级**。
+Last updated: 2026-09-04（**`20260904`：审查修补八处**。
+Project Chat 对 `main` 做了一次代码审查（HANDOFF_代码审查修补_20260904），八处定点修补：
+VS4 经济恢复在**所在学段页**会被引擎下一次 saveStore 抹掉（applyEco 直写 ws2_{live}，
+现在走 restoreSnapshot）· 匿名登录超过 10 秒才回来时整节课静默离线（`_failed` 没清）·
+老师后台改过的档案学生端会推回旧值（`profile.teacherFix` 子表 + 开机认领）·
+反馈表单把一切 permission-denied 当成「名额用完」（现在读回自己的工单分辨「占了」还是「拒了」）·
+新设备恢复日志 added 恒为 0 · getUid 在离线时永不回调（arena 开房那一段要跟着改，否则会无限递归）·
+scores/dockScores 加上限（**规则要发布**）· **「本学期」改成日历季度「本季」**（owner 改口：不再跟 MOE
+学期走，`TERMS` 表删掉，永远不用维护）。
+审查确认：识别码前缀三处已一致为 8。见 §18bf。
+前一批 **`20260903`：注册时自报职务 · SH 与 HOD 同级**。
 owner：「can we let them indicate their role? … we can give HOD/SH management rights
 (means HOD and SH has the same level of rights)」。注册页多一栏 **你的职务**
 （教师 / SH / HOD），存成 `wantRole`——**它是一个声明不是一次授权**，真正算数的
@@ -253,7 +263,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260903`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -283,7 +293,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 1. **`?v=` 推进八处**（七个页面 ＋ `teacher.html` 的 `ASSET_V`）。
    一条 `sed` 全改，因为 `teacher.html` 那两处用的是同一个串：
    ```
-   sed -i '' 's/?v=20260903/?v=新值/g' *.html
+   sed -i '' 's/?v=20260904/?v=新值/g' *.html
    ```
    改完核一遍，应当只剩两行——新值，加 `guide.html` 那个空的 `?v=`
    （guide 不在名单上，见 §18o）：
@@ -625,7 +635,9 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 
 - **历练值**：`round(base × attemptDecay × streakMultiplier)`（最少 1）+ 首次掌握 +10。
   attemptDecay 1.0/0.40/0.15；streak ×1 → ×2.0。已掌握词的重复：`max(1, round(base×0.25))`，
-  每词每天最多 3 次计分。⚠️ `TERMS` 数组每年更新一次（MOE 学期日期变动时）。
+  每词每天最多 3 次计分。✅ **「本季」是日历季度，不是 MOE 学期**（owner 2026-09-04）：
+  `currentTermId()` 算出 `2026Q3` 这种键，永远不用为新一年加日期；旧的 `2026T3` 键在 load()
+  与云端合并时折进同号季度（MOE 第 n 学期总在第 n 季度里，一分不丢）。见 §18bf。
 - **灵露**：`LINGLU_BASE(10) × tier × pinyin(×0.65，仅打字模式) × decay(100/50/25/10%)`。
   ⚠️ `awardLingLu` 必须在 `gymNote()` **之前**调用——gymNote 会清掉待巩固，
   先调它就静默丢掉复习补偿。
@@ -760,7 +772,9 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
   claims · rooms · moderation · feedbackQuota 逐一探测通过。
   （2026-08-16 那句「若干块尚未发布」已经过时，本次核实后改写。）
   未发布的块表现为 permission-denied，**其余功能不受影响**——这条判断方式仍然有效。
-- ⚠️ **owner 的副本在 `Documents/VocabSummit/firestore/`，`repo-clone/firestore.rules` 是真相来源。**
+- ⚠️ **owner 的副本在 `Documents/github-btvssclunit/VocabSummit/firestore/`（即 `repo-clone/../firestore/`，
+  README 是 `README.txt`），`repo-clone/firestore.rules` 是真相来源。**（2026-09-04 核对：本文件原先写的
+  `Documents/VocabSummit/firestore/` 这条路径在这台机器上不存在。）
   🐛 **那份副本 2026-08-15→08-20 是过期的**（少了 claims 区块），而它的 README 写着
   「Claude Code 会同步更新这个文件夹」——**那是一句约定，不是一个机制**，加 claims 时就没做到。
   症状很隐蔽：owner 打开副本、全选、粘贴，**Publish 是灰的**——因为粘贴的内容与线上
@@ -775,7 +789,12 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
   需要教师身份才碰得到的分支上**时（`20260903` 那次 SH 改动正是如此），它什么都证明不了。
 - ⚠️ **Firestore TTL 只删 room 文档，不级联删子集合**——player 行要自己清。
 - ⚠️ 新的 `orderBy` 字段需要**复合索引**；首次查询会抛出带控制台链接的错误，从那里建。
-- ⚠️ **教师端改档案只改云端**：没有 profile 的云→端同步，学生下次保存会把旧值推回去。
+- ✅ **教师端改档案，学生端开机会认**（2026-09-04，§18bf）：`teacher.html` 的 编辑资料 同时写
+  `profile.teacherFix = {nickname, category, school, mtlClass, at}`；`profile.js` 在每次页面加载时
+  读云端那份，戳记比本机记的新就只认这四个栏位再 save() 推回去。
+  ⚠️ **读的是子表不是顶层栏位**：学生自己的 save() 用 merge:true 推整份本机档案，会盖掉顶层的
+  昵称／班级，却碰不到本机没有的 `teacherFix`——所以老师改的那份不会被夹在中间的一次学生保存冲掉。
+  （2026-08 那句「学生下次保存会把旧值推回去」到此为止。）
 - **反馈额度**：默认 20/天，靠**工单 ID 形如 `{uid}__{YYYY-MM-DD}__{n}`** 做服务端硬上限
   （规则数不了文档，但每人每天只有 N 个合法文件名）。`feedbackQuota/{uid}.max = 0` 即停用。
   ⚠️ **额度数字不在表单上显示**（owner 2026-08-16 晚）：「今天还可以提交 20 次」
@@ -4848,6 +4867,28 @@ SH 与 HOD 的任命走开发者，与 2026-08-14 那条「hod 只能在控制�
 - **注册页**：职务下拉 `教师 / SH / HOD`；选到 教育部总部 时**变灰**并改口说
   「机构账号一律是查阅（只读）」，选回学校又恢复。
 - 控制台零错误。
+
+
+## 18bf. 审查修补八处（Project Chat 代码审查，落地 2026-09-04）
+
+来源：`HANDOFF_代码审查修补_20260904.md`。八处都是定点补丁，改前逐一断言原字符串恰好出现一次。
+**落地前先跑 `check_live_rules.py`：线上规则与 repo 逐字节一致**（最后发布 2026-09-02T16:25Z），
+所以 P8 只差一次发布。
+
+| # | 改了什么 | 与 handoff 的出入 |
+|---|---|---|
+| P1 | `profile.js applyEco`：所在学段（`_provider.stream === k`，码头同理）改走 `restoreSnapshot`，其余陆地仍直写 localStorage | 照办 |
+| P2 | `firebase-init.js`：`onAuthStateChanged` 拿到 user 时顺手 `_failed = false` | 照办 |
+| P3 | `getUid` 在 `_failed` 时立刻回 `null` | ⚠️ **多改了 `arena.js hostRoom`**：它原本「uid 没到就再问一次并重进 hostRoom」，一个**同步回 null** 的 getUid 会让它无限递归直接爆栈——比原来的「正在开房…」还糟。现在拿到 null 就 `renderJoin("需要联网才能开房…")` |
+| P4 | 反馈表单：`permission-denied` 之后 **get 一次自己那张工单**——存在＝名额占了继续走，不存在＝真的被拒，回 `denied` | ⚠️ **没照 handoff 的「连续两次 denied 才算拒」**：在这套规则下**占了的名额也回 permission-denied**（create 撞到已存在的文件），所以「两次 denied」恰好就是「今天已经交过两条」——第三条会被误报成「无法提交」。读回工单是精确的：学生本来就读得到自己的票（rules feedback read 第三支） |
+| P5 | `cs.js` 新设备恢复日志 `n:` → `added:` | 照办 |
+| P6 | 老师改档案学生端认领 | ⚠️ **戳记放在 `profile.teacherFix` 子表而不是顶层 `teacherFixAt`**。handoff 的版本有一个窗口：老师改的时候学生正开着页面，学生随后任何一次 save()（买头像也算）用 merge:true 把顶层昵称／班级盖回旧值、却留下顶层的戳记——下次开机「认领」到的是自己的旧值，老师那次改动无声消失。子表本机从来没有，merge 碰不到它，窗口就没了。学生端本机只记 `teacherFixAt`（认领到哪一版） |
+| P7 | 「本学期」→ 日历季度「本季」 | ⚠️ **owner 当场改口，没照 handoff 加 2027**：「independent of MOE term time, just make it quarterly refresh … without maintenance」。`TERMS` 表删掉，`currentTermId()` 直接算 `YYYYQn`；`normTermId()` 把旧的 `2026T3` 折进 `2026Q3`（load() 一次、云端合并时一次）。学生端按钮与标题改成「本季」，`teacher.html` 的「本学期历练值」同样改名并在读的时候折旧键。⚠️ 云端 `scores` 文件里旧的 `2026T3` 键不会被 merge:true 删掉，留着无害，没有人再读它。⚠️ 部署当天、学生还没开过新版之前，云端还没有 `2026Q3` 键，本季榜上那位学生暂时是 0——开一次页面就补上 |
+| P8 | `scores`：alt ≤ 2000 · totalPts ≤ 500000 · bestStreak ≤ 1000，**外加 pts.week ≤ 100000**；`dockScores`：sailed ≤ 1000 · pts ≤ 200000 | ⚠️ **本季榜仍然没有上限**：`pts.{2026Q4}` 这种键是动态的，规则没法遍历 map。这不是反作弊，只挡 `alt: 99999` 那种。**要发布** |
+
+其他：`firebase-init.js` 多一个 `getCloudProfile(cb)`（只给 P6 用，fails soft）；
+反馈的拒绝提示改成「现在无法提交，请稍后再试；如果一直这样，请告诉老师」（cap 那句不动，§16）。
+CLAUDE.md §16 里 owner 副本的路径写错了，已改。
 
 ## 19. 归档索引
 

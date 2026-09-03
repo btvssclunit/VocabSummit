@@ -37,7 +37,10 @@
     var db = firebase.firestore();
 
     auth.onAuthStateChanged(function (user) {
-      if (user) { _uid = user.uid; fireReady(); }
+      /* ⚠️ clear _failed too: a sign-in that lands AFTER the 10s watchdog is still a
+         sign-in, and every later saveProgress/saveScore/pushClaim was being dropped
+         for the rest of the session (review 2026-09-04). */
+      if (user) { _uid = user.uid; _failed = false; fireReady(); }
     });
     auth.signInAnonymously().catch(function (err) {
       _failed = true;
@@ -124,8 +127,23 @@
       });
     },
 
+    /* users/{uid}.profile as the cloud has it; cb(profile|null). Fails soft. Used only
+       to pick up a teacher-side correction (profile.teacherFix, review 2026-09-04). */
+    getCloudProfile: function (cb) {
+      if (_failed) { cb(null); return; }
+      whenReady(function () {
+        userDoc().get().then(function (snap) {
+          var d = snap.exists ? snap.data() : null;
+          cb(d && d.profile ? d.profile : null);
+        }).catch(function () { cb(null); });
+      });
+    },
+
     /* the live Firebase anonymous UID (识别码), or null if not ready yet */
-    getUid: function (cb) { whenReady(function () { cb(_uid); }); },
+    /* ⚠️ answers null when the layer has failed instead of never answering: arena's
+       hostRoom waits on this, and a callback that never fires left the screen on
+       「正在开房…」forever (review 2026-09-04). Callers must accept null. */
+    getUid: function (cb) { if (_failed) { cb(null); return; } whenReady(function () { cb(_uid); }); },
 
     /* leaderboard: one narrow doc per student per stream, holding ONLY
        nickname + school + altitude (no PII, no per-word progress). Call only
@@ -378,8 +396,21 @@
             .catch(function (e) {
               /* create is blocked on an existing doc by the rules, so a taken
                  slot surfaces as permission-denied rather than already-exists */
-              if (e && (e.code === "already-exists" || e.code === "permission-denied")) {
-                slot++; tryNext(); return;
+              if (e && e.code === "already-exists") { slot++; tryNext(); return; }
+              if (e && e.code === "permission-denied") {
+                /* ⚠️ a taken slot ALSO surfaces as permission-denied, so a denial alone
+                   cannot tell「slot taken」from「refused」(quota 0, device clock a day off,
+                   rules not live). Ask: the student may read their own ticket, so
+                   get(id) exists → taken, keep walking; missing → a real refusal, stop.
+                   Before this, any refusal walked all 20 slots (20 round-trips) and was
+                   reported as「今天的反馈次数用完了」(review 2026-09-04). */
+                db.collection("feedback").doc(id).get()
+                  .then(function (snap) {
+                    if (snap.exists) { slot++; tryNext(); return; }
+                    cb({ ok: false, reason: "denied" });
+                  })
+                  .catch(function () { cb({ ok: false, reason: "denied" }); });
+                return;
               }
               cb({ ok: false, reason: (e && e.code) || "error" });
             });

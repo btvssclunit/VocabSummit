@@ -1775,7 +1775,15 @@
       if (o.e) cur.equip = o.e;
       if (o.d) cur.deco = o.d;
       if (o.w) cur.wins = o.w;
-      try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
+      /* ⚠️ THE LIVE STREAM GOES THROUGH ITS ENGINE (review 2026-09-04). cs.js holds
+         `store` in memory; a direct localStorage write here was erased by its next
+         saveStore(), so a VS4 restore on the stream's own page lost the whole economy
+         half a moment after saying「已恢复」. Same rule commitAll already follows. */
+      if (_provider && _provider.stream === k && _provider.restoreSnapshot) {
+        try { _provider.restoreSnapshot(cur); } catch (e) {}
+      } else {
+        try { localStorage.setItem(key, JSON.stringify(cur)); } catch (e) {}
+      }
     });
     if (eco.x) {
       var cx = lsGet("ws_xh");
@@ -1783,7 +1791,11 @@
         if (eco.x.sh) { cx.shells = eco.x.sh; shells = eco.x.sh; }
         if (eco.x.o) cx.owned = eco.x.o;
         if (eco.x.b) cx.berth = eco.x.b;
-        try { localStorage.setItem("ws_xh", JSON.stringify(cx)); } catch (e) {}
+        if (_provider && _provider.stream === "xh" && _provider.restoreSnapshot) {
+          try { _provider.restoreSnapshot(cx); } catch (e) {}
+        } else {
+          try { localStorage.setItem("ws_xh", JSON.stringify(cx)); } catch (e) {}
+        }
       }
     }
     if (eco.p) {
@@ -2168,8 +2180,8 @@
         if (res && res.reason === "cap") {
           var l2 = fbLocal(); l2.n = fbQuota(); fbSaveLocal(l2);
           draw("今天的反馈次数用完了，明天再来吧。");
-        } else if (res && res.reason === "permission-denied") {
-          draw("暂时无法提交反馈，请联系老师。");
+        } else if (res && (res.reason === "denied" || res.reason === "permission-denied")) {
+          draw("现在无法提交，请稍后再试；如果一直这样，请告诉老师。");
         } else {
           draw("送出失败，请稍后再试。");
         }
@@ -3543,6 +3555,28 @@
     if (_p0) {
       if (VSID_ON) { /* 开着也不自动铸号：编号只能来自老师那份名单 */ }
       else if (_p0.vsid && _p0.vsidSrc !== "teacher") save({ vsid: "", vsidSrc: "" });
+    }
+  } catch (e) {}
+
+  /* ---- 老师在后台改过的档案，学生端要认 (review 2026-09-04) ----
+     teacher.html writes profile.teacherFix = {nickname, category, school, mtlClass, at}
+     on every 编辑资料. If that stamp is newer than the one we last adopted, take exactly
+     those four fields and remember the stamp; save() then pushes the corrected profile
+     back up, so cloud and device agree. Reading from the sub-map, not the top-level
+     fields, is what makes this safe against a student save that landed in between:
+     merge:true never touches a key the local profile does not carry (§16).
+     ⚠️ GUARDED ON AN EXISTING PROFILE, same as the block above: never conjure a profile
+     for a visitor. ⚠️ Only these four keys — never claimCode/vsid/avatar/boats. */
+  try {
+    if (load() && window.WSCloud && WSCloud.getCloudProfile) {
+      WSCloud.getCloudProfile(function (cp) {
+        var me = load(), fx = cp && cp.teacherFix;
+        if (!fx || !me || !fx.at) return;
+        if (String(fx.at) <= String(me.teacherFixAt || "")) return;
+        save({ nickname: fx.nickname || "", category: fx.category || "", school: fx.school || "",
+               mtlClass: fx.mtlClass || "", teacherFixAt: fx.at });
+        if (_provider && _provider.onChanged) { try { _provider.onChanged(); } catch (e) {} }
+      });
     }
   } catch (e) {}
 })();
