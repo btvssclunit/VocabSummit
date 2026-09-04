@@ -535,7 +535,7 @@ tbody tr.sp-row{cursor:pointer}
 
     <div id="registerPane" style="display:none">
       <div class="hint">华文教师 / HQ · SCCL 同事注册。提交后需审批，通过后即可登录使用。
-        学校教师由该校 HOD 审批；HOD 与机构同事由系统管理员审批。</div>
+        学校教师由该校 HOD/MTL 或 SH/CL 审批；HOD/MTL、SH/CL 与机构同事由系统管理员审批。</div>
       <label>姓名 Name（英文全大写 in CAPS）</label>
       <input type="text" id="rName" style="width:100%;text-transform:uppercase"
              placeholder="CHIANG YAW YII" autocapitalize="characters" spellcheck="false">
@@ -607,7 +607,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260904b"></script>
+<script src="js/podium.js?v=20260904c"></script>
 <script>
 (function () {
   "use strict";
@@ -615,7 +615,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260904b";
+  var ASSET_V = "?v=20260904c";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -721,12 +721,23 @@ tbody tr.sp-row{cursor:pointer}
 
   /* 申请人自己声明的职务。⚠️ **这是一个声明，不是一次授权**：真正算数的是审批人
      写进 teachers/{uid}.role 的那一个（规则只认那一份）。它的作用是让审批人知道
-     该发什么——在这之前，一位学科主任提交的申请与一位新老师的申请长得一模一样，
+     该发什么——在这之前，一位科主任提交的申请与一位新老师的申请长得一模一样，
      审批人只能靠认识这个人来判断。
      ⚠️ 机构（HQ / SCCL）的申请人选什么都不影响结果：机构账号只可能是「查阅（只读）」，
      审批时会强制。所以这一栏在选到机构时会自己说明这件事，而不是消失——
      一个会凭空消失的字段读起来像坏掉了。 */
-  var WANT_ROLE_LABEL = { teacher: "教师 Teacher", sh: "SH 学科主任 Subject Head", hod: "HOD 部门主任" };
+  /* ⚠️ **职衔写准，就是这一栏唯一的闸门**（owner 2026-09-04）：
+     「HOD 部门主任」是泛指，一位数学科主任或级主任读到它会理所当然地照选；
+     而后台的管理权限是**母语部**的权限。owner 裁定这个平台上只有三种人会来申请
+     ——HOD/MTL、SH/CL、华文教师——所以标签直接写死到科目，不必再加一句排除说明。
+     ⚠️ **官方译法**：SH 是「科主任」不是「学科主任」。
+     ⚠️ 第一个空格之前那一段会被审批页当**简称**印出来（`.split(" ")[0]`），
+     所以那一段必须自己就说得清是谁。 */
+  var WANT_ROLE_LABEL = {
+    teacher: "华文教师 CL Teacher",
+    sh:      "SH/CL 华文科主任 Subject Head (CL)",
+    hod:     "HOD/MTL 母语部主任 Head of Department (MTL)"
+  };
   function wantRoleSelectHtml(id, sel) {
     return '<select id="' + id + '" style="width:100%">' +
       ["teacher", "sh", "hod"].map(function (r) {
@@ -823,7 +834,7 @@ tbody tr.sp-row{cursor:pointer}
   function meOrg()     { return (_me && (_me.org || _me.school)) || ""; }
   function meIsSuper() { return meRole() === "superadmin"; }
   function meIsAgency(){ return meOrgType() === "agency"; }
-  /* 全局视野 = 开发者 或 机构（HQ / SCCL）。⚠️ 只读，绝不代表可写。 */
+  /* 全局视野 = 系统管理员 或 机构（HQ / SCCL）。⚠️ 只读，绝不代表可写。 */
   function meSeesAll() { return meIsSuper() || meIsAgency(); }
   /* 校内管理层 = HOD 或 SH，权限完全相同（owner 2026-09-03）。
      ⚠️ 与 firestore.rules 的 isSchoolManager() 一一对应，**两边必须同时改**。
@@ -832,8 +843,19 @@ tbody tr.sp-row{cursor:pointer}
   function meIsManager() { return meOrgType() === "school" && (meRole() === "hod" || meRole() === "sh"); }
   /* 唯一的写入闸门，与规则的 canEdit() 一一对应。 */
   function meCanEdit() { return meIsSuper() || meIsManager(); }
-  var ROLE_LABEL = { superadmin: "开发者", hod: "HOD（部门主任）", sh: "SH（学科主任）",
-                     teacher: "教师", viewer: "查阅（只读）" };
+  /* ⚠️ 全部双语（owner 2026-09-04）：HQ / SCCL 同事与非华文背景的行政人员会看到这几屏，
+     而「查阅（只读）」原来一个英文字都没有。
+     ⚠️ HOD/MTL 与 SH/CL 那两个**简称本身就是英文**，所以不再另接一段——
+     接了只会把教师管理表那一栏撑宽，而它已经是十四栏里的一栏。
+     ⚠️ superadmin 统一叫「系统管理员」：这一份原来写「开发者」，而页面上另有四处
+     提示写着「系统管理员」——同一个人两个名字，读的人会以为那是两种账号。 */
+  /* ⚠️ `Admin` 而不是 `System Admin`：这一栏的宽度由最宽的那一格决定，而
+     1024×768 的学校 Chromebook 是这一页最窄的机器——量出来 `System Admin`
+     把表格从 915px 推到 928px，正好越过那个盒子。差 13px，但那 13px 换来的是
+     一条本来不需要滚的表格开始横滚。（§15：几何的东西量，不要估。） */
+  var ROLE_LABEL = { superadmin: "系统管理员 Admin",
+                     hod: "HOD/MTL 母语部主任", sh: "SH/CL 华文科主任",
+                     teacher: "华文教师 CL Teacher", viewer: "查阅（只读）View only" };
   /* ⚠️ **导出与「看得见」是两件事，这里刻意分开。**
      机构（HQ / SCCL）的视野是全部学校，而一份 CSV 会被转寄、会留在共享磁碟上，
      活得比这一页久得多——「翻得到全国的资料」与「一次带走全国的资料」不是同一个
@@ -846,7 +868,7 @@ tbody tr.sp-row{cursor:pointer}
     return '<span class="hint">机构账号不提供 CSV 导出（可在屏幕上查阅全部资料）。</span>';
   }
 
-  function meRoleLabel() { return ROLE_LABEL[meRole()] || "教师"; }
+  function meRoleLabel() { return ROLE_LABEL[meRole()] || ROLE_LABEL.teacher; }
   var _users = [];         // loaded student docs
   var _staff = [];         // teachers/{uid} rows this account may read
   var _requests = [];      // pending teacher registration requests
@@ -914,7 +936,7 @@ tbody tr.sp-row{cursor:pointer}
         if (role) role.disabled = agency;
         note.textContent = agency
           ? "机构（HQ / SCCL）账号一律是「查阅（只读）」：看得见全部学校，不能修改任何资料。"
-          : "HOD 与 SH 通过后可管理本校资料；教师为查看本校。最终权限由审批人核定。";
+          : "HOD/MTL 与 SH/CL 通过后可管理本校资料；华文教师为查看本校。最终权限由审批人核定。";
       };
       if (sel) sel.addEventListener("change", sync);
       sync();
@@ -1079,7 +1101,7 @@ tbody tr.sp-row{cursor:pointer}
     /* ⚠️ **那个 where 不是筛选，是通行证。** firestore.rules 逐份文件求值，
        只要有一份回来的档案不属于本校，**整个查询**就被拒（不是悄悄少几行）。
        所以一位校内老师少写这个 where，看到的不是全校数据，是一句 permission-denied。
-       全局视野的人（开发者 / HQ / SCCL）走不带 where 的那一支。
+       全局视野的人（系统管理员 / HQ / SCCL）走不带 where 的那一支。
        ⚠️ 学校是学生自己在下拉里选的：选了「其他」或还没填的档案**不属于任何一所
        学校**，因此只在全局视野下出现。那不是漏掉，是它本来就不在任何名册上。 */
     var uq = db.collection("users");
@@ -1089,7 +1111,7 @@ tbody tr.sp-row{cursor:pointer}
       /* ⚠️ 只按 `org` 查，不按旧的 `school` 查。规则那边 `rowOrg()` 会回退读 school，
          所以 2026-09-02 之前留下的申请（只有 school、没有 org）**读得到但查不出来**。
          这是刻意的取舍：再补一个 where("school") 的查询，只要有一份文件的 org 与
-         school 不一致，那个查询就会整个被拒。那几份旧申请由开发者（不带 where）处理。 */
+         school 不一致，那个查询就会整个被拒。那几份旧申请由系统管理员（不带 where）处理。 */
       rq = rq.where("org", "==", meOrg());
     }
     var sq = db.collection("teachers");
@@ -2075,7 +2097,7 @@ tbody tr.sp-row{cursor:pointer}
      丢一次就永远丢了。 */
   function grantableRoles() {
     if (meIsSuper())   return ["hod", "sh", "teacher", "viewer"];
-    /* ⚠️ 管理层只发得出「教师」。SH 与 HOD 的任命走开发者，与 2026-08-14 那条
+    /* ⚠️ 管理层只发得出「教师」。SH/CL 与 HOD/MTL 的任命走系统管理员，与 2026-08-14 那条
        「hod 只能在控制台设立」同一条纪律：一个管理职衔能自己复制自己，
        这所学校的管理层就会长大而没有人裁定过。要放开就把这里改成
        ["teacher", "sh"]，规则那一侧的白名单也要跟着改。 */
@@ -2113,7 +2135,7 @@ tbody tr.sp-row{cursor:pointer}
       return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
         '<td class="wrapcell"><div class="hint" style="margin-bottom:4px">申请时填：' + esc(want || "（未填）") + '</div>' + orgCell + '</td>' +
         '<td><div class="hint" style="margin-bottom:4px">自称：' +
-          esc((WANT_ROLE_LABEL[d.wantRole || "teacher"] || "教师").split(" ")[0]) + '</div>' +
+          esc((WANT_ROLE_LABEL[d.wantRole || "teacher"] || WANT_ROLE_LABEL.teacher).split(" ")[0]) + '</div>' +
           roleSelectHtml("ar_" + r.uid, wantRole) + '</td>' +
         '<td>' + esc((d.requestedAt || "").slice(0, 10)) + '</td>' +
         '<td><button class="btn primary appr-ok" data-uid="' + esc(r.uid) + '">批准</button> ' +
@@ -2137,8 +2159,8 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="card"><h2 style="margin-top:0">审批教师</h2>' +
       '<div class="hint">' +
         (meIsSuper()
-          ? "你可以审批任何学校的 HOD、教师，以及 HQ / SCCL 的只读账号。<b>机构由你在这里写定</b>，申请人填的那一个只是参考。"
-          : "你可以审批<b>本校</b>的教师（" + esc(meOrg()) + "）。HOD 与机构账号由系统管理员审批。") +
+          ? "你可以审批任何学校的 HOD/MTL、SH/CL 与华文教师，以及 HQ / SCCL 的只读账号。<b>机构由你在这里写定</b>，申请人填的那一个只是参考。"
+          : "你可以审批<b>本校</b>的华文教师（" + esc(meOrg()) + "）。HOD/MTL、SH/CL 与机构账号由系统管理员审批。") +
         '<br>⚠️ 「查阅（只读）」用于 HQ / SCCL 同事：看得见全部学校，但一个字节都改不动。</div>' +
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>授予层级</th><th>申请日期</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6" class="hint">目前没有待审批的申请（记得先「载入 / 刷新数据」）。</td></tr>') + '</tbody></table></div>' +
@@ -2227,9 +2249,9 @@ tbody tr.sp-row{cursor:pointer}
     var body = rows.map(function (t) {
       var d = t.data, org = d.org || d.school || "", role = d.role || "teacher";
       var mine = auth.currentUser && auth.currentUser.uid === t.uid;
-      /* 我能不能改这一行：开发者全部可改；HOD 只改本校的普通教师。
+      /* 我能不能改这一行：系统管理员全部可改；HOD/MTL 与 SH/CL 只改本校的华文教师。
          ⚠️ **自己那一行永远不给改**：把自己降级或停用，这所学校就没有审批人了，
-         而只有开发者救得回来（规则不给别人写）。 */
+         而只有系统管理员救得回来（规则不给别人写）。 */
       var editable = !mine && (meIsSuper() || (role === "teacher" && org === meOrg()));
       return '<tr><td>' + esc(d.name || "") + (mine ? ' <span class="pill">你自己</span>' : '') + '</td>' +
         '<td>' + esc(d.email || "") + '</td>' +
@@ -2244,7 +2266,7 @@ tbody tr.sp-row{cursor:pointer}
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">教师管理</h2>' +
       '<div class="hint">' +
-        (meIsSuper() ? "你可以改动任何账号的层级与机构。" : "你可以改动<b>本校普通教师</b>（" + esc(meOrg()) + "）。HOD 与机构账号由系统管理员处理。") +
+        (meIsSuper() ? "你可以改动任何账号的层级与机构。" : "你可以改动<b>本校华文教师</b>（" + esc(meOrg()) + "）。HOD/MTL、SH/CL 与机构账号由系统管理员处理。") +
         '<br>⚠️ 停用保留记录、随时可恢复；真正删除只有系统管理员在控制台做得到。</div>' +
         '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>层级</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         (body || '<tr><td colspan="6" class="hint">还没有载入教师名单（记得先「载入 / 刷新数据」）。</td></tr>') +

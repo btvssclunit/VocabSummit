@@ -1,7 +1,13 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-09-04（**`20260904b`：百德班级名单入云 · 教师姓名全大写**。
+Last updated: 2026-09-04（**`20260904c`：职务写到科目 · 全部双语**。
+owner：「only HOD/MTL, SH/CL（华文科主任）and 华文教师 will need admin access backend」。
+「HOD 部门主任」是**泛指**，一位数学科主任或级主任读到它会理所当然地照选，
+而后台的权限是**母语部**的权限。三个职衔一律写到科目，`superadmin` 统一叫
+**系统管理员**（页面上原来「开发者」与「系统管理员」两个名字指同一个人），
+五个层级**全部双语**。⚠️ **只动标签，role 的值一个字节没动。** 见 §18bh。
+前一批 **`20260904b`：百德班级名单入云 · 教师姓名全大写**。
 owner 问「班级名单那一页为什么是空的」——**已经填好的那份在 `js/profile.js` 里，
 那是 §18bd 之后降级下来的「百德兜底」，只给学生端**；后台的编辑器只读
 `rosters/{学校}`，而线上那个集合**一份文件都没有**。已写进去（30 个班）。
@@ -270,7 +276,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904b`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904c`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -300,7 +306,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 1. **`?v=` 推进八处**（七个页面 ＋ `teacher.html` 的 `ASSET_V`）。
    一条 `sed` 全改，因为 `teacher.html` 那两处用的是同一个串：
    ```
-   sed -i '' 's/?v=20260904b/?v=新值/g' *.html
+   sed -i '' 's/?v=20260904c/?v=新值/g' *.html
    ```
    改完核一遍，应当只剩两行——新值，加 `guide.html` 那个空的 `?v=`
    （guide 不在名单上，见 §18o）：
@@ -4940,6 +4946,73 @@ in caps their english names」。教师管理那一页上「白巧玲 / Chiang Y
   role/org/active 一个都没变 · 中文姓名走一遍仍是 `白巧玲` · 停用之后写出的仍是新名字 ·
   注册表单 `  hu  longmei ` → `HU LONGMEI`。控制台零错误。⚠️ **stub 副本用完即删**。
 
+## 18bh. 职务写到科目 · 层级全部双语（owner 2026-09-04，同日第二批）
+
+owner：「important to check if there's any missing translation or wrong translation of
+roles … SH is 科主任 as per official translation, for HOD with school admin rights they
+must be HOD/MTL i.e. 母语部主任 because other HODs (other subjects/year heads etc)
+shouldn't have this admin access」，追问后裁定：
+「**don't even have the HOD field for non MTL HODs** - they won't be requesting for
+access. only HOD/MTL, SH/CL（华文科主任）and 华文教师 will need admin access backend」。
+
+### ⚠️ 标签写准，就是这一栏唯一的闸门
+`HOD 部门主任` 是**泛指**。规则那一侧从来没有「这位 HOD 管哪一科」这个概念——
+`hod` 就是一所学校的管理权限——所以**唯一挡得住数学科主任与级主任的东西，就是
+他读到那一栏时知不知道这不是给他的**。owner 裁定不必再加一句排除说明：
+把职衔写到科目，本来就不会来申请的人自然不会来。
+
+| key | 注册页下拉 | 审批 · 教师管理表 · 顶栏 |
+|---|---|---|
+| `hod` | HOD/MTL 母语部主任 Head of Department (MTL) | HOD/MTL 母语部主任 |
+| `sh` | SH/CL 华文科主任 Subject Head (CL) | SH/CL 华文科主任 |
+| `teacher` | 华文教师 CL Teacher | 华文教师 CL Teacher |
+| `superadmin` | （发不出，不在下拉里） | 系统管理员 Admin |
+| `viewer` | （由机构自动推导） | 查阅（只读）View only |
+
+- ⚠️ **`role` 的值一个字节都没动**（`hod`/`sh`/`teacher`/`viewer`/`superadmin`）：
+  规则、既有的 `teachers/{uid}` 文件、`grantableRoles()` 的白名单全部照旧。
+  **这一批只改屏幕上的字。**
+- ⚠️ **官方译法是「科主任」不是「学科主任」**（owner）。
+- ⚠️ **HOD/MTL 与 SH/CL 这两个简称本身就是英文**，所以表格那一份不再另接一段英译——
+  接了只会把 层级 那一栏撑宽，见下。
+- ⚠️ **`superadmin` 统一成「系统管理员」**：`ROLE_LABEL` 原来写「开发者」，而页面上
+  另有四处提示写着「系统管理员」——同一个人两个名字，读的人会以为那是两种账号。
+  注释里那几处也一起理顺了。
+- ⚠️ **`Admin` 而不是 `System Admin`，这是量出来的**：层级 那一栏的宽度由最宽的那一格
+  决定，而 1024×768 的学校 Chromebook 是这一页最窄的机器。实测 `System Admin` 把
+  教师管理表从 **915px 推到 928px**，正好越过那个 915px 的盒子——一条本来不必滚的表格
+  开始横滚。`Admin` 正好卡住（§15：几何的东西量，不要估）。
+- ⚠️ **审批页那句「自称：」印的是 `WANT_ROLE_LABEL[...].split(" ")[0]`**，
+  也就是第一个空格之前那一段。所以那一段必须自己就说得清是谁
+  （`HOD/MTL` · `SH/CL` · `华文教师` 三个都成立）。改标签时别把简称挪到后面去。
+- 四处提示文案跟着改（注册说明 · rRoleNote · 审批页 · 教师管理页），
+  `firestore.rules` 开头那张分层表与 `sh` 那一段注释同步。
+- 实测（stub 副本 + no-store server）：顶栏 · 教师管理四行 · 审批两行的「自称：」
+  与授予下拉 · 注册页下拉与四句提示，逐条对上；1440×900 与 1024×768 两个尺寸下
+  **表格都不横滚、body 不横向滚动**。⚠️ **stub 副本用完即删。**
+
+### 各校 HOD/MTL 能不能自己改班级名单：能，而且 SH/CL 也能
+`allow write: if isSuper() || (isSchoolManager() && org == myOrg())`，
+而 `isSchoolManager()` = role 在 `["hod","sh"]` 且 orgType 是 school。所以校内管理层
+**只改得动自己学校那一份**（文件 id 就是学校全名），校内华文教师改不动，
+HQ / SCCL 一个字节都改不动。界面这一侧也对上：管理层看到的学校是写死的自己那一所，
+只有 superadmin 有学校下拉。
+⚠️ **SH/CL 也能改，那是 owner 2026-09-03「HOD and SH has the same level of rights」
+的直接后果**，不是漏的。
+
+### ⚠️ `BV_LEVELS` 兜底：owner 问能不能删，**尚未裁定**
+删掉之后 `rosterFor()` 拿不到云端就返回 `null` → `has()` false → 学生看到的**不是
+下拉，是自由文本框**，也就是 §18al 修掉的那个问题原样回来，而且只发生在网络出岔的
+那几个学生身上，事后分不出哪几行是这么来的。另有一个时间差：`ensure()` 是异步的，
+现在百德学生一选学校立刻就有下拉（兜底顶着），删掉之后每个人都会先闪一下文本框。
+⚠️ **但它现在确实是第二个真相来源，而且会变旧**：明年八月名单在后台改了、
+`profile.js` 还写着 2026，那时云端一旦读不到，学生拿到的是**去年的班级冒充今年的**，
+存下来是 `2026 3C1A`，看起来完全合法，没有任何东西会标出来——
+**一份过期的兜底比没有兜底更糟。**
+建议（**未实施，等 owner 拍板**）：让它**自己退休**——只有 `BV_YEAR` 等于当前日历年时
+才启用（新加坡学年就是日历年）。今年是真正的安全网，2027 年一月自动失效、
+退化成文本框而不是退化成去年的名单。两行。
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -5121,6 +5194,10 @@ in caps their english names」。教师管理那一页上「白巧玲 / Chiang Y
 | 各校自己怎么改班级名单 | §18bd（teacher.html → 班级名单；`rosters/{学校}`，学生端读它） |
 | 班级名单那一页为什么是空的 | §18bg（`rosters` 一份文件都没有；内建那份只给学生端，编辑器不看它） |
 | 教师姓名为什么都是大写 | §18bg（owner 2026-09-04；归一化在写入点上，中文是 no-op） |
+| 为什么是 HOD/MTL 不是 HOD | §18bh（泛写会让别科 HOD 与级主任理所当然地照选，而这是母语部的后台） |
+| SH 的官方中文是什么 | §18bh（科主任，不是学科主任；这里再限定成 SH/CL 华文科主任） |
+| 层级那一栏为什么写 Admin 不写 System Admin | §18bh（量出来的：多 13px 就让 1024px 的表格开始横滚） |
+| BV_LEVELS 兜底能不能删 | §18bh 末（**未裁定**：删了网络出岔就掉回自由文本框；不删则会变旧且自信地说错话） |
 | 百德的班级名单还要每年改代码吗 | §18bd（不必了；代码里那份降级成兜底，云端读不到时才用） |
 | 校内榜为什么以前一直是百德 | §18bd（`LB_BVSS` 写死；第二所学校进来那天就错了，现在读学生自己的学校） |
 | 发布新规则之后要做什么 | §18bd 末（把 owner 升成 superadmin，否则她只是百德的 HOD） |
