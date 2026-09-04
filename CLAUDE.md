@@ -5003,6 +5003,26 @@ HQ / SCCL 一个字节都改不动。界面这一侧也对上：管理层看到�
 ⚠️ **SH/CL 也能改，那是 owner 2026-09-03「HOD and SH has the same level of rights」
 的直接后果**，不是漏的。
 
+### ✅ SH/CL 审批教师是**刻意的**（owner 2026-09-04 复核）
+owner：「let SH/CL approve teachers - **their job is to support HOD's load**」。
+这一条本来只是 09-03 同权裁定的**副作用**，现在有了自己的理由，记在这里，
+免得下一次有人把它当成越权去收紧。**代码与规则一个字节都没改**——已经是这样了。
+
+实测（stub 登录成 SH/CL，百德）：
+- 九个分页全在，与 HOD/MTL 逐个相同。
+- 审批教师：看得到本校待审；按下 批准 写出
+  `teachers/{uid} = {role:"teacher", org:百德, active:true, approvedBy:"CHIANG YAW YII"}`
+  ＋ `teacherRequests/{uid}.status = "approved"`。
+- **可授予的层级只有「华文教师」**（`grantableRoles()` 非 super 返回 `["teacher"]`）——
+  这正是「分担 HOD 的日常」与「管理层任命仍归系统管理员」的分界，两边都不必改。
+- 教师管理：本校华文教师 可改 · **HOD/MTL 那一行「无权修改」** · 自己那一行「不能改自己」。
+- 班级名单：改得动，学校是写死的百德（没有学校下拉）。
+
+⚠️ **一个已知的小缺口，未修**：一位自称 HOD/MTL 的申请人被 SH/CL 审批时，
+下拉里只有「华文教师」，所以会**被静默降级批成普通教师**——那一行确实印着
+「自称：HOD/MTL」，但没有任何东西提醒审批人「这一份该转给系统管理员」。
+真要修就是在 `wantRole` 超出 `grantableRoles()` 的那些行上加一句提示。
+
 ### ⚠️ `BV_LEVELS` 兜底：owner 问能不能删，**尚未裁定**
 删掉之后 `rosterFor()` 拿不到云端就返回 `null` → `has()` false → 学生看到的**不是
 下拉，是自由文本框**，也就是 §18al 修掉的那个问题原样回来，而且只发生在网络出岔的
