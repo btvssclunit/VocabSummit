@@ -338,10 +338,23 @@
      百德的学生却永远看到代码里那份去年的。 */
   var ROSTERS = {};
   var BUILTIN_BVSS = { YEAR: BV_YEAR, LEVELS: BV_LEVELS };
+  /* ⚠️ **兜底会自己退休**（owner 2026-09-04）。它只在 `BV_YEAR` 就是当前这一年时
+     才启用——新加坡的学年就是日历年，所以「今年」这个判断不需要维护。
+     理由是：2026-09-04 起真正的名单住在 `rosters/{学校}`，各校自己改；
+     而这一份留在代码里，**不会有人记得每年跟着改**。明年八月名单在后台更新了、
+     这里还写着 2026，那时云端一旦读不到，学生拿到的就是**去年的班级冒充今年的**，
+     存下来是 `2026 3C1A`——看起来完全合法，没有任何东西会标出来。
+     **一份过期的兜底比没有兜底更糟**：它是自信地说错话，而没有兜底只是退回自由
+     文本框（学生自己打，值至少反映他的本意）。
+     ⚠️ **今天一点行为都不变**：`BV_YEAR` 是 "2026"，现在也是 2026 年，所以兜底照常
+     顶着。它是在 2027-01-01 那天自己失效的，不是现在。
+     ⚠️ 真要在 2027 年继续用这份兜底，就**同时**更新 `BV_YEAR` 与那四张名单——
+     那正是这道闸门想逼出来的动作。 */
+  function builtinLive() { return String(BV_YEAR) === String(currentYear()); }
   function rosterFor(school) {
     var r = ROSTERS[school];
     if (r) return r;
-    if (school === SCHOOL_BVSS) return BUILTIN_BVSS;
+    if (school === SCHOOL_BVSS && builtinLive()) return BUILTIN_BVSS;
     return null;
   }
   /* Firestore 的文件形状（teacher.html 写的）→ 这里用的形状。
@@ -445,6 +458,17 @@
     },
     fieldHtml: function (st, o) {
       o = o || {};
+      /* ⚠️ **调用方必须先问 `has()`。** 这个学校没有名单时，下面画出来的是一排
+         **零个年级 chip** 加一句「先点上面的年级」——一个看起来能用、其实点不动的
+         死控件，而且不报错。三个调用点（profile.js 的 classFieldHtml、
+         nickname.js 与 cs.js 那两份 picker）今天都是 `has() ? fieldHtml : 文本框`
+         的三元式，所以走不到这里；这一声告警是为它哪天被漏掉的那次写的。
+         ⚠️ **不能在这里直接吐文本框**：那个 input 的 id 与 class 是**宿主的**
+         （`#profClass.prof-input` vs `#npClass.code-ta`），这里造一个只会造错。 */
+      if (!curLevels().length && window.console && console.warn) {
+        console.warn("[BV_CLASSES] fieldHtml 在没有名单的学校上被调用了（" +
+                     _curSchool + "）——调用方应该先判断 has()。");
+      }
       var pfx = o.pfx || "bvc", inputCls = o.inputCls || "prof-input";
       var gloss = window.WSProfile && window.WSProfile.gloss
         ? window.WSProfile.gloss : function () { return ""; };
