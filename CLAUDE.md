@@ -1,7 +1,12 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-09-04（**`20260904d`：班级名单兜底会自己退休**。
+Last updated: 2026-09-04（**`20260904e`：HOD/MTL 任命得了 SH/CL**。
+owner：「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also be
+approved by me if need be **because some schools' HOD/MTL are not CL trained**」。
+这是 `hod` 与 `sh` **第一次不同权**——但只在「发得出什么层级」这一件事上，
+对资料的权限仍然逐条相同。⚠️ **规则要重新发布**（这次是真的行为改变）。见 §18bj。
+前一批 **`20260904d`：班级名单兜底会自己退休**。
 owner 批准 §18bh 末那个提案：`BV_LEVELS` 只在 `BV_YEAR` 等于当前日历年时才启用。
 **今天一点行为都不变**——它是在 2027-01-01 自己失效的。见 §18bi。
 前一批 **`20260904c`：职务写到科目 · 全部双语**。
@@ -279,7 +284,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904d`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904e`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -309,7 +314,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 1. **`?v=` 推进八处**（七个页面 ＋ `teacher.html` 的 `ASSET_V`）。
    一条 `sed` 全改，因为 `teacher.html` 那两处用的是同一个串：
    ```
-   sed -i '' 's/?v=20260904d/?v=新值/g' *.html
+   sed -i '' 's/?v=20260904e/?v=新值/g' *.html
    ```
    改完核一遍，应当只剩两行——新值，加 `guide.html` 那个空的 `?v=`
    （guide 不在名单上，见 §18o）：
@@ -5087,6 +5092,74 @@ function rosterFor(school) {
 另外验了 2026 年去读云端那份 2027 名单时拿到的仍是云端那份——`ROSTERS` 一旦有值，
 年份闸门根本不参与（§18bd「云端赢过兜底，连百德也是」没有被改写）。
 
+## 18bj. HOD/MTL 任命得了 SH/CL（owner 2026-09-04，同日第四批）
+
+owner：「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also be
+approved by me if need be **because some schools' HOD/MTL are not CL trained**」。
+最后那半句才是理由：有些学校的母语部主任不教华文，所以系统管理员必须能**越过他**
+直接任命 SH/CL。
+
+| 谁 | 发得出 |
+|---|---|
+| 系统管理员 | HOD/MTL · SH/CL · 华文教师 · 查阅（只读） |
+| HOD/MTL | **SH/CL** · 华文教师 |
+| SH/CL | 华文教师 |
+| 华文教师 · 机构 | — |
+
+### ⚠️ 这是 `hod` 与 `sh` 第一次不同权，但只差这一件事
+2026-09-03 那条「同权」**没有被推翻**：两者对**资料**的权限（学生档案、班级名单、
+反馈、房间）仍然逐条相同——`isSchoolManager()` 一个字没动。不同的只有**发得出什么
+层级**，而那住在一个新函数 `grantable()` 里。
+⚠️ **`firestore.rules` 里 `"hod"` 这个字面量现在出现在两个地方**：`isSchoolManager()`
+与 `grantable()`。§18be 立的那条规矩（「只该出现在一个函数里」）因此要改口成
+**「只该出现在这两个函数里」**——加第三种管理职衔时，改的就是这两处。
+
+### 一个列表同时管新值与旧值，promote / demote / 碰不了同侪 全部免费
+```
+function grantable() { ... }                    // 我发得出哪些层级
+function rowRoleGrantable() {                   // 旧值也必须在那张名单里
+  return resource == null || resource.data.get("role","teacher") in grantable();
+}
+```
+这一条取代了原来的 `rowIsPlainTeacher()`，顺带**白拿四个性质**：
+- HOD 可以把华文教师**升**成 SH/CL，也可以**降**回来（只能任命不能撤销是一种更奇怪的权限）。
+- HOD **碰不了另一位 HOD**（旧值 `hod` 不在 `["sh","teacher"]` 里）。
+- SH **碰不了任何 HOD、也碰不了另一位 SH**。
+- **谁都碰不了自己那一行**——自己的 role 永远不在自己的发放名单里。
+  ⚠️ 这一条以前只靠界面上那句「不能改自己」挡着，**现在规则也挡**。
+  （superadmin 例外：她走的是不带旧值检查的那一支，界面仍是唯一的防线。）
+
+### 界面这一侧
+- `grantableRoles()` 与规则的 `grantable()` **必须逐条相同**（§17 那种刻意重复）。
+  它只是别让人白按一颗注定被拒的按钮；**真正的闸门在规则里**。
+- `canEditStaffRow(role, org)` 取代了写死的 `role === "teacher"`，与
+  `rowRoleGrantable()` 同一条。
+- **两句说明用发放名单现算**（`grantableSentence()` / `escalationNote()`）：
+  写死的句子迟早与名单说的不一样，而这两句正是老师判断「这一份该不该转出去」的唯一依据。
+  SH 看到的是「SH/CL 由本校 HOD/MTL 或系统管理员审批」，HOD 看到的是
+  「HOD/MTL 与机构账号由系统管理员审批」——**同一个函数，两句不同的话**。
+- 🐛 **发不出就要说出来，不能安静地降级**：一位自称 HOD/MTL 的申请人落在 SH/CL 手上时，
+  下拉里根本没有那一档，不提醒的话她会顺手批成华文教师，而申请人与她都以为办好了
+  （真实场景：某校新的 HOD/MTL 到任，拿到的却是教师权限）。现在那一行下面有一句
+  金色警示，并且**说出该转给谁**——自称 SH/CL 转本校 HOD/MTL，自称 HOD/MTL 转系统管理员。
+  ⚠️ 那句警示的颜色**不能写 `var(--gold-ink)`**：那是 `cs.css` 的 token，
+  `teacher.html` 从来没抄过它（这一页只有 `--gold` / `--gold-deep` / `--sun`）。
+  `var()` 找不到就静默退回继承色，警示会看起来和普通说明一模一样。
+  这一页已有的警示墨色是 **`#7A5310`**（`.pill.warn` 与 `.sp-aidwhen.warn` 都在用）。
+
+### 顺带（owner 同批）
+修改账号 对话框的姓名提示收成一句「英文姓名，保存时自动转成全大写。」
+——原来那句还教人「中文姓名请改写成英文」，而 owner 说明白点出「英文姓名」就够了。
+
+### 实测（stub 副本，`?as=hod|sh|super` 换身份看同一批资料）
+| | 发得出 | 自称 SH/CL 的申请 | 自称 HOD/MTL 的申请 | 教师管理 |
+|---|---|---|---|---|
+| HOD/MTL | sh · teacher | 预选 SH/CL，**无警示** | 降成华文教师 + 警示「转系统管理员」 | SH/CL 与华文教师可改；**另一位 HOD 无权修改**；自己不能改 |
+| SH/CL | teacher | 降成华文教师 + 警示「转**本校 HOD/MTL** 或系统管理员」 | 降 + 警示「转系统管理员」 | 只有华文教师可改；两位 HOD 都无权修改 |
+| 系统管理员 | 四种全部 | 无警示 | 无警示 | 全部可改 |
+
+⚠️ **stub 副本用完即删。**
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -5270,6 +5343,9 @@ function rosterFor(school) {
 | 教师姓名为什么都是大写 | §18bg（owner 2026-09-04；归一化在写入点上，中文是 no-op） |
 | 为什么是 HOD/MTL 不是 HOD | §18bh（泛写会让别科 HOD 与级主任理所当然地照选，而这是母语部的后台） |
 | SH 的官方中文是什么 | §18bh（科主任，不是学科主任；这里再限定成 SH/CL 华文科主任） |
+| 谁发得出哪个层级 | §18bj（`grantable()` 一张表；HOD/MTL 发得出 SH/CL，HOD/MTL 本身只有系统管理员发得出） |
+| hod 与 sh 到底同不同权 | §18bj（资料权限逐条相同；只有「发得出什么层级」不同，就住在 `grantable()` 里） |
+| 为什么 HOD 碰不了另一位 HOD | §18bj（`rowRoleGrantable()`：旧值也必须在自己的发放名单里，顺带挡住改自己那一行） |
 | 层级那一栏为什么写 Admin 不写 System Admin | §18bh（量出来的：多 13px 就让 1024px 的表格开始横滚） |
 | BV_LEVELS 兜底能不能删 | §18bi（owner 已批：不删，改成 `BV_YEAR` 不等于当前年就自动停用） |
 | 明年八月要改哪里 | §18bi（后台那一页就够；真要连兜底一起留就**同时**改 `BV_YEAR` 与四张名单） |

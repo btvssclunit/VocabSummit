@@ -267,15 +267,35 @@ service cloud.firestore {
     }
 
     /* ---- 教师名单 teachers/{uid}（权限本身就住在这里）--------------------
-       ⚠️ **superadmin 只能在 console 里铸**（`request.resource.data.role` 的白名单里
-       没有它）。这与 2026-08-14 那条「hod 只能在 console 里铸」是同一条纪律，只是
-       升了一层：一把能在网页上复制自己的钥匙，丢一次就永远丢了。
-       ⚠️ **管理层（hod / sh）三面都要钉死**：新值的 role 必须是 teacher · 新值的 org 必须是自己的
-       学校 · **旧值也必须是自己学校的一位 teacher**。少了最后那一条，一位 hod 就能
-       覆盖别校老师的那一行，把人连同权限一起搬进自己学校；而漏掉「旧值是 teacher」
-       则让他改得动同校另一位 hod（顺手降级掉自己的同僚）。 */
-    function rowIsPlainTeacher() {
-      return resource == null || resource.data.get("role", "teacher") == "teacher";
+       ⚠️ **superadmin 只能在 console 里铸**（下面的白名单里没有它）。这与
+       2026-08-14 那条「hod 只能在 console 里铸」是同一条纪律，只是升了一层：
+       一把能在网页上复制自己的钥匙，丢一次就永远丢了。
+
+       ⚠️⚠️ **`grantable()` 是整份规则里第二处、也是唯一另一处 `hod` 与 `sh` 不同的
+       地方**（第一处是 `isSchoolManager()` 把两者列在一起）。owner 2026-09-04：
+       「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also
+       be approved by me if need be **because some schools' HOD/MTL are not CL
+       trained**」——最后那半句才是理由：有些学校的母语部主任不教华文，
+       所以系统管理员必须能越过他直接任命 SH/CL。
+       ⚠️ **这不推翻 2026-09-03 的「hod 与 sh 同权」**：他们对**资料**（学生档案、
+       班级名单、反馈、房间）的权限仍然逐条相同，不同的只有**发得出什么层级**。
+       所以除了这一个函数，别处一个字都不用改。 */
+    function grantable() {
+      return isSuper()        ? ["hod", "sh", "teacher", "viewer"]
+           : myRole() == "hod" ? ["sh", "teacher"]
+           : myRole() == "sh"  ? ["teacher"]
+           : [];
+    }
+    /* ⚠️ **旧值也必须是这位审批人本来就发得出的层级**，缺了它有三个后果，
+       都不报错：① 一位 hod 改得动同校另一位 hod（顺手降级掉自己的同僚）·
+       ② 一位 sh 改得动同校的 hod · ③ **管理层改得动自己那一行**（把自己降级或停用，
+       这所学校就没有审批人了，而只有系统管理员救得回来）。
+       第 ③ 条以前只靠界面上那句「不能改自己」挡着，现在规则也挡：
+       hod 自己那一行 role 是 `hod`，不在 `["sh","teacher"]` 里；sh 同理。
+       ⚠️ 这一条同时给了 hod **降级**的能力：他任命得了 SH/CL，就撤得回来——
+       只能创建不能撤销是一种更奇怪的权限。 */
+    function rowRoleGrantable() {
+      return resource == null || resource.data.get("role", "teacher") in grantable();
     }
     match /teachers/{uid} {
       // own-row read added 2026-08-14: a registered-but-unapproved teacher has no
@@ -286,13 +306,13 @@ service cloud.firestore {
                   || (isSchoolStaff() && rowOrg() == myOrg());
 
       allow create, update:
-        if (isSuper() && request.resource.data.role in ["hod", "sh", "teacher", "viewer"])
+        if (isSuper() && request.resource.data.role in grantable())
         || (isSchoolManager()
-            && request.resource.data.role == "teacher"
+            && request.resource.data.role in grantable()
             && request.resource.data.get("orgType", "school") == "school"
             && newRowOrg() == myOrg()
             && (resource == null || rowOrg() == myOrg())
-            && rowIsPlainTeacher());
+            && rowRoleGrantable());
 
       // 停用走 active:false（留下记录）；真正删除只有 superadmin 做得了。
       allow delete: if isSuper();

@@ -535,7 +535,8 @@ tbody tr.sp-row{cursor:pointer}
 
     <div id="registerPane" style="display:none">
       <div class="hint">华文教师 / HQ · SCCL 同事注册。提交后需审批，通过后即可登录使用。
-        学校教师由该校 HOD/MTL 或 SH/CL 审批；HOD/MTL、SH/CL 与机构同事由系统管理员审批。</div>
+        华文教师由该校 HOD/MTL 或 SH/CL 审批；SH/CL 由该校 HOD/MTL 或系统管理员审批；
+        HOD/MTL 与机构同事由系统管理员审批。</div>
       <label>姓名 Name（英文全大写 in CAPS）</label>
       <input type="text" id="rName" style="width:100%;text-transform:uppercase"
              placeholder="CHIANG YAW YII" autocapitalize="characters" spellcheck="false">
@@ -607,7 +608,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260904d"></script>
+<script src="js/podium.js?v=20260904e"></script>
 <script>
 (function () {
   "use strict";
@@ -615,7 +616,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260904d";
+  var ASSET_V = "?v=20260904e";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -2095,14 +2096,42 @@ tbody tr.sp-row{cursor:pointer}
      Firebase console 里铸（规则里的白名单没有它）。理由与 2026-08-14 那条「hod 只能
      在 console 里铸」是同一条，只是升了一层——一把能在网页上复制自己的钥匙，
      丢一次就永远丢了。 */
+  /* ⚠️⚠️ **这是这份档案里第二处、也是唯一另一处 `hod` 与 `sh` 不同的地方**
+     （第一处是 `meIsManager()` 把两者列在一起）。owner 2026-09-04：
+     「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also be
+     approved by me if need be **because some schools' HOD/MTL are not CL trained**」。
+     ⚠️ **这不推翻 2026-09-03 的「hod 与 sh 同权」**：两者对资料的权限仍然逐条相同，
+     不同的只有发得出什么层级。
+     ⚠️ **HOD/MTL 仍然只有系统管理员发得出**：一个管理职衔能自己复制自己，
+     这所学校的管理层就会长大而没有人裁定过（2026-08-14 那条纪律）。
+     ⚠️ **必须与 firestore.rules 的 `grantable()` 逐条相同。** 这一份只是别让人白按
+     一颗注定被拒的按钮；真正的闸门在规则里。改一处要改两处。 */
   function grantableRoles() {
-    if (meIsSuper())   return ["hod", "sh", "teacher", "viewer"];
-    /* ⚠️ 管理层只发得出「教师」。SH/CL 与 HOD/MTL 的任命走系统管理员，与 2026-08-14 那条
-       「hod 只能在控制台设立」同一条纪律：一个管理职衔能自己复制自己，
-       这所学校的管理层就会长大而没有人裁定过。要放开就把这里改成
-       ["teacher", "sh"]，规则那一侧的白名单也要跟着改。 */
-    if (meIsManager()) return ["teacher"];
-    return [];
+    if (meIsSuper())        return ["hod", "sh", "teacher", "viewer"];
+    if (!meIsManager())     return [];
+    if (meRole() === "hod") return ["sh", "teacher"];
+    return ["teacher"];                       // sh
+  }
+  /* 这一行我改不改得动。⚠️ 与规则的 `rowRoleGrantable()` 同一条：**旧值也必须是
+     我发得出的层级**，所以 hod 碰不了另一位 hod、sh 碰不了 hod、
+     而且谁都碰不了自己那一行（自己的 role 永远不在自己的发放名单里）。 */
+  function canEditStaffRow(role, org) {
+    if (meIsSuper()) return true;
+    return org === meOrg() && grantableRoles().indexOf(role) !== -1;
+  }
+  /* 一句「我发不出的那些该找谁」。⚠️ 同样用发放名单**现算**：写死的句子迟早与名单
+     说的不一样，而这两句正是老师判断「这一份该不该转出去」的唯一依据。 */
+  function escalationNote(verb) {
+    var have = grantableRoles(), out = [];
+    if (have.indexOf("sh") === -1) out.push("SH/CL 由本校 HOD/MTL 或系统管理员" + verb);
+    out.push("HOD/MTL 与机构账号由系统管理员" + verb);
+    return out.join("；") + "。";
+  }
+  /* 一句「我发得出什么」，用发放名单现算——写死的句子迟早与名单说的不一样。 */
+  function grantableSentence() {
+    var rs = grantableRoles().filter(function (r) { return r !== "viewer"; });
+    if (!rs.length) return "";
+    return rs.map(function (r) { return ROLE_LABEL[r].split(" ")[0]; }).join("、");
   }
   function roleSelectHtml(id, sel) {
     var rs = grantableRoles();
@@ -2131,12 +2160,21 @@ tbody tr.sp-row{cursor:pointer}
          看不到对方声称了什么，就没办法察觉自己改动过它。 */
       var wantRole = d.wantRole || "teacher";
       if (isOrgName(want)) wantRole = "viewer";                 // 机构只可能是只读
-      if (grantableRoles().indexOf(wantRole) === -1) wantRole = "teacher";
+      /* ⚠️ **发不出就要说出来，不能安静地降级。** 一位自称 HOD/MTL 的申请人落在
+         一位 SH/CL 手上时，下拉里根本没有那一档——不提醒的话她会顺手批成华文教师，
+         而申请人与她都以为办好了。真实场景：某校新的 HOD/MTL 到任，
+         拿到的却是教师权限，两边都不知道少了一步。 */
+      var overAsk = grantableRoles().indexOf(wantRole) === -1;
+      if (overAsk) wantRole = "teacher";
       return '<tr><td>' + esc(d.name || "") + '</td><td>' + esc(d.email || "") + '</td>' +
         '<td class="wrapcell"><div class="hint" style="margin-bottom:4px">申请时填：' + esc(want || "（未填）") + '</div>' + orgCell + '</td>' +
         '<td><div class="hint" style="margin-bottom:4px">自称：' +
           esc((WANT_ROLE_LABEL[d.wantRole || "teacher"] || WANT_ROLE_LABEL.teacher).split(" ")[0]) + '</div>' +
-          roleSelectHtml("ar_" + r.uid, wantRole) + '</td>' +
+          roleSelectHtml("ar_" + r.uid, wantRole) +
+          (overAsk ? '<div class="hint" style="margin-top:4px;color:#7A5310">⚠️ 你发不出这个层级，' +
+                     '批下去会是华文教师。需要更高层级请转' +
+                     (grantableRoles().indexOf("sh") === -1 && (d.wantRole === "sh")
+                        ? '本校 HOD/MTL 或系统管理员' : '系统管理员') + '。</div>' : '') + '</td>' +
         '<td>' + esc((d.requestedAt || "").slice(0, 10)) + '</td>' +
         '<td><button class="btn primary appr-ok" data-uid="' + esc(r.uid) + '">批准</button> ' +
         '<button class="btn appr-no" data-uid="' + esc(r.uid) + '">驳回</button></td></tr>';
@@ -2160,7 +2198,7 @@ tbody tr.sp-row{cursor:pointer}
       '<div class="hint">' +
         (meIsSuper()
           ? "你可以审批任何学校的 HOD/MTL、SH/CL 与华文教师，以及 HQ / SCCL 的只读账号。<b>机构由你在这里写定</b>，申请人填的那一个只是参考。"
-          : "你可以审批<b>本校</b>的华文教师（" + esc(meOrg()) + "）。HOD/MTL、SH/CL 与机构账号由系统管理员审批。") +
+          : "你可以审批<b>本校</b>的 " + esc(grantableSentence()) + "（" + esc(meOrg()) + "）。" + escalationNote("审批")) +
         '<br>⚠️ 「查阅（只读）」用于 HQ / SCCL 同事：看得见全部学校，但一个字节都改不动。</div>' +
       '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>授予层级</th><th>申请日期</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="6" class="hint">目前没有待审批的申请（记得先「载入 / 刷新数据」）。</td></tr>') + '</tbody></table></div>' +
@@ -2252,7 +2290,7 @@ tbody tr.sp-row{cursor:pointer}
       /* 我能不能改这一行：系统管理员全部可改；HOD/MTL 与 SH/CL 只改本校的华文教师。
          ⚠️ **自己那一行永远不给改**：把自己降级或停用，这所学校就没有审批人了，
          而只有系统管理员救得回来（规则不给别人写）。 */
-      var editable = !mine && (meIsSuper() || (role === "teacher" && org === meOrg()));
+      var editable = !mine && canEditStaffRow(role, org);
       return '<tr><td>' + esc(d.name || "") + (mine ? ' <span class="pill">你自己</span>' : '') + '</td>' +
         '<td>' + esc(d.email || "") + '</td>' +
         '<td class="wrapcell">' + esc(org) + '</td>' +
@@ -2266,7 +2304,7 @@ tbody tr.sp-row{cursor:pointer}
     panel.innerHTML =
       '<div class="card"><h2 style="margin-top:0">教师管理</h2>' +
       '<div class="hint">' +
-        (meIsSuper() ? "你可以改动任何账号的层级与机构。" : "你可以改动<b>本校华文教师</b>（" + esc(meOrg()) + "）。HOD/MTL、SH/CL 与机构账号由系统管理员处理。") +
+        (meIsSuper() ? "你可以改动任何账号的层级与机构。" : "你可以改动<b>本校</b>的 " + esc(grantableSentence()) + "（" + esc(meOrg()) + "）。" + escalationNote("处理")) +
         '<br>⚠️ 停用保留记录、随时可恢复；真正删除只有系统管理员在控制台做得到。</div>' +
         '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>姓名</th><th>电邮</th><th>学校 / 机构</th><th>层级</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
         (body || '<tr><td colspan="6" class="hint">还没有载入教师名单（记得先「载入 / 刷新数据」）。</td></tr>') +
@@ -2288,8 +2326,7 @@ tbody tr.sp-row{cursor:pointer}
     ov.innerHTML = '<div class="card" style="max-width:560px"><h2 style="margin-top:0">修改账号 · ' + esc(d.name || d.email || "") + '</h2>' +
       '<label>姓名 Name</label>' +
       '<input type="text" id="seName" style="width:100%;text-transform:uppercase" value="' + esc(d.name || "") + '">' +
-      '<div class="hint" style="margin-top:4px">英文姓名，保存时自动转成全大写（例如 CHIANG YAW YII）。' +
-      '中文姓名请改写成英文——这一栏是老师之间互相认人的那一栏。</div>' +
+      '<div class="hint" style="margin-top:4px">英文姓名，保存时自动转成全大写。</div>' +
       '<label style="display:block;margin-top:10px">层级</label>' + roleSelectHtml("seRole", d.role || "teacher") +
       '<label style="display:block;margin-top:10px">学校 / 机构</label>' +
       (meIsSuper()
