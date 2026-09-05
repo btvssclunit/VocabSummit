@@ -509,6 +509,39 @@ body.py-ans .py-ans-gate{display:inline}
 .result .big{font-family:var(--serif);font-weight:900;font-size:52px;color:var(--gold-deep)}
 .result .sub{font-size:16px;color:var(--ink-soft);margin-top:4px}
 .result .msg{font-family:var(--serif);font-size:17px;margin-top:16px}
+/* ---------- 年度试炼的庆祝 (owner 2026-09-05) ----------
+   ⚠️ 天幕是 `position:fixed` 且 `pointer-events:none`：彩带要从整个屏幕顶上落下来，
+   而挂在结果卡里就成了「一张卡里下的一场雪」；不写 pointer-events 它会吃掉
+   底下每一颗按钮的点击（顶栏就为同一件事踩过一次，§18ai）。
+   ⚠️ 舞台用 width + height 定尺寸，**不用 `aspect-ratio`**：那是 Safari 15 才有的，
+   而 G1/G2 学生的主力机型正是更旧的 iPad（§7）。
+   ⚠️ 神兽用真美术（320×320 显示成 168px，仍是缩小，踩不到 §14 的像素画缩放陷阱）。 */
+.cel-sky{position:fixed;inset:0;pointer-events:none;z-index:60}
+.cel-stage{position:relative;width:min(232px,62vw);height:min(232px,62vw);
+  margin:2px auto 12px;display:flex;align-items:center;justify-content:center}
+.cel-rays{position:absolute;inset:-6%;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,rgba(245,196,67,.32) 0deg 9deg,rgba(245,196,67,0) 9deg 22deg);
+  -webkit-mask-image:radial-gradient(circle,#000 34%,rgba(0,0,0,.5) 58%,transparent 74%);
+  mask-image:radial-gradient(circle,#000 34%,rgba(0,0,0,.5) 58%,transparent 74%);
+  animation:cel-spin 26s linear infinite}
+.cel-ring{position:absolute;width:73%;height:73%;border-radius:50%;
+  background:radial-gradient(circle at 50% 42%,#FFF7E2 0%,#FDEAB9 54%,#F5C443 100%);
+  box-shadow:0 10px 26px rgba(199,140,26,.34),inset 0 0 0 3px rgba(255,255,255,.72);
+  animation:cel-pulse 2.6s ease-in-out infinite}
+.cel-pet{position:relative;width:62%;height:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 8px 12px rgba(23,58,90,.28));
+  animation:cel-pop .72s cubic-bezier(.16,1.16,.3,1) both,cel-float 3.4s ease-in-out 1s infinite}
+@keyframes cel-spin{to{transform:rotate(360deg)}}
+@keyframes cel-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes cel-pop{0%{opacity:0;transform:scale(.36) rotate(-12deg)}
+  60%{opacity:1;transform:scale(1.10) rotate(2deg)}
+  100%{opacity:1;transform:scale(1) rotate(0deg)}}
+@keyframes cel-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.cel-msg b{color:var(--gold-ink)}
+/* ⚠️ 静止时也必须看得见那只神兽——只去掉动作，不去掉东西（§7） */
+@media (prefers-reduced-motion:reduce){
+  .cel-rays,.cel-ring,.cel-pet{animation:none}
+}
 
 /* ---------- achievements ---------- */
 .ach-wrap{max-width:900px;margin:0 auto}
@@ -1041,11 +1074,40 @@ body.py-ans .py-ans-gate{display:inline}
   box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
 /* 我的进度: a real grid, so four numbers never stretch into four wide, mostly
    empty plates the way flex:1 made them. */
-.prof-prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
-.prof-prog div{background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:13px;
-  padding:9px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
-.prof-prog b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold-deep);font-weight:800;line-height:1.25}
-.prof-prog span{font-size:11.5px;color:var(--ink-soft)}
+/* ---------- 我的进度：一片放大，其余缩小 (owner 2026-09-05) ----------
+   ⚠️ 这一段在 cs.css 与 xh.css 各有一份（§17 那种刻意的重复）：**改一处要改两处**，
+   漏了的症状是「同一块面板在码头没有样式」。
+   ⚠️ 五颗芯片写死五列，不用 auto-fit：陆地就是五片，让它按宽度换行会在窄屏上
+   排成 3+2，而那一行读起来必须是一条完整的路（码头 → HCL）。 */
+.prof-prog{display:block}
+.pg-row{display:flex;align-items:stretch;gap:6px}
+.pg-arrow{flex:none;width:30px;border:1px solid var(--glass-line);border-radius:11px;
+  background:rgba(255,255,255,.5);color:var(--ink-soft);font-size:17px;font-weight:800;
+  line-height:1;cursor:pointer;font-family:var(--sans);-webkit-appearance:none}
+.pg-arrow:hover{background:rgba(255,255,255,.82);color:var(--ink)}
+.pg-chips{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pg-chip{min-width:0;padding:6px 2px;border:1px solid var(--glass-line);border-radius:11px;
+  background:rgba(255,255,255,.5);cursor:pointer;font-family:var(--sans);color:var(--ink);
+  text-align:center;line-height:1.2;-webkit-appearance:none}
+.pg-chip b{display:block;font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-chip span{display:block;font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-chip.is-empty b,.pg-chip.is-empty span{color:#93A5B2}
+.pg-chip.is-on{background:linear-gradient(180deg,#FFF3D4,#F7DFA6);border-color:var(--gold);
+  box-shadow:0 2px 8px rgba(199,140,26,.22)}
+.pg-chip.is-on b{color:#5B4109}
+.pg-chip.is-on span{color:var(--gold-ink)}
+.pg-focus{margin-top:8px;padding:12px 14px;border:1px solid var(--glass-line);border-radius:14px;
+  background:rgba(255,255,255,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.pg-big{font-family:var(--serif);font-size:34px;font-weight:800;color:var(--gold-deep);line-height:1.1}
+.pg-big i{font-style:normal;font-size:16px;margin-left:3px}
+.pg-big em{font-style:normal;font-size:20px;color:var(--ink-soft)}
+.pg-name{margin-top:2px;font-size:13.5px;font-weight:800;color:var(--ink)}
+.pg-name span{display:block;font-size:11.5px;font-weight:500;color:var(--ink-soft)}
+.pg-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.pg-stats div{flex:1 1 84px;min-width:0;padding:6px 8px;border-radius:10px;text-align:center;
+  background:rgba(255,255,255,.55);border:1px solid var(--glass-line)}
+.pg-stats b{display:block;font-family:var(--serif);font-size:16px;font-weight:800;color:var(--ink)}
+.pg-stats span{font-size:10.5px;color:var(--ink-soft)}
 .prof-uid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all;
   background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:10px;padding:9px 12px;color:var(--ink)}
 /* avatar + nickname pill — the single 我的档案 entry on a stream page */
@@ -2472,11 +2534,45 @@ button.m2pill{cursor:pointer}
    row layout inside a tile grid is worse than either. */
 .camp2-hud{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px auto 0;max-width:96vw}
 .ling-icon{width:14px;height:auto;vertical-align:-2px;image-rendering:pixelated}
-.shop2-card{background:var(--card,#fff);border-radius:18px;max-width:640px;width:min(96vw,640px);
+.shop2-card{background:var(--card,#fff);border-radius:18px;max-width:640px;width:100%;
   margin:8px auto;padding:20px 22px 24px;box-shadow:0 12px 34px rgba(12,30,48,.2)}
 .shop-tier-label{font-size:12.5px;font-weight:800;color:var(--gold-ink);letter-spacing:.06em;
   margin:16px 0 8px}
 .shop-tier-label:first-of-type{margin-top:6px}
+/* ---------- 货架分组与排布 (owner 2026-09-05) ----------
+   ⚠️ 九个装备格里有六个只装得下一件，而每一格原来独占一整行 grid：屏幕右边
+   因此是一大片空白。盒子按件数跨列并排，dense 让只有一件的格子去补上一行剩下的洞。
+   ⚠️ 列数写死（4 · 窄屏 2），不用 auto-fill：跨几列是 JS 按件数写在 data-n 上的，
+   一个 span 3 落进只有两条轨道的 grid 会长出隐式轨道并把卡片撑破。
+   ⚠️ 内层 .shop-grid 的列数必须等于盒子跨的列数，所以同样逐条写死——留 auto-fill
+   会在盒子被 dense 拉宽时自己多开一列，空洞立刻回来。
+   ⚠️ 盒子外面不画框（§18l「商品外面不画框」管的就是这块屏幕）：分组只靠金色
+   小标题与列间距。 */
+.shop-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  column-gap:14px;grid-auto-flow:row dense;align-items:start}
+.shop-slotbox{min-width:0}
+.shop-slotbox[data-n="1"]{grid-column:span 1}
+.shop-slotbox[data-n="2"]{grid-column:span 2}
+.shop-slotbox[data-n="3"]{grid-column:span 3}
+.shop-slotbox[data-n="4"]{grid-column:span 4}
+.shop-slotbox[data-n="1"] .shop-grid{grid-template-columns:minmax(0,1fr)}
+.shop-slotbox[data-n="2"] .shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.shop-slotbox[data-n="3"] .shop-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.shop-slotbox[data-n="4"] .shop-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.shop-slotbox .shop-tier-label{margin:12px 0 4px}
+.shop-slotbox .shop-grid{margin:0 0 8px}
+/* 两组之间那条线是这块货架上唯一的分隔线 */
+.shop-group{margin:24px 0 2px;padding-top:14px;border-top:1px solid var(--card-line);
+  font-family:var(--serif);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.02em}
+.shop-group.first{margin-top:10px;padding-top:0;border-top:0}
+.shop-group .shop-slot-note{font-family:var(--sans);font-size:12.5px;font-weight:600}
+/* ⚠️ 这一档必须留在上面那批基础规则之后（§14：同优先级后者赢） */
+@media (max-width:560px){
+  .shop-slots{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-slotbox[data-n="3"],.shop-slotbox[data-n="4"]{grid-column:span 2}
+  .shop-slotbox[data-n="3"] .shop-grid,
+  .shop-slotbox[data-n="4"] .shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media (max-width:480px){.camp2-hud .m2pill{font-size:12px;padding:7px 10px}}
 
 /* ---------- 成就墙 tabs (2026-08-14) ----------
@@ -2758,7 +2854,7 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
   .dopt,.nav-btn,.prof-chip,.ach-tab{background:rgba(255,255,255,.9)}
   .path-scope{background:rgba(255,255,255,.93)}
   .section-label,.mtn2-tip{background:rgba(255,255,255,.95)}
-  .prof-input,.np-select,.code-ta,.prof-uid,.prof-prog div{background:rgba(255,255,255,.88)}
+  .prof-input,.np-select,.code-ta,.prof-uid,.pg-chip,.pg-arrow,.pg-focus,.pg-stats div{background:rgba(255,255,255,.88)}
   .dopt.on{background:#E3EEF7}
 }
 
@@ -2767,8 +2863,12 @@ body.py-aid .scope-filt-lab .pylab,body.en-aid .scope-filt-lab .enlab.i{
    identical on the shop shelf and in a slot — one tile to restyle later, never
    two that quietly drift apart. Only the two wrappers below are new. */
 .lo-grid{margin-bottom:4px}
-.lo-empty{padding:10px 12px;border:1px dashed var(--card-line);border-radius:12px;
-  background:rgba(255,255,255,.5);font-size:13px;line-height:1.7;color:var(--ink-soft)}
+.lo-purse{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin:0 0 8px;
+  padding:8px 11px;border:1px solid #EFD9A4;border-radius:12px;background:#FDF3DC;
+  font-size:12.5px;color:var(--ink)}
+.lo-purse img{width:14px;height:14px;vertical-align:-2px;image-rendering:pixelated}
+.lo-purse b{font-family:var(--serif);font-size:16px;color:var(--gold-deep)}
+.lo-purse span{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:#7A5310}
 .lo-note{margin:0 0 4px;font-size:12px;line-height:1.6;color:var(--ink-soft)}
 
 /* ⚠️ THE BAR WRAPS, it does not scroll. 词雨's right column is `clamp(190px,23%,290px)`

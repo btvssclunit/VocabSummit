@@ -147,6 +147,15 @@ th .fbtn{border:1px solid transparent;border-radius:6px;background:none;cursor:p
   font-size:9px;color:#8AA2B4;padding:2px 4px;line-height:1;flex:none}
 th .fbtn:hover{background:#E3EEF7;color:var(--sea1)}
 th .fbtn.on{background:var(--gold);color:#3A2A08;border-color:var(--gold-deep)}
+/* 使用记录 (owner 2026-09-05) */
+.u-frow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.u-frow label{font-size:12px;color:var(--ink-soft)}
+.u-frow input[type=date]{min-width:0;border:1px solid var(--line);border-radius:10px;padding:7px 9px;font-size:13px}
+.u-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.u-tile{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#FBFDFF}
+.u-tile b{display:block;font-size:26px;font-weight:800;color:var(--sea1);line-height:1.2}
+.u-tile span{font-size:12px;color:var(--ink-soft)}
+.u-h3{margin:16px 0 6px;font-size:13px;letter-spacing:.06em;color:var(--ink-soft)}
 .fdd{position:absolute;z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;
   box-shadow:0 14px 36px rgba(23,58,90,.3);padding:11px 12px;width:262px;font-size:13px;
   max-width:calc(100vw - 16px)}
@@ -583,6 +592,7 @@ tbody tr.sp-row{cursor:pointer}
       <button class="tab" data-tab="classes">班级视图</button>
       <button class="tab" data-tab="hard">词语难点</button>
       <button class="tab" data-tab="arena">结伴登峰</button>
+      <button class="tab" data-tab="usage">使用记录</button>
       <button class="tab" data-tab="feedback">意见反馈 <span id="fbBadge" class="fb-badge" style="display:none">0</span></button>
       <button class="tab" data-tab="approvals" id="apprTab" style="display:none">审批教师</button>
       <button class="tab" data-tab="staff" id="staffTab" style="display:none">教师管理</button>
@@ -608,7 +618,7 @@ tbody tr.sp-row{cursor:pointer}
 <!-- ⚠️ the ONE shared JS this page loads. podium.js has no dependencies and no state:
      the「teacher.html is standalone」rule is about cs.css/cs.js/profile.js, which carry
      the student engine. Duplicating a 200-line podium + confetti engine would be worse. -->
-<script src="js/podium.js?v=20260904e"></script>
+<script src="js/podium.js?v=20260905"></script>
 <script>
 (function () {
   "use strict";
@@ -616,7 +626,7 @@ tbody tr.sp-row{cursor:pointer}
      teacher.html is standalone — it loads no local .js, so unlike cs.js/arena.js
      it cannot read the version off its own <script> tag. This is a LITERAL and is
      the ONE place outside the 5 HTML entry points that needs the same date. */
-  var ASSET_V = "?v=20260904e";
+  var ASSET_V = "?v=20260905";
   var firebaseConfig = {
     apiKey: "AIzaSyBX-U43naSZRjDNdjQBnwVO7ArJhZipifY",
     authDomain: "vocabsummit.firebaseapp.com",
@@ -2081,6 +2091,7 @@ tbody tr.sp-row{cursor:pointer}
     if (_tab === "classes") return renderClasses(panel);
     if (_tab === "hard") return renderHard(panel);
     if (_tab === "arena") return renderArena(panel);
+    if (_tab === "usage") return renderUsage(panel);
     if (_tab === "feedback") return renderFeedback(panel);
     if (_tab === "approvals") return renderApprovals(panel);
     if (_tab === "staff") return renderStaff(panel);
@@ -2544,13 +2555,64 @@ tbody tr.sp-row{cursor:pointer}
      便携化改版: does anyone actually own the items the overhaul would remove?
      If every count here is 0, the overhaul is a clean cut with nothing to
      refund. Safe to delete this card once that decision is made. */
-  var DECO_ZH = {
-    fire: "篝火", flag: "营旗", stonelantern: "石灯笼", bamboofence: "竹篱笆", windchime: "风铃",
-    cat: "打盹的猫", waterjar: "水缸", signpost: "木牌路标", pine: "青松", pavilion: "小亭",
-    teatable: "木桌椅茶具", well: "水井", bridge: "小石桥", bookchest: "书箱", garden: "菜园",
-    lanterns: "灯笼串", koipond: "锦鲤池", sakura: "樱花树", maple: "红枫",
-    cabin: "木屋", tower: "楼阁"
+  /* 道具名 · 中文 + 英文，全表一致（owner 2026-09-05）。改这里之前先读完这三条：
+     ⚠️ 中文那一栏必须与 js/cs.js 的 GEAR / TRINKETS 里那个 `name` 逐字相同。
+        teacher.html 不加载任何共享 JS（§17 那种刻意的重复），所以这是第二份说法——
+        两份说法不一致，比只有一份更糟。
+     ⚠️ 加新道具时**同时**补一行。漏了没有任何报错，只会在这张表上印出
+        `lantern lantern` 这种字样：2026-08-14 营地便携化改版换了一整批装备，
+        这张表却停在园林时代，于是十三件现役装备全部只剩原始 key。
+     ⚠️ 退役的那一批（flag 之后那些）永远不要删。`store.deco` 从不清理，
+        改版之前买过的学生今天仍然拥有它们（线上实测 木屋／锦鲤池／石灯笼／营旗／
+        青松／楼阁 都还有人持有），删掉一行只会让那一行退回原始 key。 */
+  var DECO_LABEL = {
+    /* 现役装备 · js/cs.js GEAR */
+    tent: ["帆布帐篷", "Canvas tent"],
+    windproof: ["防风帐篷", "Windproof tent"],
+    alpine: ["高山帐篷", "Alpine tent"],
+    lanterns: ["灯笼串", "Lantern string"],
+    lantern: ["提灯", "Lantern"],
+    telescope: ["望远镜", "Telescope"],
+    compass: ["罗盘架", "Compass stand"],
+    canteen: ["水壶架", "Canteen stand"],
+    chest: ["行军木箱", "Camp chest"],
+    chair: ["折叠椅", "Folding chair"],
+    picnicmat: ["野餐垫茶具", "Picnic mat & tea set"],
+    stove: ["野炊炉", "Camp stove"],
+    rations: ["干粮袋", "Rations bag"],
+    /* 现役小摆件 · js/cs.js TRINKETS */
+    fire: ["篝火", "Campfire"],
+    windchime: ["风铃", "Wind chime"],
+    cat: ["打盹的猫", "Sleeping cat"],
+    signpost: ["木牌路标", "Signpost"],
+    /* 已退役，但仍有学生持有——只出现在这张表上，商店里买不到了 */
+    flag: ["营旗", "Camp flag"],
+    stonelantern: ["石灯笼", "Stone lantern"],
+    bamboofence: ["竹篱笆", "Bamboo fence"],
+    waterjar: ["水缸", "Water jar"],
+    pavilion: ["小亭", "Pavilion"],
+    teatable: ["木桌椅茶具", "Tea table & chairs"],
+    well: ["水井", "Well"],
+    bridge: ["小石桥", "Stone bridge"],
+    bookchest: ["书箱", "Book chest"],
+    garden: ["菜园", "Vegetable garden"],
+    koipond: ["锦鲤池", "Koi pond"],
+    cabin: ["木屋", "Cabin"],
+    tower: ["楼阁", "Tower"],
+    pine: ["青松", "Pine"],
+    sakura: ["樱花树", "Cherry blossom"],
+    maple: ["红枫", "Maple"],
+    viewdeck: ["望山台", "Lookout deck"],
+    waterfall: ["悬泉飞瀑", "Waterfall"]
   };
+  /* 没有登记的 key 印成一段原始 code，而不是硬凑一个名字：它长得与别的行明显不同，
+     就是「这件道具还没有补标签」唯一看得见的信号。 */
+  function decoLabel(k) {
+    var L = DECO_LABEL[k];
+    if (!L) return '<code>' + esc(k) + '</code>';
+    return '<span title="' + esc(k) + '">' + esc(L[0]) +
+      ' <span class="hint" style="font-weight:400">' + esc(L[1]) + '</span></span>';
+  }
   function campSpendHtml() {
     var owners = {}, anyOwner = 0, dewTotal = 0, dewMax = 0, dewHolders = 0;
     _users.forEach(function (u) {
@@ -2567,7 +2629,7 @@ tbody tr.sp-row{cursor:pointer}
     });
     var keys = Object.keys(owners).sort(function (a, b) { return owners[b] - owners[a]; });
     var rows = keys.map(function (k) {
-      return '<tr><td>' + esc(DECO_ZH[k] || k) + ' <code>' + esc(k) + '</code></td>' +
+      return '<tr><td>' + decoLabel(k) + '</td>' +
         '<td class="col-n"><b>' + owners[k] + '</b></td></tr>';
     }).join("");
     return '<div class="card"><h2 style="margin-top:0">营地商店 · 已购道具</h2>' +
@@ -3446,6 +3508,150 @@ tbody tr.sp-row{cursor:pointer}
     var b = el("fbBadge"); if (!b) return;
     b.textContent = n; b.style.display = n ? "" : "none";
   }
+  /* ================= 使用记录 (owner 2026-09-05) =================================
+     owner：「can the number of sessions for peer challenges and classroom challenges be
+     tracked? for proof that the platform is well utilised down the line」。
+     ⚠️ 这一页读的是 `roomLog`，**不是 `rooms`**：后者挂着六小时 TTL，文档会被扫掉，
+     所以「上学期开了多少场」在那里根本查不到。一场房间真的开始时写一份，写完不再改。
+     ⚠️ 记录从 **2026-09-05** 起才有。之前开过的每一场都没有留下痕迹，
+     这一页照实说，**绝不回填估算**（§18v 同一条）。
+     ⚠️ 查询必须自己带上 `.where("school","==",meOrg())`：规则逐份求值，
+     少了它是**整个查询被拒**，不是少几行（§18bd）。
+     ⚠️ 不排序、不按日期查，全部在客户端做：`where(school) + orderBy(at)` 需要一个复合索引，
+     而这一页多等半秒不值得让 owner 去 console 建索引。上限 2000 场，够用很久。 */
+  var _usage = { rows: null, from: "", to: "", msg: "" };
+  function usageLoad() {
+    var m = el("uMsg"); if (m) { m.className = "msg"; m.textContent = "载入中…"; }
+    var q = db.collection("roomLog");
+    if (!meSeesAll()) q = q.where("school", "==", meOrg());
+    q.limit(2000).get().then(function (snap) {
+      var rows = [];
+      snap.forEach(function (d) { var o = d.data() || {}; o._id = d.id; rows.push(o); });
+      rows.sort(function (a, b) { return usageMs(b) - usageMs(a); });
+      _usage.rows = rows;
+      _usage.msg = "";
+      renderUsage(el("panel"));
+    }).catch(function (e) {
+      _usage.rows = [];
+      /* ⚠️ 规则还没发布时这里是 permission-denied，而那**不是**「没有人用过」——
+         两种说法差了十万八千里，所以分开写。 */
+      _usage.msg = (e.code === "permission-denied")
+        ? "读不到使用记录：roomLog 的规则还没发布（firestore.rules 里那一段）。"
+        : "载入失败：" + (e.code || e.message);
+      renderUsage(el("panel"));
+    });
+  }
+  function usageMs(r) {
+    if (r.at && r.at.toMillis) return r.at.toMillis();
+    return r.day ? new Date(r.day + "T00:00:00+08:00").getTime() : 0;
+  }
+  function usageDay(r) {
+    if (r.at && r.at.toDate) return sgDay(r.at.toDate());
+    return r.day || "";
+  }
+  function usageTime(r) {
+    if (!r.at || !r.at.toDate) return usageDay(r);
+    var d = r.at.toDate(), t = new Date(d.getTime() + (8 * 60 + d.getTimezoneOffset()) * 60000);
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return usageDay(r) + " " + p(t.getHours()) + ":" + p(t.getMinutes());
+  }
+  function usageKindZh(r) {
+    return r.kind === "peer" ? "同伴挑战" : arenaName(r.stream);
+  }
+  function usageRows() {
+    var rows = _usage.rows || [];
+    return rows.filter(function (r) {
+      var d = usageDay(r);
+      if (_usage.from && d < _usage.from) return false;
+      if (_usage.to && d > _usage.to) return false;
+      return true;
+    });
+  }
+  function renderUsage(panel) {
+    if (_usage.rows === null) {
+      panel.innerHTML = '<div class="card"><h2 style="margin-top:0">使用记录</h2>' +
+        '<div class="hint" style="margin-bottom:10px">每一场真的开始了的 结伴登峰／结伴出海／同伴挑战，' +
+        '各留一份记录（房间本身六小时后就被清掉，所以这份日志是唯一查得到的地方）。' +
+        '记录从 2026-09-05 起，之前开过的场次没有留下痕迹。</div>' +
+        '<button class="btn" id="uLoad">载入使用记录</button>' +
+        '<div class="msg" id="uMsg" style="margin-top:10px"></div></div>';
+      el("uLoad").onclick = usageLoad;
+      return;
+    }
+    var rows = usageRows();
+    var nClass = 0, nPeer = 0, heads = 0, byMonth = {};
+    rows.forEach(function (r) {
+      if (r.kind === "peer") nPeer++; else nClass++;
+      heads += Number(r.players || 0);
+      var mth = (usageDay(r) || "").slice(0, 7);
+      if (!mth) return;
+      var b = byMonth[mth] || (byMonth[mth] = { c: 0, p: 0, h: 0 });
+      if (r.kind === "peer") b.p++; else b.c++;
+      b.h += Number(r.players || 0);
+    });
+    var months = Object.keys(byMonth).sort().reverse();
+    var tiles = [["总场次", rows.length], ["课堂（结伴登峰／出海）", nClass],
+                 ["同伴挑战", nPeer], ["开始时人次合计", heads]]
+      .map(function (t) {
+        return '<div class="u-tile"><b>' + t[1] + '</b><span>' + esc(t[0]) + '</span></div>';
+      }).join("");
+    var mRows = months.map(function (k) {
+      var b = byMonth[k];
+      return '<tr><td>' + esc(k) + '</td><td class="col-n">' + b.c + '</td>' +
+        '<td class="col-n">' + b.p + '</td><td class="col-n"><b>' + (b.c + b.p) + '</b></td>' +
+        '<td class="col-n">' + b.h + '</td></tr>';
+    }).join("");
+    var seesAll = meSeesAll();
+    var dRows = rows.map(function (r) {
+      return '<tr><td>' + esc(usageTime(r)) + '</td>' +
+        '<td>' + esc(usageKindZh(r)) + '</td>' +
+        '<td>' + esc(STREAM_LABEL[r.stream] || r.stream || "") + '</td>' +
+        '<td>' + esc(ARENA_MODE_ZH[r.mode] || r.mode || "") + '</td>' +
+        '<td>' + esc(r.hostName || "") + '</td>' +
+        (seesAll ? '<td>' + esc(r.school || "") + '</td>' : "") +
+        '<td class="col-n">' + Number(r.players || 0) + '</td>' +
+        '<td><code>' + esc(r.code || "") + '</code></td></tr>';
+    }).join("");
+    panel.innerHTML =
+      '<div class="card"><h2 style="margin-top:0">使用记录 · 共 ' + rows.length + ' 场</h2>' +
+      '<div class="hint" style="margin-bottom:10px">' +
+        (_usage.msg ? '⚠️ ' + esc(_usage.msg) + ' ' : "") +
+        '一场房间真的开始了才算一场；建了没开的不算。人数是「开始那一刻」的人数，' +
+        '所以后来才加入的不算在内。范围：' + (seesAll ? "全部学校" : esc(meOrg())) + '。' +
+        '记录从 2026-09-05 起。</div>' +
+      '<div class="u-frow" style="margin-bottom:10px">' +
+        '<label>从 <input type="date" id="uFrom" value="' + esc(_usage.from) + '"></label>' +
+        '<label>至 <input type="date" id="uTo" value="' + esc(_usage.to) + '"></label>' +
+        '<button class="btn small" id="uApply">套用</button>' +
+        '<button class="btn small" id="uClear">清除</button>' +
+        '<button class="btn small" id="uReload">重新载入</button>' +
+        (canExport() ? '<button class="btn small" id="uCsv">导出 CSV</button>'
+                     : '<span class="hint">机构账号不导出 CSV</span>') +
+      '</div>' +
+      '<div class="u-tiles">' + tiles + '</div>' +
+      (mRows ? '<h3 class="u-h3">按月</h3><div class="scroll"><table><thead><tr><th>月份</th>' +
+        '<th class="col-n">课堂</th><th class="col-n">同伴</th><th class="col-n">合计</th>' +
+        '<th class="col-n">开始时人次</th></tr></thead><tbody>' + mRows + '</tbody></table></div>' : "") +
+      (dRows ? '<h3 class="u-h3">每一场</h3><div class="scroll"><table><thead><tr><th>时间</th><th>类型</th>' +
+        '<th>学段</th><th>模式</th><th>主持</th>' + (seesAll ? "<th>学校</th>" : "") +
+        '<th class="col-n">开始时人数</th><th>房间码</th></tr></thead><tbody>' + dRows + '</tbody></table></div>'
+             : '<div class="msg">这个范围内还没有记录。</div>') +
+      '</div>';
+    el("uApply").onclick = function () {
+      _usage.from = el("uFrom").value; _usage.to = el("uTo").value; renderUsage(panel);
+    };
+    el("uClear").onclick = function () { _usage.from = ""; _usage.to = ""; renderUsage(panel); };
+    el("uReload").onclick = usageLoad;
+    if (el("uCsv")) el("uCsv").onclick = function () {
+      downloadCsv("使用记录", ["时间", "类型", "学段", "模式", "主持", "学校", "开始时人数", "房间码"],
+        usageRows().map(function (r) {
+          return [usageTime(r), usageKindZh(r), STREAM_LABEL[r.stream] || r.stream || "",
+                  ARENA_MODE_ZH[r.mode] || r.mode || "", r.hostName || "", r.school || "",
+                  Number(r.players || 0), r.code || ""];
+        }));
+    };
+  }
+
   function renderFeedback(panel) {
     if (!_fb) {
       panel.innerHTML = '<div class="card hint">读取反馈…</div>';
@@ -3959,8 +4165,38 @@ tbody tr.sp-row{cursor:pointer}
     }, 1000);
   }
   function startArena() {
-    db.collection("rooms").doc(_arena.code).set({ status: "running", startedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    var code = _arena.code, room = _arena.room || {}, players = _arena.players.length;
+    db.collection("rooms").doc(code).set({ status: "running", startedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+      .then(function () { logRoomSession(code, room, players); })
       .catch(function (e) { var m = el("arLiveMsg"); if (m) { m.className = "msg bad"; m.textContent = "开始失败：" + (e.code || e.message); } });
+  }
+  /* ---------- 使用记录 (owner 2026-09-05) ----------
+     owner：「can the number of sessions … be tracked? for proof that the platform is well
+     utilised down the line」。⚠️ **`rooms` 自己回答不了**：它挂着六小时 TTL，上个月开过
+     多少场，今天的资料库里一份文档都没有。所以房间**真的开始**的那一刻写一份不会被扫掉的记录。
+     ⚠️ 这一段与 `js/arena.js` 里那一份是 §17 那种刻意的重复（本页不加载任何共享 JS）：
+     **两边的字段必须逐字相同**，否则同一张报表里两种房间对不上栏。
+     ⚠️ 完全 fail-soft：规则还没发布时这里静默失败，**那一场课照常上**。 */
+  function logRoomSession(code, room, players) {
+    try {
+      var doc = {
+        code: code, kind: "class",
+        stream: room.stream || _setup.stream || "", mode: room.mode || _setup.mode || "",
+        tier: String(room.tier || _setup.tier || ""),
+        limitBy: room.limitBy || _setup.limitBy || "time",
+        qCount: Number(room.qCount || 0), durationS: Number(room.durationS || 0),
+        hostUid: auth.currentUser.uid, hostName: (_me && _me.name) || "", school: meOrg(),
+        players: Number(players || 0),
+        at: firebase.firestore.FieldValue.serverTimestamp(), day: sgDay(new Date())
+      };
+      db.collection("roomLog").add(doc).catch(function () {});
+    } catch (e) {}
+  }
+  /* 新加坡没有夏令时，UTC+8 固定 */
+  function sgDay(dt) {
+    var t = new Date(dt.getTime() + (8 * 60 + dt.getTimezoneOffset()) * 60000);
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate());
   }
   function endArena() { db.collection("rooms").doc(_arena.code).set({ status: "ended" }, { merge: true }).catch(function () {}); }
   function closeArena() {

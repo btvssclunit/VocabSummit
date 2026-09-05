@@ -1,7 +1,20 @@
 # CLAUDE.md — 词山学海 Vocab Summit
 
 **这份文件描述的是「今天什么是真的」。** 读它就够了。
-Last updated: 2026-09-04（**`20260904e`：HOD/MTL 任命得了 SH/CL**。
+Last updated: 2026-09-05（**`20260905`：营地商店重排 · 全店双语 · 年度试炼庆祝 · 我的进度只看一片**。
+owner 一口气报了五件，四件已落地：**后台的道具名九件只有原始 key**（`DECO_ZH` 停在
+2026-08-14 园林时代，现役十三件装备一件都没登记，表上印着 `lantern lantern`）·
+**营地商店右边一大片空白**（九个装备格里六个只装得下一件，却各占一整行）·
+**同一块货架上两种语言各占一半**（装备的副标是中文、消耗品与船只的副标是英文，
+而且两边都没有另一种）· **年度试炼的庆祝只有一个 emoji**（那只神兽的 320×320
+美术一直都在，这一屏从来没画过它）· **我的进度四片山一样大且没有码头**。
+第五件 **「道具也能在游戏页里买」已经落地**（赛前那一屏现在就地兑换，买下即带上），
+同批还加了 **`roomLog` 使用记录**——owner：「can the number of sessions for peer challenges
+and classroom challenges be tracked? for proof that the platform is well utilised down the
+line」。`rooms` 挂着六小时 TTL，所以「上学期开了多少场」在今天的资料库里**一份文档都没有**；
+现在每一场真的开始的房间留一份不会被扫掉的记录，教师后台多一个 **使用记录** 分页。
+✅ **`roomLog` 规则已发布并核对逐字节一致**（2026-09-05T08:39Z）。见 §18bk。
+前一批 **`20260904e`：HOD/MTL 任命得了 SH/CL**。
 owner：「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also be
 approved by me if need be **because some schools' HOD/MTL are not CL trained**」。
 这是 `hod` 与 `sh` **第一次不同权**——但只在「发得出什么层级」这一件事上，
@@ -29,7 +42,7 @@ VS4 经济恢复在**所在学段页**会被引擎下一次 saveStore 抹掉（a
 老师后台改过的档案学生端会推回旧值（`profile.teacherFix` 子表 + 开机认领）·
 反馈表单把一切 permission-denied 当成「名额用完」（现在读回自己的工单分辨「占了」还是「拒了」）·
 新设备恢复日志 added 恒为 0 · getUid 在离线时永不回调（arena 开房那一段要跟着改，否则会无限递归）·
-scores/dockScores 加上限（**规则要发布**）· **「本学期」改成日历季度「本季」**（owner 改口：不再跟 MOE
+scores/dockScores 加上限（**规则已于 2026-09-05 发布**）· **「本学期」改成日历季度「本季」**（owner 改口：不再跟 MOE
 学期走，`TERMS` 表删掉，永远不用维护）。
 审查确认：识别码前缀三处已一致为 8。见 §18bf。
 前一批 **`20260903`：注册时自报职务 · SH 与 HOD 同级**。
@@ -284,7 +297,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 ## 3. ⚠️ 部署仪式（每次部署必读）
 
 **每次部署把版本号推进七处**：`index.html` + 四个学段页 + `XH_index.html` 的 `?v=`，
-以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260904e`**。
+以及 `teacher.html` 里的 `ASSET_V` 字面量。当前：**`20260905`**。
 
 ⚠️ **同一天部署第二次就加后缀**：`20260816` → `20260816b` → `20260816c` → … → `20260816z`
 → **`20260816AA` → `20260816Ab` → `20260816Ac`**（单字母用完之后，owner 2026-08-16）。
@@ -314,7 +327,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
 1. **`?v=` 推进八处**（七个页面 ＋ `teacher.html` 的 `ASSET_V`）。
    一条 `sed` 全改，因为 `teacher.html` 那两处用的是同一个串：
    ```
-   sed -i '' 's/?v=20260904e/?v=新值/g' *.html
+   sed -i '' 's/?v=20260905/?v=新值/g' *.html
    ```
    改完核一遍，应当只剩两行——新值，加 `guide.html` 那个空的 `?v=`
    （guide 不在名单上，见 §18o）：
@@ -802,7 +815,7 @@ service worker。它的文件会在全局搜索里冒出来、长得很像。**�
   一模一样，Console 判定「没有改动」。**看起来像 Console 坏了，其实是副本落后了。**
   ⚠️ **改完 `firestore.rules` 立刻 `cp` 到那个文件夹，并在它的 README 里加一段说明。**
 - ✅ **「规则到底发布了没有」现在有确定答案，不必再猜**（2026-09-03）：
-  `python3 local-admin/check_live_rules.py` 直接向 firebaserules API 要**当前正在执行
+  `python3 ../local-admin/check_live_rules.py` 直接向 firebaserules API 要**当前正在执行
   的那一份源码**，与 `repo-clone/firestore.rules` 逐字节比对。只读，什么都不写。
   ⚠️ 它读的是 `cloud.firestore` 那个 **release**，不是 Console 编辑器里没按 Publish 的草稿。
   ⚠️ **这取代了「拿匿名 token 去探一条只有新规则才允许的路径」那种间接办法。**
@@ -4905,7 +4918,7 @@ SH 与 HOD 的任命走开发者，与 2026-08-14 那条「hod 只能在控制�
 | P5 | `cs.js` 新设备恢复日志 `n:` → `added:` | 照办 |
 | P6 | 老师改档案学生端认领 | ⚠️ **戳记放在 `profile.teacherFix` 子表而不是顶层 `teacherFixAt`**。handoff 的版本有一个窗口：老师改的时候学生正开着页面，学生随后任何一次 save()（买头像也算）用 merge:true 把顶层昵称／班级盖回旧值、却留下顶层的戳记——下次开机「认领」到的是自己的旧值，老师那次改动无声消失。子表本机从来没有，merge 碰不到它，窗口就没了。学生端本机只记 `teacherFixAt`（认领到哪一版） |
 | P7 | 「本学期」→ 日历季度「本季」 | ⚠️ **owner 当场改口，没照 handoff 加 2027**：「independent of MOE term time, just make it quarterly refresh … without maintenance」。`TERMS` 表删掉，`currentTermId()` 直接算 `YYYYQn`；`normTermId()` 把旧的 `2026T3` 折进 `2026Q3`（load() 一次、云端合并时一次）。学生端按钮与标题改成「本季」，`teacher.html` 的「本学期历练值」同样改名并在读的时候折旧键。⚠️ 云端 `scores` 文件里旧的 `2026T3` 键不会被 merge:true 删掉，留着无害，没有人再读它。⚠️ 部署当天、学生还没开过新版之前，云端还没有 `2026Q3` 键，本季榜上那位学生暂时是 0——开一次页面就补上 |
-| P8 | `scores`：alt ≤ 2000 · totalPts ≤ 500000 · bestStreak ≤ 1000，**外加 pts.week ≤ 100000**；`dockScores`：sailed ≤ 1000 · pts ≤ 200000 | ⚠️ **本季榜仍然没有上限**：`pts.{2026Q4}` 这种键是动态的，规则没法遍历 map。这不是反作弊，只挡 `alt: 99999` 那种。**要发布** |
+| P8 | `scores`：alt ≤ 2000 · totalPts ≤ 500000 · bestStreak ≤ 1000，**外加 pts.week ≤ 100000**；`dockScores`：sailed ≤ 1000 · pts ≤ 200000 | ⚠️ **本季榜仍然没有上限**：`pts.{2026Q4}` 这种键是动态的，规则没法遍历 map。这不是反作弊，只挡 `alt: 99999` 那种。✅ **已于 2026-09-05T07:40Z 发布** |
 
 其他：`firebase-init.js` 多一个 `getCloudProfile(cb)`（只给 P6 用，fails soft）；
 反馈的拒绝提示改成「现在无法提交，请稍后再试；如果一直这样，请告诉老师」（cap 那句不动，§16）。
@@ -5160,6 +5173,144 @@ function rowRoleGrantable() {                   // 旧值也必须在那张名�
 
 ⚠️ **stub 副本用完即删。**
 
+## 18bk. 营地商店重排 · 全店双语 · 年度试炼庆祝 · 我的进度只看一片（owner 2026-09-05）
+
+### 🐛 后台的道具名：十三件现役装备一件都没登记
+owner 看着 `营地商店 · 已购道具` 问「not all camp items are bilingual」。
+`teacher.html` 的 `DECO_ZH` 是一份**手抄的第二份真相**，而它停在 **2026-08-14 之前的园林时代**：
+里面全是 樱花树／锦鲤池／小亭 那一批，**2026-08-14 营地便携化改版换上的十三件装备一件都没有**。
+渲染是 `DECO_ZH[k] || k`，所以那十三行印的是 `lantern lantern`——**中文那一半退回了原始 key**。
+- 改成 `DECO_LABEL = { key: ["中文", "English"] }`，**35 个 key 全覆盖**（现役 17 + 退役 18）。
+- ⚠️ **中文那一栏与 `js/cs.js` 的 `GEAR`/`TRINKETS` 里那个 `name` 逐字相同**，已用脚本逐条比对
+  （teacher.html 不加载任何共享 JS，§17）。**两份说法不一致，比只有一份更糟。**
+- ⚠️ **退役的十八件永远不要删**：`store.deco` 从不清理，线上实测 木屋／锦鲤池／石灯笼／营旗／
+  青松／楼阁 **今天仍然有人持有**。删一行只会让那一行退回原始 key。
+- ⚠️ **加新道具时同时补一行**：漏了不报错，只会在这张表上再印一次 `lantern lantern`。
+  没登记的 key 现在印成一段 `<code>`，长得与别的行明显不同——那是「还没补标签」唯一看得见的信号。
+
+### 货架：装备按格子并排，不再一格一行
+owner：「quite empty here, we should utilise the space better for the shopping experience」。
+九个装备格里**六个只装得下一件**，而每一格原来独占一整行 `.shop-grid`（4 列），于是每一格
+浪费四分之三行，屏幕右边就是一大片空白。
+- 现在每一格是一个 `.shop-slotbox`，按件数写 `data-n` 跨列，`grid-auto-flow:dense` 让
+  只有一件的格子去补上一行剩下的洞。实测 1280 宽：**九行 → 四行**；390 宽：**九行 → 六行**
+  （单件格子两两成对），横向不溢出。
+- ⚠️ **列数写死（4 · 窄屏 2），不用 `auto-fill`**：跨几列是 JS 写在 `data-n` 上的，
+  一个 `span 3` 落进只有两条轨道的 grid 会长出隐式轨道并把卡片撑破。
+- ⚠️ **内层 `.shop-grid` 的列数必须等于盒子跨的列数**，所以也逐条写死。留 `auto-fill`
+  会在盒子被 dense 拉宽时自己多开一列——空洞立刻回来（这正是 §18q 记的 auto-fill 那一族）。
+- ⚠️ **盒子外面不画框**（§18l「商品外面不画框」管的就是这块屏幕），分组只靠金色小标题与列间距。
+- ⚠️ 「同一格只能装一件」不再逐格重复：上面那行 `.shop-note` 已经说过一次，
+  并排之后重复六次只会把每个盒子的标题挤成两行。**住所 的 逐级升级 留着**——那是那一格独有的规则。
+- 🐛 顺手修掉一条**既有**的横向溢出：`.shop2-card` 写的是 `width:min(96vw,640px)`，
+  而它坐在 `.wrapper` 的 22px 内距里，390px 手机上比容器宽 6px，**body 会横向滚**（§7）。
+  改成 `width:100%;max-width:640px`。
+
+### 全店双语：中文永远在，英文跟着 EN 开关
+owner：「weird mix of languages here, to default show chinese only, only show translation when
+toggle is activated. we need to back fill missing content in both languages」。
+清点下来是**两边各缺一半**：装备与小摆件的副标是中文散文（没有英文），消耗品／竞速道具的副标
+是英文效果（`+1 life`、`Slower fall`，**没有中文**），船只的副标是英文名。
+于是关掉 EN 的学生读不懂道具，打开 EN 的学生读不懂装备。
+- **回填了 27 条**：`GEAR` 13 + `TRINKETS` 4 各补一句英文，`CONSUMABLES` 7 + `POWERUPS` 3
+  各补一句中文。🐛 顺带修掉 `算盘` 的英文写着 `+10% 灵露`——**那一行两边都是混的**。
+- 渲染改走 `shopEn()`：中文用 `.shop-sub` 永远在，英文用 **`.enlab` 闸门**（§10：class 翻转，
+  不是重绘）。HCL 不发（`enAidAvailable()`，§10）。
+- ⚠️ **五个调用点一起改**：装备 · 小摆件 · 商店里的道具 · **赛前道具槽** · 船只。
+  漏一个，那一屏就会退回旧的混合状态。
+- ⚠️ **新增任何一件商品都要同时给 `desc` 与 `en`**：少一边不会报错，只会让那一件在某个开关下
+  变成一行空白。
+- 小标题也双语（`shopLabel()`）：中文（含说明）在上，英文在下。**没有加拼音**——
+  这块屏幕从来没有过拼音，而拼音必须手写并逐条核音节（§8/§10），值得单独一批。**待 owner 定。**
+
+### 货架按「会不会用掉」分两组
+owner：「the purchaseables should be grouped by function - decoratives, then game assists」。
+原来的顺序是 装备 → 船只 → 消耗品 → 小摆件：**买下就一直留着的东西被一批会用掉的东西
+从中间劈开**，学生要在同一条卷轴上自己分辨哪一件花掉就没了。现在两组，中间一条分隔线：
+**装扮营地**（装备 · 小摆件 · 船只）→ **游戏道具**（词雨消耗品 · 攀山快答道具）。
+
+### 年度试炼：真的庆祝一下
+owner：「the celebration screen … is underwhelming, we need … confetti and … animate the
+awarded avatar to display, rather than just this tiny emoji」。
+- **彩带直接用 `js/podium.js` 的 `WSPodium.confetti`，不写第二份**：它已经会自己停
+  （120 片落完或超时就 `cancelAnimationFrame` 并移除 canvas），也已经尊重
+  `prefers-reduced-motion`；四个学段页本来就加载 podium.js。
+- ⚠️ **画布挂在一层 `position:fixed` 的天幕上，不是结果卡上**：彩带要从屏幕顶上落下来，
+  挂在卡里就是「一张卡里下了一场雪」。天幕 `pointer-events:none`，否则它会吃掉底下每一颗按钮。
+- ⚠️ **一定要能提前收摊**：`clearCelebration()` 挂在 回到词山 · 换上 · `startMountain()` 三处，
+  外加一个兜底 timer——学生完全可能在彩带落完之前就走。
+- **神兽用真美术**（`art/avatar/avatar_pet_*.png`，320×320 显示成约 168px，仍是缩小，
+  踩不到 §14 的像素画缩放陷阱），配一圈金环、一层旋转光芒、一个弹入 + 呼吸的动作。
+- ⚠️ **舞台用 `width`+`height`，不用 `aspect-ratio`**：那是 Safari 15 才有的，
+  而 G1/G2 学生的主力机型正是更旧的 iPad（§7）。
+- ⚠️ `prefers-reduced-motion` 下**只去掉动作，不去掉东西**：神兽照样在，只是不动。
+
+### 我的进度：一片放大，其余缩小
+owner：「no need to display all 4 mountains … the particular subject level should become big and
+the rest remain small … use arrow buttons < > to see the other areas」。
+此前是四个一样大的方格，而**出发码头根本不在里面**——一个码头学生打开我的档案，看到的是
+四片他没去过的陆地配四行「尚未开始」，自己真正的进度一个字都没有。
+- 现在是**五颗芯片（码头 → HCL）+ 一张放大的卡 + 一对 ‹ › 箭头**。
+- ⚠️ **默认聚焦当前这一页所属的那片陆地**（`_provider.stream`）；落地页没有引擎，
+  退回「进度最多的那一片」。实测：G1 页开是 G1，码头开是 码头，落地页开是走得最远的那一片。
+- ⚠️ **箭头循环，不做变灰**：一颗按下去什么都不发生的按钮，正是学生报成「坏了」的那种（§18l）。
+- ⚠️ **只重画这一块，绝不重画整张卡**：卡里有学校搜索框与班级草稿，整卡重画会把学生
+  正在打的字一起丢掉。
+- ⚠️ 三个数字并排但**各自带标签、永不相加**（§4.1）；山上说 海拔／历练值／灵露，
+  码头说 航程／航海值／贝壳，**两套词绝不混用**。
+- ⚠️ 这一段 CSS 在 `cs.css` 与 `xh.css` **各有一份**（§17），另外两处
+  `@supports not (backdrop-filter)` 的类名也跟着换了。**改一处要改四处。**
+
+### 赛前那一屏现在就地卖道具（owner 2026-09-05）
+owner：「game assists we should also make them purchaseable from the games pages - think
+through the game page access with me, taking reference from popular game models」。
+参照的是 **Candy Crush／Royal Match 的赛前 booster 托盘**，不是再开一个商店分页：
+道具在**要用它的那一刻**出现，而那一刻就是 `itemPickerHtml`（词雨 与 攀山快答 的第 3 步）。
+此前那一屏**只列已经拥有的**，所以一个还没去过营地商店的学生看到的是一句「还没有道具」
+加一条要他走开去别处的指路——**那正是 §18au 那个缺陷的镜像**（当时是买得到、用不上）。
+- 现在列出该玩法的**全部**道具：拥有的照旧 带上／已带上 ✓；没有的挂价钱，
+  **点一下＝买下并带上**（一次点击一件事）；买不起的写「还差 N 灵露」。
+- ⚠️ **买不起的那一件渲染成 `<div>` 不是变灰的按钮**：它陈述的是事实，不是一个按不动的报价
+  （§18l／§18v 同一条）。
+- ⚠️ **没有第二条扣款路径**（§13）：与营地商店同一组 `store.lingLu` → `grantItem()`，
+  顺序也一样（先扣、再记、再存）。
+- ⚠️ **绝不在局内开店**：词雨与攀山快答都是限时的，局内商店等于一颗暂停键——
+  这是那套手游打法里**唯一不该抄**的一条。局内那条道具栏一个字节都没动。
+- ⚠️ **槽满时照样买下，但要说清楚它没被带上**，否则学生会以为钱花了却什么都没发生。
+- ⚠️ **房间模式里一件都不许卖**：闸门在 `takeItems()` 那个必经点上（§18av），
+  而房间根本不经过这一屏。
+- 顺带删掉 `.lo-empty`（那句「去营地商店兑换」不会再出现了）：留一条没人发出的 class，
+  下一个人会以为还有那条分支。
+
+### `roomLog` · 一场房间 = 一份记录（owner 2026-09-05）
+owner：「can the number of sessions for peer challenges and classroom challenges be tracked?
+for proof that the platform is well utilised down the line」。
+⚠️ **`rooms` 自己回答不了这个问题**：那个集合挂着六小时 TTL（`expiresAt`），文档会被扫掉，
+所以「上学期开了多少场」在今天的资料库里**一份都查不到**。
+- 房间**真的开始**（status → running）的那一刻，主持人这一端写一份 `roomLog`：
+  `{code, kind:"peer"|"class", stream, mode, tier, limitBy, qCount, durationS,
+  hostUid, hostName, school, players, at, day}`。**这份日志刻意不带 `expiresAt`。**
+- ⚠️ **只在开始那一下写，不在建房时写**：建了没开的房间不是一场课。
+- ⚠️ **写完不再改**（规则里 `update: false`）：一份能被改的使用记录，拿出去当证据说服不了人。
+- ⚠️ **`players` 是开始那一刻的人数**，后到的人不算——所以后台那一栏写「开始时人数」，
+  不写「参与人数」。
+- ⚠️ **create 的两道闸门缺一不可**：盖自己的 uid，**而且那个房间号必须真的存在、
+  且正是你主持的那一间**（`exists()` + `get()`）。少了后一条，任何人都能凭空刷出一堆场次，
+  把「使用证据」变成假账。
+- ⚠️ **完全 fail-soft**：规则读不到时写入静默失败，**那一局／那一场课照常进行**（§18ae）。
+  ✅ 规则**已于 2026-09-05T08:39Z 发布**，脚本比对逐字节一致。
+- ⚠️ **两份写入者**：`js/arena.js`（同伴挑战，学生主持）与 `teacher.html`（结伴登峰／结伴出海，
+  老师主持）。teacher.html 不加载任何共享 JS，所以这是 §17 那种刻意的重复——
+  **两边的字段必须逐字相同**，否则同一张报表里两种房间对不上栏。
+- 教师后台多一个 **使用记录** 分页：总场次／课堂／同伴／开始时人次、按月一张表、每一场一张表、
+  日期区间、CSV（机构账号不给 CSV，§18bd 同一条）。
+- ⚠️ **查询必须自己带 `.where("school","==",meOrg())`**：规则逐份求值，少了它是**整个查询被拒**。
+- ⚠️ **不排序、不按日期查，全在客户端做**：`where(school) + orderBy(at)` 需要复合索引，
+  而这一页多等半秒不值得让 owner 去 console 建索引。上限 2000 场。
+- ⚠️ **记录从 2026-09-05 起**，之前开过的场次一份痕迹都没有。后台照实写，**绝不回填估算**（§18v）。
+- ✅ 2026-09-05 核对：`20260904` P8 那批 scores／dockScores 上限**已经发布**
+  （最后发布 2026-09-05T07:40Z），线上与 repo 的唯一差别就是这一段 `roomLog`。
+
 ## 19. 归档索引
 
 `docs/ARCHIVE_工程日志_2026-08.md` — 80 节，2026-08-10 → 08-16，按时间顺序，带完整目录。
@@ -5353,6 +5504,15 @@ function rowRoleGrantable() {                   // 旧值也必须在那张名�
 | 校内榜为什么以前一直是百德 | §18bd（`LB_BVSS` 写死；第二所学校进来那天就错了，现在读学生自己的学校） |
 | 发布新规则之后要做什么 | §18bd 末（把 owner 升成 superadmin，否则她只是百德的 HOD） |
 | 机构为什么导不出 CSV | §18bd（看得到 ≠ 带得走；`canExport()` 一行可改，而且它是礼节不是闸门） |
+| 后台的道具名为什么印成 lantern lantern | §18bk（标签表停在园林时代，十三件现役装备一件都没登记） |
+| 营地商店右边为什么一大片空白 | §18bk（九个格子里六个只装一件却各占一整行；现在按件数跨列并排） |
+| 商店的英文为什么有的有有的没有 | §18bk（2026-09-05 回填 27 条；中文永远在，英文走 EN 闸门） |
+| 加一件新商品要注意什么 | §18bk（`desc` 与 `en` 必须同时给；后台那张标签表也要补一行） |
+| 年度试炼的彩带在哪写的 | §18bk（直接用 podium.js 的 `WSPodium.confetti`，不要写第二份） |
+| 我的进度为什么只显示一片陆地 | §18bk（owner 2026-09-05；芯片 + ‹ ›，默认聚焦当前这一页那一片） |
+| 道具能不能在游戏页里买 | §18bk（能，赛前那一屏就地兑换；**局内永远不开店**——那是暂停键） |
+| 开了多少场结伴登峰／同伴挑战 | §18bk（`roomLog`；`rooms` 有 TTL 查不到，记录从 2026-09-05 起） |
+| 使用记录为什么读不到 | §18bk（`roomLog` 那段规则要先发布；在那之前写入静默失败，课照常上） |
 | 教师后台点学生能看到什么 | §18z（一整页：历练值／灵露／段位／徽章／纪录／码头 + 进度码） |
 | 后台的进度码是怎么拼出来的 | §18z（格式与 profile.js 逐字节相同；这是第二个写入者，改一处要改两处） |
 | 码头进度什么时候开始上云的 | §18z（2026-08-19；此前 `ws_xh` 一份云端备份都没有） |

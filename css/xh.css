@@ -1502,7 +1502,7 @@ body.xh-en-on .xh-card-word .xh-en,.xh-card-word .xh-en.xh-always{display:block;
   .xh-path-scope{background:rgba(255,255,255,.95)}
   .pop-card{background:rgba(255,255,255,.97)}
   .prof-x,.prof-chip,.nav-btn,.prof-input,.np-select,.np-search,.code-ta,.prof-uid,
-  .prof-prog div{background:rgba(255,255,255,.92)}
+  .pg-chip,.pg-arrow,.pg-focus,.pg-stats div{background:rgba(255,255,255,.92)}
 }
 
 /* ================= 我的档案 · 我要反馈 · 换头像/换昵称 =================
@@ -1614,10 +1614,40 @@ body.xh-en-on .pop-note .xh-en,body.xh-en-on .fb-ctx .xh-en{
 body.xh-py-on .prof-chip.on .xh-py,body.xh-en-on .prof-chip.on .xh-en,
 body.xh-py-on .nav-btn.primary .xh-py,body.xh-en-on .nav-btn.primary .xh-en{color:#553F06}
 .prof-input{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--glass-line);border-radius:11px; padding:0 12px;font-size:15px;font-family:inherit;color:var(--ink);background:rgba(255,255,255,.55); box-shadow:inset 0 1px 3px rgba(23,58,90,.08)}
-.prof-prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px}
-.prof-prog div{background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:13px; padding:9px 12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
-.prof-prog b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold-deep);font-weight:800;line-height:1.25}
-.prof-prog span{font-size:11.5px;color:var(--ink-soft)}
+/* ---------- 我的进度：一片放大，其余缩小 (owner 2026-09-05) ----------
+   ⚠️ 这一段在 cs.css 与 xh.css 各有一份（§17 那种刻意的重复）：**改一处要改两处**，
+   漏了的症状是「同一块面板在码头没有样式」。
+   ⚠️ 五颗芯片写死五列，不用 auto-fit：陆地就是五片，让它按宽度换行会在窄屏上
+   排成 3+2，而那一行读起来必须是一条完整的路（码头 → HCL）。 */
+.prof-prog{display:block}
+.pg-row{display:flex;align-items:stretch;gap:6px}
+.pg-arrow{flex:none;width:30px;border:1px solid var(--glass-line);border-radius:11px;
+  background:rgba(255,255,255,.5);color:var(--ink-soft);font-size:17px;font-weight:800;
+  line-height:1;cursor:pointer;font-family:var(--sans);-webkit-appearance:none}
+.pg-arrow:hover{background:rgba(255,255,255,.82);color:var(--ink)}
+.pg-chips{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pg-chip{min-width:0;padding:6px 2px;border:1px solid var(--glass-line);border-radius:11px;
+  background:rgba(255,255,255,.5);cursor:pointer;font-family:var(--sans);color:var(--ink);
+  text-align:center;line-height:1.2;-webkit-appearance:none}
+.pg-chip b{display:block;font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-chip span{display:block;font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-chip.is-empty b,.pg-chip.is-empty span{color:#93A5B2}
+.pg-chip.is-on{background:linear-gradient(180deg,#FFF3D4,#F7DFA6);border-color:var(--gold);
+  box-shadow:0 2px 8px rgba(199,140,26,.22)}
+.pg-chip.is-on b{color:#5B4109}
+.pg-chip.is-on span{color:var(--gold-ink)}
+.pg-focus{margin-top:8px;padding:12px 14px;border:1px solid var(--glass-line);border-radius:14px;
+  background:rgba(255,255,255,.5);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.pg-big{font-family:var(--serif);font-size:34px;font-weight:800;color:var(--gold-deep);line-height:1.1}
+.pg-big i{font-style:normal;font-size:16px;margin-left:3px}
+.pg-big em{font-style:normal;font-size:20px;color:var(--ink-soft)}
+.pg-name{margin-top:2px;font-size:13.5px;font-weight:800;color:var(--ink)}
+.pg-name span{display:block;font-size:11.5px;font-weight:500;color:var(--ink-soft)}
+.pg-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.pg-stats div{flex:1 1 84px;min-width:0;padding:6px 8px;border-radius:10px;text-align:center;
+  background:rgba(255,255,255,.55);border:1px solid var(--glass-line)}
+.pg-stats b{display:block;font-family:var(--serif);font-size:16px;font-weight:800;color:var(--ink)}
+.pg-stats span{font-size:10.5px;color:var(--ink-soft)}
 .prof-uid{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all; background:rgba(255,255,255,.5);border:1px solid var(--glass-line);border-radius:10px;padding:9px 12px;color:var(--ink)}
 .prof-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--gold); background:#F1F6FB;cursor:pointer;flex:none;padding:0;overflow:hidden}
 .prof-avatar img{width:100%;height:100%;object-fit:contain;display:block}

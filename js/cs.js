@@ -4427,6 +4427,47 @@
       streak: 0, gym: level, pool: g.pool, wrong: {} };
     renderStep(state);
   }
+  /* ---------- 年度试炼的庆祝 (owner 2026-09-05) ----------
+     owner：「the celebration screen … is underwhelming, we need to make it a true
+     celebration event with confetti and also if possible animate the awarded
+     avatar」。此前整场庆祝就是标题上一个 🏅 与正文里一个 🐢——**那只神兽的美术
+     一直都在**（`art/avatar/avatar_pet_*.png`，320×320），只是这一屏从来没有画过它。
+     ⚠️ 彩带直接用 `js/podium.js` 的 `WSPodium.confetti`，不另写第二份：它已经
+     自己会停（120 片落完或超时就 cancelAnimationFrame 并移除 canvas），也已经
+     尊重 `prefers-reduced-motion`。四个学段页本来就加载 podium.js。
+     ⚠️ 画布挂在一层 `position:fixed` 的天幕上而不是结果卡上：彩带要从屏幕顶上落下来，
+     挂在卡里就是「一张卡里下了一场雪」。天幕 `pointer-events:none`，
+     否则它会吃掉底下每一颗按钮的点击。
+     ⚠️ 一定要能提前收摊：学生可以在彩带落完之前就按 回到词山。 */
+  var _celStop = null, _celSky = null, _celTimer = 0;
+  function clearCelebration() {
+    if (_celStop) { try { _celStop(); } catch (e) {} _celStop = null; }
+    if (_celTimer) { clearTimeout(_celTimer); _celTimer = 0; }
+    if (_celSky && _celSky.parentNode) _celSky.parentNode.removeChild(_celSky);
+    _celSky = null;
+  }
+  function celebrate(ms) {
+    clearCelebration();
+    if (!window.WSPodium || !window.WSPodium.confetti) return;
+    _celSky = document.createElement("div");
+    _celSky.className = "cel-sky";
+    document.body.appendChild(_celSky);
+    _celStop = window.WSPodium.confetti(_celSky, ms || 6500);
+    _celTimer = setTimeout(clearCelebration, (ms || 6500) + 900);
+  }
+  /* 神兽登场：真美术，不是 emoji。
+     ⚠️ `art/avatar/avatar_{id}.png` 是 320×320，这里显示 168px —— 仍然是**缩小**，
+     所以踩不到 §14 那条像素画缩放陷阱（那说的是重采样源文件）。
+     ⚠️ `onerror` 让它自己消失：将来某个 id 不守 `avatar_{id}.png` 的约定时，
+     学生看到的是「没有那张图」，而不是名字旁边一个破图标（§18z 同一条）。 */
+  function petStageHtml(pet) {
+    return '<div class="cel-stage">' +
+      '<div class="cel-rays" aria-hidden="true"></div>' +
+      '<div class="cel-ring" aria-hidden="true"></div>' +
+      '<img class="cel-pet" src="art/avatar/avatar_' + esc(pet.avatarId) + '.png" alt="' +
+        esc(pet.name) + '" onerror="this.style.display=\'none\'">' +
+      '</div>';
+  }
   function renderGymResult(state) {
     ensureIdIndex();
     var level = state.gym, total = state.seq.length;
@@ -4440,23 +4481,26 @@
          is written to the profile here, so the student keeps whatever avatar they
          are already wearing unless they press the button below */
       var canWear = !!(pet && window.WSProfile);
-      sfxBadge();   // reward chime; the result screen below carries the celebration
-      view().innerHTML = '<div class="result">' +
+      sfxBadge();   // reward chime; the screen below carries the rest of the celebration
+      view().innerHTML = '<div class="result result-cel">' +
+        (pet ? petStageHtml(pet) : "") +
         '<div class="big">🏅 ' + esc(level) + ' 年度试炼通过！</div>' +
         '<div class="sub">' + state.correct + ' / ' + total + ' 全对</div>' +
-        (pet ? '<div class="msg">登山伙伴加入队伍：' + pet.emoji + ' <b>' + esc(pet.name) + '</b>' +
+        (pet ? '<div class="msg cel-msg">登山伙伴加入队伍：<b>' + esc(pet.name) + '</b>' +
                '<br><span style="font-size:12px">新头像「' + esc(pet.name) + '」已解锁，攀山快答里也会换成它</span></div>' : '') +
         '<div class="nav-row">' +
         (canWear ? '<button class="nav-btn" id="wearPet">换上 ' + pet.emoji + ' ' + esc(pet.name) + '</button>' : '') +
         achLinkHtml() +
         '<button class="nav-btn primary" id="home">回到词山</button></div></div>';
       wireAchLink();
+      celebrate(6500);
       if (canWear) document.getElementById("wearPet").onclick = function () {
+        clearCelebration();
         window.WSProfile.save({ avatarId: pet.avatarId });
         toast("头像已换成 " + pet.emoji + " " + pet.name);
         startMountain();
       };
-      document.getElementById("home").onclick = startMountain;
+      document.getElementById("home").onclick = function () { clearCelebration(); startMountain(); };
       return;
     }
     // Option B: never demote mastery/altitude; missed words enter 待巩固, trial relocks
@@ -6489,18 +6533,18 @@
      lives in 道具运行时 below setEquippedItems(). Read that note before adding an
      eleventh item: a new `eff` string here does nothing on its own. */
   var CONSUMABLES = [
-    { key: "tanghulu",    zh: "糖葫芦",   en: "+1 life",            img: "consumable_tanghulu",    price: 60,  eff: "life" },
-    { key: "yushan",      zh: "羽扇",     en: "Slower fall",        img: "consumable_yushan",      price: 80,  eff: "slow" },
-    { key: "youzhisan",   zh: "油纸伞",   en: "Combo shield",       img: "consumable_youzhisan",   price: 90,  eff: "shield" },
-    { key: "suanpan",     zh: "算盘",     en: "+10% 灵露",          img: "consumable_suanpan",     price: 100, eff: "bonus" },
-    { key: "yuhulu",      zh: "玉葫芦",   en: "Missed words still pay", img: "consumable_yuhulu",  price: 110, eff: "salvage" },
-    { key: "dingfengzhu", zh: "定风珠",   en: "Freeze 5s",          img: "consumable_dingfengzhu", price: 120, eff: "freeze" },
-    { key: "jinnang",     zh: "锦囊",     en: "Random item",        img: "consumable_jinnang",     price: 70,  eff: "random" }
+    { key: "tanghulu",    zh: "糖葫芦",   en: "+1 life",            img: "consumable_tanghulu",    price: 60,  eff: "life", desc: "多一条命" },
+    { key: "yushan",      zh: "羽扇",     en: "Slower fall",        img: "consumable_yushan",      price: 80,  eff: "slow", desc: "词语落得更慢" },
+    { key: "youzhisan",   zh: "油纸伞",   en: "Combo shield",       img: "consumable_youzhisan",   price: 90,  eff: "shield", desc: "连对不会被打断" },
+    { key: "suanpan",     zh: "算盘",     en: "+10% dew",          img: "consumable_suanpan",     price: 100, eff: "bonus", desc: "这一局灵露多一成" },
+    { key: "yuhulu",      zh: "玉葫芦",   en: "Missed words still pay", img: "consumable_yuhulu",  price: 110, eff: "salvage", desc: "漏掉的词也照发灵露" },
+    { key: "dingfengzhu", zh: "定风珠",   en: "Freeze 5s",          img: "consumable_dingfengzhu", price: 120, eff: "freeze", desc: "词雨定住 5 秒" },
+    { key: "jinnang",     zh: "锦囊",     en: "Random item",        img: "consumable_jinnang",     price: 70,  eff: "random", desc: "开局随机变成一件" }
   ];
   var POWERUPS = [
-    { key: "tonghudilou", zh: "铜壶滴漏", en: "+8 seconds",         img: "powerup_tonghudilou",    price: 90,  eff: "time" },
-    { key: "hujing",      zh: "护膝",     en: "First slip is free", img: "powerup_hujing",         price: 80,  eff: "knee" },
-    { key: "sinan",       zh: "司南",     en: "Remove one wrong",   img: "powerup_sinan",          price: 110, eff: "compass" }
+    { key: "tonghudilou", zh: "铜壶滴漏", en: "+8 seconds",         img: "powerup_tonghudilou",    price: 90,  eff: "time", desc: "多 8 秒" },
+    { key: "hujing",      zh: "护膝",     en: "First slip is free", img: "powerup_hujing",         price: 80,  eff: "knee", desc: "第一次答错不算" },
+    { key: "sinan",       zh: "司南",     en: "Remove one wrong",   img: "powerup_sinan",          price: 110, eff: "compass", desc: "去掉一个错误选项" }
   ];
   /* ⚠️ PRICES ARE MINE — the handoff (§3 item 5) explicitly leaves them unset and
      says to set them against the existing A/B/C ladder. They sit in the 小摆件 band
@@ -6618,29 +6662,63 @@
      Reuses shopTile wholesale, so a 道具 looks identical on the shelf and in the
      slot: same art well, same held-count badge, one tile to restyle rather than
      two that drift apart. */
+  /* ⚠️ 这一屏现在**也能买**（owner 2026-09-05：「game assists we should also make them
+     purchaseable from the games pages」）。此前它只列出「已经拥有的」，所以一个还没去过
+     营地商店的学生看到的是一句「还没有道具」加一条要他自己走开去别处的指路——
+     而那正是 §18au 那个缺陷的镜像：道具买得到、用不上，反过来是用得上、买不到。
+     ⚠️ **开店只在赛前这一屏，绝不在局内**：词雨与攀山快答都是限时的，局内商店等于一颗
+     暂停键。局内那条道具栏（itemBarHtml）一个字节都没动。
+     ⚠️ **没有第二条扣款路径**（§13）：这里与营地商店走的是同一组
+     `store.lingLu` → `grantItem()`，顺序也一样（先扣、再记、再存）。
+     ⚠️ **买不起的那一件渲染成 `<div>` 而不是一颗变灰的按钮**：它陈述的是「还差多少」这个
+     事实，不是一个按不动的报价（§18l／§18v 同一条）。
+     ⚠️ **房间模式里一件都不许卖**：闸门在 `takeItems()` 那个必经点上（§18av），
+     而房间根本不经过这一屏。 */
   function itemPickerHtml(kind, step) {
     var list = kind === "rain" ? CONSUMABLES : POWERUPS;
-    var owned = list.filter(function (it) { return itemCount(it.key) > 0; });
+    var eq = equippedItems(kind);
+    var anyToBuy = list.some(function (it) { return itemCount(it.key) <= 0; });
     var head = '<div class="diff-label">' + (step ? stepNo(step) : "") + '道具' +
       pyl("道具") + enl("道具") + ' <span class="shop-slot-note">· 最多 ' + ITEM_SLOTS +
-      ' 件 · 开始时用掉</span></div>';
-    if (!owned.length) {
-      return head + '<div class="lo-empty">还没有道具 —— 在「我的词山 · 营地商店」用灵露兑换。' +
-        '空手上场完全可以，' + (kind === "rain" ? "词雨灵露" : "攀山快答") + '本来就是这么设计的。</div>';
-    }
-    var eq = equippedItems(kind);
-    return head + '<div class="shop-grid lo-grid">' + owned.map(function (it) {
-      var on = eq.indexOf(it.key) !== -1;
+      ' 件 · 开始时用掉</span></div>' +
+      '<div class="lo-purse">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b>' +
+      '<span>' + (anyToBuy ? "还没有的可以就地兑换：点一下就买下并带上。" : "") +
+      '空手上场完全可以，' + (kind === "rain" ? "词雨灵露" : "攀山快答") +
+      '本来就是这么设计的。</span></div>';
+    return head + '<div class="shop-grid lo-grid">' + list.map(function (it) {
+      var have = itemCount(it.key), on = eq.indexOf(it.key) !== -1;
+      var afford = store.lingLu >= it.price;
       return shopTile({
-        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.en, n: itemCount(it.key),
-        on: on, act: ' data-lo="' + esc(it.key) + '"',
-        foot: shopState(on ? "已带上 ✓" : "带上", on)
+        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.desc, en: it.en, n: have,
+        on: on, owned: have > 0,
+        act: have > 0 ? ' data-lo="' + esc(it.key) + '"'
+           : afford ? ' data-lobuy="' + esc(it.key) + '"' : "",
+        foot: have > 0 ? shopState(on ? "已带上 ✓" : "带上", on)
+            : afford ? shopCost(it.price)
+            : '<span class="shop-state locked">还差 ' + fmtNum(it.price - store.lingLu) + ' 灵露</span>'
       });
     }).join("") + '</div>' +
       (eq.length ? '<div class="lo-note">⚠️ 带道具的一局不进排行榜（那是「大家跑同一套课程」的榜）。' +
         '灵露、海拔和本机最高分照常记录。</div>' : "");
   }
   function wireItemPicker(kind, rerender) {
+    /* 买下**并且**带上，一次点击一件事：学生按下去想要的是「这一局带上它」，
+       ⚠️ 槽满时照样买下，但要说清楚它没有被带上——否则他会以为钱花了却什么都没发生。 */
+    Array.prototype.forEach.call(view().querySelectorAll("[data-lobuy]"), function (b) {
+      b.onclick = function () {
+        var k = b.getAttribute("data-lobuy"), it = itemByKey(k);
+        if (!it || store.lingLu < it.price) return;
+        store.lingLu -= it.price;        // 先扣、再记、再存：与营地商店同一条路径
+        grantItem(it.key, 1);
+        var eq = equippedItems(kind), took = false;
+        if (eq.length < ITEM_SLOTS) { eq.push(k); setEquippedItems(kind, eq); took = true; }
+        saveStore();
+        sfxOk();
+        toast(took ? "已兑换：" + it.zh + "，已带上"
+                   : "已兑换：" + it.zh + "（道具槽满了，先取下一件再带）");
+        rerender();
+      };
+    });
     Array.prototype.forEach.call(view().querySelectorAll("[data-lo]"), function (b) {
       b.onclick = function () {
         var k = b.getAttribute("data-lo"), eq = equippedItems(kind), i = eq.indexOf(k);
@@ -6690,26 +6768,26 @@
 
   var GEAR = [
     // 住所 is a TIER CHAIN (existing dwellingTier mechanic reused, §3), not a free swap
-    { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "art/camp/tent.png",                w: 20, desc: "起点的家 · 免费" },
-    { key: "windproof", slot: "dwelling", tier: 2, name: "防风帐篷", price: 135,  file: "art/camp/gear_tent_windproof.png", w: 20, desc: "住所二级 · 挡得住山风" },
-    { key: "alpine",    slot: "dwelling", tier: 3, name: "高山帐篷", price: 450, file: "art/camp/gear_tent_alpine.png",    w: 20, desc: "住所三级 · 雪线之上也扎得稳" },
-    { key: "lanterns",  slot: "light",   name: "灯笼串",     price: 180, file: "art/camp/deco_lanterns.png",  w: 11, desc: "夜里最温暖的一排光" },
-    { key: "lantern",   slot: "light",   name: "提灯",       price: 120,  file: "art/camp/gear_lantern.png",   w:  7, desc: "挂上木杆，照亮一小圈" },
-    { key: "telescope", slot: "scout",   name: "望远镜",     price: 240, file: "art/camp/gear_telescope.png", w:  7, desc: "望向下一座山峰" },
-    { key: "compass",   slot: "scout",   name: "罗盘架",     price: 200, file: "art/camp/gear_compass.png",   w:  7, desc: "辨明方向再出发" },
-    { key: "canteen",   slot: "water",   name: "水壶架",     price: 90,  file: "art/camp/gear_canteen.png",   w:  8, desc: "随身的水，随时补给" },
-    { key: "chest",     slot: "storage", name: "行军木箱",   price: 150, file: "art/camp/gear_chest.png",     w:  9, desc: "装书、装干粮、装路上的收获" },
-    { key: "chair",     slot: "living",  name: "折叠椅",     price: 110,  file: "art/camp/gear_chair.png",     w:  9, desc: "坐下来，歇一歇" },
-    { key: "picnicmat", slot: "tea",     name: "野餐垫茶具", price: 190, file: "art/camp/gear_picnicmat.png", w: 15, desc: "铺开垫子，泡一壶茶" },
-    { key: "stove",     slot: "cook",    name: "野炊炉",     price: 170, file: "art/camp/gear_stove.png",     w:  8, desc: "一口小锅，热汤暖身" },
-    { key: "rations",   slot: "food",    name: "干粮袋",     price: 95,  file: "art/camp/gear_rations.png",   w:  9, desc: "馒头，和路上的力气" }
+    { key: "tent",      slot: "dwelling", tier: 1, name: "帆布帐篷", price: 0,    file: "art/camp/tent.png",                w: 20, desc: "起点的家 · 免费", en: "Your first home · free" },
+    { key: "windproof", slot: "dwelling", tier: 2, name: "防风帐篷", price: 135,  file: "art/camp/gear_tent_windproof.png", w: 20, desc: "住所二级 · 挡得住山风", en: "Shelter II · holds against the wind" },
+    { key: "alpine",    slot: "dwelling", tier: 3, name: "高山帐篷", price: 450, file: "art/camp/gear_tent_alpine.png",    w: 20, desc: "住所三级 · 雪线之上也扎得稳", en: "Shelter III · steady above the snow line" },
+    { key: "lanterns",  slot: "light",   name: "灯笼串",     price: 180, file: "art/camp/deco_lanterns.png",  w: 11, desc: "夜里最温暖的一排光", en: "The warmest row of light at night" },
+    { key: "lantern",   slot: "light",   name: "提灯",       price: 120,  file: "art/camp/gear_lantern.png",   w:  7, desc: "挂上木杆，照亮一小圈", en: "Hang it on a pole, light a small circle" },
+    { key: "telescope", slot: "scout",   name: "望远镜",     price: 240, file: "art/camp/gear_telescope.png", w:  7, desc: "望向下一座山峰", en: "Look towards the next peak" },
+    { key: "compass",   slot: "scout",   name: "罗盘架",     price: 200, file: "art/camp/gear_compass.png",   w:  7, desc: "辨明方向再出发", en: "Find your bearing before setting off" },
+    { key: "canteen",   slot: "water",   name: "水壶架",     price: 90,  file: "art/camp/gear_canteen.png",   w:  8, desc: "随身的水，随时补给", en: "Water at hand, whenever you need it" },
+    { key: "chest",     slot: "storage", name: "行军木箱",   price: 150, file: "art/camp/gear_chest.png",     w:  9, desc: "装书、装干粮、装路上的收获", en: "Books, rations, and what you gather on the way" },
+    { key: "chair",     slot: "living",  name: "折叠椅",     price: 110,  file: "art/camp/gear_chair.png",     w:  9, desc: "坐下来，歇一歇", en: "Sit down and rest a while" },
+    { key: "picnicmat", slot: "tea",     name: "野餐垫茶具", price: 190, file: "art/camp/gear_picnicmat.png", w: 15, desc: "铺开垫子，泡一壶茶", en: "Roll out the mat, brew a pot of tea" },
+    { key: "stove",     slot: "cook",    name: "野炊炉",     price: 170, file: "art/camp/gear_stove.png",     w:  8, desc: "一口小锅，热汤暖身", en: "One small pot, hot soup to warm you" },
+    { key: "rations",   slot: "food",    name: "干粮袋",     price: 95,  file: "art/camp/gear_rations.png",   w:  9, desc: "馒头，和路上的力气", en: "Steamed buns, and strength for the road" }
   ];
   /* small/cheap/iconic — owned = always out, no slot, no exclusivity (§2c) */
   var TRINKETS = [
-    { key: "fire",      name: "篝火",     price: 75, file: "art/camp/deco_fire.png",      w: 11, desc: "夜里暖手，词语更暖心" },
-    { key: "windchime", name: "风铃",     price: 45, file: "art/camp/deco_windchime.png", w:  4, desc: "风一吹就响" },
-    { key: "cat",       name: "打盹的猫", price: 60, file: "art/camp/deco_cat.png",       w:  7, desc: "营地里的常住客" },
-    { key: "signpost",  name: "木牌路标", price: 45, file: "art/camp/deco_signpost.png",  w:  7, desc: "指向远方的路" }
+    { key: "fire",      name: "篝火",     price: 75, file: "art/camp/deco_fire.png",      w: 11, desc: "夜里暖手，词语更暖心", en: "Warm hands at night, warmer words" },
+    { key: "windchime", name: "风铃",     price: 45, file: "art/camp/deco_windchime.png", w:  4, desc: "风一吹就响", en: "It rings whenever the wind blows" },
+    { key: "cat",       name: "打盹的猫", price: 60, file: "art/camp/deco_cat.png",       w:  7, desc: "营地里的常住客", en: "The camp's resident guest" },
+    { key: "signpost",  name: "木牌路标", price: 45, file: "art/camp/deco_signpost.png",  w:  7, desc: "指向远方的路", en: "Pointing to the road ahead" }
   ];
   /* 地貌景观 RETIRED 2026-08-14 (owner): "retire everything in the campsite and
      shop that are not camping related e.g. all the scenery items". 青松 / 樱花树 /
@@ -6969,8 +7047,33 @@
         (o.n ? '<i class="shop-n">' + o.n + "</i>" : "") + "</span>" +
       '<b>' + esc(o.name) + "</b>" +
       (o.sub ? '<span class="shop-sub">' + esc(o.sub) + "</span>" : "") +
+      shopEn(o.en) +
       o.foot + "</" + tag + ">";
   }
+  /* ⚠️ 中文永远在，英文走 `.enlab` 闸门（§10：class 翻转，不是重绘）。
+     2026-09-05 之前这块货架上两种语言各占一半：装备与小摆件的副标是中文，
+     消耗品／竞速道具／船只的副标是英文——而且**两边都没有另一种**，
+     所以关掉 EN 的学生读不懂道具，打开 EN 的学生读不懂装备。
+     ⚠️ 新增任何一件商品都要同时给 desc（中文）与 en（英文）：少一边不会报错，
+     只会让那一件在某个开关下变成一行空白。 */
+  function shopEn(t) {
+    if (!t || !enAidAvailable()) return "";
+    return '<span class="enlab">' + esc(t) + "</span>";
+  }
+  /* 一条小标题：中文（可带一句说明）在上，英文在下走 `.enlab` 闸门。
+     ⚠️ 中文与英文各自把说明写进自己那一行，绝不让一行中文后面跟半句英文——
+     那正是 owner 2026-09-05 指的那种「语言混着来」。 */
+  function shopLabel(cls, zh, en, note, noteEn) {
+    return '<div class="' + cls + '"><span class="shop-lab-zh">' + esc(zh) +
+      (note ? ' <span class="shop-slot-note">· ' + esc(note) + "</span>" : "") + "</span>" +
+      (en && enAidAvailable()
+        ? '<span class="enlab">' + esc(en) + (noteEn ? " · " + esc(noteEn) : "") + "</span>"
+        : "") + "</div>";
+  }
+  var SLOT_EN = {
+    dwelling: "Shelter", light: "Light", scout: "Scouting", water: "Water",
+    storage: "Storage", living: "Rest", tea: "Tea", cook: "Cooking", food: "Food"
+  };
   function shopCost(n) {
     return '<span class="shop-cost">' + campLingluIcon() + " " + fmtNum(n) + "</span>";
   }
@@ -6979,7 +7082,7 @@
   }
   function shopRow(it, owned, afford, buyKey) {
     return shopTile({
-      img: it.file, name: it.name, sub: it.desc, owned: owned,
+      img: it.file, name: it.name, sub: it.desc, en: it.en, owned: owned,
       act: owned ? "" : ' data-key="' + esc(buyKey) + '"', dis: !afford,
       foot: owned ? shopState("已拥有 ✓", 1) : shopCost(it.price)
     });
@@ -6992,7 +7095,7 @@
     var locked = slot === "dwelling" && it.tier > dwellingTier() + 1;
     var afford = store.lingLu >= it.price;
     return shopTile({
-      img: it.file, name: it.name, sub: it.desc, on: equipped, owned: owned,
+      img: it.file, name: it.name, sub: it.desc, en: it.en, on: equipped, owned: owned,
       act: equipped ? ""
          : owned ? ' data-eq="' + esc(it.key) + '" data-slot="' + esc(slot) + '"'
          : locked ? "" : ' data-key="' + esc(it.key) + '"',
@@ -7005,13 +7108,25 @@
   }
   function openShopScene() {
     setTopbar("home", "");
-    var gearHtml = GEAR_SLOTS.map(function (s) {
+    /* ⚠️ 九个格子里有六个只装得下一件，而每一格原来都独占一整行 grid：屏幕右边
+       因此是一大片空白（owner 2026-09-05 的截图）。现在每一格是一个盒子，盒子
+       按件数占 data-n 列并排packing，一件的格子就只占一件的宽度。
+       ⚠️ 分组边界只靠金色小标题与列间距——**不要给盒子加边框**，§18l 那条
+       「商品外面不画框」管的就是这块屏幕。
+       ⚠️「同一格只能装一件」不再逐格重复：上面那行 .shop-note 已经说了一次，
+       而并排之后重复六次只会把每个盒子的标题挤成两行。住所 的 逐级升级 留着,
+       它是那一格独有的规则，别处没有说过。 */
+    var gearBoxes = GEAR_SLOTS.map(function (s) {
       var items = ownedGearIn(s.slot);
       if (!items.length) return "";
-      var note = s.slot === "dwelling" ? "逐级升级" : (items.length > 1 ? "同一格只能装一件" : "");
-      return '<div class="shop-tier-label">' + esc(s.name) + (note ? ' <span class="shop-slot-note">· ' + note + '</span>' : '') + '</div>' +
-        '<div class="shop-grid">' + items.map(function (it) { return gearRow(it, s.slot); }).join("") + '</div>';
+      var up = s.slot === "dwelling";
+      return '<div class="shop-slotbox" data-n="' + items.length + '">' +
+        shopLabel("shop-tier-label", s.name, SLOT_EN[s.slot],
+                  up ? "逐级升级" : "", up ? "one tier at a time" : "") +
+        '<div class="shop-grid">' + items.map(function (it) { return gearRow(it, s.slot); }).join("") +
+        '</div></div>';
     }).join("");
+    var gearHtml = gearBoxes ? '<div class="shop-slots">' + gearBoxes + '</div>' : "";
     var trinketHtml = TRINKETS.map(function (it) {
       return shopRow(it, !!store.deco[it.key], store.lingLu >= it.price, it.key);
     }).join("");
@@ -7028,13 +7143,14 @@
     var boatHtml = "";
     if (window.WSBoats) {
       var bpick = window.WSBoats.pick();
-      boatHtml = '<div class="shop-tier-label">船只 <span class="shop-slot-note">· 在海图上开的船，买下的随时可以换</span></div>' +
+      boatHtml = shopLabel("shop-tier-label", "船只", "Boats",
+          "在海图上开的船，买下的随时可以换", "sail it on the sea map; swap any time") +
         '<div class="shop-grid shop-boats">' + window.WSBoats.list().map(function (b) {
           var own = window.WSBoats.owns(b.t), on = bpick === b.t;
           var buyable = window.WSBoats.buyable(b.t);
           var can = buyable && store.lingLu >= b.ling;
           return shopTile({
-            img: window.WSBoats.art(b.t), name: b.zh, sub: b.en, on: on, owned: own,
+            img: window.WSBoats.art(b.t), name: b.zh, en: b.en, on: on, owned: own,
             act: on ? "" : own ? ' data-boatpick="' + b.t + '"'
                : !buyable ? "" : ' data-boatbuy="' + b.t + '"',
             dis: !can,
@@ -7059,16 +7175,20 @@
     function itemRow(it, kind) {
       var have = itemCount(it.key), afford = store.lingLu >= it.price;
       return shopTile({
-        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.en, n: have || 0,
+        img: "art/item/" + it.img + ".png", name: it.zh, sub: it.desc, en: it.en, n: have || 0,
         act: ' data-item="' + it.key + '"', dis: !afford,
         foot: shopCost(it.price)
       });
     }
     var itemHtml =
-      '<div class="shop-tier-label">词雨消耗品 <span class="shop-slot-note">· 单局用掉 · 在词雨灵露开始前的「道具」里最多带 ' +
-        ITEM_SLOTS + ' 件</span></div><div class="shop-grid">' +
+      shopLabel("shop-tier-label", "词雨消耗品", "Word Rain items",
+        "在词雨灵露开始前的「道具」里最多带 " + ITEM_SLOTS + " 件",
+        "take up to " + ITEM_SLOTS + " before the round starts") +
+      '<div class="shop-grid">' +
       CONSUMABLES.map(function (it) { return itemRow(it, "rain"); }).join("") + '</div>' +
-      '<div class="shop-tier-label">攀山快答道具 <span class="shop-slot-note">· 只改变时间与选项，不替你认字 · 在攀山快答的第 3 步带上</span></div>' +
+      shopLabel("shop-tier-label", "攀山快答道具", "Sprint items",
+        "在攀山快答的第 3 步带上 · 只改变时间与选项，不替你认字",
+        "picked at step 3 · changes time and options, never the answer") +
       '<div class="shop-grid">' +
       POWERUPS.map(function (it) { return itemRow(it, "sprint"); }).join("") + '</div>';
 
@@ -7076,8 +7196,19 @@
       '<div class="pop-title">🛒 营地商店 · 灵露兑换</div>' +
       '<div class="camp-wallet">' + campLingluIcon() + ' 灵露 <b>' + fmtNum(store.lingLu) + '</b> · 在词雨灵露中接住词语获得</div>' +
       '<div class="shop-note">背上山的东西：每一格只装一件，随时换。买下的不会消失，换下来也留着。</div>' +
-      gearHtml + boatHtml + itemHtml +
-      '<div class="shop-tier-label">小摆件 <span class="shop-slot-note">· 不占格子</span></div><div class="shop-grid">' + trinketHtml + '</div>' +
+      /* ⚠️ 按「会不会用掉」分两组（owner 2026-09-05）。此前的顺序是
+         装备 → 船只 → 消耗品 → 小摆件：**买下就一直留着的东西被一批会用掉的
+         东西从中间劈开**，学生要在同一条卷轴上自己分辨哪一件花掉就没了。 */
+      shopLabel("shop-group first", "装扮营地", "Dress up your camp",
+        "买下就一直留着", "bought once, yours to keep") +
+      gearHtml +
+      shopLabel("shop-tier-label", "小摆件", "Trinkets", "不占格子", "no slot needed") +
+      '<div class="shop-grid">' + trinketHtml + '</div>' +
+      boatHtml +
+      shopLabel("shop-group", "游戏道具", "Game items",
+        "一局用掉一件 · 只帮你争取时间，不替你认字",
+        "spent within one round · buys you time, never the answer") +
+      itemHtml +
       '<div class="nav-row"><button class="nav-btn" id="shopBack">‹ 回营地' + pyl("回营地") + enli("回营地") + '</button></div>' +
       '</div></div>';
     view().innerHTML = html;
@@ -7367,6 +7498,7 @@
     }
   }
   function startMountain() {
+    clearCelebration();          // 彩带天幕挂在 body 上，离开这一屏就要收摊
     setTopbar("home", "");
     ensureIdIndex();
     var alt = altitudeNow();

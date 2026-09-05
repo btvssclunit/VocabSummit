@@ -430,8 +430,44 @@
       if (sb) sb.onclick = function () {
         sb.disabled = true;
         db().collection("rooms").doc(code).set({ status: "running", startedAt: ts() }, { merge: true })
+          .then(function () { logRoomSession(code, room, n); })
           .catch(function (e) { sb.disabled = false; alert("开始失败：" + (e.code || e.message)); });
       };
+    }
+    /* ---------- 使用记录 (owner 2026-09-05) ----------
+       owner：「can the number of sessions … be tracked? for proof that the platform is
+       well utilised down the line」。⚠️ **`rooms` 自己回答不了**：它挂着六小时的 TTL，
+       上个月开过多少场，今天的资料库里一份文档都没有。所以房间**真的开始**的那一刻，
+       主持人这一端写一份不会被扫掉的记录。
+       ⚠️ 只在「开始」那一下写，不在建房时写：建了没开不是一场课。
+       ⚠️ 写下就不再改（规则里 update 是 false）：一份能被改的使用记录，拿出去没有说服力。
+       ⚠️ **完全 fail-soft**：规则还没发布时这里拿到 permission-denied，
+       而**那一局照常进行**——一个学生绝不该因为统计写不进去而玩不了（§18ae 同一条）。
+       ⚠️ `players` 是**开始那一刻**的人数，所以后到的人不算在内；教师后台那一栏
+       因此写「开始时人数」，不写「参与人数」。
+       ⚠️ 这段与 `teacher.html` 里那一份是 §17 那种刻意的重复（teacher.html 不加载任何
+       共享 JS）：**改一处要改两处**，漏了的症状是两种房间在同一张报表里字段对不上。 */
+    function logRoomSession(c, r, players) {
+      try {
+        var d = db(); if (!d) return;
+        var now = new Date();
+        var doc = {
+          code: c, kind: isPk ? "peer" : "class",
+          stream: r.stream || "", mode: r.mode || "", tier: String(r.tier || ""),
+          limitBy: r.limitBy || "time", qCount: Number(r.qCount || 0),
+          durationS: Number(r.durationS || 0),
+          hostUid: myUid, hostName: r.hostName || "", school: r.school || "",
+          players: Number(players || 0),
+          at: ts(), day: sgDay(now)
+        };
+        d.collection("roomLog").add(doc).catch(function () {});
+      } catch (e) {}
+    }
+    /* 新加坡没有夏令时，UTC+8 固定，所以一个偏移量就够（教师后台按这个字串分组）。 */
+    function sgDay(dt) {
+      var t = new Date(dt.getTime() + (8 * 60 + dt.getTimezoneOffset()) * 60000);
+      function p(n) { return (n < 10 ? "0" : "") + n; }
+      return t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate());
     }
     function closeRoomAsHost() {
       var c = code;

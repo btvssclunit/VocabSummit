@@ -2235,14 +2235,6 @@
     return m ? m[1] : String(s || "");
   }
 
-  function masteredCount(streamKey) {
-    try {
-      var s = JSON.parse(localStorage.getItem("ws2_" + streamKey));
-      if (!s || !s.mastered) return null;
-      return Object.keys(s.mastered).length;
-    } catch (e) { return null; }
-  }
-
   function open(opts) {
     opts = opts || {};
     var prof = load() || {};
@@ -2290,12 +2282,88 @@
     }
     syncClassDraft();
 
+    /* ---------- 我的进度 (owner 2026-09-05) ----------
+       owner：「no need to display all 4 mountains, usually students will only focus on
+       their own subject level's mountain … the particular subject level should become
+       big and the rest remain small … use arrow buttons < > to see the other areas」。
+       此前是四个一样大的方格，而**出发码头根本不在里面**——一个码头学生打开我的档案，
+       看到的是四片他没去过的陆地，配四行「尚未开始」，自己真正的进度一个字都没有。
+       ⚠️ 码头排在最前：它是 pre-G1 的一层（§18bc 把它排进班级视图时同一条理由）。
+       ⚠️ 三个数字并排但**各自带标签、永不相加、永不合成一个名次**（§4.1）；
+          山上说 海拔／历练值／灵露，码头说 航程／航海值／贝壳，两套词绝不混用。
+       ⚠️ 箭头**循环**，不做变灰：一颗按下去什么都不发生的按钮，正是学生报成「坏了」
+          的那种（§18l 同一条）。 */
+    var PROG_LANDS = [
+      { k: "xh",  chip: "码头", name: "出发码头",   sub: "学海起步",      unit: "海里", metric: "航程" },
+      { k: "g1",  chip: "G1",   name: "词星大冒险", sub: "G1 基础华文",   unit: "米",   metric: "海拔" },
+      { k: "g2",  chip: "G2",   name: "词将竞技场", sub: "G2 普通学术华文", unit: "米", metric: "海拔" },
+      { k: "g3",  chip: "G3",   name: "词王淬炼坊", sub: "G3 快捷华文",   unit: "米",   metric: "海拔" },
+      { k: "hcl", chip: "HCL",  name: "词圣鸿文苑", sub: "高级华文",      unit: "米",   metric: "海拔" }
+    ];
+    var _progK = null;
+    function landStats(k) {
+      var st = lsGet(k === "xh" ? "ws_xh" : "ws2_" + k);
+      if (!st) return null;
+      if (k === "xh") {
+        var rl = st.readLines;
+        return { n: Object.keys(st.done || {}).length, rows: [
+          ["航海值", fmtNum(st.sail || 0)], ["贝壳", fmtNum(st.shells || 0)],
+          ["读过", fmtNum(Array.isArray(rl) ? rl.length : Object.keys(rl || {}).length) + " 句"]] };
+      }
+      return { n: Object.keys(st.mastered || {}).length, rows: [
+        ["历练值", fmtNum((st.pts && st.pts.total) || 0)], ["灵露", fmtNum(st.lingLu || 0)]] };
+    }
+    function progIndex() {
+      var i, want = _progK || (_provider && _provider.stream);
+      for (i = 0; i < PROG_LANDS.length; i++) if (PROG_LANDS[i].k === want) return i;
+      /* 落地页没有引擎可问，就聚焦走得最远的那一片；一片都没有就停在码头。 */
+      var best = -1, bestN = -1;
+      for (i = 0; i < PROG_LANDS.length; i++) {
+        var st = landStats(PROG_LANDS[i].k);
+        if (st && st.n > bestN) { bestN = st.n; best = i; }
+      }
+      return best < 0 ? 0 : best;
+    }
     function progressHtml() {
-      var rows = ["g1", "g2", "g3", "hcl"].map(function (k) {
-        var m = masteredCount(k);
-        return '<div><b>' + (m == null ? "尚未开始" : fmtNum(m) + " 米") + '</b><span>' + esc(STREAM_LABEL[k]) + '</span></div>';
+      var at = progIndex(), L = PROG_LANDS[at], st = landStats(L.k);
+      var chips = PROG_LANDS.map(function (d, i) {
+        var s2 = landStats(d.k);
+        return '<button type="button" class="pg-chip' + (i === at ? " is-on" : "") +
+          (s2 ? "" : " is-empty") + '" data-pg="' + d.k + '"><b>' + esc(d.chip) + '</b>' +
+          '<span>' + (s2 ? fmtNum(s2.n) + d.unit : "—") + '</span></button>';
       }).join("");
-      return '<div class="prof-prog">' + rows + '</div>';
+      var stats = st ? st.rows.map(function (r) {
+        return '<div><b>' + esc(String(r[1])) + '</b><span>' + esc(r[0]) + '</span></div>';
+      }).join("") : "";
+      return '<div class="prof-prog" id="profProg">' +
+        '<div class="pg-row">' +
+          '<button type="button" class="pg-arrow" data-pg-step="-1" aria-label="上一片陆地">‹</button>' +
+          '<div class="pg-chips">' + chips + '</div>' +
+          '<button type="button" class="pg-arrow" data-pg-step="1" aria-label="下一片陆地">›</button>' +
+        '</div>' +
+        '<div class="pg-focus">' +
+          '<div class="pg-big">' + (st ? fmtNum(st.n) + '<i>' + esc(L.unit) + '</i>' : '<em>尚未开始</em>') + '</div>' +
+          '<div class="pg-name">' + esc(L.name) + '<span>' + esc(L.sub) +
+            (st ? ' · ' + esc(L.metric) : "") + '</span></div>' +
+          (stats ? '<div class="pg-stats">' + stats + '</div>' : "") +
+        '</div></div>';
+    }
+    /* ⚠️ 只重画这一块，绝不重画整张卡：卡里有学校搜索框与班级草稿，
+       整卡重画会把学生正在打的字一起丢掉。 */
+    function wireProgress() {
+      var box = ov.querySelector("#profProg"); if (!box) return;
+      function go(k) { _progK = k; var b = ov.querySelector("#profProg"); if (!b) return;
+        b.outerHTML = progressHtml(); wireProgress(); }
+      Array.prototype.forEach.call(box.querySelectorAll("[data-pg]"), function (b) {
+        b.onclick = function () { go(b.getAttribute("data-pg")); };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll("[data-pg-step]"), function (b) {
+        b.onclick = function () {
+          var n = PROG_LANDS.length;
+          var i = (progIndex() + parseInt(b.getAttribute("data-pg-step"), 10) + n) % n;
+          go(PROG_LANDS[i].k);
+        };
+      });
     }
 
     /* ⚠️ On any page that already carries the 💬 反馈 corner button, this section
@@ -2585,6 +2653,7 @@
 
     function wire() {
       ov.querySelector("#profCloseX").onclick = function () { ov.remove(); };
+      wireProgress();
 
       /* ⚠️ null on every page that has the 💬 fab — feedbackSectionHtml() drops the
          button there. Unguarded, this throws and kills every handler wired after

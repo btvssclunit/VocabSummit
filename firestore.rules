@@ -405,6 +405,36 @@ service cloud.firestore {
            跟「改学生资料」完全是两件事；
          · isStaff() 会把 **HQ / SCCL** 放进来开班级房间，而他们没有班级。
        「能不能带一场课」问的是**有没有学校**，不是「能不能改资料」。 */
+    /* ---------- roomLog：一场房间 = 一份记录 (owner 2026-09-05) ----------
+       owner：「can the number of sessions for peer challenges and classroom challenges be
+       tracked? for proof that the platform is well utilised down the line」。
+       ⚠️ **`rooms` 自己证明不了这件事**：那个集合挂着 TTL（`expiresAt`，六小时），
+       文档会被扫掉，所以「上学期开了多少场」在今天的资料库里根本不存在。
+       这份日志刻意**不带 `expiresAt`**，也就不受任何 TTL 政策影响。
+       ⚠️ 一份记录在房间**真的开始**的那一刻写下（status → running），不是建房的那一刻：
+       建了没开的房间不是一场课。写完不再改（见下），所以没有半份文档这回事。
+       ⚠️ create 的两道闸门缺一不可：盖自己的 uid（防冒名），**而且那个房间号必须真的
+       存在、而且正是你主持的那一间**（防有人凭空刷出一堆场次，把「使用证据」变成假账）。
+       这一条 `get()` 每场只花一次读取，房间本来就少。
+       ⚠️ 写下之后**任何人都不能改**（只有 superadmin 删得掉）：一份能被改的使用记录，
+       拿出去当证据时说服不了任何人。
+       ⚠️ read 与 users 同一条口径（§18bd）：本校 staff 只看得到本校，
+       所以客户端**必须**自己带上 `.where("school","==",myOrg())`——
+       规则逐份求值，少了那个 where 是整个查询被拒，不是少几行。 */
+    match /roomLog/{id} {
+      allow read: if seesAll() || (isSchoolStaff() && resource.data.school == myOrg());
+      allow create: if request.auth != null
+                    && request.resource.data.hostUid == request.auth.uid
+                    && request.resource.data.kind in ["peer", "class"]
+                    && request.resource.data.code is string
+                    && request.resource.data.code.size() <= 12
+                    && request.resource.data.keys().size() <= 18
+                    && exists(/databases/$(database)/documents/rooms/$(request.resource.data.code))
+                    && get(/databases/$(database)/documents/rooms/$(request.resource.data.code)).data.hostUid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSuper();
+    }
+
     match /rooms/{code} {
       allow read:   if request.auth != null;
       // 结伴登峰 (teacher-hosted) OR 同伴挑战 PK (student-hosted, pk == true).
