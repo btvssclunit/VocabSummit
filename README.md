@@ -148,8 +148,10 @@ CLAUDE.md, 部署缓存版本号.
   ①学习范围, with 拼音 and English on every label.
 - 船只: four tiers shared by the pier and the landing sea map, bought with either
   贝壳 (pier) or 灵露 (a level's camp shop), owned globally and freely swapped.
-- All example sentences are original departmental authorship. No third-party
-  textbook material is used.
+- Every stream entry carries a provenance field (`exSrc`) recording where its example
+  sentence came from: 原文直引 · 改编自原文 · 新编. The pier's 生活空间 sentence library
+  (90 lines) was drafted with generative AI assistance and vetted line by line before
+  entry — see Credits.
 
 ## Deploy to GitHub Pages
 
@@ -163,6 +165,14 @@ CLAUDE.md, 部署缓存版本号.
 asset tags in the six entry pages and `ASSET_V` in
 `teacher.html` in the same commit, or browsers will serve a mixed old/new set of
 files for up to ten minutes. CLAUDE.md explains why this bit people twice.
+
+⚠️ **Do not hand-edit the 最近更新 date in the landing-page footer.** It is read at
+runtime from the first `?v=` on the page and rendered into `#lpUpd`, so bumping the
+version above is the only thing that moves it. Hand-typing it is what let the footer
+sit at 2026年8月10日 while `?v=` had already reached `20260905` — a month-long
+inaccuracy with no symptom. The date is the first eight digits only; a same-day
+suffix (`b`…`z`, `AA`, `Ab`) is ignored. The hardcoded date in the HTML is the
+no-JavaScript fallback: stale beats blank.
 
 Note: the app must be served over HTTP(S). Opening `index.html` by double-clicking
 shows a friendly error, because browsers block `fetch` of local JSON files.
@@ -190,4 +200,32 @@ shows a friendly error, because browsers block `fetch` of local JSON files.
 
 词山学海 · Vocab Summit is designed and built by the Mother Tongue Languages Chinese
 Language Unit at Bukit View Secondary School, led by HOD/MTL Chun Kai Xin. All
-vocabulary definitions and example sentences are original departmental authorship.
+vocabulary definitions are original departmental authorship, and every example
+sentence carries its own provenance field (`exSrc`) in the data.
+
+### AI-generated content · 人工智能生成内容说明
+
+本平台**运行时不含任何人工智能**：没有模型、没有接口调用，学生看到的每一张图、每一句话
+都是预先生成、经人工审定后写死在仓库里的静态资源。生成式人工智能仅用于**创作阶段**。
+
+Vocab Summit contains **no AI at runtime** — no model, no inference endpoint, and
+nothing generated live for students. Generative AI was used as an authoring tool
+only, offline, and every output was reviewed by a teacher before it was committed.
+Attributed here as good practice.
+
+- **Artwork** (`art/`, `archived_art/`) — scenes, sprites, badges, avatars, camp and
+  sea-map assets were produced with generative image tools, then reviewed image by
+  image; assets that failed review were regenerated or retired to `archived_art/`
+  rather than shipped. Prompts carry a standing exclusion — `no text, no letters, no
+  numbers, no brand names, no logos` — and signage is given a non-text image motif,
+  because a bare "leave the sign blank" instruction was tested and does not hold. See
+  `docs/PATCH_01_生活空间_20260816.md` §3.
+- **生活空间 sentence library** (`data/xh_phrases.json`, 90 lines) — drafted with
+  generative AI assistance and then vetted **line by line** by the HOD before entry,
+  with the new words each sentence introduced adjudicated individually in
+  `docs/DECISIONS_新词裁定_2026-08-16_已裁定.csv`. See `docs/SENTENCES_生活空间_v1.md`.
+- **Code** — written with AI coding assistance under human review, as recorded
+  throughout `CLAUDE.md` and `docs/`.
+
+Vocabulary definitions, the cloze sentences in the four streams, the pedagogical
+design and every ruling on what enters the word lists are the department's own work.

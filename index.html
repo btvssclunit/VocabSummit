@@ -273,8 +273,10 @@
 
 
   <div class="lp-foot"><a href="guide.html" style="color:inherit">📖 使用与设计指南 · Guide</a><br>
-  百德中学 母语部 · 创建于 2026年8月8日 · 最近更新 2026年8月10日 · 学习进度暂存于本机<br>
-  Open-source credits: antfu/handle (MIT) · chanind/hanzi-writer (MIT) · olehermanse/Typing-Game</div>
+  百德中学 母语部 · 创建于 2026年8月8日 · 最近更新 <span id="lpUpd">2026年9月5日</span> · 学习进度暂存于本机<br>
+  Open-source credits: antfu/handle (MIT) · chanind/hanzi-writer (MIT) · olehermanse/Typing-Game<br>
+  鸣谢 Acknowledgements：图像由 ChatGPT 生成，出发码头「生活空间」语句由生成式人工智能起草，两者均经本部审定后采用。<br>
+  Images were generated with the help of ChatGPT; the pier's 生活空间 sentences were drafted with the help of generative AI. Both were reviewed by the department before use.</div>
 </div>
 
 
@@ -285,5 +287,25 @@
 <script src="js/profile.js?v=20260905"></script>
 <script src="js/search.js?v=20260905"></script>
 <script src="js/nickname.js?v=20260905"></script>
+
+<!-- 最近更新 的日期**不手写**：从上面任意一个 ?v= 部署版本号里读出来。
+     手写过一次，结果是 ?v= 一路 bump 到 20260905，页脚却还停在 8月10日 —— 一个
+     月的谎，没有任何症状。README「部署缓存版本号」那条规则本来就强制每次部署
+     bump ?v=，所以这里借的是一个**已经必须维护**的数字，不是新增一份纪律。
+     ⚠️ 只认前 8 位数字：版本号允许当天重复部署的后缀（b…z / AA / Ab），
+     而 README 说「日期本身永远是真的」——后缀不参与日期。
+     ⚠️ 必须放在那几个带 ?v= 的 <script> 之后，否则它们还不在 DOM 里。
+     JS 不跑时保留 HTML 里那个写死的日期兜底，宁可旧，不可空。 -->
+<script>
+(function () {
+  var el = document.getElementById("lpUpd");
+  if (!el) return;
+  var tags = document.getElementsByTagName("script");
+  for (var i = 0; i < tags.length; i++) {
+    var m = /[?&]v=(\d{4})(\d{2})(\d{2})/.exec(tags[i].getAttribute("src") || "");
+    if (m) { el.textContent = +m[1] + "年" + +m[2] + "月" + +m[3] + "日"; return; }
+  }
+})();
+</script>
 </body>
 </html>
