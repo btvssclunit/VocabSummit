@@ -2,51 +2,54 @@ rules_version = "2";
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ================= 权限分层 (owner 2026-09-02) =========================
-       四层，由 teachers/{uid} 上的 **两个** 字段决定，不是一个 role 字符串：
+    /* ==================== ACCESS MODEL (owner 2026-09-02) ==================
+       Four tiers, decided by TWO fields on teachers/{uid}, not one role string:
 
-         role     superadmin | hod | teacher | viewer
-         orgType  school | agency     ← 决定「看得见几所学校」
-         org      canonical "中文 English"，与学生 profile.school 逐字相同
+         role     superadmin | hod | sh | teacher | viewer
+         orgType  school | agency      <- decides how many schools you can see
+         org      canonical "中文 English", byte-identical to student
+                  profile.school
 
-       | 谁 | role | orgType | 看得见 | 改得动 |
-       |---|---|---|---|---|
-       | 系统管理员（owner） | superadmin | school | 全部 | 全部 |
-       | 各校 HOD/MTL（母语部主任） | hod | school | 本校 | 本校 |
-       | 各校 SH/CL（华文科主任） | sh   | school | 本校 | 本校 |
-       | 各校华文教师    | teacher     | school | 本校 | 无   |
-       | HQ / SCCL 同事  | viewer      | agency | 全部 | 无   |
+       | who                  | role       | orgType | sees | edits |
+       |----------------------|------------|---------|------|-------|
+       | system admin (owner) | superadmin | school  | all  | all   |
+       | HOD/MTL, per school  | hod        | school  | own  | own   |
+       | SH/CL, per school    | sh         | school  | own  | own   |
+       | CL teacher           | teacher    | school  | own  | none  |
+       | HQ / SCCL            | viewer     | agency  | all  | none  |
 
-       ⚠️ **`hod` 与 `sh` 权限完全相同**（owner 2026-09-03：「HOD and SH has the same
-       level of rights」）。两个值而不是一个，是因为**职衔不是权限**：科主任在名册上
-       就是科主任，把她记成 HOD 是在系统里写一句关于这个人的假话，而这一栏会印在
-       「教师管理」页上给同事看。
-       ⚠️ **职衔写到科目是刻意的**（owner 2026-09-04）：`hod` 指的是 **HOD/MTL
-       母语部主任**，`sh` 指的是 **SH/CL 华文科主任**。别科的 HOD 与级主任不在这套
-       权限里——泛写「HOD」会让他们理所当然地照选，而这是母语部的后台。
-       ⚠️ **但权限判断永远只问 `isSchoolManager()`，绝不写 `myRole() == "hod"`。**
-       两个值一旦被逐条比较，就一定会有某一条规则只写了其中一个——而那种漏写没有任何
-       症状，只是某位 SH 安静地按不动一颗按钮。整份规则里 `"hod"` 这个字面量只该出现
-       在下面那一个函数里，和 superadmin 发得出的那张白名单上。
+       hod and sh carry IDENTICAL rights (owner 2026-09-03: "HOD and SH has the
+       same level of rights"). They are two values because this field is a job
+       title, not a permission level: it is printed on the teacher-admin page,
+       so it has to match the school's own roster. hod means HOD/MTL (Mother
+       Tongue department head), sh means SH/CL (Chinese subject head); heads of
+       other departments and level heads are not part of this model.
 
-       ⚠️ **role 与 orgType 刻意分开**。把「HQ 看得见全部」编成一个叫 hq 的 role，
-       下一个机构（SCCL 已经在名单上）就要再加一个 role，而每加一个 role 就要回来
-       把下面每一条规则重读一遍。orgType 只回答一个问题——**这个人是不是绑在一所
-       学校上**——而那正是「看得见几所学校」唯一的依据。
+       Always test rights with isSchoolManager(), never myRole() == "hod".
+       Once the two values get compared rule by rule, some rule will list only
+       one of them, and that omission has no symptom -- an SH just silently
+       cannot press a button. The literal "hod" belongs in exactly two places:
+       isSchoolManager() below, and the grantable() whitelist.
 
-       ⚠️ **旧文件的默认值必须与 2026-09-02 之前的行为逐字相同**，否则这次发布会把
-       现有的老师全部锁在门外：role 缺省 "teacher" · orgType 缺省 "school" ·
-       org 缺省读旧的 school 栏。所以一份 `{school, role:"hod", active:true}` 的旧文件
-       仍然是「百德的 HOD」，一个字节都不用迁移就能继续登录。
-       ⚠️ **但 owner 自己那一份必须手工升成 superadmin**（console 或
-       `local-admin/migrate_teacher_roles.py`）：不升，她就只是百德的 HOD，
-       看不到别校，也审批不了别校的 HOD。
+       role and orgType are separate on purpose. Encoding "HQ sees everything"
+       as an hq role would mean adding another role for the next agency (SCCL is
+       already on the list), and every added role means re-reading every rule
+       below. orgType answers one question -- is this person tied to a single
+       school -- and that is the only input to how many schools they see.
 
-       ⚠️ **`canEdit()` 是一个函数，每一条写入规则都必须调它。** 不要靠「viewer 不是
-       hod 所以自然写不了」——那是**没有 allow**，不是**有 deny**：下一条被加进来的
-       写入规则只要漏了这一句，HQ 就白拿一次写权限，而且不会有任何症状。
-       这份代码库已经为同一个形状留过疤（§18ba 那条从来没生效过的 eSpeak 扣分）。
-       ================================================================== */
+       Defaults must reproduce pre-2026-09-02 behaviour exactly, or this release
+       locks every existing teacher out: role defaults to "teacher", orgType to
+       "school", org falls back to the old school field. An existing
+       {school, role:"hod", active:true} doc therefore still means "HOD of Bukit
+       View" and needs no migration.
+       The owner's own doc must be raised to superadmin by hand (console, or
+       local-admin/migrate_teacher_roles.py). Until then it is just a school
+       HOD: no cross-school visibility, no cross-school approvals.
+
+       Every write rule must call canEdit(). Do not rely on "a viewer is not an
+       hod, so it cannot write" -- that is an absent allow, not a deny, and the
+       next write rule added here would hand HQ write access with no symptom.
+       ==================================================================== */
 
     function staff() {
       return get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data;
@@ -61,70 +64,81 @@ service cloud.firestore {
     function myOrg()     { return staff().get("org", staff().get("school", "")); }
 
     function isSuper()  { return isStaff() && myRole() == "superadmin"; }
-    /* 机构（HQ / SCCL）：看得见全部，一个字节都改不动。 */
+    // agency (HQ / SCCL): sees everything, writes nothing.
     function isAgency() { return isStaff() && myOrgType() == "agency"; }
-    /* 绑在一所学校上的人（superadmin 也在内：她是百德的 HOD）。 */
+    // tied to one school (superadmin included: she is also a Bukit View HOD).
     function isSchoolStaff() { return isStaff() && myOrgType() == "school"; }
-    /* 校内管理层 = HOD 或 SH，两者权限完全相同。⚠️ 这是整份规则里唯一一处把这两个
-       值列在一起的地方：新增第三种管理职衔时改这一行，别处一个字都不用动。 */
+    /* school management = HOD or SH, identical rights. This is the ONLY place
+       in the file that lists the two values together: to add a third management
+       title, change this line and nothing else. */
     function isSchoolManager() { return isSchoolStaff() && myRole() in ["hod", "sh"]; }
-    /* 全局视野 = 系统管理员 或 机构。**只给读，不给写。** */
+    // global visibility = system admin or agency. READ ONLY.
     function seesAll()  { return isSuper() || isAgency(); }
-    /* 唯一的写入闸门。⚠️ agency 永远不在这里面，无论 role 写成什么。 */
+    // the single write gate. agency is never inside it, whatever its role says.
     function canEdit()  { return isSuper() || isSchoolManager(); }
 
-    /* 一份档案属于哪所学校。⚠️ 必须走 get(key, default)：没有 profile、或
-       profile 里没有 school 的文件（新注册、只到过码头的学生）直接取值会让整条
-       规则求值失败，而 list 只要有一份文件失败就是**整个查询**被拒——一个学生的
-       空档案会让老师那一页什么都读不到。 */
+    /* Which school a student doc belongs to. Must go through get(key, default):
+       reading straight through on a doc with no profile, or a profile with no
+       school (new sign-ups, students who only reached 启航码头 / the dock),
+       fails evaluation of the whole rule -- and one failed doc in a list means
+       the ENTIRE query is denied, so one empty student doc would blank the
+       teacher's class view. */
     function docSchool() {
       return resource.data.get("profile", {}).get("school", "");
     }
     function newDocSchool() {
       return request.resource.data.get("profile", {}).get("school", "");
     }
-    /* teachers/{uid} 与 teacherRequests/{uid} 上的机构（含旧文件的 school 回退）。 */
+    // org on teachers/{uid} and teacherRequests/{uid} (old docs fall back to school).
     function rowOrg()    { return resource.data.get("org", resource.data.get("school", "")); }
     function newRowOrg() { return request.resource.data.get("org", request.resource.data.get("school", "")); }
 
     // student progress + profile (one doc per anonymous uid)
     match /users/{uid} {
-      /* ⚠️ **这一条同时管 get 与 list，而 list 是这次分层真正的承重点。**
-         Firestore 逐份文件求值：一位 hod 想读整个集合，只有在**每一份**回来的文件
-         都通过时才成功——所以 `.where("profile.school","==",myOrg)` 不是客户端的
-         礼貌，是这条规则强制出来的。少了那个 where，整个查询直接被拒，
-         而不是悄悄多给几行。
-         ⚠️ 学校是**学生自己在下拉菜单里选的**（§18al），所以一个选了「其他」或
-         还没填学校的学生，对每一位 hod 都不可见，只有 superadmin 与机构看得到。
-         这是对的：他不属于任何一所学校的名册。教师后台把这批人单列成「未分配」。 */
+      /* This rule covers get AND list, and list is what the whole access model
+         rests on. Firestore evaluates per document: an HOD reading the
+         collection succeeds only if EVERY returned doc passes -- which is why
+         the client's .where("profile.school","==",myOrg) is mandatory, not
+         merely polite. Without it the whole query is denied; it does not
+         quietly return extra rows.
+         Students pick their own school from a dropdown, so a student who chose
+         "其他" (Other) or has not filled it in yet is invisible to every HOD and
+         visible only to superadmin and agency. That is correct -- they are on no
+         school's roster. The teacher dashboard lists them under 未分配
+         (unassigned). */
       allow read:  if (request.auth != null && request.auth.uid == uid)
                    || seesAll()
                    || (isSchoolStaff() && docSchool() == myOrg());
       allow write: if request.auth != null && request.auth.uid == uid;
-      // HOD may correct a wrongly-entered profile (nickname/school/班级/身份) from the
-      // teacher dashboard. Scoped to the top-level "profile" field only — an HOD can
-      // never touch progress/pts/badges through this path, so mastery data stays
-      // student-owned even when fixing a typo'd school or class.
-      /* ⚠️ **新旧两个学校都要匹配，缺一不可。** 只查 resource（改之前那份），
-         一位 hod 就能把本校学生的 school 改成别校——把学生**送出去**，而且送出去之后
-         自己也看不见了，救不回来。只查 request（改之后那份）则反过来，可以把别校
-         学生**拉进来**。superadmin 两条都豁免，因为转校的更正只有她做得了。 */
+      /* Management may correct a wrongly-entered profile (nickname / school /
+         class / role) from the teacher dashboard. Scoped to the top-level
+         "profile" field only, so progress/pts/badges stay student-owned even
+         while a typo'd school or class is being fixed.
+         BOTH the old and the new school must match. Checking only resource (the
+         pre-edit doc) would let an HOD move a student to another school -- and
+         lose sight of them the moment it succeeds, with no way back. Checking
+         only request would let them pull another school's student in.
+         superadmin is exempt from both, because only she can do a genuine
+         transfer. */
       allow update: if canEdit()
                     && (isSuper() || (docSchool() == myOrg() && newDocSchool() == myOrg()))
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["profile", "updatedAt"]);
     }
 
-    // leaderboard scores (one doc per anonymous uid). Any signed-in user reads
-    // (needed for the in-app board); each student writes only their own doc.
-    /* ⚠️ **跨校可读是刻意的，不是漏的**：榜单本来就有 校内 / 跨校 两档（cs.js
-       renderLeaderboard · xh.js renderBoards），跨校那一档按定义要读到别校的行。
-       文件里只有昵称（化名）、学校与三个数字，没有任何 PII。
-       ⚠️ 校内 那一档在**客户端**按学生自己的 profile.school 过滤——它是一个显示
-       选项，不是一道权限闸门，不要把它读成后者。 */
-    /* ⚠️ sanity ceilings only (review 2026-09-04): the biggest stream has 1,432 words,
-       so alt > 2000 is a devtools edit, not a student. Not anti-cheat; bounds.
-       ⚠️ pts.{quarter} keys are dynamic (2026Q4 …) and rules cannot iterate a map, so the
-       本季 board stays unbounded; week and total are the two fixed keys. */
+    /* leaderboard scores (one doc per anonymous uid). Any signed-in user reads
+       (needed for the in-app board); each student writes only their own doc.
+       Cross-school reads are deliberate: the board has a 校内 (own-school) tab
+       and a 跨校 (cross-school) tab (cs.js renderLeaderboard, xh.js
+       renderBoards), and the second one by definition reads other schools'
+       rows. A row holds a nickname (pseudonym), a school and three numbers --
+       no PII. The own-school tab filters CLIENT-SIDE on the student's own
+       profile.school: it is a display option, not an access gate.
+
+       scoreSane is sanity ceilings only (review 2026-09-04): the largest stream
+       has 1,432 words, so alt > 2000 is a devtools edit rather than a student.
+       Not anti-cheat, just bounds. pts.{quarter} keys are dynamic (2026Q4 ...)
+       and rules cannot iterate a map, so the 本季 (this-quarter) board stays
+       unbounded; week and total are the two fixed keys. */
     function scoreSane(s) {
       return s.get("alt", 0) <= 2000 && s.get("totalPts", 0) <= 500000
           && s.get("bestStreak", 0) <= 1000
@@ -140,9 +154,10 @@ service cloud.firestore {
     }
 
     // 启航码头 (dock) boards. A SEPARATE collection from scores/{uid} on purpose:
-    // 航程 / 航海值 must never merge with 海拔 / 历练值, and keeping them in
-    // different documents makes an accidental join impossible rather than merely
-    // discouraged. Same shape of rule: any signed-in user reads, you write only
+    // the dock's two metrics (航程 distance, 航海值 sailing points) must never
+    // merge with the mountain's (海拔 altitude, 历练值 experience), and keeping
+    // them in different documents makes an accidental join impossible rather
+    // than merely discouraged. Same shape of rule: any signed-in user reads, you write only
     // your own row.
     match /dockScores/{uid} {
       allow read:  if request.auth != null;
@@ -151,25 +166,31 @@ service cloud.firestore {
                    && request.resource.data.get("pts", 0) <= 200000;
     }
 
-    /* ================= 班级名单 rosters/{org} (owner 2026-09-02) ===========
-       各校 HOD 自己维护本校班级，不必每年找 owner 改 profile.js 的 BV_CLASSES。
-       文件 id **就是 canonical 的 org 字符串**（"百德中学 Bukit View Secondary
-       School"）。⚠️ 刻意不做二次派生的 key：规则这一侧只能拿 `org` 与文件 id 做
-       字符串比较，而任何「先折叠再比对」的方案都要求规则语言里有一份与客户端
-       逐字相同的正规化函数——那是做不到的，做半套就是一道对不上的闸门。
-       ⚠️ **任何登录用户可读，包括匿名学生**：注册页要在学生选完学校之后立刻列出
-       班级，而那时他只有匿名身份。名单里没有任何学生资料，只有班级代号。 */
+    /* ================ class rosters/{org} (owner 2026-09-02) ===============
+       Each school's management maintains its own class list, instead of asking
+       the owner to edit BV_CLASSES in profile.js every year. The document id IS
+       the canonical org string ("百德中学 Bukit View Secondary School").
+       Deliberately not a derived key: this side can only string-compare org
+       against the document id, and any "normalise first, then compare" scheme
+       would need a normalisation function inside the rules language identical
+       to the client's, which is not expressible here -- half of one is a gate
+       that does not line up.
+       Any signed-in user may read, anonymous students included: the sign-up
+       page lists classes as soon as the student picks a school, and at that
+       point they are still anonymous. A roster holds class codes only, no
+       student data. */
     match /rosters/{org} {
       allow read:  if request.auth != null;
       allow write: if isSuper() || (isSchoolManager() && org == myOrg());
     }
 
-    // ===== 恢复码 claims/{code} (owner 2026-08-19) =====================
+    // ===== restore codes claims/{code} (owner 2026-08-19) =================
     // A student who changes device types ONE short code (10 chars) instead of an
-    // ~800-character progress string, and gets everything back — mastery, records,
-    // 灵露 / 贝壳 / 营地 / 海滩. The document IS the restore payload.
+    // ~800-character progress string, and gets everything back — mastery,
+    // records, and every collectible (灵露 / 贝壳 / 营地 / 海滩).
+    // The document IS the restore payload.
     //
-    // ⚠️ KEYED BY THE CODE, NOT BY uid, AND THAT IS THE WHOLE SECURITY DESIGN.
+    // KEYED BY THE CODE, NOT BY uid, AND THAT IS THE WHOLE SECURITY DESIGN.
     // The obvious alternative — keep the code on users/{uid} and let a new device run
     // users.where("claimCode","==",x) — CANNOT BE SECURED. Firestore rules cannot see a
     // query's where-clause: `allow read` covers get AND list, so permitting that lookup
@@ -178,17 +199,17 @@ service cloud.firestore {
     // Keying by the code turns the lookup into a get() of a document whose ID you must
     // already know, which is exactly the property we want.
     //
-    // ⚠️ `list` IS DENIED EXPLICITLY. It is already denied by omission; it is spelled
+    // `list` IS DENIED EXPLICITLY. It is already denied by omission; it is spelled
     // out because granting it later — even by writing a lazy `allow read` — would
     // silently turn the code from a secret into an index and expose every payload.
     // NEVER widen this to `allow read`.
     //
-    // ⚠️ Guessing: 10 chars from a 32-symbol alphabet is ~10^15, one network
+    // Guessing: 10 chars from a 32-symbol alphabet is ~10^15, one network
     // round-trip per attempt, against a few hundred real documents. Brute force is not
     // the threat model; a shoulder-surfed code is, which is why the code is rotatable
     // (delete + re-mint) and why it is never printed on the leaderboard.
     //
-    // ⚠️ The owning uid rides INSIDE the document so writes can be checked. create
+    // The owning uid rides INSIDE the document so writes can be checked. create
     // requires you to stamp your own uid; update requires the doc to already be yours,
     // so nobody can squat on or overwrite another student's code.
     match /claims/{code} {
@@ -204,21 +225,23 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
-    /* 一份学生档案属于哪所学校 —— 给那些**文件 id 是 uid、身上却没有学校栏**的
-       集合用（moderation / feedbackQuota）。⚠️ 必须先 exists()：对不存在的文件
-       调 get() 会让整条规则求值失败，也就是把「这个学生没有档案」变成一次拒绝。
-       ⚠️ 每次求值多一次文件读取，所以只用在**一次一个学生**的路径上，
-       绝不要写进 users/{uid} 那种要跑 list 的规则里。 */
+    /* Which school a student belongs to, for collections keyed by uid that carry
+       no school field of their own (moderation / feedbackQuota). exists() first
+       is required: calling get() on a missing document fails evaluation of the
+       whole rule, turning "this student has no profile" into a denial. Each
+       evaluation costs an extra document read, so use it only on single-student
+       paths -- never inside a rule that has to serve a list, such as users/{uid}. */
     function studentSchool(uid) {
       return exists(/databases/$(database)/documents/users/$(uid))
         ? get(/databases/$(database)/documents/users/$(uid)).data.get("profile", {}).get("school", "")
         : "";
     }
 
-    // restore log: students append their own rows, never read/edit/delete them.
-    /* ⚠️ read 从 isTeacher() 收紧到 seesAll()：这些行身上**没有学校栏**，没有东西
-       可以拿来分校，而 §18az 已经把「恢复记录」那个分页整个撤掉了——今天没有任何
-       界面在读它。给不出正确范围的读权限，就不要给。 */
+    /* restore log: students append their own rows, never read/edit/delete them.
+       read was tightened from isTeacher() to seesAll(): these rows carry no
+       school field, so there is nothing to scope them by, and the restore-log
+       tab has since been removed -- no UI reads this today. If the scope cannot
+       be made correct, do not grant the read. */
     match /restoreLog/{logId} {
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid;
@@ -235,28 +258,29 @@ service cloud.firestore {
       allow write: if canEdit() && (isSuper() || studentSchool(uid) == myOrg());
     }
 
-    /* ---- 教师注册队列 teacherRequests/{uid} ------------------------------
-       ⚠️ **驳回是一个状态，不是一次删除**（owner 2026-09-02）。删掉那一行，被驳回
-       的人重新提交一次，下一个审批的人看到的就是一份干干净净的初次申请——没有理由、
-       没有次数、没有历史。所以 delete 只留给 superadmin，日常走 status。
-       ⚠️ **机构由审批人写定，不是申请人**。申请人挑的那个只是他自己声称的，而 org
-       现在是一道权限边界：谁都可以在注册页选「百德中学」。审批人在 teachers/{uid}
-       上写下的那一个才算数，而 hod 只写得出自己那一个。 */
+    /* ---- teacher sign-up queue teacherRequests/{uid} ---------------------
+       Rejection is a STATUS, not a deletion (owner 2026-09-02). Delete the row
+       and a rejected applicant can re-apply into what looks to the next
+       approver like a clean first submission -- no reason, no count, no
+       history. So delete is superadmin-only and the daily path is status.
+       The org is written by the APPROVER, not the applicant. Anyone can pick
+       "百德中学" on the sign-up page; what counts is the org the approver writes
+       onto teachers/{uid}, and an hod can only write their own. */
     match /teacherRequests/{uid} {
       allow read: if (request.auth != null && request.auth.uid == uid)
                   || seesAll()
                   || (isSchoolStaff() && rowOrg() == myOrg());
 
-      // 申请人：只能建立自己的、只能是 pending
+      // applicant: may create only their own row, and only as pending
       allow create: if request.auth != null && request.auth.uid == uid
                     && request.resource.data.get("status", "pending") == "pending";
-      // 申请人：只能改自己**还没被裁定**的那一份（改错字），改完仍然是 pending
+      // applicant: may fix typos while UNDECIDED, and it stays pending
       allow update: if request.auth != null && request.auth.uid == uid
                     && resource.data.get("status", "pending") == "pending"
                     && request.resource.data.get("status", "pending") == "pending";
 
-      /* 审批人：记下裁定。⚠️ 多条 allow 之间是 **OR**，所以这一条与上面那条并存，
-         各自管各自的人。 */
+      /* approver: records the decision. Multiple allow blocks are OR-ed, so this
+         coexists with the applicant rule above; each covers its own people. */
       allow update: if canEdit()
                     && (isSuper() || (rowOrg() == myOrg() && newRowOrg() == myOrg()))
                     && request.resource.data.diff(resource.data).affectedKeys()
@@ -266,34 +290,42 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
-    /* ---- 教师名单 teachers/{uid}（权限本身就住在这里）--------------------
-       ⚠️ **superadmin 只能在 console 里铸**（下面的白名单里没有它）。这与
-       2026-08-14 那条「hod 只能在 console 里铸」是同一条纪律，只是升了一层：
-       一把能在网页上复制自己的钥匙，丢一次就永远丢了。
+    /* ---- teacher list teachers/{uid} (this is where the rights live) -----
+       superadmin can only be minted in the console -- it is absent from the
+       whitelist below. Same discipline as the 2026-08-14 "hod is minted in the
+       console only", one level up: a key that can copy itself through a web page
+       is lost permanently the first time it leaks.
 
-       ⚠️⚠️ **`grantable()` 是整份规则里第二处、也是唯一另一处 `hod` 与 `sh` 不同的
-       地方**（第一处是 `isSchoolManager()` 把两者列在一起）。owner 2026-09-04：
-       「HOD/MTL must be granted access by me. HOD can approve SH/CL. SH/CL can also
-       be approved by me if need be **because some schools' HOD/MTL are not CL
-       trained**」——最后那半句才是理由：有些学校的母语部主任不教华文，
-       所以系统管理员必须能越过他直接任命 SH/CL。
-       ⚠️ **这不推翻 2026-09-03 的「hod 与 sh 同权」**：他们对**资料**（学生档案、
-       班级名单、反馈、房间）的权限仍然逐条相同，不同的只有**发得出什么层级**。
-       所以除了这一个函数，别处一个字都不用改。 */
+       grantable() is the second and only other place where hod and sh differ
+       (the first is isSchoolManager(), which lists them together). Owner
+       2026-09-04: "HOD/MTL must be granted access by me. HOD can approve SH/CL.
+       SH/CL can also be approved by me if need be because some schools' HOD/MTL
+       are not CL trained" -- that last clause is the reason: where the Mother
+       Tongue head does not teach Chinese, the system admin has to be able to
+       appoint an SH/CL directly, over their head.
+       This does not contradict "hod and sh have equal rights" (2026-09-03):
+       their rights over DATA (student profiles, rosters, feedback, rooms) are
+       identical rule for rule. Only what they can GRANT differs, so this
+       function is the only place that needs to know. */
     function grantable() {
       return isSuper()        ? ["hod", "sh", "teacher", "viewer"]
            : myRole() == "hod" ? ["sh", "teacher"]
            : myRole() == "sh"  ? ["teacher"]
            : [];
     }
-    /* ⚠️ **旧值也必须是这位审批人本来就发得出的层级**，缺了它有三个后果，
-       都不报错：① 一位 hod 改得动同校另一位 hod（顺手降级掉自己的同僚）·
-       ② 一位 sh 改得动同校的 hod · ③ **管理层改得动自己那一行**（把自己降级或停用，
-       这所学校就没有审批人了，而只有系统管理员救得回来）。
-       第 ③ 条以前只靠界面上那句「不能改自己」挡着，现在规则也挡：
-       hod 自己那一行 role 是 `hod`，不在 `["sh","teacher"]` 里；sh 同理。
-       ⚠️ 这一条同时给了 hod **降级**的能力：他任命得了 SH/CL，就撤得回来——
-       只能创建不能撤销是一种更奇怪的权限。 */
+    /* The OLD value must also be one this approver could have granted. Without
+       this check, three things go wrong, none of them with an error message:
+       (1) an hod can edit another hod at the same school, e.g. demote a peer;
+       (2) an sh can edit that school's hod;
+       (3) management can edit THEIR OWN row -- demote or deactivate themselves,
+           leaving the school with no approver and only the system admin able to
+           undo it.
+       (3) used to rest on a "you cannot edit yourself" check in the UI; now the
+       rules enforce it too, because an hod's own row has role "hod", which is
+       not in ["sh","teacher"] (and likewise for sh).
+       This also gives an hod the power to DEMOTE: they can appoint an SH/CL, so
+       they can withdraw one -- grant-without-revoke would be the stranger
+       permission. */
     function rowRoleGrantable() {
       return resource == null || resource.data.get("role", "teacher") in grantable();
     }
@@ -314,11 +346,11 @@ service cloud.firestore {
             && (resource == null || rowOrg() == myOrg())
             && rowRoleGrantable());
 
-      // 停用走 active:false（留下记录）；真正删除只有 superadmin 做得了。
+      // deactivation is active:false (it leaves a record); only superadmin deletes.
       allow delete: if isSuper();
     }
 
-    // ---- 意见反馈工单 (2026-08-14) ------------------------------------------
+    // ---- feedback tickets (2026-08-14) --------------------------------------
     // Doc id is deliberately STRUCTURED: "{uid}__{YYYY-MM-DD}__{n}".
     // That is what enforces the daily quota. Firestore rules cannot count
     // documents, so "max N per day" is not expressible the obvious way — but if
@@ -348,12 +380,14 @@ service cloud.firestore {
         : 20;
     }
     match /feedback/{ticketId} {
-      // a student reads only their OWN tickets (so they can follow the status);
-      // staff read the queue for their own school, 全局视野的人读全部。
-      /* ⚠️ 工单正文是自由文本，学生真的会在里面写出同学的名字——所以它和 users/
-         一样必须分校，而它身上正好带着 school（profile.js 提交时就写进去了）。
-         ⚠️ 2026-09-02 之前的工单若没有 school 栏，只有 superadmin 与机构读得到。
-         那是对的：分不出学校的资料不该按学校发出去。 */
+      /* A student reads only their OWN tickets (so they can follow the status);
+         school staff read their own school's queue; global visibility reads all.
+         Ticket text is free-form and students do name classmates in it, so it
+         has to be scoped by school exactly like users/ -- and it carries a
+         school field, stamped at submission time by profile.js.
+         Tickets filed before 2026-09-02 have no school field and are readable
+         only by superadmin and agency. That is correct: data whose school
+         cannot be determined should not be handed out by school. */
       allow read: if seesAll()
                   || (isSchoolStaff() && resource.data.get("school", "") == myOrg())
                   || (request.auth != null && resource.data.uid == request.auth.uid);
@@ -372,11 +406,12 @@ service cloud.firestore {
         && request.resource.data.text.size() >= 5
         && request.resource.data.text.size() <= 1000;
 
-      // students never edit a submitted ticket (they cannot rewrite history
-      // after a teacher has replied); staff only move it through the workflow.
-      /* ⚠️ 从 isTeacher() 收紧到 canEdit()：处理工单是**编辑**，而机构一个字节都不改。
-         这正是那句「不要靠没有 allow 来 deny」——旧的 isTeacher() 会把 viewer 一起
-         放进来，因为 viewer 也是 teachers/ 里的一行。 */
+      /* Students never edit a submitted ticket (they cannot rewrite history
+         after a teacher has replied); staff only move it through the workflow.
+         Tightened from isTeacher() to canEdit(): handling a ticket is editing,
+         and agency writes nothing. This is the "an absent allow is not a deny"
+         case -- isTeacher() let viewers in, because a viewer is also a row in
+         teachers/. */
       allow update: if canEdit()
         && (isSuper() || resource.data.get("school", "") == myOrg())
         && request.resource.data.diff(resource.data).affectedKeys()
@@ -396,31 +431,28 @@ service cloud.firestore {
       allow write: if canEdit() && (isSuper() || studentSchool(uid) == myOrg());
     }
 
-    // 结伴登峰 live classroom rooms. Teachers create + drive; any signed-in
-    // (incl. anonymous) user reads the config and writes ONLY their own player row.
-    // Rooms are ephemeral — a Firestore TTL policy on rooms.expiresAt deletes them.
-    /* ⚠️ **开房间用 isSchoolStaff()，不是 canEdit()，也不是 isStaff()。**
-       三者在这里都不对，只有它对：
-         · canEdit() 会把**普通老师**关在门外，而结伴登峰 正是老师的日常课堂工具，
-           跟「改学生资料」完全是两件事；
-         · isStaff() 会把 **HQ / SCCL** 放进来开班级房间，而他们没有班级。
-       「能不能带一场课」问的是**有没有学校**，不是「能不能改资料」。 */
-    /* ---------- roomLog：一场房间 = 一份记录 (owner 2026-09-05) ----------
-       owner：「can the number of sessions for peer challenges and classroom challenges be
-       tracked? for proof that the platform is well utilised down the line」。
-       ⚠️ **`rooms` 自己证明不了这件事**：那个集合挂着 TTL（`expiresAt`，六小时），
-       文档会被扫掉，所以「上学期开了多少场」在今天的资料库里根本不存在。
-       这份日志刻意**不带 `expiresAt`**，也就不受任何 TTL 政策影响。
-       ⚠️ 一份记录在房间**真的开始**的那一刻写下（status → running），不是建房的那一刻：
-       建了没开的房间不是一场课。写完不再改（见下），所以没有半份文档这回事。
-       ⚠️ create 的两道闸门缺一不可：盖自己的 uid（防冒名），**而且那个房间号必须真的
-       存在、而且正是你主持的那一间**（防有人凭空刷出一堆场次，把「使用证据」变成假账）。
-       这一条 `get()` 每场只花一次读取，房间本来就少。
-       ⚠️ 写下之后**任何人都不能改**（只有 superadmin 删得掉）：一份能被改的使用记录，
-       拿出去当证据时说服不了任何人。
-       ⚠️ read 与 users 同一条口径（§18bd）：本校 staff 只看得到本校，
-       所以客户端**必须**自己带上 `.where("school","==",myOrg())`——
-       规则逐份求值，少了那个 where 是整个查询被拒，不是少几行。 */
+    /* ---------- roomLog: one row per session held (owner 2026-09-05) -------
+       Owner: "can the number of sessions for peer challenges and classroom
+       challenges be tracked? for proof that the platform is well utilised down
+       the line". The rooms collection cannot answer that: it carries a TTL
+       (expiresAt, six hours), so its documents are swept away and "how many
+       sessions ran last term" simply does not exist in the database. This log
+       deliberately carries NO expiresAt and so no TTL policy touches it.
+
+       A row is written the moment a room actually STARTS (status -> running),
+       not when it is created: a room that was opened but never started is not a
+       session. It is never edited afterwards (see below), so there are no
+       half-written rows.
+       Both create conditions are needed: stamp your own uid (no impersonation),
+       AND the room code must exist and be one you host (nobody can conjure
+       sessions and turn the usage evidence into a fiction). That get() costs
+       one read per session, and sessions are few.
+       Once written the row is immutable; only superadmin can delete. Usage
+       evidence that can be edited convinces nobody.
+       read is scoped exactly like users/: school staff see their own school
+       only, so the client MUST send .where("school","==",myOrg()). Rules are
+       evaluated per document, so a missing where means the whole query is
+       denied, not a few rows fewer. */
     match /roomLog/{id} {
       allow read: if seesAll() || (isSchoolStaff() && resource.data.school == myOrg());
       allow create: if request.auth != null
@@ -435,6 +467,18 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    /* 结伴登峰 live classroom rooms. Teachers create and drive them; any
+       signed-in (incl. anonymous) user reads the config and writes ONLY their
+       own player row. Rooms are ephemeral -- a Firestore TTL policy on
+       rooms.expiresAt deletes them.
+       Hosting is gated on isSchoolStaff(), not canEdit() and not isStaff():
+         - canEdit() would shut ordinary teachers out, and 结伴登峰 is exactly
+           their everyday classroom tool -- nothing to do with editing student
+           records;
+         - isStaff() would let HQ / SCCL open class rooms, and they have no
+           classes.
+       "May you run a session" asks whether you belong to a school, not whether
+       you may edit data. */
     match /rooms/{code} {
       allow read:   if request.auth != null;
       // 结伴登峰 (teacher-hosted) OR 同伴挑战 PK (student-hosted, pk == true).
@@ -460,8 +504,9 @@ service cloud.firestore {
         allow create, update: if request.auth != null && request.auth.uid == uid
                       && get(/databases/$(database)/documents/rooms/$(code)).data.status in ["lobby", "running"];
         // TTL on rooms.expiresAt deletes the ROOM but never its subcollection, so
-        // somebody has to clear player rows. Teachers do it via 关闭这场; a student
-        // PK host and each player may now clear their own room's rows too.
+        // somebody has to clear player rows. Teachers do it via 关闭这场 (end
+        // session); a student PK host and each player may now clear their own
+        // room's rows too.
         allow delete: if isSchoolStaff()
                       || (request.auth != null && request.auth.uid == uid)
                       || (request.auth != null
