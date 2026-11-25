@@ -55,7 +55,7 @@ because they are the published URLs; everything else is filed by kind.
                        XH_index.html                  出发码头 (学海起步, standalone tier)
                        teacher.html                   teacher dashboard (standalone, loads no shared JS)
                        firestore.rules                Firestore security rules (publish from the console)
-                       README.md · CLAUDE.md          this file · the engineering log
+                       README.md · CLAUDE.md          this file · current rules for coding agents
 
 js/     cs.js         the whole stream engine: data loading, study modes, games, 我的词山, 营地
         arena.js       结伴登峰 / 同伴挑战 live rooms (deliberately isolated from cs.js)
@@ -88,7 +88,8 @@ art/    bg/            scene + progression backdrops
 tools/  voices.html    TTS voice diagnostic — run on a student device to check the Chinese voice
         sound.html     audio diagnostic — WebAudio vs speech, for「no sound effects」reports
 
-docs/   ARCHIVE_工程日志_2026-08.md   the engineering log — history, not spec
+docs/   ARCHIVE_CLAUDE_完整版_2026-11.md   the full engineering log to Nov 2026: history, not spec
+        ARCHIVE_工程日志_2026-08.md   the earlier engineering log, history, not spec
         HANDOFF_*.md   design handoffs
         BRIEF_*.md     open questions and art requirements handed back to the designers
         DECISIONS_*.csv  per-word rulings awaiting the owner, pre-filled with a recommendation
